@@ -102,12 +102,14 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (req.method === 'GET' && p === '/favicon.ico') { res.writeHead(302, { location: '/favicon.svg', 'cache-control': 'public, max-age=86400' }); return res.end(); }
       if (req.method === 'GET' && p === '/sample.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300' }); return res.end(SAMPLE_JS); }
       // Public no-signup sample: the real pipeline on made-up orders, in a throwaway in-memory DB. Nothing is stored, nothing is sent anywhere.
+      const bump = (k) => { try { db.prepare('INSERT INTO site_counters (key,n) VALUES (?,1) ON CONFLICT(key) DO UPDATE SET n=n+1').run(k); } catch { /* counting must never break a page */ } };
+      const abVariant = () => { const ip = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress || 'anon'; return createHash('sha256').update('ab1|' + ip).digest()[0] % 2 ? 'b' : 'a'; };
       if (req.method === 'GET' && p === '/api/sample/run') {
         const xf = String(req.headers['x-forwarded-for'] ?? '').split(',').map(s => s.trim()).filter(Boolean), ip = xf.length ? xf[xf.length - 1] : req.socket.remoteAddress, sk = 'sample|' + ip;
         const wait = Math.max(throttled(sk, 10), throttled('sample|all', 100));
         if (wait) return json(res, 429, { error: 'Too many sample runs from this network. Try again in a few minutes.' }, { 'retry-after': String(wait) });
         noteFail(sk); noteFail('sample|all');
-        try { const run = await sampleRun(validate); return json(res, 200, { seller: run.seller.name + ' (sample)', shipments: run.shipments, invoices: run.invoices }); }
+        try { const run = await sampleRun(validate); bump('sample:run'); return json(res, 200, { seller: run.seller.name + ' (sample)', shipments: run.shipments, invoices: run.invoices }); }
         catch (e) { console.error('sample run', e); return json(res, 500, { error: 'The sample could not run right now. Try again in a minute.' }); }
       }
       const smp = p.match(/^\/api\/sample\/pdf\/([A-Z0-9-]+)$/);
@@ -118,6 +120,12 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       const PUBLIC_READY = !!process.env.OPERATOR_NAME; // public pages stay off until the operator identity is set
       const PUB = { '/': landing, '/privacy': privacy, '/contact': contact, '/sample': sample, '/faq': faq };
+      if (req.method === 'GET' && p === '/go/sample') { // server-side CTA click counter for the landing A/B test, no trackers
+        if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
+        const v = url.searchParams.get('v') === 'b' ? 'b' : 'a';
+        bump('cta:' + v); bump('cta:total');
+        res.writeHead(302, { location: '/sample' }); return res.end();
+      }
       if (req.method === 'GET' && p === '/robots.txt') {
         if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
         res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' });
@@ -132,12 +140,19 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (req.method === 'GET' && (p === '/articles' || p.startsWith('/articles/'))) {
         if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
         const html = p === '/articles' ? articlesIndex(process.env) : articlePage(decodeURIComponent(p.slice(10)).replace(/[^a-z0-9-]/g, ''), process.env);
+        if (html) bump('pv:' + p);
         if (!html) { res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' }); return res.end(notFound(process.env)); }
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
         return res.end(html);
       }
       if (req.method === 'GET' && PUB[p] && !PUBLIC_READY) { if (p === '/') { res.writeHead(302, { location: '/app' }); return res.end(); } return json(res, 404, { error: 'Not found' }); }
-      if (req.method === 'GET' && PUB[p]) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' }); return res.end(p === '/contact' ? contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }) : PUB[p]()); }
+      if (req.method === 'GET' && PUB[p]) {
+        bump('pv:' + p);
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
+        if (p === '/contact') return res.end(contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }));
+        if (p === '/') { const v = abVariant(); bump('pv:/:' + v); return res.end(landing(process.env, { variant: v, ctaHref: '/go/sample?v=' + v })); }
+        return res.end(PUB[p]());
+      }
       if (req.method === 'POST' && p === '/contact' && PUBLIC_READY) { // plain HTML form: stored on our own server only
         const to = (loc) => { res.writeHead(303, { location: loc, 'cache-control': 'no-store' }); return res.end(); };
         if (!String(req.headers['content-type'] ?? '').startsWith('application/x-www-form-urlencoded')) return to('/contact?err=1');
@@ -159,6 +174,12 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
         return json(res, 200, { messages: db.prepare('SELECT ts, email, message FROM contact_messages ORDER BY ts DESC LIMIT 200').all() });
       }
+      if (req.method === 'GET' && p === '/admin/counters') { // operator-only aggregated counters: no IPs, no user agents, no per-visitor data
+        const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
+        const h = (x) => createHash('sha256').update(x).digest();
+        if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
+        return json(res, 200, { counters: Object.fromEntries(db.prepare('SELECT key, n FROM site_counters ORDER BY key').all().map(r => [r.key, r.n])) });
+      }
       if (await oauth.handle(req, res, url, p)) return;
       if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
       const em = p.match(/^\/e\/([a-f0-9]{24})$/);
@@ -178,6 +199,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const ref = String(body.ref ?? '').trim();
         const referredBy = /^[a-f0-9]{10}$/.test(ref) && db.prepare('SELECT 1 FROM users WHERE ref_code=?').get(ref) ? ref : null;
         try { db.prepare('INSERT INTO users (id,email,salt,hash,seller_id,created_at,pw_changed_at,ref_code,referred_by) VALUES (?,?,?,?,?,?,?,?,?)').run(id, email, salt, hash, null, new Date().toISOString(), new Date().toISOString(), newRefCode(db), referredBy); db.prepare('INSERT INTO pw_history VALUES (?,?,?,?)').run(id, salt, hash, new Date().toISOString()); } catch (e) { if (/UNIQUE/.test(e.message)) return json(res, 409, { error: 'An account with this email already exists' }); throw e; }
+        bump('signup:total'); if (referredBy) { bump('signup:ref'); bump('ref:' + referredBy); }
         if (referredBy) logSec(db, req, 'signup_referred', id, email);
         logSec(db, req, 'signup', id, email); const t = newToken(); db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(t, id, Date.now() + 14 * 864e5);
         return json(res, 200, { ok: true }, { 'set-cookie': `sid=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600${secureFlag(req)}` });

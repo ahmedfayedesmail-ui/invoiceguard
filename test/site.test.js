@@ -76,3 +76,21 @@ test('articles: index and article pages render when the operator is set, 404 whe
   assert.equal((await fetch(u2 + '/articles')).status, 404); assert.equal((await fetch(u2 + '/articles/pan-eu-vat-number-on-invoice')).status, 404);
   h.server.close();
 });
+test('counters + landing A/B: page views, CTA clicks, signups counted; admin endpoint gated', async () => {
+  process.env.OPERATOR_NAME = 'T'; process.env.ADMIN_TOKEN = 'test-admin-token-0123456789abcdef';
+  const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;
+  const h = await (await fetch(u + '/')).text();
+  assert.ok(/without the hand-made part|one-business-day invoice deadline/.test(h), 'H1 is variant A or B');
+  const v = h.includes('one-business-day') ? 'b' : 'a';
+  assert.ok(h.includes('/go/sample?v=' + v), 'CTA carries the variant');
+  const go = await fetch(u + '/go/sample?v=' + v, { redirect: 'manual' }); assert.equal(go.status, 302); assert.equal(go.headers.get('location'), '/sample');
+  await fetch(u + '/faq'); await fetch(u + '/articles');
+  assert.equal((await fetch(u + '/go/sample?v=x', { redirect: 'manual' })).headers.get('location'), '/sample'); // bad variant falls back to a
+  const noAuth = await fetch(u + '/admin/counters'); assert.equal(noAuth.status, 404);
+  const c = await (await fetch(u + '/admin/counters', { headers: { authorization: 'Bearer test-admin-token-0123456789abcdef' } })).json();
+  assert.equal(c.counters['pv:/'], 1); assert.equal(c.counters['pv:/:' + v], 1); assert.equal(c.counters['cta:' + v] >= 1, true); assert.equal(c.counters['pv:/faq'], 1); assert.equal(c.counters['pv:/articles'], 1);
+  const su = await fetch(u + '/api/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'ab-test@example.com', password: 'Throwaway-Pass-99!' }) }); assert.equal(su.status, 200);
+  const c2 = await (await fetch(u + '/admin/counters', { headers: { authorization: 'Bearer test-admin-token-0123456789abcdef' } })).json();
+  assert.equal(c2.counters['signup:total'], 1);
+  server.close(); delete process.env.ADMIN_TOKEN;
+});

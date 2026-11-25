@@ -19,11 +19,14 @@ export const page = (title, body, env, desc) => `<!doctype html><html lang="en">
 const who = (c) => c.name ? esc(c.name) : 'the InvoiceGuard operator';
 const contactLine = (c) => c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : 'the form on the <a href="/contact">contact page</a>';
 
-export function landing(env = process.env) {
+export function landing(env = process.env, opts = {}) {
+  const cta = opts.ctaHref || '/sample';
+  const h1 = opts.variant === 'b' ? 'Your first Amazon Business order comes with a one-business-day invoice deadline.' : 'Amazon Business invoices, without the hand-made part.';
+  const lead = opts.variant === 'b' ? 'InvoiceGuard builds and checks the invoice from your Seller Central report, so the deadline is met without the hand-made part. Pilot, free for now.' : 'Amazon says invoicing is automatic. Many sellers still end up making every invoice by hand. InvoiceGuard takes the order report you download from Seller Central, builds an invoice for each business order, and checks it before anything goes out: the buyer\'s VAT number, the required details, the numbering, the deadline. If something looks wrong, it stops and tells you what to fix, in plain English.';
   return page('InvoiceGuard: B2B invoices for Amazon sellers, checked before they go out', `
-<section class="hero"><h1>Amazon Business invoices, without the hand-made part.</h1>
-<p class="lead">Amazon says invoicing is automatic. Many sellers still end up making every invoice by hand. InvoiceGuard takes the order report you download from Seller Central, builds an invoice for each business order, and checks it before anything goes out: the buyer's VAT number, the required details, the numbering, the deadline. If something looks wrong, it stops and tells you what to fix, in plain English.</p>
-<p><a class="btn" href="/sample">Watch it work, no account needed</a> &nbsp; <a class="btn alt" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p></section>
+<section class="hero"><h1>${h1}</h1>
+<p class="lead">${lead}</p>
+<p><a class="btn" href="${cta}">Watch it work, no account needed</a> &nbsp; <a class="btn alt" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p></section>
 <div class="note"><b>Honest status:</b> InvoiceGuard is a pilot. It is not connected to Amazon. You upload your own order report and you upload the finished invoices to Amazon yourself. The sample data in the app is made up, and nothing from it is sent to Amazon. We say so on every screen that shows sample data. We have not yet tested on a real Seller Central file.</div>
 <h2>Sound familiar?</h2><ul><li>Amazon's own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.</li>
 <li>One Pan-EU order shows your Spanish CIF, the next a German VAT number, and it is never clear which one belongs on the invoice.</li>

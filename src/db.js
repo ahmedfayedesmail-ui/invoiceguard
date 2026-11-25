@@ -17,6 +17,7 @@ export function openDb(file = ':memory:') {
     feed_id TEXT, upload_status TEXT, uploaded_at TEXT, error TEXT, PRIMARY KEY (seller_id, number));
   CREATE TABLE IF NOT EXISTS vat_checks (seller_id TEXT, vat TEXT, status TEXT, name TEXT, checked_at TEXT);
   CREATE TABLE IF NOT EXISTS events (ts TEXT, seller_id TEXT, type TEXT, detail TEXT);
+  CREATE TABLE IF NOT EXISTS site_counters (key TEXT PRIMARY KEY, n INTEGER);
   CREATE INDEX IF NOT EXISTS idx_events_seller ON events (seller_id, ts);
   CREATE INDEX IF NOT EXISTS idx_ship_status ON shipments (seller_id, status);
   CREATE INDEX IF NOT EXISTS idx_ship_date ON shipments (seller_id, shipment_date);
