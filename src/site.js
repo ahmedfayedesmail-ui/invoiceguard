@@ -23,8 +23,7 @@ export function landing(env = process.env) {
   return page('InvoiceGuard: B2B invoices for Amazon sellers, checked before they go out', `
 <section class="hero"><h1>Amazon Business invoices, without the hand-made part.</h1>
 <p class="lead">Amazon says invoicing is automatic. Many sellers still end up making every invoice by hand. InvoiceGuard takes the order report you download from Seller Central, builds an invoice for each business order, and checks it before anything goes out: the buyer's VAT number, the required details, the numbering, the deadline. If something looks wrong, it stops and tells you what to fix, in plain English.</p>
-<p><a class="btn" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p>
-<p><a href="/sample">Or watch it check three made-up orders right now, no account needed.</a></p></section>
+<p><a class="btn" href="/sample">Watch it work, no account needed</a> &nbsp; <a class="btn alt" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p></section>
 <div class="note"><b>Honest status:</b> InvoiceGuard is a pilot. It is not connected to Amazon. You upload your own order report and you upload the finished invoices to Amazon yourself. The sample data in the app is made up, and nothing from it is sent to Amazon. We say so on every screen that shows sample data. We have not yet tested on a real Seller Central file.</div>
 <h2>Sound familiar?</h2><ul><li>Amazon's own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.</li>
 <li>One Pan-EU order shows your Spanish CIF, the next a German VAT number, and it is never clear which one belongs on the invoice.</li>
@@ -73,21 +72,21 @@ export function privacy(env = process.env) {
 export function faq(env = process.env) {
   return page('InvoiceGuard: frequently asked questions', `
 <h1>Frequently asked questions</h1>
-<h3>Does InvoiceGuard upload invoices to Amazon for me?</h3>
+<h2>Does InvoiceGuard upload invoices to Amazon for me?</h2>
 <p>Not today. You download the order report from Seller Central and drop it in, and you upload the finished invoice PDFs to Amazon yourself. We say this on every screen where it matters.</p>
-<h3>Is InvoiceGuard connected to my Seller Central account?</h3>
+<h2>Is InvoiceGuard connected to my Seller Central account?</h2>
 <p>No. We never ask for your Amazon login. The only thing that reaches us is the report file you choose to upload.</p>
-<h3>Which orders does it invoice?</h3>
+<h2>Which orders does it invoice?</h2>
 <p>Business orders from your report. Consumer orders are skipped. If a business order has a problem, such as a buyer VAT number that fails the EU check, the invoice is held with the reason and the next step, never guessed.</p>
-<h3>What about Verifactu?</h3>
+<h2>What about Verifactu?</h2>
 <p>Verifactu concerns invoices that Spanish businesses issue through verifiable invoicing systems. Whether it covers your Amazon invoices depends on your own setup, and that is a question for your gestor. InvoiceGuard is not a Verifactu-verifiable system. What it gives you is the invoice documents and a tamper-evident record of what was issued and when, which is the part you keep.</p>
-<h3>I sell across the EU. Which VAT number goes on the invoice?</h3>
+<h2>I sell across the EU. Which VAT number goes on the invoice?</h2>
 <p>The invoice shows the seller details from your profile and the buyer's VAT number, checked in the EU's VIES service. If you are registered in more than one EU country, which registration applies to a given sale depends on where the order ships from and your setup, again your gestor's call. The app shows where your shipments left from so that conversation starts from facts.</p>
-<h3>Can Amazon or a tax authority reject an invoice it makes?</h3>
+<h2>Can Amazon or a tax authority reject an invoice it makes?</h2>
 <p>We cannot promise acceptance by anyone. Each invoice is built against the country rules we could verify, each rule shows its source and the date we last checked it, and a rule we cannot verify blocks issuing instead of being assumed. That is the honest version of "compliant".</p>
-<h3>What does it cost?</h3>
+<h2>What does it cost?</h2>
 <p>Nothing during the pilot. If paid plans come later, the prices will be shown on the home page before anyone is charged, and pilot users will be told first.</p>
-<h3>What happens to my data?</h3>
+<h2>What happens to my data?</h2>
 <p>We keep only what the service needs, we do not sell it, and we use no advertising or analytics trackers. The <a href="/privacy">privacy page</a> has the details in plain language.</p>`, env, 'Straight answers about InvoiceGuard: what it does with your Amazon order report, Verifactu, EU VAT numbers, data, and cost.');
 }
 
@@ -106,9 +105,9 @@ export function contact(env = process.env, opts = {}) {
   return page('Contact InvoiceGuard', `
 <h1>Contact</h1>
 <p>${who(c)}${c.country ? ', ' + esc(c.country) : ''} runs InvoiceGuard.</p>
-${c.email ? `<div class="card"><h3>Email</h3><p><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></p></div>` : ''}
+${c.email ? `<div class="card"><h2>Email</h2><p><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></p></div>` : ''}
 ${opts.sent ? '<div class="note"><b>Thank you.</b> Your message was received. We aim to reply within a few working days, if you left an email address.</div>' : ''}${opts.err === '2' ? '<div class="note">Too many messages from your connection. Please try again later.</div>' : opts.err ? '<div class="note">Your message could not be sent. It must be 5 to 2000 characters, and the email address, if given, must be valid.</div>' : ''}
-<div class="card"><h3>Send us a message</h3>
+<div class="card"><h2>Send us a message</h2>
 <form method="post" action="/contact"><p><label for="m">Message</label><br><textarea id="m" name="message" rows="6" maxlength="2000" required style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></p>
 <p><label for="e">Your email, only if you want a reply (optional)</label><br><input id="e" name="email" type="email" maxlength="200" style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px"></p>
 <p style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
