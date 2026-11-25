@@ -21,15 +21,19 @@ const contactLine = (c) => c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.e
 
 export function landing(env = process.env) {
   return page('InvoiceGuard: B2B invoices for Amazon sellers, checked before they go out', `
-<section class="hero"><h1>Amazon Business invoices, checked and ready on time.</h1>
-<p class="lead">You upload the order report you download from Seller Central. InvoiceGuard builds an invoice for each business order and checks it against the rules before you send anything. If something looks wrong, it stops and tells you what to fix, in plain English.</p>
+<section class="hero"><h1>Amazon Business invoices, without the hand-made part.</h1>
+<p class="lead">Amazon says invoicing is automatic. Many sellers still end up making every invoice by hand. InvoiceGuard takes the order report you download from Seller Central, builds an invoice for each business order, and checks it before anything goes out: the buyer's VAT number, the required details, the numbering, the deadline. If something looks wrong, it stops and tells you what to fix, in plain English.</p>
 <p><a class="btn" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p>
 <p><a href="/sample">Or watch it check three made-up orders right now, no account needed.</a></p></section>
 <div class="note"><b>Honest status:</b> InvoiceGuard is a pilot. It is not connected to Amazon. You upload your own order report and you upload the finished invoices to Amazon yourself. The sample data in the app is made up, and nothing from it is sent to Amazon. We say so on every screen that shows sample data. We have not yet tested on a real Seller Central file.</div>
+<h2>Sound familiar?</h2><ul><li>Amazon's own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.</li>
+<li>One Pan-EU order shows your Spanish CIF, the next a German VAT number, and it is never clear which one belongs on the invoice.</li>
+<li>Verifactu is on the way in Spain, and nobody can say plainly which of your invoices it covers.</li></ul>
+<p>These are the threads sellers post on Amazon's own forums. They are why InvoiceGuard exists.</p>
 <h2>Who it is for</h2><p>Sellers who sell to businesses on Amazon in the EU and want invoices that are complete, numbered in order, and issued on time, without doing it by hand. It is built for small teams, not accountants.</p>
 <h2 id="how">How it works</h2>
 <div class="grid"><div class="card"><h3>1. You upload your order report</h3><p>Download it from Seller Central and drop it in. We read the business orders and skip the rest.</p></div>
-<div class="card"><h3>2. It builds and checks the invoice</h3><p>Required details, buyer VAT number, numbering and deadlines are checked before the invoice is final.</p></div>
+<div class="card"><h3>2. It builds and checks the invoice</h3><p>Required details, numbering and deadlines are checked before the invoice is final, and the buyer's VAT number is checked in the EU's VIES service. Selling across the EU? The buyer's country rules are applied as data, each with its source and the date we last verified it.</p></div>
 <div class="card"><h3>3. You download the pack</h3><p>You get the PDFs, a list, and short steps for uploading them to Amazon. Anything we are unsure about is held with the reason. We never guess.</p></div></div>
 <h2>What you get</h2><ul><li>A simple dashboard: what was invoiced, what is held and why.</li><li>Invoices as PDFs, in the buyer's language where supported, and corrections when an order changes.</li><li>Buyer VAT numbers checked in the EU VIES service when you ask.</li><li>A tamper-evident log of every invoice issued.</li><li>Country rules kept as data. Each rule shows its source, the date we last verified it, and a status: verified, secondary or unverified. A rule we cannot verify blocks issuing instead of being assumed.</li></ul>
 <h2>What it does not do</h2><ul><li>It does not give tax or legal advice. Confirm your own situation with your adviser.</li><li>It does not file anything with a tax authority.</li><li>Some countries are on hold until we have read the official legal text. The app tells you which.</li><li>The "defect rate" figure in the app is our own estimate, not an Amazon figure.</li></ul>
