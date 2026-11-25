@@ -103,3 +103,14 @@ test('ingest health prototype: admin-gated, aggregates events only', async () =>
   assert.equal(d.windowDays, 7); assert.ok(d.eventsByType && typeof d.eventsByType === 'object'); assert.deepEqual(Object.keys(d.ingest), ['reports', 'rows', 'issued', 'held']);
   server.close(); delete process.env.ADMIN_TOKEN;
 });
+test('weekly summary: admin-gated aggregates over events, invoices, accounts and counters', async () => {
+  process.env.OPERATOR_NAME = 'T'; process.env.ADMIN_TOKEN = 'test-admin-token-0123456789abcdef';
+  const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;
+  assert.equal((await fetch(u + '/admin/weekly-summary')).status, 404);
+  await fetch(u + '/');
+  await fetch(u + '/api/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'ws@example.com', password: 'Throwaway-Pass-99!' }) });
+  const r = await fetch(u + '/admin/weekly-summary', { headers: { authorization: 'Bearer test-admin-token-0123456789abcdef' } });
+  assert.equal(r.status, 200); const d = await r.json();
+  assert.equal(d.windowDays, 7); assert.equal(d.newAccounts, 1); assert.ok('pv:/' in d.counters); assert.ok(d.eventsByType && d.invoicesByStatus);
+  server.close(); delete process.env.ADMIN_TOKEN;
+});

@@ -189,6 +189,17 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         for (const r of rows) { byType[r.type] = (byType[r.type] ?? 0) + 1; if (r.type === 'report_uploaded') { try { const d = JSON.parse(r.detail); ingest.reports++; ingest.rows += d.rows ?? 0; ingest.issued += d.issued ?? 0; ingest.held += d.held ?? 0; } catch { /* skip malformed */ } } }
         return json(res, 200, { windowDays: 7, eventsByType: byType, ingest });
       }
+      if (req.method === 'GET' && p === '/admin/weekly-summary') { // operator half of the weekly summary: aggregates only
+        const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
+        const h = (x) => createHash('sha256').update(x).digest();
+        if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
+        const since = new Date(Date.now() - 7 * 864e5).toISOString();
+        const ev = db.prepare('SELECT type, COUNT(*) c FROM events WHERE ts >= ? GROUP BY type').all(since);
+        const inv = db.prepare('SELECT upload_status st, COUNT(*) c FROM invoices WHERE issued_at >= ? GROUP BY upload_status').all(since);
+        const acc = db.prepare('SELECT COUNT(*) c FROM users WHERE created_at >= ?').get(since).c;
+        const counters = Object.fromEntries(db.prepare('SELECT key, n FROM site_counters ORDER BY key').all().map(r => [r.key, r.n]));
+        return json(res, 200, { windowDays: 7, newAccounts: acc, eventsByType: Object.fromEntries(ev.map(r => [r.type, r.c])), invoicesByStatus: Object.fromEntries(inv.map(r => [r.st ?? 'unknown', r.c])), counters });
+      }
       if (await oauth.handle(req, res, url, p)) return;
       if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
       const em = p.match(/^\/e\/([a-f0-9]{24})$/);
