@@ -180,6 +180,15 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
         return json(res, 200, { counters: Object.fromEntries(db.prepare('SELECT key, n FROM site_counters ORDER BY key').all().map(r => [r.key, r.n])) });
       }
+      if (req.method === 'GET' && p === '/admin/ingest-health') { // prototype of the report-ingest monitor: aggregates only
+        const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
+        const h = (x) => createHash('sha256').update(x).digest();
+        if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
+        const since = new Date(Date.now() - 7 * 864e5).toISOString(), rows = db.prepare('SELECT type, detail FROM events WHERE ts >= ?').all(since);
+        const byType = {}, ingest = { reports: 0, rows: 0, issued: 0, held: 0 };
+        for (const r of rows) { byType[r.type] = (byType[r.type] ?? 0) + 1; if (r.type === 'report_uploaded') { try { const d = JSON.parse(r.detail); ingest.reports++; ingest.rows += d.rows ?? 0; ingest.issued += d.issued ?? 0; ingest.held += d.held ?? 0; } catch { /* skip malformed */ } } }
+        return json(res, 200, { windowDays: 7, eventsByType: byType, ingest });
+      }
       if (await oauth.handle(req, res, url, p)) return;
       if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
       const em = p.match(/^\/e\/([a-f0-9]{24})$/);

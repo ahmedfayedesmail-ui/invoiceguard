@@ -94,3 +94,12 @@ test('counters + landing A/B: page views, CTA clicks, signups counted; admin end
   assert.equal(c2.counters['signup:total'], 1);
   server.close(); delete process.env.ADMIN_TOKEN;
 });
+test('ingest health prototype: admin-gated, aggregates events only', async () => {
+  process.env.ADMIN_TOKEN = 'test-admin-token-0123456789abcdef';
+  const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;
+  assert.equal((await fetch(u + '/admin/ingest-health')).status, 404);
+  const r = await fetch(u + '/admin/ingest-health', { headers: { authorization: 'Bearer test-admin-token-0123456789abcdef' } });
+  assert.equal(r.status, 200); const d = await r.json();
+  assert.equal(d.windowDays, 7); assert.ok(d.eventsByType && typeof d.eventsByType === 'object'); assert.deepEqual(Object.keys(d.ingest), ['reports', 'rows', 'issued', 'held']);
+  server.close(); delete process.env.ADMIN_TOKEN;
+});
