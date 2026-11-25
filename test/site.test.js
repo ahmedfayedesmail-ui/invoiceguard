@@ -12,6 +12,18 @@ test('routes: / privacy contact are public once the operator is set, app moved t
   for (const [p, re] of [['/', /Honest status/], ['/privacy', /Privacy notice/], ['/contact', /Contact/], ['/faq', /Frequently asked/], ['/app', /<div id="app"|id="app"/]]) { const r = await fetch(u + p); assert.equal(r.status, 200, p); assert.match(await r.text(), re, p); assert.match(r.headers.get('content-security-policy'), /frame-ancestors 'none'/); }
   server.close();
 });
+test('robots.txt and sitemap.xml exist when the operator is set, 404 when not', async () => {
+  process.env.OPERATOR_NAME = 'T';
+  let h = createApp({ secret: 'test' }); await new Promise(r => h.server.listen(0, r)); let u = 'http://localhost:' + h.server.address().port;
+  const rob = await fetch(u + '/robots.txt'); assert.equal(rob.status, 200); const rt = await rob.text(); assert.match(rt, /Disallow: \//); assert.match(rt, /Sitemap: /);
+  const sm = await fetch(u + '/sitemap.xml'); assert.equal(sm.status, 200); const st = await sm.text(); assert.match(st, /urlset/); for (const p2 of ['/faq', '/sample', '/privacy', '/contact']) assert.ok(st.includes(p2 + '</loc>'), p2);
+  h.server.close();
+  delete process.env.OPERATOR_NAME;
+  h = createApp({ secret: 'test' }); await new Promise(r => h.server.listen(0, r)); u = 'http://localhost:' + h.server.address().port;
+  assert.equal((await fetch(u + '/robots.txt')).status, 404); assert.equal((await fetch(u + '/sitemap.xml')).status, 404);
+  h.server.close();
+});
+
 test('public pages stay off until the operator identity is set', async () => {
   delete process.env.OPERATOR_NAME; delete process.env.CONTACT_EMAIL;
   const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;
