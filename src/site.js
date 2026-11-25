@@ -13,9 +13,9 @@ footer{border-top:1px solid var(--line);background:#fff;padding:20px;text-align:
 @media(max-width:560px){nav a{margin-left:10px}}`;
 const cfg = (env) => ({ name: String(env.OPERATOR_NAME ?? '').trim(), email: String(env.CONTACT_EMAIL ?? '').trim(), country: String(env.OPERATOR_COUNTRY ?? '').trim() });
 const page = (title, body, env, desc) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc ?? 'InvoiceGuard helps Amazon sellers issue and check B2B invoices.')}"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>${CSS}</style></head><body>
-<header><a class="logo" href="/">Invoice<b>Guard</b></a><span class="sp"></span><nav><a href="/sample">Live sample</a><a href="/#how">How it works</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a></nav><a class="btn" href="/app">Open the app</a></header>
+<header><a class="logo" href="/">Invoice<b>Guard</b></a><span class="sp"></span><nav><a href="/sample">Live sample</a><a href="/#how">How it works</a><a href="/faq">FAQ</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a></nav><a class="btn" href="/app">Open the app</a></header>
 <main>${body}</main>
-<footer><a href="/">Home</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a><div style="margin-top:8px">InvoiceGuard is a pilot-stage tool. It is not tax or legal advice.</div></footer></body></html>`;
+<footer><a href="/">Home</a><a href="/faq">FAQ</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a><div style="margin-top:8px">InvoiceGuard is a pilot-stage tool. It is not tax or legal advice.</div></footer></body></html>`;
 const who = (c) => c.name ? esc(c.name) : 'the InvoiceGuard operator';
 const contactLine = (c) => c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : 'the form on the <a href="/contact">contact page</a>';
 
@@ -68,6 +68,27 @@ export function privacy(env = process.env) {
 <h2>Your rights</h2><p>If the EU GDPR applies to you or your buyers, you can ask us to show you your data, correct it, delete it, or hand it over in a usable file, and you can object to how it is used. Contact us through ${contactLine(c)}. We aim to reply within 30 days. You can also complain to your local data protection authority.</p>
 <h2>Security</h2><p>Connections use HTTPS. Passwords must be at least 12 characters and are hashed. You can turn on two-step sign-in with an authenticator app. Accounts lock for a while after repeated wrong passwords. Amazon credentials are encrypted. Buyer names and billing addresses are removed from our order records 30 days after shipment. Write requests are checked against cross-site attacks, sign-in attempts are rate limited, and each page sends security headers. No system is perfectly safe; if we ever learn of a breach that affects you, we will tell you.</p>
 <h2>Changes</h2><p>If we change this notice in a way that matters, we will update the date above and tell active users.</p>`, env, 'How InvoiceGuard handles your data.');
+}
+
+export function faq(env = process.env) {
+  return page('InvoiceGuard: frequently asked questions', `
+<h1>Frequently asked questions</h1>
+<h3>Does InvoiceGuard upload invoices to Amazon for me?</h3>
+<p>Not today. You download the order report from Seller Central and drop it in, and you upload the finished invoice PDFs to Amazon yourself. We say this on every screen where it matters.</p>
+<h3>Is InvoiceGuard connected to my Seller Central account?</h3>
+<p>No. We never ask for your Amazon login. The only thing that reaches us is the report file you choose to upload.</p>
+<h3>Which orders does it invoice?</h3>
+<p>Business orders from your report. Consumer orders are skipped. If a business order has a problem, such as a buyer VAT number that fails the EU check, the invoice is held with the reason and the next step, never guessed.</p>
+<h3>What about Verifactu?</h3>
+<p>Verifactu concerns invoices that Spanish businesses issue through verifiable invoicing systems. Whether it covers your Amazon invoices depends on your own setup, and that is a question for your gestor. InvoiceGuard is not a Verifactu-verifiable system. What it gives you is the invoice documents and a tamper-evident record of what was issued and when, which is the part you keep.</p>
+<h3>I sell across the EU. Which VAT number goes on the invoice?</h3>
+<p>The invoice shows the seller details from your profile and the buyer's VAT number, checked in the EU's VIES service. If you are registered in more than one EU country, which registration applies to a given sale depends on where the order ships from and your setup, again your gestor's call. The app shows where your shipments left from so that conversation starts from facts.</p>
+<h3>Can Amazon or a tax authority reject an invoice it makes?</h3>
+<p>We cannot promise acceptance by anyone. Each invoice is built against the country rules we could verify, each rule shows its source and the date we last checked it, and a rule we cannot verify blocks issuing instead of being assumed. That is the honest version of "compliant".</p>
+<h3>What does it cost?</h3>
+<p>Nothing during the pilot. If paid plans come later, the prices will be shown on the home page before anyone is charged, and pilot users will be told first.</p>
+<h3>What happens to my data?</h3>
+<p>We keep only what the service needs, we do not sell it, and we use no advertising or analytics trackers. The <a href="/privacy">privacy page</a> has the details in plain language.</p>`, env, 'Straight answers about InvoiceGuard: what it does with your Amazon order report, Verifactu, EU VAT numbers, data, and cost.');
 }
 
 export function sample(env = process.env) {
