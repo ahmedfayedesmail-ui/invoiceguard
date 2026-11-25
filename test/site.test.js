@@ -59,3 +59,20 @@ test('contact form: stored on our server, honeypot, validation, rate limit, admi
   r = await fetch(u + '/contact', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json', origin: 'http://evil.example' }, body: '{}' }); assert.equal(r.status, 403);
   server.close(); delete process.env.OPERATOR_NAME; delete process.env.ADMIN_TOKEN;
 });
+test('articles: index and article pages render when the operator is set, 404 when not, unknown slug 404', async () => {
+  process.env.OPERATOR_NAME = 'T';
+  let h = createApp({ secret: 'test' }); await new Promise(r => h.server.listen(0, r)); const u = 'http://localhost:' + h.server.address().port;
+  const idx = await fetch(u + '/articles'); assert.equal(idx.status, 200); const it = await idx.text(); assert.match(it, /Plain-language notes/); assert.ok(it.includes('/articles/verifactu-amazon-sellers-october-2028'));
+  for (const s of ['verifactu-amazon-sellers-october-2028', 'amazon-credit-notes-rectificativas', 'amazon-business-invoice-not-generated', 'pan-eu-vat-number-on-invoice']) {
+    const r = await fetch(u + '/articles/' + s); assert.equal(r.status, 200, s); const t = await r.text();
+    assert.match(t, /<h2>/, s); assert.match(t, /not tax or legal advice|not tax advice/i, s); assert.ok(!/<script/i.test(t), s); assert.match(r.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+  }
+  const a4 = await (await fetch(u + '/articles/verifactu-amazon-sellers-october-2028')).text(); assert.match(a4, /6 October 2028/); assert.match(a4, /BOE-A-2026-24701/);
+  assert.equal((await fetch(u + '/articles/nope')).status, 404);
+  const sm = await (await fetch(u + '/sitemap.xml')).text(); assert.ok(sm.includes('/articles</loc>')); assert.ok(sm.includes('/articles/pan-eu-vat-number-on-invoice</loc>'));
+  h.server.close();
+  delete process.env.OPERATOR_NAME;
+  h = createApp({ secret: 'test' }); await new Promise(r => h.server.listen(0, r)); const u2 = 'http://localhost:' + h.server.address().port;
+  assert.equal((await fetch(u2 + '/articles')).status, 404); assert.equal((await fetch(u2 + '/articles/pan-eu-vat-number-on-invoice')).status, 404);
+  h.server.close();
+});
