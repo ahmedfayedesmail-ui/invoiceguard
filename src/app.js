@@ -96,6 +96,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (req.method !== 'GET' && req.method !== 'HEAD') { const o = req.headers.origin; if (o) { let same = false; try { same = new URL(o).host === req.headers.host; } catch {} if (!same) return json(res, 403, { error: 'Request blocked: it did not come from this site.' }); } }
       const url = new URL(req.url, 'http://x'), p = url.pathname;
       if (req.method === 'GET' && p === '/favicon.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' }); return res.end(FAVICON); }
+      if (req.method === 'GET' && p === '/favicon.ico') { res.writeHead(302, { location: '/favicon.svg', 'cache-control': 'public, max-age=86400' }); return res.end(); }
       const PUB = { '/': landing, '/privacy': privacy, '/contact': contact };
       const PUBLIC_READY = !!process.env.OPERATOR_NAME; // public pages stay off until the operator identity is set
       if (req.method === 'GET' && PUB[p] && !PUBLIC_READY) { if (p === '/') { res.writeHead(302, { location: '/app' }); return res.end(); } return json(res, 404, { error: 'Not found' }); }
