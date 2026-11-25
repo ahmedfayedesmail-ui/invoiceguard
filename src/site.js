@@ -124,6 +124,6 @@ ${opts.sent ? '<div class="note"><b>Thank you.</b> Your message was received. We
 <p style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
 <p><button class="btn" type="submit" style="border:0;cursor:pointer;font:inherit;font-weight:600">Send</button></p></form>
 <p class="mut">For questions, the free pilot, data requests (see the <a href="/privacy">privacy notice</a>) and bug reports. Please do not send passwords or customer data. Messages are stored on our own server only and deleted after 180 days. We aim to reply within a few working days.</p></div>
-<h2>Free pilot</h2><p>We are looking for a few Amazon sellers who issue B2B invoices in the EU. You try InvoiceGuard for free, you tell us what is missing. The Amazon connection is still being approved, so today the pilot starts with sample data and your honest feedback.</p>
+<h2>Free pilot</h2><p>We are looking for a few Amazon sellers who issue B2B invoices in the EU. You try InvoiceGuard for free, you tell us what is missing. The Amazon connection is still being approved, so today the pilot starts with sample data and your honest feedback. You can <a href="/sample">watch it work on made-up orders</a> first, no account needed. Many questions are answered in the <a href="/faq">FAQ</a>.</p>
 <h2>Security issues</h2><p>If you find a security problem, please send us a message and give us a reasonable time to fix it before sharing it.</p>`, env, 'Contact the InvoiceGuard team or join the free pilot.');
 }
