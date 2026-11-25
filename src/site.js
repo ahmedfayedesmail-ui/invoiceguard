@@ -13,7 +13,7 @@ footer{border-top:1px solid var(--line);background:#fff;padding:20px;text-align:
 @media(max-width:560px){nav a{margin-left:10px}}`;
 const cfg = (env) => ({ name: String(env.OPERATOR_NAME ?? '').trim(), email: String(env.CONTACT_EMAIL ?? '').trim(), country: String(env.OPERATOR_COUNTRY ?? '').trim() });
 const page = (title, body, env, desc) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc ?? 'InvoiceGuard helps Amazon sellers issue and check B2B invoices.')}"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>${CSS}</style></head><body>
-<header><a class="logo" href="/">Invoice<b>Guard</b></a><span class="sp"></span><nav><a href="/#how">How it works</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a></nav><a class="btn" href="/app">Open the app</a></header>
+<header><a class="logo" href="/">Invoice<b>Guard</b></a><span class="sp"></span><nav><a href="/sample">Live sample</a><a href="/#how">How it works</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a></nav><a class="btn" href="/app">Open the app</a></header>
 <main>${body}</main>
 <footer><a href="/">Home</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a><div style="margin-top:8px">InvoiceGuard is a pilot-stage tool. It is not tax or legal advice.</div></footer></body></html>`;
 const who = (c) => c.name ? esc(c.name) : 'the InvoiceGuard operator';
@@ -23,7 +23,8 @@ export function landing(env = process.env) {
   return page('InvoiceGuard: B2B invoices for Amazon sellers, checked before they go out', `
 <section class="hero"><h1>Amazon Business invoices, checked and ready on time.</h1>
 <p class="lead">You upload the order report you download from Seller Central. InvoiceGuard builds an invoice for each business order and checks it against the rules before you send anything. If something looks wrong, it stops and tells you what to fix, in plain English.</p>
-<p><a class="btn" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p></section>
+<p><a class="btn" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p>
+<p><a href="/sample">Or watch it check three made-up orders right now, no account needed.</a></p></section>
 <div class="note"><b>Honest status:</b> InvoiceGuard is a pilot. It is not connected to Amazon. You upload your own order report and you upload the finished invoices to Amazon yourself. The sample data in the app is made up, and nothing from it is sent to Amazon. We say so on every screen that shows sample data. We have not yet tested on a real Seller Central file.</div>
 <h2>Who it is for</h2><p>Sellers who sell to businesses on Amazon in the EU and want invoices that are complete, numbered in order, and issued on time, without doing it by hand. It is built for small teams, not accountants.</p>
 <h2 id="how">How it works</h2>
@@ -63,6 +64,16 @@ export function privacy(env = process.env) {
 <h2>Your rights</h2><p>If the EU GDPR applies to you or your buyers, you can ask us to show you your data, correct it, delete it, or hand it over in a usable file, and you can object to how it is used. Contact us through ${contactLine(c)}. We aim to reply within 30 days. You can also complain to your local data protection authority.</p>
 <h2>Security</h2><p>Connections use HTTPS. Passwords must be at least 12 characters and are hashed. You can turn on two-step sign-in with an authenticator app. Accounts lock for a while after repeated wrong passwords. Amazon credentials are encrypted. Buyer names and billing addresses are removed from our order records 30 days after shipment. Write requests are checked against cross-site attacks, sign-in attempts are rate limited, and each page sends security headers. No system is perfectly safe; if we ever learn of a breach that affects you, we will tell you.</p>
 <h2>Changes</h2><p>If we change this notice in a way that matters, we will update the date above and tell active users.</p>`, env, 'How InvoiceGuard handles your data.');
+}
+
+export function sample(env = process.env) {
+  return page('Live sample: InvoiceGuard checks three made-up Amazon orders', `
+<section class="hero"><h1>See InvoiceGuard work on three made-up orders.</h1>
+<p class="lead">This runs the real checks on sample orders, right now: it builds the invoices and verifies the buyer VAT numbers with the EU service. No account, nothing stored, nothing sent to Amazon. The data is made up.</p>
+<p><button class="btn" id="run" type="button">Run the sample</button></p></section>
+<div id="out" aria-live="polite"></div>
+<style>button.btn{font:inherit;cursor:pointer;border:0}button.btn:disabled{opacity:.6;cursor:default}.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600}.p-held{background:#fde8e8;color:#b91c1c}.p-uploaded{background:#e6f6ec;color:#047857}.err{color:#b91c1c}</style>
+<script src="/sample.js"></script>`, env, 'Run InvoiceGuard on three made-up Amazon orders and see the checks and the invoice PDFs. No account needed.');
 }
 
 export function contact(env = process.env, opts = {}) {

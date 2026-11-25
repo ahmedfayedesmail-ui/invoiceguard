@@ -165,3 +165,22 @@ test('invite links: every user gets a code, signup through ?ref= attributes the 
   migrateSecLog(db); assert.equal(db.prepare('SELECT COUNT(*) n FROM referrals').get().n, 1, 'purge runs once only');
   server.close();
 });
+
+test('public sample: run, pdf, page, no auth needed', async () => {
+  const { server, base } = await setup();
+  process.env.OPERATOR_NAME = 'Test Operator';
+  try {
+    const page = await (await fetch(base + '/sample')).text();
+    assert.match(page, /\/sample\.js/, 'page loads the sample script');
+    assert.match(page, /Run the sample/);
+    const js = await fetch(base + '/sample.js'); assert.equal(js.status, 200); assert.match(js.headers.get('content-type'), /javascript/);
+    const run = await fetch(base + '/api/sample/run'); assert.equal(run.status, 200);
+    const d = await run.json();
+    assert.equal(d.shipments.length, 3); assert.equal(d.shipments.filter(s => s.status === 'held').length, 1, 'stub validator holds the bad VAT');
+    assert.equal(d.invoices.length, 2);
+    const pdf = await fetch(base + '/api/sample/pdf/' + encodeURIComponent(d.invoices[0].number));
+    assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+    assert.equal(Buffer.from(await pdf.arrayBuffer()).subarray(0, 4).toString(), '%PDF');
+    assert.equal((await fetch(base + '/api/sample/pdf/NOPE-1')).status, 404);
+  } finally { delete process.env.OPERATOR_NAME; server.close(); }
+});

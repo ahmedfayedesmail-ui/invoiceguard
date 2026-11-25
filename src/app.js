@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
 import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode } from './db.js';
-import { landing, privacy, contact } from './site.js';
+import { landing, privacy, contact, sample } from './site.js';
+import { sampleRun, samplePdf } from './sample.js';
 import { applyBootReset } from './reset.js';
 import { planUpload } from './manual.js';
 import { makeZip } from './zip.js';
@@ -24,6 +25,7 @@ import { PACKS } from './rules.js';
 
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
+const SAMPLE_JS = readFileSync(new URL('../public/sample.js', import.meta.url));
 const PACK_HOWTO = `HOW TO SEND THESE INVOICES TO AMAZON
 InvoiceGuard does not connect to Amazon on this route. You upload the files yourself.
 
@@ -97,7 +99,23 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       const url = new URL(req.url, 'http://x'), p = url.pathname;
       if (req.method === 'GET' && p === '/favicon.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' }); return res.end(FAVICON); }
       if (req.method === 'GET' && p === '/favicon.ico') { res.writeHead(302, { location: '/favicon.svg', 'cache-control': 'public, max-age=86400' }); return res.end(); }
-      const PUB = { '/': landing, '/privacy': privacy, '/contact': contact };
+      if (req.method === 'GET' && p === '/sample.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300' }); return res.end(SAMPLE_JS); }
+      // Public no-signup sample: the real pipeline on made-up orders, in a throwaway in-memory DB. Nothing is stored, nothing is sent anywhere.
+      if (req.method === 'GET' && p === '/api/sample/run') {
+        const xf = String(req.headers['x-forwarded-for'] ?? '').split(',').map(s => s.trim()).filter(Boolean), ip = xf.length ? xf[xf.length - 1] : req.socket.remoteAddress, sk = 'sample|' + ip;
+        const wait = Math.max(throttled(sk, 10), throttled('sample|all', 100));
+        if (wait) return json(res, 429, { error: 'Too many sample runs from this network. Try again in a few minutes.' }, { 'retry-after': String(wait) });
+        noteFail(sk); noteFail('sample|all');
+        try { const run = await sampleRun(validate); return json(res, 200, { seller: run.seller.name + ' (sample)', shipments: run.shipments, invoices: run.invoices }); }
+        catch (e) { console.error('sample run', e); return json(res, 500, { error: 'The sample could not run right now. Try again in a minute.' }); }
+      }
+      const smp = p.match(/^\/api\/sample\/pdf\/([A-Z0-9-]+)$/);
+      if (smp && req.method === 'GET') {
+        const pdf = await samplePdf(validate, smp[1]).catch((e) => { console.error('sample pdf', e); return null; });
+        if (!pdf) return json(res, 404, { error: 'Not found' });
+        res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': `inline; filename="${smp[1].replace(/\//g, '-')}.pdf"`, 'cache-control': 'no-store' }); return res.end(pdf);
+      }
+      const PUB = { '/': landing, '/privacy': privacy, '/contact': contact, '/sample': sample };
       const PUBLIC_READY = !!process.env.OPERATOR_NAME; // public pages stay off until the operator identity is set
       if (req.method === 'GET' && PUB[p] && !PUBLIC_READY) { if (p === '/') { res.writeHead(302, { location: '/app' }); return res.end(); } return json(res, 404, { error: 'Not found' }); }
       if (req.method === 'GET' && PUB[p]) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' }); return res.end(p === '/contact' ? contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }) : PUB[p]()); }
