@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { randomBytes } from 'node:crypto';
 
 export function openDb(file = ':memory:') {
   const db = new DatabaseSync(file);
@@ -48,6 +49,15 @@ export function migrateAuth(db) {
   try { db.exec("ALTER TABLE sellers ADD COLUMN country TEXT DEFAULT 'ES'"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE sellers ADD COLUMN profile TEXT"); } catch { /* exists */ }
   try { db.exec("ALTER TABLE sellers ADD COLUMN invoice_lang TEXT DEFAULT 'auto'"); } catch { /* column exists */ }
+  try { db.exec('ALTER TABLE users ADD COLUMN ref_code TEXT'); } catch { /* column exists */ }
+  try { db.exec('ALTER TABLE users ADD COLUMN referred_by TEXT'); } catch { /* column exists */ }
+  for (const r of db.prepare('SELECT id FROM users WHERE ref_code IS NULL').all()) db.prepare('UPDATE users SET ref_code=? WHERE id=?').run(newRefCode(db), r.id);
+}
+
+/** Unique short code for a user's personal invite link (?ref=CODE). */
+export function newRefCode(db) {
+  let c; do { c = randomBytes(5).toString('hex'); } while (db.prepare('SELECT 1 FROM users WHERE ref_code=?').get(c));
+  return c;
 }
 
 import { createHash } from 'node:crypto';

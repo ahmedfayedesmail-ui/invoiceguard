@@ -1,6 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { openDb, migrateAuth } from '../src/db.js'; import { hashPw, checkPwAsync } from '../src/auth.js'; import { applyBootReset } from '../src/reset.js';
-const mk = (db) => { migrateAuth(db); const { salt, hash } = hashPw('old-password-123'); db.prepare('INSERT INTO users VALUES (?,?,?,?,?,?)').run('u1', 'a@b.cc', salt, hash, null, 'x'); db.prepare('INSERT INTO sessions VALUES (?,?,?)').run('tok', 'u1', Date.now() + 1e6); };
+const mk = (db) => { migrateAuth(db); const { salt, hash } = hashPw('old-password-123'); db.prepare('INSERT INTO users (id,email,salt,hash,seller_id,created_at) VALUES (?,?,?,?,?,?)').run('u1', 'a@b.cc', salt, hash, null, 'x'); db.prepare('INSERT INTO sessions VALUES (?,?,?)').run('tok', 'u1', Date.now() + 1e6); };
 test('boot reset: applies once, ends sessions, never overwrites a later change', async () => {
   const db = openDb(); mk(db); const logs = []; const env = { RESET_EMAIL: 'A@b.cc ', RESET_PASSWORD: 'brand-new-password' };
   assert.equal(applyBootReset(db, env, m => logs.push(m)).done, true);

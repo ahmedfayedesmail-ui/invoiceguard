@@ -4,11 +4,11 @@ import { createApp } from '../src/app.js';
 
 const validate = async (v) => v === 'ESA1234567' ? { status: 'invalid', reason: 'bad_format', vat: v } : { status: 'valid', vat: v };
 async function setup() {
-  const { server } = createApp({ validate, secret: 'test' }); await new Promise(r => server.listen(0, r));
+  const { server, db } = createApp({ validate, secret: 'test' }); await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`; let sid = '';
   const call = async (path, body) => { const r = await fetch(base + '/api/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: body === undefined ? undefined : JSON.stringify(body) });
     const c = r.headers.get('set-cookie'); if (c) sid = c.split(';')[0]; return { status: r.status, body: r.headers.get('content-type')?.includes('json') ? await r.json() : Buffer.from(await r.arrayBuffer()) }; };
-  return { server, call, base };
+  return { server, call, base, db };
 }
 
 test('full seller journey on simulated Amazon', async () => {
@@ -143,5 +143,25 @@ test('referral capture: auth, validation, dedupe, cap', async () => {
   assert.equal((await call('referrals', { email: 'friend@example.com' })).status, 409, 'duplicate');
   assert.equal((await call('referrals', { email: 'two@example.com' })).status, 200);
   assert.equal((await call('me')).body.features.referrals, false, 'flag off by default');
+  server.close();
+});
+
+test('invite links: every user gets a code, signup through ?ref= attributes the referrer', async () => {
+  const { server, call, db } = await setup();
+  await call('signup', { email: 'inviter@b.es', password: 'Long-Enough-Pw-42!' });
+  const code = (await call('me')).body.referralCode;
+  assert.match(code, /^[a-f0-9]{10}$/, 'personal invite code');
+  await call('logout', {});
+  await call('signup', { email: 'friend@b.es', password: 'Long-Enough-Pw-42!', ref: code });
+  assert.equal(db.prepare('SELECT referred_by FROM users WHERE email=?').get('friend@b.es').referred_by, code, 'referrer recorded');
+  const code2 = (await call('me')).body.referralCode;
+  assert.match(code2, /^[a-f0-9]{10}$/); assert.notEqual(code2, code, 'codes are unique per user');
+  await call('logout', {});
+  await call('signup', { email: 'nobody@b.es', password: 'Long-Enough-Pw-42!', ref: 'deadbeef00' });
+  assert.equal(db.prepare('SELECT referred_by FROM users WHERE email=?').get('nobody@b.es').referred_by, null, 'unknown code ignored');
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM referrals').get().n, 0, 'captured emails purged by migration');
+  db.prepare("INSERT INTO referrals (id, ts, user_id, email) VALUES ('x','t','u','e@e.es')").run();
+  const { migrateSecLog } = await import('../src/security.js');
+  migrateSecLog(db); assert.equal(db.prepare('SELECT COUNT(*) n FROM referrals').get().n, 1, 'purge runs once only');
   server.close();
 });

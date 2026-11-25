@@ -3,7 +3,7 @@ import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
-import { openDb, migrateAuth, logEvent, verifyAudit } from './db.js';
+import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode } from './db.js';
 import { landing, privacy, contact } from './site.js';
 import { applyBootReset } from './reset.js';
 import { planUpload } from './manual.js';
@@ -135,7 +135,10 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         { const pr = passwordProblem(pw, email); if (pr) return json(res, 400, { error: pr }); }
         if (db.prepare('SELECT 1 FROM users WHERE email=?').get(email)) return json(res, 409, { error: 'An account with this email already exists' });
         const { salt, hash } = await hashPwAsync(pw), id = randomUUID();
-        try { db.prepare('INSERT INTO users (id,email,salt,hash,seller_id,created_at,pw_changed_at) VALUES (?,?,?,?,?,?,?)').run(id, email, salt, hash, null, new Date().toISOString(), new Date().toISOString()); db.prepare('INSERT INTO pw_history VALUES (?,?,?,?)').run(id, salt, hash, new Date().toISOString()); } catch (e) { if (/UNIQUE/.test(e.message)) return json(res, 409, { error: 'An account with this email already exists' }); throw e; }
+        const ref = String(body.ref ?? '').trim();
+        const referredBy = /^[a-f0-9]{10}$/.test(ref) && db.prepare('SELECT 1 FROM users WHERE ref_code=?').get(ref) ? ref : null;
+        try { db.prepare('INSERT INTO users (id,email,salt,hash,seller_id,created_at,pw_changed_at,ref_code,referred_by) VALUES (?,?,?,?,?,?,?,?,?)').run(id, email, salt, hash, null, new Date().toISOString(), new Date().toISOString(), newRefCode(db), referredBy); db.prepare('INSERT INTO pw_history VALUES (?,?,?,?)').run(id, salt, hash, new Date().toISOString()); } catch (e) { if (/UNIQUE/.test(e.message)) return json(res, 409, { error: 'An account with this email already exists' }); throw e; }
+        if (referredBy) logSec(db, req, 'signup_referred', id, email);
         logSec(db, req, 'signup', id, email); const t = newToken(); db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(t, id, Date.now() + 14 * 864e5);
         return json(res, 200, { ok: true }, { 'set-cookie': `sid=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600${secureFlag(req)}` });
       }
@@ -197,7 +200,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         logSec(db, req, 'referral_added', user.id);
         return json(res, 200, { ok: true });
       }
-      if (p === '/api/me') { const s = sellerOf(user); const c = s && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(s.id); return json(res, 200, { email: user.email, oauth: oauth.available(), security: { twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(user.id), passwordAgeDays: user.pw_changed_at ? Math.floor((Date.now() - Date.parse(user.pw_changed_at)) / 864e5) : null, passwordMaxAgeDays: PW_MAX_AGE_DAYS }, seller: s && { country: s.country ?? 'ES', name: s.name, nif: s.nif, address: s.address, marketplaces: JSON.parse(s.marketplace_ids), profile: sellerProfile(s) }, amazon: c?.mode ?? null, features: { referrals: process.env.REFERRALS_UI === '1' } }); }
+      if (p === '/api/me') { const s = sellerOf(user); const c = s && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(s.id); return json(res, 200, { email: user.email, referralCode: user.ref_code ?? null, oauth: oauth.available(), security: { twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(user.id), passwordAgeDays: user.pw_changed_at ? Math.floor((Date.now() - Date.parse(user.pw_changed_at)) / 864e5) : null, passwordMaxAgeDays: PW_MAX_AGE_DAYS }, seller: s && { country: s.country ?? 'ES', name: s.name, nif: s.nif, address: s.address, marketplaces: JSON.parse(s.marketplace_ids), profile: sellerProfile(s) }, amazon: c?.mode ?? null, features: { referrals: process.env.REFERRALS_UI === '1' } }); }
       if (p === '/api/seller') {
         const { name, nif, address, marketplaces } = body; const cc = String(body.country ?? 'ES').toUpperCase(); if (!/^[A-Z]{2}$/.test(cc)) return json(res, 400, { error: 'Choose the country you issue invoices from' }); const mk = (marketplaces ?? []).filter(m => MARKETPLACE[m]);
         if (!name || !nif || !address || !mk.length) return json(res, 400, { error: 'Name, tax ID, address and at least one marketplace are required' });

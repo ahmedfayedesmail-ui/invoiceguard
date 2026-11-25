@@ -88,7 +88,16 @@ export function rotateKeys(db, secret, previous, log = console.log) {
 
 // ---- Security log (kept 13 months; Amazon asks for at least 12) ----
 export const LOG_KEEP_DAYS = 395;
-export function migrateSecLog(db) { db.exec('CREATE TABLE IF NOT EXISTS security_log (ts TEXT, type TEXT, user_id TEXT, who_hash TEXT, ip TEXT); CREATE INDEX IF NOT EXISTS idx_seclog_ts ON security_log (ts); CREATE TABLE IF NOT EXISTS contact_messages (id TEXT PRIMARY KEY, ts TEXT, email TEXT, message TEXT); CREATE TABLE IF NOT EXISTS referrals (id TEXT PRIMARY KEY, ts TEXT, user_id TEXT, email TEXT)'); }
+export function migrateSecLog(db) { db.exec('CREATE TABLE IF NOT EXISTS security_log (ts TEXT, type TEXT, user_id TEXT, who_hash TEXT, ip TEXT); CREATE INDEX IF NOT EXISTS idx_seclog_ts ON security_log (ts); CREATE TABLE IF NOT EXISTS contact_messages (id TEXT PRIMARY KEY, ts TEXT, email TEXT, message TEXT); CREATE TABLE IF NOT EXISTS referrals (id TEXT PRIMARY KEY, ts TEXT, user_id TEXT, email TEXT)'); purgeReferralEmails(db); }
+
+// One-time: the email-capture referral mechanic was replaced by personal invite links before it ever went
+// public. Every captured row was test data; wipe the table once per database, then never touch it again.
+function purgeReferralEmails(db) {
+  db.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)');
+  if (db.prepare("SELECT v FROM meta WHERE k='referral_emails_purged_v1'").get()) return;
+  db.prepare('DELETE FROM referrals').run();
+  db.prepare("INSERT INTO meta (k,v) VALUES ('referral_emails_purged_v1', ?)").run(new Date().toISOString());
+}
 export function logSec(db, req, type, userId = null, email = null) {
   try {
     const xf = String(req?.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim(), ip = (xf || req?.socket?.remoteAddress || '').slice(0, 64);
