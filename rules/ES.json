@@ -181,17 +181,17 @@
     {
       "id": "ES-VERIFACTU",
       "topic": "roadmap",
-      "text": "Verifactu billing-system rules: legal start dates are 1 Jan 2027 (corporate tax payers) and 1 Jul 2027 (others). Hacienda announced on 5 Oct 2026 a planned deferral to Oct 2028. Not yet confirmed in the BOE at last check. InvoiceGuard does not claim Verifactu compliance.",
+      "text": "Verifactu billing-system rules: the adaptation deadline is postponed by law. Real Decreto-ley 43/2026 (BOE 25 Nov 2026, BOE-A-2026-24701) requires invoicing systems (SIF) to be adapted before 6 Oct 2028. The previous dates were 1 Jan 2027 (corporate tax payers) and 1 Jul 2027 (others). InvoiceGuard does not claim Verifactu compliance.",
       "authority": "tax-authority",
       "gate": false,
       "status": "verified",
       "verified_on": "2026-11-25",
       "source": {
-        "title": "AEAT / Hacienda notes",
-        "url": "https://hacienda.gob.es/sgt/gabsehacienda/nota-informativa-verifactu.pdf"
+        "title": "Real Decreto-ley 43/2026 (BOE-A-2026-24701) and AEAT news note of 25 Nov 2026",
+        "url": "https://www.boe.es/buscar/doc.php?id=BOE-A-2026-24701"
       },
       "review_every_days": 14,
-      "notes": "Volatile. Re-verify against the BOE before relying on any date."
+      "notes": "Verified 2026-11-25 against the BOE text and the AEAT news page (sede.agenciatributaria.gob.es, 25 Nov 2026): SIF must be adapted before 6 Oct 2028. Re-verify against the BOE before relying on any date."
     },
     {
       "id": "ES-INV-LANGUAGE",

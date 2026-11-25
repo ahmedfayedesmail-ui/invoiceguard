@@ -87,7 +87,7 @@ export function faq(env = process.env) {
 <h2>Which orders does it invoice?</h2>
 <p>Business orders from your report. Consumer orders are skipped. If a business order has a problem, such as a buyer VAT number that fails the EU check, the invoice is held with the reason and the next step, never guessed.</p>
 <h2>What about Verifactu?</h2>
-<p>Verifactu concerns invoices that Spanish businesses issue through verifiable invoicing systems. Whether it covers your Amazon invoices depends on your own setup, and that is a question for your gestor. InvoiceGuard is not a Verifactu-verifiable system. What it gives you is the invoice documents and a tamper-evident record of what was issued and when, which is the part you keep.</p>
+<p>Verifactu concerns invoices that Spanish businesses issue through verifiable invoicing systems. On 25 November 2026 a new law (Real Decreto-ley 43/2026) postponed the deadline: invoicing systems must be adapted before 6 October 2028. Whether it covers your Amazon invoices depends on your own setup, and that is a question for your gestor. InvoiceGuard is not a Verifactu-verifiable system. What it gives you is the invoice documents and a tamper-evident record of what was issued and when, which is the part you keep.</p>
 <h2>I sell across the EU. Which VAT number goes on the invoice?</h2>
 <p>The invoice shows the seller details from your profile and the buyer's VAT number, checked in the EU's VIES service. If you are registered in more than one EU country, which registration applies to a given sale depends on where the order ships from and your setup, again your gestor's call. The app shows where your shipments left from so that conversation starts from facts.</p>
 <h2>Can Amazon or a tax authority reject an invoice it makes?</h2>
