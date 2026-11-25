@@ -132,3 +132,16 @@ test('release and retry without a shipment key are a clear 400', async () => {
   for (const p of ['release', 'retry']) for (const b of [{}, { key: 5 }, { key: {} }]) assert.equal((await call(p, b)).status, 400);
   server.close();
 });
+
+test('referral capture: auth, validation, dedupe, cap', async () => {
+  const { server, call } = await setup();
+  assert.equal((await call('referrals', { email: 'x@y.es' })).status, 401);
+  await call('signup', { email: 'r@b.es', password: 'Long-Enough-Pw-42!' });
+  assert.equal((await call('referrals', { email: 'not-an-email' })).status, 400);
+  assert.equal((await call('referrals', { email: 'r@b.es' })).status, 400, 'own email');
+  assert.equal((await call('referrals', { email: ' Friend@Example.com ' })).status, 200);
+  assert.equal((await call('referrals', { email: 'friend@example.com' })).status, 409, 'duplicate');
+  assert.equal((await call('referrals', { email: 'two@example.com' })).status, 200);
+  assert.equal((await call('me')).body.features.referrals, false, 'flag off by default');
+  server.close();
+});

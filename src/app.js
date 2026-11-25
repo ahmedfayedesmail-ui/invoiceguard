@@ -185,7 +185,19 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         if (!(await checkPwAsync(String(body.password ?? ''), user.salt, user.hash)) || step === null || step <= mf.last_step) { noteFail(fk); return json(res, 401, { error: 'Password or code is wrong' }); }
         db.prepare('DELETE FROM mfa WHERE user_id=?').run(user.id); logSec(db, req, 'mfa_disabled', user.id); return json(res, 200, { ok: true });
       }
-      if (p === '/api/me') { const s = sellerOf(user); const c = s && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(s.id); return json(res, 200, { email: user.email, oauth: oauth.available(), security: { twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(user.id), passwordAgeDays: user.pw_changed_at ? Math.floor((Date.now() - Date.parse(user.pw_changed_at)) / 864e5) : null, passwordMaxAgeDays: PW_MAX_AGE_DAYS }, seller: s && { country: s.country ?? 'ES', name: s.name, nif: s.nif, address: s.address, marketplaces: JSON.parse(s.marketplace_ids), profile: sellerProfile(s) }, amazon: c?.mode ?? null }); }
+      if (p === '/api/referrals') {
+        const em = String(body.email ?? '').trim().toLowerCase();
+        if (em.length > 200 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return json(res, 400, { error: 'Enter a valid email' });
+        if (em === user.email) return json(res, 400, { error: 'That is your own email' });
+        if (throttled('ref|' + user.id, 5)) return json(res, 429, { error: 'Too many. Try again later.' });
+        noteFail('ref|' + user.id);
+        if (db.prepare('SELECT 1 FROM referrals WHERE user_id=? AND email=?').get(user.id, em)) return json(res, 409, { error: 'Already noted' });
+        if (db.prepare('SELECT COUNT(*) n FROM referrals WHERE user_id=?').get(user.id).n >= 20) return json(res, 400, { error: 'Enough for now, thank you' });
+        db.prepare('INSERT INTO referrals (id, ts, user_id, email) VALUES (?,?,?,?)').run(randomUUID(), new Date().toISOString(), user.id, em);
+        logSec(db, req, 'referral_added', user.id);
+        return json(res, 200, { ok: true });
+      }
+      if (p === '/api/me') { const s = sellerOf(user); const c = s && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(s.id); return json(res, 200, { email: user.email, oauth: oauth.available(), security: { twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(user.id), passwordAgeDays: user.pw_changed_at ? Math.floor((Date.now() - Date.parse(user.pw_changed_at)) / 864e5) : null, passwordMaxAgeDays: PW_MAX_AGE_DAYS }, seller: s && { country: s.country ?? 'ES', name: s.name, nif: s.nif, address: s.address, marketplaces: JSON.parse(s.marketplace_ids), profile: sellerProfile(s) }, amazon: c?.mode ?? null, features: { referrals: process.env.REFERRALS_UI === '1' } }); }
       if (p === '/api/seller') {
         const { name, nif, address, marketplaces } = body; const cc = String(body.country ?? 'ES').toUpperCase(); if (!/^[A-Z]{2}$/.test(cc)) return json(res, 400, { error: 'Choose the country you issue invoices from' }); const mk = (marketplaces ?? []).filter(m => MARKETPLACE[m]);
         if (!name || !nif || !address || !mk.length) return json(res, 400, { error: 'Name, tax ID, address and at least one marketplace are required' });
