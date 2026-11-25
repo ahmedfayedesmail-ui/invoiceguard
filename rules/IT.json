@@ -1,0 +1,86 @@
+{
+  "country": "IT",
+  "name": "Italy",
+  "marketplace_id": "APJ6JRA9NG5V4",
+  "review_every_days": 90,
+  "coverage": "partial",
+  "rules": [
+    {
+      "id": "IT-SDI-SCOPE",
+      "topic": "format",
+      "text": "Electronic invoicing through the SdI is mandatory for VAT holders resident or established in Italy for supplies to recipients resident or established in Italy.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Agenzia delle Entrate, soggetti obbligati",
+        "url": "https://www.agenziaentrate.gov.it/portale/aree-tematiche/fatturazione-elettronica/guida-fatturazione-elettronica/la-fattura-elettronica/chi-e-esonerato-fe"
+      },
+      "anchors": [
+        "residenti o stabiliti in Italia"
+      ]
+    },
+    {
+      "id": "IT-NONRESIDENT",
+      "topic": "format",
+      "text": "The Italian electronic-invoice obligation covers taxable persons resident or established in Italy. According to the Agenzia delle Entrate, it does not apply to non-resident taxable persons, even when they are VAT-identified in Italy. Such sellers may still choose to receive electronic invoices.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Agenzia delle Entrate, press release on Circolare 13/E (2 July 2018)",
+        "url": "https://www.agenziaentrate.gov.it/portale/-/cs-02072018-cs-circolare-13-fattura-elettronica"
+      },
+      "notes": "Read on 2026-11-25. This is a 2018 press release, consistent with the current guide wording in IT-SDI-SCOPE ('residenti o stabiliti in Italia'); the circular text itself was not read. It answers only whether a non-resident must use SDI. It does not say what else Italian law requires of a non-resident (credit notes, deadlines, fiscal representative). So an Italian-pack content rule does not open Italy for non-resident invoicing. Not tax advice.",
+      "anchors": [
+        "l’obbligo non vale per i soggetti non residenti anche se “identificati” in Italia"
+      ]
+    },
+    {
+      "id": "IT-INV-LANGUAGE",
+      "topic": "language",
+      "text": "Invoices may be issued in a foreign language and the tax authority may ask for an Italian translation. The taxable amount and the VAT must always be shown in euro (art. 21 DPR 633/72 as changed from 1 Jan 2013; Circolare 12/E 2013).",
+      "authority": "national",
+      "gate": false,
+      "status": "secondary",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "DPR 633/1972 art. 21 (normattiva)",
+        "url": "https://www.normattiva.it/atto/caricaDettaglioAtto?atto.articolo.numero=21&atto.articolo.sottoArticolo=1&atto.articolo.tipoArticolo=0&atto.codiceRedazionale=072U0633&atto.dataPubblicazioneGazzetta=1972-11-11"
+      },
+      "machine": {
+        "defaultLang": "it",
+        "anyLanguageAllowed": true,
+        "translationOnRequest": true,
+        "taxAmountsInEuro": true,
+        "bilingual": {
+          "allowed": true,
+          "basis": "follows_from_any_language"
+        }
+      },
+      "anchors": [],
+      "review_every_days": 90,
+      "notes": "Read: marchegianionline.net (updated 2017-09) which quotes Circolare 12/E 2013 and says the pre-2013 translation text was dropped but the authority keeps the right to ask for translation. Art. 21 itself and the circular were NOT read. Note the euro rule: it bears on non-euro invoices, not on language. Two languages on one invoice: no source found forbids it. It follows from the any-language rule, not from a text that mentions bilingual invoices, unless noted."
+    },
+    {
+      "id": "IT-ART21-CONTENT",
+      "topic": "vat-mentions",
+      "gate": false,
+      "authority": "law",
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "DPR 633/1972, art. 21 (Normattiva, text in force 21-4-2026 to 31-12-2026)",
+        "url": "https://www.normattiva.it/atto/caricaDettaglioAtto?atto.articolo.numero=21&atto.articolo.sottoArticolo=1&atto.articolo.tipoArticolo=0&atto.codiceRedazionale=072U0633&atto.dataPubblicazioneGazzetta=1972-11-11"
+      },
+      "text": "Italian invoice particulars (art. 21(2) DPR 633/1972): issue date; unique progressive number; name/denomination and address of the seller (plus fiscal representative or Italian permanent establishment for non-residents); seller partita IVA; the same identity data for the buyer; buyer partita IVA, or for an EU taxable person the VAT number of the Member State of establishment (codice fiscale for a non-business Italian buyer); nature, quality and quantity of goods or services; date of supply or of payment when different from the issue date; taxable amounts and discounts; VAT rate, VAT amount and taxable base rounded to the cent; the note that the invoice is issued on the seller's behalf by the buyer or a third party when that is the case. Different rates must be shown separately (art. 21(3)). Issue deadline is twelve days from the operation, with the listed exceptions (art. 21(4)).",
+      "notes": "Read on Normattiva on 2026-11-25, marked in force on that date. The first search hit for this article (Gazzetta Ufficiale, version 1) is the 1972 original and was NOT used. This tool produces PDF invoices. Italian-established sellers must issue through the SDI e-invoice system, so a PDF is not a valid invoice for them and Italy stays held for issuing. Whether a non-Italian seller invoicing an Italian buyer must use SDI is unread and unverified. Not tax advice.",
+      "anchors": [
+        "numero progressivo che la identifichi in modo univoco",
+        "numero di partita IVA del soggetto cedente o prestatore"
+      ]
+    }
+  ]
+}

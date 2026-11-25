@@ -1,0 +1,98 @@
+{
+  "country": "PL",
+  "name": "Poland",
+  "marketplace_id": "A1C3SOZRARQ6R3",
+  "review_every_days": 90,
+  "coverage": "partial",
+  "rules": [
+    {
+      "id": "PL-KSEF-TIMELINE",
+      "topic": "format",
+      "text": "KSeF e-invoices are mandatory to issue from 1 Feb 2026 for taxpayers with 2024 sales above PLN 200 million, and from 1 Apr 2026 for others (with a monthly PLN 10,000 threshold until end of 2026).",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Ministry of Finance, KSeF scope",
+        "url": "https://ksef.podatki.gov.pl/informacje-ogolne-ksef-20/zakres-obowiazkowego-ksef/"
+      },
+      "anchors": [
+        "1 kwietnia 2026"
+      ]
+    },
+    {
+      "id": "PL-KSEF-FOREIGN",
+      "topic": "format",
+      "text": "Taxpayers with no seat and no fixed establishment in Poland are excluded from the duty to issue structured invoices in KSeF.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Ministry of Finance, KSeF scope",
+        "url": "https://ksef.podatki.gov.pl/informacje-ogolne-ksef-20/zakres-obowiazkowego-ksef/"
+      },
+      "anchors": [
+        "nie posiadają siedziby działalności gospodarczej ani stałego miejsca"
+      ]
+    },
+    {
+      "id": "PL-CORR",
+      "topic": "correction",
+      "text": "Correction invoice rules for Poland have not been read yet.",
+      "authority": "law",
+      "gate": false,
+      "status": "unverified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "(not yet sourced)",
+        "url": "https://ksef.podatki.gov.pl/"
+      }
+    },
+    {
+      "id": "PL-INV-LANGUAGE",
+      "topic": "language",
+      "text": "No provision names the invoice language. The Minister of Finance has accepted foreign-language invoices for businesses (Polish or foreign) and for foreign consumers. The tax authority may require a Polish translation in a control (Ordynacja podatkowa art. 287 para. 1 pt 2). For a consumer living in Poland, Polish is required under the Polish-language law.",
+      "authority": "national",
+      "gate": false,
+      "status": "secondary",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Ordynacja podatkowa art. 287 (via solveoadvisory.pl summary)",
+        "url": "https://solveoadvisory.pl/ksiegi-i-faktury-w-obcym-jezyku-czy-to-mozliwe/"
+      },
+      "machine": {
+        "defaultLang": "pl",
+        "anyLanguageAllowed": "businesses_and_foreign_consumers",
+        "translationOnRequest": true,
+        "polishRequiredFor": [
+          "consumer_in_poland"
+        ],
+        "bilingual": {
+          "allowed": true,
+          "basis": "mentioned_by_old_secondary_source",
+          "note": "egospodarka.pl 2007 says nothing prevents giving the data in Polish and a foreign language"
+        }
+      },
+      "anchors": [],
+      "review_every_days": 90,
+      "notes": "Secondary sources only: taxoninvoice.com, solveoadvisory.pl (2024), fakturaxl.pl (cites MF interpretation of 5 Sep 2012, PT8/033/203/688/WCX/12/PT-694), biuromat.pl, egospodarka.pl (2007). No statute or interpretation read. Polish PDFs are not offered yet (font)."
+    },
+    {
+      "id": "PL-INV-GUIDE",
+      "topic": "guidance",
+      "gate": false,
+      "authority": "guidance",
+      "status": "secondary",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Ministry of Finance archive page 'Zasady wystawiania faktur' (PDF)",
+        "url": "https://podatki-arch.mf.gov.pl/media/4546/zasady-wystawiania-faktur1.pdf"
+      },
+      "text": "The Polish Ministry of Finance archive lists minimum invoice particulars: issue date, a sequential number in one or more series, names and addresses of seller and buyer, the seller's tax ID and the buyer's tax or VAT ID, supply date or prepayment date when different, name of goods or services, unit of measure and quantity, net unit price, price reductions, net value, VAT rate (list continues, art. 106e).",
+      "notes": "SECONDARY and possibly STALE: this is an archived ministry page that predates the national e-invoice system (KSeF) obligations, and it describes paper-and-accepted-electronic invoicing. It must not be used to issue Polish invoices. The statute (art. 106e) has not been read from a primary source. Poland stays held. Not tax advice. Monitoring: this source is a PDF, so it is watched by a fingerprint of the file (change detection only), not by text anchors.",
+      "anchors": []
+    }
+  ]
+}

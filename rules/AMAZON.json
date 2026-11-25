@@ -1,0 +1,57 @@
+{
+ "country": "AMAZON",
+ "name": "Amazon SP-API invoicing (all EU stores)",
+ "marketplace_id": null,
+ "review_every_days": 60,
+ "coverage": "base",
+ "rules": [
+  {
+   "id": "AMZ-UPLOAD",
+   "topic": "submission",
+   "text": "VAT invoices are uploaded with the Feeds API feed type UPLOAD_VAT_INVOICE (restricted Tax Invoicing role). Metadata: invoice number, document type, total, total VAT, and shipping or order ID. Amazon rejects the upload if totals do not match. One invoice per 3 seconds.",
+   "authority": "amazon",
+   "gate": true,
+   "status": "verified",
+   "verified_on": "2026-11-25",
+   "source": {
+    "title": "Amazon SP-API, create and upload invoices",
+    "url": "https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices"
+   },
+   "anchors": [
+    "UPLOAD_VAT_INVOICE"
+   ]
+  },
+  {
+   "id": "AMZ-CORRECTION",
+   "topic": "correction",
+   "text": "Customers can request a correction only of billing name and address. Amazon then lists a credit-note transaction (CorrectionReversal) and a new shipment transaction (Correction). The seller uploads a credit note and a new invoice carrying those transaction IDs. Corrections do not count toward the Invoice Defect Rate.",
+   "authority": "amazon",
+   "gate": false,
+   "status": "verified",
+   "verified_on": "2026-11-25",
+   "source": {
+    "title": "Amazon SP-API, invoice compliance and correction",
+    "url": "https://developer-docs.amazon.com/sp-api/docs/invoice-compliance-and-correction"
+   },
+   "anchors": [
+    "Correction"
+   ]
+  },
+  {
+   "id": "AMZ-SELF-INVOICE",
+   "topic": "submission",
+   "text": "Seller invoice upload needs the VAT Calculation Service option \"I will upload my own invoices\". Otherwise Amazon answers error 79509 (closed beta). Upload stores: ES, UK, FR, NL, DE, IT, CH, PL.",
+   "authority": "amazon",
+   "gate": true,
+   "status": "verified",
+   "verified_on": "2026-11-25",
+   "source": {
+    "title": "Amazon SP-API, VCS error handling",
+    "url": "https://developer-docs.amazon.com/sp-api/docs/vcs-error-handling"
+   },
+   "anchors": [
+    "79509"
+   ]
+  }
+ ]
+}

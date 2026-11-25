@@ -1,0 +1,172 @@
+{
+  "country": "DE",
+  "name": "Germany",
+  "marketplace_id": "A1PA6795UKMFR9",
+  "review_every_days": 90,
+  "coverage": "partial",
+  "rules": [
+    {
+      "id": "DE-INV-DEADLINE",
+      "topic": "deadline",
+      "text": "A business that must issue an invoice for a supply to another business has to do so within six months of the supply (para. 14(2) UStG).",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "UStG para. 14",
+        "url": "https://www.gesetze-im-internet.de/ustg_1980/__14.html"
+      },
+      "anchors": [
+        "innerhalb von sechs Monaten"
+      ]
+    },
+    {
+      "id": "DE-INTRACOM-15TH",
+      "topic": "deadline",
+      "text": "For an intra-Community supply the invoice is due by the 15th day of the month after the month of the supply (para. 14a(3) UStG).",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "UStG para. 14a",
+        "url": "https://www.gesetze-im-internet.de/ustg_1980/__14a.html"
+      },
+      "machine": {
+        "dayOfNextMonth": 15
+      },
+      "anchors": [
+        "fünfzehnten Tag"
+      ]
+    },
+    {
+      "id": "DE-EINV-DOMESTIC",
+      "topic": "format",
+      "text": "A domestic B2B invoice must be an electronic invoice when issuer and recipient are both established in Germany. A seller not established in Germany is not covered by that sentence.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "UStG para. 14(2) no. 1",
+        "url": "https://www.gesetze-im-internet.de/ustg_1980/__14.html"
+      },
+      "anchors": [
+        "ansässig sind"
+      ]
+    },
+    {
+      "id": "DE-CORR-14C",
+      "topic": "correction",
+      "text": "Para. 14c(1) UStG: if an invoice shows more tax than is owed, the issuer also owes the excess; if the tax amount is corrected towards the recipient, para. 17(1) applies accordingly. Para. 14c(2): tax shown by someone not entitled to show it is owed as shown; it can be corrected only after the risk to tax revenue is removed and on separate written application to the tax office, which must agree.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "UStG para. 14c",
+        "url": "https://www.gesetze-im-internet.de/ustg_1980/__14c.html"
+      },
+      "notes": "Read in full on 2026-11-25. This is a liability and tax-effect rule, not a document-format rule. Whether tax was shown too high, and what the correction does to VAT owed, is a tax decision this tool does not make. German amount and tax changes therefore stay refused (gate: DE-CORR-31, amountChanges false). Nothing here is tax advice.",
+      "anchors": [
+        "schuldet er auch den Mehrbetrag",
+        "ist § 17 Abs. 1 entsprechend anzuwenden",
+        "beim Finanzamt gesondert schriftlich zu beantragen"
+      ]
+    },
+    {
+      "id": "DE-INV-LANGUAGE",
+      "topic": "language",
+      "text": "No language is prescribed for an invoice (para. 14 and 14a UStG). The tax office can demand a translation of any foreign-language document without delay, and in justified cases a certified one (para. 87(2) AO). German is the official language.",
+      "authority": "national",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Abgabenordnung para. 87 (Amtssprache)",
+        "url": "https://www.gesetze-im-internet.de/ao_1977/__87.html"
+      },
+      "machine": {
+        "defaultLang": "de",
+        "anyLanguageAllowed": true,
+        "translationOnRequest": true,
+        "certifiedTranslationPossible": true,
+        "bilingual": {
+          "allowed": true,
+          "basis": "follows_from_any_language"
+        }
+      },
+      "anchors": [
+        "Amtssprache ist Deutsch",
+        "Übersetzung"
+      ],
+      "review_every_days": 90,
+      "notes": "Para. 87 AO text read directly from gesetze-im-internet.de. Para. 14 UStG was read earlier in this project: it names no language. Secondary sources (deubner-steuern.de, papierkram.de, xrechnungs.de) say a BMF letter of 17 Sep 2025 lists foreign-language wordings the tax office accepts for mandatory notes such as reverse charge. That letter has NOT been read: lead only. Practical tip from norman.finance: also give mandatory notes in German. Two languages on one invoice: no source found forbids it. It follows from the any-language rule, not from a text that mentions bilingual invoices, unless noted."
+    },
+    {
+      "id": "DE-INV-CONTENT",
+      "topic": "content",
+      "gate": true,
+      "authority": "law",
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "UStG para. 14(4)",
+        "url": "https://www.gesetze-im-internet.de/ustg_1980/__14.html"
+      },
+      "text": "An invoice must show: full name and address of supplier and recipient, the supplier's tax number or VAT ID, issue date, a unique sequential invoice number, quantity and commercial description, the time of the supply (the calendar month is enough, para. 31(4) UStDV), the net amount split by tax rate and exemption, the tax rate and tax amount or a note that an exemption applies (para. 14(4) UStG, numbers 1 to 8).",
+      "machine": {
+        "required": [
+          "number",
+          "issueDate",
+          "operationDate",
+          "seller.name",
+          "seller.nif",
+          "seller.address",
+          "buyer.name",
+          "buyer.address",
+          "lines",
+          "totals"
+        ],
+        "lineRequired": [
+          "description",
+          "qty",
+          "rate"
+        ],
+        "buyerVatRequiredWhenExemptIntraEU": false,
+        "exemptNoteRequired": true
+      },
+      "notes": "Not encoded: recipient VAT ID for intra-Community supplies (para. 14a not read for that point). Credit-note wording (para. 14(4) no. 10) applies only when the recipient issues the document.",
+      "anchors": [
+        "fortlaufende Nummer mit einer oder mehreren Zahlenreihen",
+        "Hinweis darauf, dass für die Lieferung oder sonstige Leistung eine Steuerbefreiung gilt"
+      ]
+    },
+    {
+      "id": "DE-CORR-31",
+      "topic": "correction",
+      "gate": true,
+      "authority": "law",
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "UStDV para. 31(5)",
+        "url": "https://www.gesetze-im-internet.de/ustdv_1980/__31.html"
+      },
+      "text": "An invoice may be corrected when it lacks required particulars or when particulars are incorrect. Only the missing or incorrect particulars must be sent, in a document that clearly refers to the invoice and meets the same form and content requirements (para. 31(5) UStDV). Changes to the tax amount are a separate matter (para. 14c UStG, not read): this tool corrects non-amount data only for Germany.",
+      "machine": {
+        "methods": [
+          "substitution"
+        ],
+        "amountChanges": false,
+        "mustReferenceOriginal": true
+      },
+      "notes": "A full replacement document that restates the corrected data and refers to the original is used as the document. The text read does not say a full restatement is required or forbidden. Credit notes and amount changes are held until para. 14c is read.",
+      "anchors": [
+        "Es müssen nur die fehlenden oder unzutreffenden Angaben",
+        "spezifisch und eindeutig auf die Rechnung bezogen"
+      ]
+    }
+  ]
+}

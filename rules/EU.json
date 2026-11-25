@@ -1,0 +1,87 @@
+{
+  "country": "EU",
+  "name": "EU VAT common base",
+  "marketplace_id": null,
+  "review_every_days": 60,
+  "coverage": "base",
+  "rules": [
+    {
+      "id": "EU-CORR-REFERENCE",
+      "topic": "correction",
+      "text": "A credit note or corrective document must contain a specific, unambiguous reference to the initial invoice and the details being amended.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "European Commission, Invoicing",
+        "url": "https://taxation-customs.ec.europa.eu/taxation/vat/vat-businesses/invoicing_en"
+      },
+      "machine": {
+        "requiresReferenceToOriginal": true
+      },
+      "anchors": [
+        "reference to the initial invoice"
+      ]
+    },
+    {
+      "id": "EU-INTRA-15TH",
+      "topic": "deadline",
+      "text": "VAT on an exempt intra-EU supply of goods becomes chargeable on the invoice date or the 15th day of the month following the supply, whichever is earlier (Article 67 VAT Directive).",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "European Commission, Chargeable event",
+        "url": "https://taxation-customs.ec.europa.eu/taxation/vat/vat-directive/chargeable-event_en"
+      },
+      "machine": {
+        "dayOfNextMonth": 15
+      },
+      "anchors": [
+        "15th day"
+      ]
+    },
+    {
+      "id": "EU-VIES",
+      "topic": "validation",
+      "text": "Buyer VAT numbers for intra-EU B2B supplies are validated against the Commission VIES service before the invoice is issued. VIES outages are retried, not treated as invalid.",
+      "authority": "practice",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "European Commission, VIES",
+        "url": "https://ec.europa.eu/taxation_customs/vies/"
+      },
+      "machine": {
+        "validateBuyerVat": true
+      },
+      "notes": "Engine behavior verified by a live VIES call during development; the page itself is not text-monitored."
+    },
+    {
+      "id": "EU-INV-LANGUAGE",
+      "topic": "language",
+      "text": "EU VAT rules prescribe no invoice language. Member States may require a translation of invoices for supplies in their territory, but may not require all invoices to be translated (VAT Directive art. 248a).",
+      "authority": "eu",
+      "gate": false,
+      "status": "unverified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Council Directive 2006/112/EC",
+        "url": "https://eur-lex.europa.eu/eli/dir/2006/112/oj/eng"
+      },
+      "machine": {
+        "anyLanguageAllowed": true,
+        "bilingual": {
+          "allowed": true,
+          "basis": "follows_from_any_language"
+        }
+      },
+      "anchors": [],
+      "review_every_days": 90,
+      "notes": "Article 248a is cited by papierkram.de and verkanto.eu (secondary). The EUR-Lex fetch was truncated before art. 248a, so the article text itself was not read."
+    }
+  ]
+}

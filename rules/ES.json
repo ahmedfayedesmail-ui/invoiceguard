@@ -1,0 +1,251 @@
+{
+  "country": "ES",
+  "name": "Spain",
+  "marketplace_id": "A1RKKUPIHCS9HS",
+  "review_every_days": 90,
+  "coverage": "partial",
+  "rules": [
+    {
+      "id": "ES-INV-NUMBERING",
+      "topic": "numbering",
+      "text": "Invoice numbering within each series must be consecutive. Corrective invoices (rectificativas) must be issued in their own specific series.",
+      "authority": "law",
+      "gate": true,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "BOE, Real Decreto 1619/2012, art. 6.1.a",
+        "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2012-14696"
+      },
+      "machine": {
+        "gapless": true,
+        "rectificativaOwnSeries": true,
+        "series": {
+          "invoice": "A",
+          "rectificativa": "R"
+        }
+      },
+      "anchors": [
+        "La numeración de las facturas dentro de cada serie será correlativa"
+      ]
+    },
+    {
+      "id": "ES-INV-CONTENT",
+      "topic": "content",
+      "text": "A full invoice must show: number and series, issue date, full name or company name of issuer and recipient, issuer tax ID (and the recipient tax ID for exempt intra-EU supplies), addresses of both, description with unit price excluding tax and any discount, tax rate(s), tax amount shown separately, operation date if different, and a reference to the exemption provision when exempt.",
+      "authority": "law",
+      "gate": true,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "BOE, Real Decreto 1619/2012, art. 6.1",
+        "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2012-14696"
+      },
+      "machine": {
+        "required": [
+          "number",
+          "issueDate",
+          "seller.name",
+          "seller.nif",
+          "seller.address",
+          "buyer.name",
+          "buyer.address",
+          "lines",
+          "totals"
+        ],
+        "lineRequired": [
+          "description",
+          "unitExcl",
+          "rate"
+        ],
+        "buyerVatRequiredWhenExemptIntraEU": true,
+        "exemptNoteRequired": true
+      },
+      "anchors": [
+        "precio unitario sin Impuesto",
+        "Domicilio, tanto del obligado a expedir factura"
+      ]
+    },
+    {
+      "id": "ES-INV-DEADLINE",
+      "topic": "deadline",
+      "text": "Invoices are issued when the operation takes place. When the recipient is a business acting as such, they must be issued before day 16 of the month following the chargeable event.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "BOE, Real Decreto 1619/2012, art. 11",
+        "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2012-14696"
+      },
+      "machine": {
+        "beforeDayOfNextMonth": 16
+      },
+      "notes": "Read from the BOE search excerpt of art. 11. The fetched page was truncated, so this source cannot be text-monitored for the sentence. Review date applies."
+    },
+    {
+      "id": "ES-RECT-WHEN",
+      "topic": "correction",
+      "text": "A rectificativa must be issued when the original invoice lacks a required element, when tax was charged incorrectly, or when the taxable base changes under art. 80 of the VAT Act. Returns of goods and volume discounts have simplified treatment.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "AEAT, Manual IVA 2026, facturas de rectificación",
+        "url": "https://sede.agenciatributaria.gob.es/Sede/ayuda/manuales-videos-folletos/manuales-practicos/manual-iva-2026/capitulo-10-obligac-formales-suj-registro/obligaciones-materia-facturacion/facturas-rectificacion.html"
+      },
+      "anchors": [
+        "cuotas impositivas repercutidas se hubiesen determinado incorrectamente"
+      ]
+    },
+    {
+      "id": "ES-RECT-WINDOW",
+      "topic": "correction",
+      "text": "A rectificativa is issued as soon as the issuer knows the circumstances, provided four years have not passed since the tax became chargeable (or since the art. 80 event).",
+      "authority": "law",
+      "gate": true,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "AEAT, Manual IVA 2026, facturas de rectificación",
+        "url": "https://sede.agenciatributaria.gob.es/Sede/ayuda/manuales-videos-folletos/manuales-practicos/manual-iva-2026/capitulo-10-obligac-formales-suj-registro/obligaciones-materia-facturacion/facturas-rectificacion.html"
+      },
+      "machine": {
+        "maxYears": 4
+      },
+      "anchors": [
+        "cuatro años"
+      ]
+    },
+    {
+      "id": "ES-RECT-CONTENT",
+      "topic": "correction",
+      "text": "A rectificativa states that it is a corrective document and identifies the invoices it corrects. Amounts are shown either as the difference (positive or negative) or as they stand after correction, with the amount of the correction stated.",
+      "authority": "law",
+      "gate": true,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "AEAT, Manual IVA 2026, facturas de rectificación",
+        "url": "https://sede.agenciatributaria.gob.es/Sede/ayuda/manuales-videos-folletos/manuales-practicos/manual-iva-2026/capitulo-10-obligac-formales-suj-registro/obligaciones-materia-facturacion/facturas-rectificacion.html"
+      },
+      "machine": {
+        "methods": [
+          "substitution",
+          "differences"
+        ],
+        "mustIdentifyOriginal": true,
+        "mustStateReason": true
+      },
+      "anchors": [
+        "identificación de las facturas rectificadas"
+      ]
+    },
+    {
+      "id": "ES-RECT-REMIT",
+      "topic": "correction",
+      "text": "A rectificativa is sent to the recipient before day 16 of the month following its issue.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "AEAT, Manual IVA 2026, facturas de rectificación",
+        "url": "https://sede.agenciatributaria.gob.es/Sede/ayuda/manuales-videos-folletos/manuales-practicos/manual-iva-2026/capitulo-10-obligac-formales-suj-registro/obligaciones-materia-facturacion/facturas-rectificacion.html"
+      },
+      "machine": {
+        "beforeDayOfNextMonth": 16
+      },
+      "anchors": [
+        "antes del día 16"
+      ]
+    },
+    {
+      "id": "ES-RECT-CODES",
+      "topic": "registry",
+      "text": "For the invoice registers, corrective invoices are coded R1 to R5 depending on the reason (legal error and art. 80 cases, insolvency, bad debt, other, simplified invoices).",
+      "authority": "tax-authority",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "AEAT, FAQ procedimientos de facturación (Verifactu)",
+        "url": "https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html"
+      },
+      "anchors": [
+        "\"R1\": Factura Rectificativa"
+      ],
+      "notes": "Reference only. InvoiceGuard does not yet file registry records."
+    },
+    {
+      "id": "ES-VERIFACTU",
+      "topic": "roadmap",
+      "text": "Verifactu billing-system rules: legal start dates are 1 Jan 2027 (corporate tax payers) and 1 Jul 2027 (others). Hacienda announced on 5 Oct 2026 a planned deferral to Oct 2028. Not yet confirmed in the BOE at last check. InvoiceGuard does not claim Verifactu compliance.",
+      "authority": "tax-authority",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "AEAT / Hacienda notes",
+        "url": "https://hacienda.gob.es/sgt/gabsehacienda/nota-informativa-verifactu.pdf"
+      },
+      "review_every_days": 14,
+      "notes": "Volatile. Re-verify against the BOE before relying on any date."
+    },
+    {
+      "id": "ES-INV-LANGUAGE",
+      "topic": "language",
+      "text": "Invoices may be issued in any language. The tax authority may require a translation into Spanish or another official language of Spain when it considers it necessary, for invoices in a language that is not official in Spain.",
+      "authority": "national",
+      "gate": false,
+      "status": "secondary",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "BOE, Real Decreto 1619/2012 (invoicing regulation)",
+        "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2012-14696"
+      },
+      "machine": {
+        "defaultLang": "es",
+        "anyLanguageAllowed": true,
+        "translationOnRequest": true,
+        "officialLangs": [
+          "es",
+          "ca",
+          "gl",
+          "eu"
+        ],
+        "bilingual": {
+          "allowed": true,
+          "basis": "follows_from_any_language"
+        }
+      },
+      "anchors": [],
+      "review_every_days": 90,
+      "notes": "Wording confirmed only from secondary quotations of RD 1619/2012 (docs.beel.es/rules/contents, Spanish law-firm summaries). The BOE page fetch was truncated, so the article number is not stated and there are no anchor phrases. Read the article in the BOE before relying on it. Two languages on one invoice: no source found forbids it. It follows from the any-language rule, not from a text that mentions bilingual invoices, unless noted."
+    },
+    {
+      "id": "ES-BUYER-CENSUS",
+      "topic": "buyer-verification",
+      "text": "The AEAT offers a free official name + NIF check (Web Service 'Calidad de datos identificativos', and the Modelo 030 'Comprobación de un NIF de terceros a efectos censales'). Both require the caller's own electronic certificate, DNI-e or Cl@ve. There is no anonymous endpoint, so InvoiceGuard cannot run it until the seller supplies a certificate.",
+      "authority": "national",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "AEAT, Comprobación de un NIF de terceros a efectos censales",
+        "url": "https://sede.agenciatributaria.gob.es/Sede/ayuda/consultas-informaticas/presentacion-declaraciones-ayuda-tecnica/modelo-030/comprobacion-nif-terceros-efectos-censales.html"
+      },
+      "machine": {
+        "census": "needs_certificate",
+        "offlineChecks": [
+          "nif_control_character"
+        ],
+        "technicalManual": "https://sede.agenciatributaria.gob.es/static_files/Sede/Biblioteca/Manual/Tecnicos/WS/030_036_037/Manual_Tecnico_WS_Masivo_Calidad_Datos_Identificativos.pdf"
+      },
+      "anchors": [],
+      "review_every_days": 90,
+      "notes": "Read from search excerpts of both AEAT pages, not the full pages (no anchor phrases). Until a certificate is configured, the pipeline checks the NIF control character offline and VIES name match, and reports the census check as 'not run', never as passed."
+    }
+  ]
+}

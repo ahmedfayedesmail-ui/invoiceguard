@@ -1,0 +1,83 @@
+{
+  "country": "NL",
+  "name": "Netherlands",
+  "marketplace_id": "A1805IZSGTT6HS",
+  "review_every_days": 90,
+  "coverage": "partial",
+  "rules": [
+    {
+      "id": "NL-INV-DEADLINE",
+      "topic": "deadline",
+      "text": "An invoice must be sent no later than the 15th day of the month following the supply.",
+      "authority": "law",
+      "gate": false,
+      "status": "verified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Business.gov.nl, invoice requirements",
+        "url": "https://business.gov.nl/regulations/invoice-requirements/"
+      },
+      "machine": {
+        "dayOfNextMonth": 15
+      },
+      "anchors": [
+        "15th day of the month following"
+      ]
+    },
+    {
+      "id": "NL-CORRECTION",
+      "topic": "correction",
+      "text": "Credit note and correction rules for the Netherlands have not been read yet.",
+      "authority": "law",
+      "gate": false,
+      "status": "unverified",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "(not yet sourced)",
+        "url": "https://business.gov.nl/regulations/invoice-requirements/"
+      }
+    },
+    {
+      "id": "NL-INV-LANGUAGE",
+      "topic": "language",
+      "text": "An invoice does not have to be in Dutch. The tax inspector may require a Dutch translation if needed for a control.",
+      "authority": "national",
+      "gate": false,
+      "status": "secondary",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Staatscourant 2014, 36166 (Besluit omzetbelasting, facturering), para. 3.3.5",
+        "url": "https://zoek.officielebekendmakingen.nl/stcrt-2014-36166.html"
+      },
+      "machine": {
+        "defaultLang": "nl",
+        "anyLanguageAllowed": true,
+        "translationOnRequest": true,
+        "bilingual": {
+          "allowed": true,
+          "basis": "follows_from_any_language"
+        }
+      },
+      "anchors": [],
+      "review_every_days": 90,
+      "notes": "Read directly: the Dutch guidance text quoted above (summary line for 3.3.5). WARNING: wetten.overheid.nl shows the later version of this regeling (BWBR0035935) as withdrawn as of 9 May 2025, so a successor text governs now and has not been located. Secondary sites (jortt.nl, btwvriend.nl, invoice.systems) still say no language is prescribed and a translation may be requested. Two languages on one invoice: no source found forbids it. It follows from the any-language rule, not from a text that mentions bilingual invoices, unless noted."
+    },
+    {
+      "id": "NL-INV-GUIDE",
+      "topic": "guidance",
+      "gate": false,
+      "authority": "guidance",
+      "status": "secondary",
+      "verified_on": "2026-11-25",
+      "source": {
+        "title": "Belastingdienst, Aan welke eisen moeten facturen voldoen voor uw btw-administratie?",
+        "url": "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/btw/administratie_bijhouden/facturen_maken/factuureisen/factuureisen"
+      },
+      "text": "The Dutch tax authority lists these invoice particulars: full legal names and addresses of seller and buyer (not a PO box), the seller's VAT ID, the KVK number if registered, issue date, a sequential invoice number used once, type and quantity of goods or type and extent of services, supply date or prepayment date, the amount excl. VAT (separate amounts and the unit price for different rates), the VAT rate and the VAT amount. Fewer particulars apply to invoices of 100 EUR or less incl. VAT, and extra particulars apply to foreign business.",
+      "notes": "Read from the tax authority's guidance page on 2026-11-25, not from the Wet OB text (art. 35a): SECONDARY. It does not open Dutch issuing. Primary text unreadable so far (wetten.overheid.nl returned navigation only). Not tax advice.",
+      "anchors": [
+        "Aan welke eisen moeten facturen voldoen"
+      ]
+    }
+  ]
+}

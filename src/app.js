@@ -1,0 +1,285 @@
+import { logSec, migrateSecLog, purgeSecLog, rotateKeys, passwordProblem, migrateSecurity, totpMatch, newTotpSecret, otpauthUrl, purgeBuyerData, PW_HISTORY, PW_MAX_AGE_DAYS } from './security.js';
+import http from 'node:http';
+import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { applyEdits } from './invoice.js';
+import { openDb, migrateAuth, logEvent, verifyAudit } from './db.js';
+import { landing, privacy, contact } from './site.js';
+import { applyBootReset } from './reset.js';
+import { planUpload } from './manual.js';
+import { makeZip } from './zip.js';
+import { oauthRoutes } from './oauth.js';
+import { hashPwAsync, checkPwAsync, hashQueueStats, Busy, encrypt, decrypt, newToken } from './auth.js';
+import { cachedValidator } from './viescache.js';
+import { SpApi, MARKETPLACE } from './spapi.js';
+import { MockApi } from './mockamazon.js';
+import { addOverride } from './verify.js';
+import { SETTINGS, LANGS } from './lang.js';
+import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
+import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections } from './pipeline.js';
+import { validateVat } from './vies.js';
+import { renderPdfCached as renderPdf } from './pdf.js';
+import * as F from './features.js';
+import { PACKS } from './rules.js';
+
+const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
+const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
+const PACK_HOWTO = `HOW TO SEND THESE INVOICES TO AMAZON
+InvoiceGuard does not connect to Amazon on this route. You upload the files yourself.
+
+1. Open Seller Central and go to Orders, then Manage Orders.
+2. Find the order (the order number is the first part of each PDF file name and is listed in manifest.csv).
+3. Open the order and choose "Upload invoice". Pick the PDF and type the invoice number from manifest.csv.
+   Menu names can differ by account. If you cannot find the option, look under the Orders menu for an invoice upload page, or ask Seller Support. Tell us what you see and we will update this guide.
+4. When you have uploaded them, go back to InvoiceGuard and press "I uploaded these".
+
+Check each total against the order in Seller Central before you upload. InvoiceGuard does not give tax or legal advice.
+`;
+const apis = new Map(); // seller_id -> api instance (mock keeps state)
+
+export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'dev-secret-change-me', validate = cachedValidator(validateVat), env = process.env, oauthFetch = fetch } = {}) {
+  migrateAuth(db); migrateSecurity(db); migrateSecLog(db);
+  const MAX_INFLIGHT = Number(process.env.MAX_INFLIGHT ?? 400); let inflight = 0;
+  const fails = new Map(); // login throttle: key -> { n, until }
+  const FAIL_MAX = 8, FAIL_WINDOW = 15 * 60e3;
+  const failKey = (req, email) => `${req.socket.remoteAddress}|${email}`;
+  const throttled = (k, max = FAIL_MAX) => { const f = fails.get(k); if (!f) return 0; if (f.until < Date.now()) { fails.delete(k); return 0; } return f.n >= max ? Math.ceil((f.until - Date.now()) / 1000) : 0; };
+  const noteFail = (k) => { const f = fails.get(k); if (!f || f.until < Date.now()) fails.set(k, { n: 1, until: Date.now() + FAIL_WINDOW }); else f.n++; if (fails.size > 50000) fails.delete(fails.keys().next().value); };
+  const secureFlag = (req) => (process.env.COOKIE_SECURE === '1' || req.headers['x-forwarded-proto'] === 'https') ? '; Secure' : '';
+  const json = (res, code, body, headers = {}) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
+  const readBody = (req, limit = 64e3) => new Promise((ok, no) => { let d = '', big = false; const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
+    req.on('data', c => { if (big) return; d += c; if (d.length > limit) { big = true; d = ''; } });
+    req.on('end', () => { if (big) return no(fail('That request is too large. Uploaded PDFs can be up to 5 MB.', 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
+    req.on('error', () => no(fail('bad request', 400))); });
+  const cookie = (req, n) => (req.headers.cookie ?? '').split(/;\s*/).map(c => c.split('=')).find(([k]) => k === n)?.[1];
+  const userOf = (req) => { const t = cookie(req, 'sid'); if (!t) return null; return db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>=?').get(t, Date.now()) ?? null; };
+  const sellerOf = (u) => u?.seller_id ? db.prepare('SELECT * FROM sellers WHERE id=?').get(u.seller_id) : null;
+
+  const oauth = oauthRoutes({ db, secret, env, fetchImpl: oauthFetch, userOf, sellerOf, forgetApi: (id) => apis.delete(id) });
+  function apiFor(seller) {
+    if (apis.has(seller.id)) return apis.get(seller.id);
+    const c = db.prepare('SELECT * FROM amazon_conn WHERE seller_id=?').get(seller.id);
+    if (!c) throw new Error('Amazon is not connected');
+    const api = c.mode === 'demo' ? new MockApi() : c.mode === 'manual' ? { manual: true, uploadInvoice: async () => 'manual' } : new SpApi(decrypt(c.secret_enc, secret));
+    apis.set(seller.id, api); return api;
+  }
+  async function sync(seller) {
+    if (db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(seller.id)?.mode === 'manual') throw Object.assign(new Error('Manual mode has no automatic sync. Upload an order report instead.'), { status: 409 });
+    const api = apiFor(seller), ids = JSON.parse(seller.marketplace_ids || '[]').map(c => MARKETPLACE[c]);
+    const rid = await api.requestVidr(ids); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
+    const out = await processReport(db, seller, text, { api, validate }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
+    const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, at: new Date().toISOString() };
+    db.prepare('UPDATE amazon_conn SET last_sync=?, last_sync_result=? WHERE seller_id=?').run(result.at, JSON.stringify({ detected: out.detected, uploaded: out.uploaded, held: out.held.length, deferred: out.deferred.length, errors: out.errors.length }), seller.id);
+    return result;
+  }
+  const DASH_LIMIT = Number(process.env.DASH_LIMIT ?? 500);
+  function dashboard(seller) {
+    const nowIso = new Date().toISOString();
+    const k = db.prepare("SELECT count(*) total, sum(status='uploaded') uploaded, sum(status='submitted') submitted, sum(status='held') held, sum(status IN ('held','rejected','error') OR (status='detected' AND due_at IS NOT NULL AND due_at < ?)) bad FROM shipments WHERE seller_id=?").get(nowIso, seller.id);
+    const rows = db.prepare('SELECT key, order_id, shipping_id, buyer, buyer_vat, country, total, vat, shipment_date, due_at, status, reason FROM shipments WHERE seller_id=? ORDER BY shipment_date DESC, key LIMIT ?').all(seller.id, DASH_LIMIT);
+    const inv = db.prepare('SELECT number, shipment_key, kind, rectifies, issued_at, total, upload_status FROM invoices WHERE seller_id=? ORDER BY issued_at DESC, number DESC LIMIT ?').all(seller.id, DASH_LIMIT);
+    const invTotal = db.prepare('SELECT count(*) n FROM invoices WHERE seller_id=?').get(seller.id).n;
+    const total = k.total ?? 0, bad = k.bad ?? 0;
+    const conn = db.prepare('SELECT mode, connected_at, last_sync, last_sync_result FROM amazon_conn WHERE seller_id=?').get(seller.id);
+    return { seller: { name: seller.name, nif: seller.nif, invoiceLang: seller.invoice_lang ?? 'auto', langOptions: Object.entries(LANGS) }, conn: conn && { ...conn, last_sync_result: conn.last_sync_result && JSON.parse(conn.last_sync_result) },
+      kpis: { ready: db.prepare("SELECT count(*) n FROM invoices WHERE seller_id=? AND upload_status='ready'").get(seller.id).n, total, uploaded: k.uploaded ?? 0, submitted: k.submitted ?? 0, held: k.held ?? 0, estDefectPct: total ? Math.round(bad / total * 1000) / 10 : 0 },
+      shown: { shipments: rows.length, shipmentsTotal: total, invoices: inv.length, invoicesTotal: invTotal },
+      shipments: rows.map(r => ({ ...r, legal: r.shipment_date ? legalDeadline(r.shipment_date, seller.country ?? 'ES')?.date : null })), invoices: inv, vatChecks: db.prepare('SELECT vat, status, name, checked_at FROM vat_checks WHERE seller_id=? ORDER BY checked_at DESC LIMIT 10').all(seller.id) };
+  }
+
+  const server = http.createServer(async (req, res) => {
+    if (inflight >= MAX_INFLIGHT) { res.writeHead(503, { 'content-type': 'application/json', 'retry-after': '2' }); return res.end('{"error":"The server is busy. Please try again in a few seconds."}'); }
+    inflight++; res.on('close', () => { inflight--; });
+    res.setHeader('x-content-type-options', 'nosniff'); res.setHeader('referrer-policy', 'no-referrer'); res.setHeader('x-frame-options', 'DENY');
+    try {
+      // CSRF root fix: a state-changing request must come from this site. Browsers always send Origin on cross-site POSTs.
+      if (req.method !== 'GET' && req.method !== 'HEAD') { const o = req.headers.origin; if (o) { let same = false; try { same = new URL(o).host === req.headers.host; } catch {} if (!same) return json(res, 403, { error: 'Request blocked: it did not come from this site.' }); } }
+      const url = new URL(req.url, 'http://x'), p = url.pathname;
+      if (req.method === 'GET' && p === '/favicon.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' }); return res.end(FAVICON); }
+      const PUB = { '/': landing, '/privacy': privacy, '/contact': contact };
+      const PUBLIC_READY = !!(process.env.OPERATOR_NAME && process.env.CONTACT_EMAIL); // public pages stay off until the operator identity is set
+      if (req.method === 'GET' && PUB[p] && !PUBLIC_READY) { if (p === '/') { res.writeHead(302, { location: '/app' }); return res.end(); } return json(res, 404, { error: 'Not found' }); }
+      if (req.method === 'GET' && PUB[p]) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' }); return res.end(PUB[p]()); }
+      if (await oauth.handle(req, res, url, p)) return;
+      if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
+      const em = p.match(/^\/e\/([a-f0-9]{24})$/);
+      if (req.method === 'GET' && em) { const html = F.explainerPage(db, em[1]); if (!html) return json(res, 404, { error: 'not found' }); res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(html); }
+      if (!p.startsWith('/api/')) return json(res, 404, { error: 'not found' });
+      if (req.method !== 'GET' && !String(req.headers['content-type']).startsWith('application/json')) return json(res, 415, { error: 'json only' });
+      const body = req.method === 'GET' ? {} : await readBody(req, p === '/api/export/external' ? 8e6 : p.startsWith('/api/manual/') ? 6e6 : 64e3);
+      if (p === '/api/signup') {
+        const email = String(body.email ?? '').trim().toLowerCase(), pw = String(body.password ?? '');
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(res, 400, { error: 'Enter a valid email' });
+        { const pr = passwordProblem(pw, email); if (pr) return json(res, 400, { error: pr }); }
+        if (db.prepare('SELECT 1 FROM users WHERE email=?').get(email)) return json(res, 409, { error: 'An account with this email already exists' });
+        const { salt, hash } = await hashPwAsync(pw), id = randomUUID();
+        try { db.prepare('INSERT INTO users (id,email,salt,hash,seller_id,created_at,pw_changed_at) VALUES (?,?,?,?,?,?,?)').run(id, email, salt, hash, null, new Date().toISOString(), new Date().toISOString()); db.prepare('INSERT INTO pw_history VALUES (?,?,?,?)').run(id, salt, hash, new Date().toISOString()); } catch (e) { if (/UNIQUE/.test(e.message)) return json(res, 409, { error: 'An account with this email already exists' }); throw e; }
+        logSec(db, req, 'signup', id, email); const t = newToken(); db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(t, id, Date.now() + 14 * 864e5);
+        return json(res, 200, { ok: true }, { 'set-cookie': `sid=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600${secureFlag(req)}` });
+      }
+      if (p === '/api/login') {
+        const em = String(body.email ?? '').trim().toLowerCase(), fk = failKey(req, em), ak = 'acct|' + em, wait = Math.max(throttled(fk), throttled(ak, 10)); // per IP+email, and per account across all IPs
+        if (wait) { logSec(db, req, 'login_locked', null, em); } if (wait) return json(res, 429, { error: `Too many wrong attempts. Try again in ${Math.ceil(wait / 60)} minute(s).` }, { 'retry-after': String(wait) });
+        const u = db.prepare('SELECT * FROM users WHERE email=?').get(em);
+        const okPw = u ? await checkPwAsync(String(body.password ?? ''), u.salt, u.hash) : (await checkPwAsync(String(body.password ?? ''), 'unknown-user-salt', '0'), false); // same work either way, so timing does not reveal which emails exist
+        if (!okPw) { logSec(db, req, 'login_failed', u?.id ?? null, em); noteFail(fk); noteFail(ak); return json(res, 401, { error: 'Wrong email or password' }); }
+        const mf = db.prepare('SELECT * FROM mfa WHERE user_id=? AND enabled=1').get(u.id);
+        if (mf) {
+          const step = body.code ? totpMatch(decrypt(mf.secret_enc, secret), body.code) : null;
+          if (!body.code) return json(res, 401, { error: 'Enter the 6-digit code from your authenticator app', mfa: true });
+          if (step === null || step <= mf.last_step) { logSec(db, req, 'mfa_failed', u.id, em); noteFail(fk); noteFail(ak); return json(res, 401, { error: 'That code did not work. Check the time on your phone and try the next code.', mfa: true }); }
+          db.prepare('UPDATE mfa SET last_step=? WHERE user_id=?').run(step, u.id);
+        }
+        fails.delete(fk); fails.delete(ak); logSec(db, req, 'login_ok', u.id, em);
+        const t = newToken(); db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(t, u.id, Date.now() + 14 * 864e5);
+        return json(res, 200, { ok: true }, { 'set-cookie': `sid=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600${secureFlag(req)}` });
+      }
+      const user = userOf(req); if (!user) return json(res, 401, { error: 'Sign in required' });
+      if (p === '/api/logout') { logSec(db, req, 'logout', user.id); db.prepare('DELETE FROM sessions WHERE token=?').run(cookie(req, 'sid')); return json(res, 200, { ok: true }, { 'set-cookie': 'sid=; Max-Age=0; Path=/' }); }
+      if (p === '/api/password') {
+        const cur = String(body.current ?? ''), nw = String(body.next ?? ''), fk = 'pw|' + user.id; if (throttled(fk, 10)) return json(res, 429, { error: 'Too many wrong attempts. Try again later.' });
+        if (!(await checkPwAsync(cur, user.salt, user.hash))) { noteFail(fk); return json(res, 401, { error: 'Your current password is wrong' }); }
+        const pr = passwordProblem(nw, user.email); if (pr) return json(res, 400, { error: pr });
+        for (const h of db.prepare('SELECT salt, hash FROM pw_history WHERE user_id=? ORDER BY at DESC LIMIT ?').all(user.id, PW_HISTORY)) if (await checkPwAsync(nw, h.salt, h.hash)) return json(res, 400, { error: `Choose a password you have not used in your last ${PW_HISTORY}` });
+        const { salt, hash } = await hashPwAsync(nw), now = new Date().toISOString();
+        db.prepare('UPDATE users SET salt=?, hash=?, pw_changed_at=? WHERE id=?').run(salt, hash, now, user.id); db.prepare('INSERT INTO pw_history VALUES (?,?,?,?)').run(user.id, salt, hash, now);
+        logSec(db, req, 'password_changed', user.id); db.prepare('DELETE FROM sessions WHERE user_id=? AND token != ?').run(user.id, cookie(req, 'sid')); return json(res, 200, { ok: true });
+      }
+      if (p === '/api/mfa/setup') { // starts setup; two-step sign-in is only switched on after a correct code
+        const mf = db.prepare('SELECT enabled FROM mfa WHERE user_id=?').get(user.id); if (mf?.enabled) return json(res, 409, { error: 'Two-step sign-in is already on' });
+        if (secret === 'dev-secret-change-me') return json(res, 500, { error: 'Server is not configured: set APP_SECRET first' });
+        const sec = newTotpSecret(); db.prepare('INSERT INTO mfa (user_id,secret_enc,enabled,last_step,created_at) VALUES (?,?,0,0,?) ON CONFLICT(user_id) DO UPDATE SET secret_enc=excluded.secret_enc, enabled=0, last_step=0').run(user.id, encrypt(sec, secret), new Date().toISOString());
+        return json(res, 200, { secret: sec, url: otpauthUrl(user.email, sec) });
+      }
+      if (p === '/api/mfa/enable') {
+        const mf = db.prepare('SELECT * FROM mfa WHERE user_id=?').get(user.id); if (!mf) return json(res, 400, { error: 'Start setup first' });
+        const step = totpMatch(decrypt(mf.secret_enc, secret), body.code); if (step === null) return json(res, 400, { error: 'That code did not work. Check the time on your phone and try again.' });
+        db.prepare('UPDATE mfa SET enabled=1, last_step=? WHERE user_id=?').run(step, user.id); logSec(db, req, 'mfa_enabled', user.id); return json(res, 200, { ok: true });
+      }
+      if (p === '/api/mfa/disable') {
+        const mf = db.prepare('SELECT * FROM mfa WHERE user_id=? AND enabled=1').get(user.id); if (!mf) return json(res, 400, { error: 'Two-step sign-in is not on' });
+        const fk = 'mfa|' + user.id; if (throttled(fk, 10)) return json(res, 429, { error: 'Too many wrong attempts. Try again later.' });
+        const step = totpMatch(decrypt(mf.secret_enc, secret), body.code);
+        if (!(await checkPwAsync(String(body.password ?? ''), user.salt, user.hash)) || step === null || step <= mf.last_step) { noteFail(fk); return json(res, 401, { error: 'Password or code is wrong' }); }
+        db.prepare('DELETE FROM mfa WHERE user_id=?').run(user.id); logSec(db, req, 'mfa_disabled', user.id); return json(res, 200, { ok: true });
+      }
+      if (p === '/api/me') { const s = sellerOf(user); const c = s && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(s.id); return json(res, 200, { email: user.email, oauth: oauth.available(), security: { twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(user.id), passwordAgeDays: user.pw_changed_at ? Math.floor((Date.now() - Date.parse(user.pw_changed_at)) / 864e5) : null, passwordMaxAgeDays: PW_MAX_AGE_DAYS }, seller: s && { country: s.country ?? 'ES', name: s.name, nif: s.nif, address: s.address, marketplaces: JSON.parse(s.marketplace_ids), profile: sellerProfile(s) }, amazon: c?.mode ?? null }); }
+      if (p === '/api/seller') {
+        const { name, nif, address, marketplaces } = body; const cc = String(body.country ?? 'ES').toUpperCase(); if (!/^[A-Z]{2}$/.test(cc)) return json(res, 400, { error: 'Choose the country you issue invoices from' }); const mk = (marketplaces ?? []).filter(m => MARKETPLACE[m]);
+        if (!name || !nif || !address || !mk.length) return json(res, 400, { error: 'Name, tax ID, address and at least one marketplace are required' });
+        const id = user.seller_id ?? randomUUID();
+        db.prepare('INSERT INTO sellers (id,name,nif,address,email,marketplace_ids,created_at,country) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET country=excluded.country, name=excluded.name, nif=excluded.nif, address=excluded.address, marketplace_ids=excluded.marketplace_ids')
+          .run(id, name, String(nif).toUpperCase(), address, user.email, JSON.stringify(mk), new Date().toISOString(), cc);
+        db.prepare('UPDATE users SET seller_id=? WHERE id=?').run(id, user.id); return json(res, 200, { ok: true });
+      }
+      const seller = sellerOf(user); if (!seller) return json(res, 409, { error: 'Complete your seller profile first' });
+      if (p === '/api/seller/profile') { const c = cleanProfile(body); if (c.errors.length) return json(res, 400, { error: c.errors.join('. ') }); db.prepare('UPDATE sellers SET profile=? WHERE id=?').run(JSON.stringify(c.profile), seller.id); logEvent(db, seller.id, 'profile_updated', { fields: Object.keys(c.profile) }); return json(res, 200, { ok: true, profile: c.profile }); }
+      if (p === '/api/amazon/oauth/start') { const r = oauth.start(user, seller, body); return json(res, r.code, r.body); }
+      if (p === '/api/amazon/connect') {
+        let mode, enc = null;
+        if (body.demo) mode = 'demo'; else if (body.manual) mode = 'manual';
+        else { if (secret === 'dev-secret-change-me') return json(res, 500, { error: 'Server is not configured for live credentials: set APP_SECRET to a long random value first' }); const { clientId, clientSecret, refreshToken } = body; if (!clientId || !clientSecret || !refreshToken) return json(res, 400, { error: 'Client ID, client secret and refresh token are required' }); mode = 'live'; enc = encrypt({ clientId, clientSecret, refreshToken, region: 'EU' }, secret); }
+        db.prepare('INSERT INTO amazon_conn (seller_id,mode,secret_enc,connected_at) VALUES (?,?,?,?) ON CONFLICT(seller_id) DO UPDATE SET mode=excluded.mode, secret_enc=excluded.secret_enc, connected_at=excluded.connected_at').run(seller.id, mode, enc, new Date().toISOString());
+        apis.delete(seller.id); logEvent(db, seller.id, 'amazon_connected', { mode }); return json(res, 200, { ok: true, mode });
+      }
+      if (p === '/api/settings') { if (!SETTINGS.includes(body.invoiceLang)) return json(res, 400, { error: 'Unknown invoice language setting' }); db.prepare('UPDATE sellers SET invoice_lang=? WHERE id=?').run(body.invoiceLang, seller.id); return json(res, 200, { ok: true }); }
+      if (p === '/api/audit/verify') { const r = verifyAudit(db, seller.id); return json(res, 200, { ...r, entries: db.prepare('SELECT COUNT(*) n FROM audit WHERE seller_id=?').get(seller.id).n }); }
+      if (p === '/api/export.csv') {
+        const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const rows = db.prepare('SELECT number, kind, rectifies, issued_at, total, vat, shipment_key, upload_status FROM invoices WHERE seller_id=? ORDER BY number').all(seller.id);
+        const csv = ['number,type,rectifies,issued_at,total_eur,vat_eur,shipment,amazon_upload', ...rows.map(r => [r.number, r.kind, r.rectifies, r.issued_at, r.total, r.vat, r.shipment_key, r.upload_status].map(q).join(','))].join('\n');
+        res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="invoices.csv"' }); return res.end(csv);
+      }
+      if (p === '/api/radar') return json(res, 200, { ...F.radar(db, seller, new Date(), 500), alerts: F.listAlerts(db, seller) });
+      if (p === '/api/wizard') return json(res, 200, F.wizard(db, { country: seller.country ?? 'ES', ...body, marketplaces: body.marketplaces ?? JSON.parse(seller.marketplace_ids || '[]') }));
+      const mc = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/checks$/);
+      if (mc) { const r = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, mc[1]); return r ? json(res, 200, { warnings: F.buyerCountryCheck(JSON.parse(r.json), seller.country ?? 'ES') }) : json(res, 404, { error: 'not found' }); }
+      if (p === '/api/export.zip') { try { const x = await F.buildExport(db, seller, body.from, body.to); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoices-${body.from}-to-${body.to}.zip"`, 'x-count': String(x.count) }); return res.end(x.zip); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/export/external') { try { return json(res, 200, F.addExternalDoc(db, seller, body)); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/buyer/message') return json(res, 200, F.buyerMessage(String(body.orderId ?? ''), body.country));
+      if (p === '/api/b2c') { try { return json(res, 200, F.convertToConsumerInvoice(db, seller, String(body.key), seller.email ?? seller.name)); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/watch') return json(res, 200, F.watchReport(db, seller));
+      if (p === '/api/watch/add') { try { return json(res, 200, F.watchAdd(db, seller, body.vat, body.label)); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/watch/remove') { F.watchRemove(db, seller, body.vat); return json(res, 200, { ok: true }); }
+      if (p === '/api/watch/run') return json(res, 200, { changes: await F.watchRun(db, seller, validate.fresh ?? validate, { force: true }) });
+      if (p === '/api/explainer') return json(res, 200, F.explainerState(db, seller));
+      if (p === '/api/explainer/review') return json(res, 200, F.explainerReview(db, seller, seller.email ?? seller.name));
+      if (p === '/api/explainer/unpublish') { F.explainerUnpublish(db, seller); return json(res, 200, { ok: true }); }
+      if (p === '/api/rules') return json(res, 200, { packs: allRuleStates(db), notResearched: ['GB', 'CH'], disclaimer: 'Reference data with official sources. Not legal or tax advice: have a gestor or lawyer review it before you rely on it.' });
+      if (p === '/api/rules/check') { const r = await checkSources(db, { only: body.rule }); return json(res, 200, { checked: r.length, unreachable: r.filter(x => x.fetch !== 'ok').length, missing: r.filter(x => x.missing.length).map(x => x.id) }); }
+      if (p === '/api/rules/review') { try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/manual/preview' || p === '/api/manual/issue') {
+        const plan = planUpload(String(body.text ?? ''), { useDeliveryAddress: body.useDeliveryAddress === true });
+        if (!plan.ok) return json(res, 400, { error: plan.error, format: plan.format ?? null });
+        const view = { format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: plan.truncated, willIssue: plan.shipments.length, held: plan.held.map(h => ({ orderId: h.orderId, reason: h.reason })).slice(0, 100), heldCount: plan.held.length, skippedCount: plan.skipped.length, skipped: plan.skipped.slice(0, 20),
+          sample: plan.shipments.slice(0, 20).map(x => ({ orderId: x.orderId, buyer: x.buyerCompany, buyerVat: x.buyerVat, currency: x.currency, total: x.incl, vat: x.vat })) };
+        if (p === '/api/manual/preview') return json(res, 200, view);
+        if (body.attest !== true) return json(res, 400, { error: 'Please confirm the two checks first.' });
+        const prev = (key) => db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, key)?.status;
+        for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; if (!['ready', 'uploaded', 'submitted'].includes(prev(st.key))) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
+        const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
+        logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
+        return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length });
+      }
+      if (p === '/api/invoices/mark') {
+        const nums = body.all === true ? db.prepare("SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready'").all(seller.id).map(r => r.number) : (Array.isArray(body.numbers) ? body.numbers.map(String).slice(0, 5000) : []);
+        let n = 0; const now = new Date().toISOString();
+        for (const num of nums) { const r = db.prepare("SELECT shipment_key FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); n++; }
+        if (n) logEvent(db, seller.id, 'marked_uploaded', { count: n }); return json(res, 200, { ok: true, marked: n });
+      }
+      if (p === '/api/pack') {
+        const rows = db.prepare("SELECT number, issued_at, total, vat, json FROM invoices WHERE seller_id=? AND upload_status='ready' ORDER BY number LIMIT 2000").all(seller.id);
+        if (!rows.length) return json(res, 404, { error: 'No invoices are waiting. Upload an order report first.' });
+        const safe = (x) => String(x ?? '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60), cell = (v) => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+        const files = [], man = ['invoice_number,order_id,buyer,buyer_vat,issue_date,currency,total_incl_vat,vat,file'];
+        for (const r of rows) { const inv = JSON.parse(r.json), name = `${safe(inv.orderId)}_${safe(r.number)}.pdf`; files.push({ name, data: await renderPdf(inv) }); man.push([r.number, inv.orderId, inv.buyer?.name, inv.buyer?.vat, String(inv.issueDate ?? '').slice(0, 10), inv.currency, r.total, r.vat, name].map(cell).join(',')); }
+        files.push({ name: 'manifest.csv', data: Buffer.from('\uFEFF' + man.join('\r\n') + '\r\n') }, { name: 'HOW-TO-UPLOAD.txt', data: Buffer.from(PACK_HOWTO) });
+        const zip = makeZip(files); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoiceguard-pack-${new Date().toISOString().slice(0, 10)}.zip"`, 'cache-control': 'no-store', 'content-length': zip.length }); return res.end(zip);
+      }
+      if (p === '/api/sync') return json(res, 200, await sync(seller));
+      if (p === '/api/dashboard') return json(res, 200, dashboard(seller));
+      if (p === '/api/vat/check') { const v = await (validate.fresh ?? validate)(String(body.vat ?? '')); return json(res, 200, v); }
+      const m = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/pdf$/);
+      if (m) { const r = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, m[1]); if (!r) return json(res, 404, { error: 'not found' }); const pdf = await renderPdf(JSON.parse(r.json)); res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': `inline; filename="${m[1]}.pdf"` }); return res.end(pdf); }
+      const mj = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/json$/);
+      if (mj) { const r = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, mj[1]); return r ? json(res, 200, JSON.parse(r.json)) : json(res, 404, { error: 'not found' }); }
+      if (p === '/api/rectify') {
+        const { number, mode, reason } = body; const row = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, String(number));
+        if (!row) return json(res, 404, { error: 'Invoice not found' });
+        let changes; try { changes = applyEdits(JSON.parse(row.json), body); } catch (e) { return json(res, 400, { error: e.message }); }
+        if (!changes.changed) return json(res, 400, { error: 'Nothing to correct. Change at least one field.' });
+        if (mode === 'differences' && !changes.amountChanged) return json(res, 400, { error: 'The differences method needs an amount change. Use substitution for data-only corrections.' });
+        let r; try { r = await issueRectificativa(db, seller, number, { mode: mode ?? 'substitution', reason, changes }, { api: apiFor(seller), validate }); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); } // a refusal by a rule pack: shown to the user, not a server fault
+        return json(res, 200, { number: r.rect.number, documentType: r.documentType });
+      }
+      if ((p === '/api/release' || p === '/api/retry') && (typeof body.key !== 'string' || !body.key || body.key.length > 200)) return json(res, 400, { error: 'Choose a shipment first.' });
+      if (p === '/api/release') { // operator vouches for the buyer data after a name/census mismatch hold; recorded in the event log
+        const row = db.prepare("SELECT reason FROM shipments WHERE seller_id=? AND key=? AND status='held'").get(seller.id, body.key); if (!row) return json(res, 404, { error: 'No held shipment with that key' });
+        const id = /VIES registers/.test(row.reason) ? 'vies_name' : /AEAT census/.test(row.reason) ? 'census' : null; if (!id) return json(res, 400, { error: 'This hold cannot be released. Fix the underlying data instead.' });
+        addOverride(db, seller.id, body.key, id, seller.email ?? seller.name); logEvent(db, seller.id, 'hold_released', { key: body.key, check: id });
+        db.prepare("UPDATE shipments SET status='detected', reason=NULL WHERE seller_id=? AND key=?").run(seller.id, body.key); return json(res, 200, { ok: true });
+      }
+      if (p === '/api/retry') { // re-run a held shipment after the buyer fixed their VAT: clears hold so the next sync re-checks it
+        { const r = db.prepare('SELECT buyer_vat FROM shipments WHERE seller_id=? AND key=?').get(seller.id, body.key); if (r?.buyer_vat) validate.forget?.(r.buyer_vat); } // the buyer fixed it: ask VIES again, do not reuse the old answer
+        db.prepare("UPDATE shipments SET status='detected', reason=NULL WHERE seller_id=? AND key=? AND status IN ('held','error','rejected')").run(seller.id, body.key); return json(res, 200, { ok: true });
+      }
+      return json(res, 404, { error: 'not found' });
+    } catch (e) { if (e?.busy) return json(res, 503, { error: e.message }, { 'retry-after': '3' }); if (e?.status) return json(res, e.status, { error: e.message }); console.error('internal error', req.method, req.url, e?.stack || e); return json(res, 500, { error: 'Something went wrong on our side. Nothing was changed. Please try again.' }); }
+  });
+  server.requestTimeout = 60e3; server.headersTimeout = 15e3; server.keepAliveTimeout = 65e3;
+  return { server, db, sync, stats: () => ({ inflight, ...hashQueueStats(), vies: validate.stats?.() }) };
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const { server, db, sync } = createApp({ db: openDb(process.env.DB_FILE ?? 'invoiceguard.db') });
+  const purge = () => { try { db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now()); } catch (e) { console.error('session purge failed', e.message); } };
+  applyBootReset(db); rotateKeys(db, process.env.APP_SECRET ?? 'dev-secret-change-me', process.env.APP_SECRET_PREVIOUS); purgeSecLog(db); setInterval(() => { try { purgeSecLog(db); } catch (e) { console.error(e.message); } }, 24 * 3600e3).unref(); purge(); const piiPurge = () => { try { const n = purgeBuyerData(db); if (n) console.log(`buyer data removed from ${n} shipment record(s)`); } catch (e) { console.error('buyer-data purge failed', e.message); } }; piiPurge(); setInterval(piiPurge, 6 * 3600e3).unref(); setInterval(purge, 3600e3).unref();
+  const port = Number(process.env.PORT ?? 3000);
+  server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));
+  const recheck = async () => { try { const r = await checkSources(db); console.log(`rule re-check: ${r.length} sources, ${r.filter(x => x.missing.length).length} with missing anchor text`); } catch (e) { console.error('rule re-check failed', e.message); } };
+  if (!process.env.NO_RULE_CHECK) { setTimeout(recheck, 30e3).unref(); setInterval(recheck, 24 * 3600e3).unref(); }
+  setInterval(async () => { for (const s of db.prepare('SELECT * FROM sellers').all()) { try { await F.watchRun(db, s, validateVat); } catch (e) { console.error('watch failed', e.message); } } }, 24 * 3600e3).unref();
+  setInterval(async () => { // scheduler: Amazon's report is requested every 12 h in their SLA guidance; we poll hourly
+    for (const s of db.prepare('SELECT s.* FROM sellers s JOIN amazon_conn c ON c.seller_id=s.id WHERE c.mode != "manual"').all()) { try { await sync(s); } catch (e) { console.error('sync failed', s.id, e.message); } }
+  }, 3600e3).unref();
+}
