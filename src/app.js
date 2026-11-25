@@ -179,6 +179,10 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         let mode, enc = null;
         if (body.demo) mode = 'demo'; else if (body.manual) mode = 'manual';
         else { if (secret === 'dev-secret-change-me') return json(res, 500, { error: 'Server is not configured for live credentials: set APP_SECRET to a long random value first' }); const { clientId, clientSecret, refreshToken } = body; if (!clientId || !clientSecret || !refreshToken) return json(res, 400, { error: 'Client ID, client secret and refresh token are required' }); mode = 'live'; enc = encrypt({ clientId, clientSecret, refreshToken, region: 'EU' }, secret); }
+        if (mode === 'manual' && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(seller.id)?.mode === 'demo') { // leaving the simulated demo: remove its made-up data so it never mixes with real invoices
+          db.exec('BEGIN'); try { for (const t of ['shipments', 'invoices', 'vat_checks', 'counters', 'audit', 'alerts', 'vat_watch', 'vat_watch_log', 'ext_docs']) { try { db.prepare(`DELETE FROM ${t} WHERE seller_id=?`).run(seller.id); } catch (e) { if (!/no such table/.test(e.message)) throw e; } } db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+          logEvent(db, seller.id, 'demo_data_removed', {});
+        }
         db.prepare('INSERT INTO amazon_conn (seller_id,mode,secret_enc,connected_at) VALUES (?,?,?,?) ON CONFLICT(seller_id) DO UPDATE SET mode=excluded.mode, secret_enc=excluded.secret_enc, connected_at=excluded.connected_at').run(seller.id, mode, enc, new Date().toISOString());
         apis.delete(seller.id); logEvent(db, seller.id, 'amazon_connected', { mode }); return json(res, 200, { ok: true, mode });
       }

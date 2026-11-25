@@ -70,3 +70,17 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
   const d2 = (await call('dashboard')).body; assert.equal(d2.kpis.ready, 0); assert.equal(d2.kpis.uploaded, 1);
   server.close();
 });
+
+test('leaving demo mode removes the sample data and lands on the upload route', async () => {
+  const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test' }); await new Promise(r => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`; let sid = '';
+  const call = async (path, body) => { const r = await fetch(base + '/api/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: body === undefined ? undefined : JSON.stringify(body) }); const c = r.headers.get('set-cookie'); if (c) sid = c.split(';')[0]; return { status: r.status, body: await r.json().catch(() => null) }; };
+  await call('signup', { email: 'dm@x.es', password: 'Long-Enough-Pw-42!' });
+  await call('seller', { name: 'Tienda Demo S.L.', nif: 'b11111111', address: 'Calle Falsa 1, Madrid', marketplaces: ['ES'] });
+  await call('amazon/connect', { demo: true }); await call('sync', {});
+  assert.ok((await call('dashboard')).body.kpis.total > 0);
+  assert.equal((await call('amazon/connect', { manual: true })).body.mode, 'manual');
+  const d = (await call('dashboard')).body; assert.equal(d.kpis.total, 0); assert.equal(d.invoices.length, 0); assert.equal(d.conn.mode, 'manual');
+  assert.equal((await call('audit/verify')).body.ok, true);
+  server.close();
+});
