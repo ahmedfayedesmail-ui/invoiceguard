@@ -24,6 +24,17 @@ test('robots.txt and sitemap.xml exist when the operator is set, 404 when not', 
   h.server.close();
 });
 
+test('unknown public path gets the branded 404 when the operator is set, JSON otherwise', async () => {
+  process.env.OPERATOR_NAME = 'T';
+  let h = createApp({ secret: 'test' }); await new Promise(r => h.server.listen(0, r)); let u = 'http://localhost:' + h.server.address().port;
+  const r = await fetch(u + '/nope'); assert.equal(r.status, 404); assert.match(await r.text(), /That page does not exist/);
+  h.server.close();
+  delete process.env.OPERATOR_NAME;
+  h = createApp({ secret: 'test' }); await new Promise(r => h.server.listen(0, r)); u = 'http://localhost:' + h.server.address().port;
+  const r2 = await fetch(u + '/nope'); assert.equal(r2.status, 404); assert.match(r2.headers.get('content-type'), /json/);
+  h.server.close();
+});
+
 test('public pages stay off until the operator identity is set', async () => {
   delete process.env.OPERATOR_NAME; delete process.env.CONTACT_EMAIL;
   const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;

@@ -69,6 +69,13 @@ export function privacy(env = process.env) {
 <h2>Changes</h2><p>If we change this notice in a way that matters, we will update the date above and tell active users.</p>`, env, 'How InvoiceGuard handles your data.');
 }
 
+export function notFound(env = process.env) {
+  return page('Page not found: InvoiceGuard', `
+<section class="hero"><h1>That page does not exist.</h1>
+<p class="lead">The link may be old or mistyped. Everything here lives in one of these places:</p>
+<p><a class="btn" href="/">Home</a> &nbsp; <a class="btn alt" href="/sample">Live sample</a> &nbsp; <a class="btn alt" href="/faq">FAQ</a> &nbsp; <a class="btn alt" href="/contact">Contact</a></p></section>`, env, 'Page not found.');
+}
+
 export function faq(env = process.env) {
   return page('InvoiceGuard: frequently asked questions', `
 <h1>Frequently asked questions</h1>

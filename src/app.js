@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
 import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode } from './db.js';
-import { landing, privacy, contact, sample, faq } from './site.js';
+import { landing, privacy, contact, sample, faq, notFound } from './site.js';
 import { sampleRun, samplePdf } from './sample.js';
 import { applyBootReset } from './reset.js';
 import { planUpload } from './manual.js';
@@ -155,7 +155,10 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
       const em = p.match(/^\/e\/([a-f0-9]{24})$/);
       if (req.method === 'GET' && em) { const html = F.explainerPage(db, em[1]); if (!html) return json(res, 404, { error: 'not found' }); res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(html); }
-      if (!p.startsWith('/api/')) return json(res, 404, { error: 'not found' });
+      if (!p.startsWith('/api/')) {
+        if (req.method === 'GET' && PUBLIC_READY) { res.writeHead(404, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'" }); return res.end(notFound(process.env)); }
+        return json(res, 404, { error: 'not found' });
+      }
       if (req.method !== 'GET' && !String(req.headers['content-type']).startsWith('application/json')) return json(res, 415, { error: 'json only' });
       const body = req.method === 'GET' ? {} : await readBody(req, p === '/api/export/external' ? 8e6 : p.startsWith('/api/manual/') ? 6e6 : 64e3);
       if (p === '/api/signup') {
