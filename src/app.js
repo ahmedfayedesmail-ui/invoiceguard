@@ -1,7 +1,7 @@
 import { logSec, migrateSecLog, purgeSecLog, rotateKeys, passwordProblem, migrateSecurity, totpMatch, newTotpSecret, otpauthUrl, purgeBuyerData, PW_HISTORY, PW_MAX_AGE_DAYS } from './security.js';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
 import { openDb, migrateAuth, logEvent, verifyAudit } from './db.js';
 import { landing, privacy, contact } from './site.js';
@@ -97,9 +97,30 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       const url = new URL(req.url, 'http://x'), p = url.pathname;
       if (req.method === 'GET' && p === '/favicon.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' }); return res.end(FAVICON); }
       const PUB = { '/': landing, '/privacy': privacy, '/contact': contact };
-      const PUBLIC_READY = !!(process.env.OPERATOR_NAME && process.env.CONTACT_EMAIL); // public pages stay off until the operator identity is set
+      const PUBLIC_READY = !!process.env.OPERATOR_NAME; // public pages stay off until the operator identity is set
       if (req.method === 'GET' && PUB[p] && !PUBLIC_READY) { if (p === '/') { res.writeHead(302, { location: '/app' }); return res.end(); } return json(res, 404, { error: 'Not found' }); }
-      if (req.method === 'GET' && PUB[p]) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' }); return res.end(PUB[p]()); }
+      if (req.method === 'GET' && PUB[p]) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' }); return res.end(p === '/contact' ? contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }) : PUB[p]()); }
+      if (req.method === 'POST' && p === '/contact' && PUBLIC_READY) { // plain HTML form: stored on our own server only
+        const to = (loc) => { res.writeHead(303, { location: loc, 'cache-control': 'no-store' }); return res.end(); };
+        if (!String(req.headers['content-type'] ?? '').startsWith('application/x-www-form-urlencoded')) return to('/contact?err=1');
+        let raw = ''; let big = false; await new Promise(ok => { req.on('data', c => { if (big) return; raw += c; if (raw.length > 8000) { big = true; raw = ''; } }); req.on('end', ok); req.on('error', ok); });
+        if (big) return to('/contact?err=1');
+        const f = new URLSearchParams(raw), msg = String(f.get('message') ?? '').trim(), em = String(f.get('email') ?? '').trim();
+        if (f.get('website')) return to('/contact?sent=1'); // honeypot: bots fill it, we pretend it worked and store nothing
+        if (msg.length < 5 || msg.length > 2000 || em.length > 200 || (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))) return to('/contact?err=1');
+        const xf = String(req.headers['x-forwarded-for'] ?? '').split(',').map(s => s.trim()).filter(Boolean), ip = xf.length ? xf[xf.length - 1] : req.socket.remoteAddress, ik = 'contact|' + ip;
+        if (throttled(ik, 3) || throttled('contact|all', 60)) return to('/contact?err=2');
+        noteFail(ik); noteFail('contact|all');
+        db.prepare('INSERT INTO contact_messages (id, ts, email, message) VALUES (?,?,?,?)').run(randomUUID(), new Date().toISOString(), em || null, msg);
+        db.prepare('DELETE FROM contact_messages WHERE ts < ?').run(new Date(Date.now() - 180 * 864e5).toISOString());
+        return to('/contact?sent=1');
+      }
+      if (req.method === 'GET' && p === '/admin/messages') { // operator-only read of contact messages, disabled unless ADMIN_TOKEN is set
+        const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
+        const h = (x) => createHash('sha256').update(x).digest();
+        if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
+        return json(res, 200, { messages: db.prepare('SELECT ts, email, message FROM contact_messages ORDER BY ts DESC LIMIT 200').all() });
+      }
       if (await oauth.handle(req, res, url, p)) return;
       if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
       const em = p.match(/^\/e\/([a-f0-9]{24})$/);
@@ -277,6 +298,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
 if (import.meta.url === `file://${process.argv[1]}`) {
   const { server, db, sync } = createApp({ db: openDb(process.env.DB_FILE ?? 'invoiceguard.db') });
   const purge = () => { try { db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now()); } catch (e) { console.error('session purge failed', e.message); } };
+  db.exec('CREATE TABLE IF NOT EXISTS contact_messages (id TEXT PRIMARY KEY, ts TEXT, email TEXT, message TEXT)');
   applyBootReset(db); rotateKeys(db, process.env.APP_SECRET ?? 'dev-secret-change-me', process.env.APP_SECRET_PREVIOUS); purgeSecLog(db); setInterval(() => { try { purgeSecLog(db); } catch (e) { console.error(e.message); } }, 24 * 3600e3).unref(); purge(); const piiPurge = () => { try { const n = purgeBuyerData(db); if (n) console.log(`buyer data removed from ${n} shipment record(s)`); } catch (e) { console.error('buyer-data purge failed', e.message); } }; piiPurge(); setInterval(piiPurge, 6 * 3600e3).unref(); setInterval(purge, 3600e3).unref();
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));

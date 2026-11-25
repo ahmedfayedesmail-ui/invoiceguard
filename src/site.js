@@ -17,7 +17,7 @@ const page = (title, body, env, desc) => `<!doctype html><html lang="en"><head><
 <main>${body}</main>
 <footer><a href="/">Home</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a><div style="margin-top:8px">InvoiceGuard is a pilot-stage tool. It is not tax or legal advice.</div></footer></body></html>`;
 const who = (c) => c.name ? esc(c.name) : 'the InvoiceGuard operator';
-const contactLine = (c) => c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : 'the contact address on the <a href="/contact">contact page</a>';
+const contactLine = (c) => c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : 'the form on the <a href="/contact">contact page</a>';
 
 export function landing(env = process.env) {
   return page('InvoiceGuard: B2B invoices for Amazon sellers, checked before they go out', `
@@ -51,6 +51,7 @@ export function privacy(env = process.env) {
 <tr><td>Invoices we issue for you and a log of what was issued and when</td><td>So you have your records and they cannot be quietly altered.</td></tr>
 <tr><td>Your Amazon connection credentials, encrypted (AES-256-GCM) with a key held only on the server</td><td>Only if a direct Amazon connection is switched on, which it is not today.</td></tr>
 <tr><td>A security log: time, type of event (sign-in, failed sign-in, password change), your network address, and a short fingerprint of the email, never the password</td><td>To spot and investigate attacks. Kept for 13 months.</td></tr>
+<tr><td>Messages you send through the contact form (the text, and the email address only if you give one)</td><td>To answer you. Stored on our own server only, never forwarded, deleted after 180 days.</td></tr>
 <tr><td>A sign-in cookie</td><td>To keep you signed in. It is strictly necessary, HttpOnly and Secure. We set no other cookies.</td></tr></table>
 <h2>Who else sees data</h2><ul>
 <li><b>EU VIES service</b> (European Commission): when a buyer VAT number is checked, the number is sent to VIES to find out whether it is valid.</li>
@@ -59,17 +60,24 @@ export function privacy(env = process.env) {
 <li>We do not sell data, share it for advertising, or give it to anyone else, unless the law requires it.</li></ul>
 <h2>Amazon data</h2><p>Data we receive from Amazon is used only to prepare, check and keep your invoices for you. We do not use it for marketing, we do not combine it with other sources, and we do not share it with other sellers.</p>
 <h2>How long we keep it</h2><p>Account details are kept while your account is active. Buyer personal data that comes from Amazon is kept only as long as it is needed to issue and keep the invoice, and only as long as Amazon's data protection rules and the tax rules that apply to you allow. Invoices may have to be kept for years under those tax rules. When you ask us to delete your account, we delete its data, or return it to you first, and we tell you if something has to be kept by law.</p>
-<h2>Your rights</h2><p>If the EU GDPR applies to you or your buyers, you can ask us to show you your data, correct it, delete it, or hand it over in a usable file, and you can object to how it is used. Email ${contactLine(c)}. We aim to reply within 30 days. You can also complain to your local data protection authority.</p>
+<h2>Your rights</h2><p>If the EU GDPR applies to you or your buyers, you can ask us to show you your data, correct it, delete it, or hand it over in a usable file, and you can object to how it is used. Contact us through ${contactLine(c)}. We aim to reply within 30 days. You can also complain to your local data protection authority.</p>
 <h2>Security</h2><p>Connections use HTTPS. Passwords must be at least 12 characters and are hashed. You can turn on two-step sign-in with an authenticator app. Accounts lock for a while after repeated wrong passwords. Amazon credentials are encrypted. Buyer names and billing addresses are removed from our order records 30 days after shipment. Write requests are checked against cross-site attacks, sign-in attempts are rate limited, and each page sends security headers. No system is perfectly safe; if we ever learn of a breach that affects you, we will tell you.</p>
 <h2>Changes</h2><p>If we change this notice in a way that matters, we will update the date above and tell active users.</p>`, env, 'How InvoiceGuard handles your data.');
 }
 
-export function contact(env = process.env) {
+export function contact(env = process.env, opts = {}) {
   const c = cfg(env);
   return page('Contact InvoiceGuard', `
 <h1>Contact</h1>
 <p>${who(c)}${c.country ? ', ' + esc(c.country) : ''} runs InvoiceGuard.</p>
-<div class="card"><h3>Email</h3><p>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : 'Contact details are being set up.'}</p><p class="mut">For questions, the free pilot, data requests (see the <a href="/privacy">privacy notice</a>) and bug reports. We aim to reply within a few working days.</p></div>
+${c.email ? `<div class="card"><h3>Email</h3><p><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></p></div>` : ''}
+${opts.sent ? '<div class="note"><b>Thank you.</b> Your message was received. We aim to reply within a few working days, if you left an email address.</div>' : ''}${opts.err === '2' ? '<div class="note">Too many messages from your connection. Please try again later.</div>' : opts.err ? '<div class="note">Your message could not be sent. It must be 5 to 2000 characters, and the email address, if given, must be valid.</div>' : ''}
+<div class="card"><h3>Send us a message</h3>
+<form method="post" action="/contact"><p><label for="m">Message</label><br><textarea id="m" name="message" rows="6" maxlength="2000" required style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea></p>
+<p><label for="e">Your email, only if you want a reply (optional)</label><br><input id="e" name="email" type="email" maxlength="200" style="width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px"></p>
+<p style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
+<p><button class="btn" type="submit" style="border:0;cursor:pointer;font:inherit;font-weight:600">Send</button></p></form>
+<p class="mut">For questions, the free pilot, data requests (see the <a href="/privacy">privacy notice</a>) and bug reports. Please do not send passwords or customer data. Messages are stored on our own server only and deleted after 180 days. We aim to reply within a few working days.</p></div>
 <h2>Free pilot</h2><p>We are looking for a few Amazon sellers who issue B2B invoices in the EU. You try InvoiceGuard for free, you tell us what is missing. The Amazon connection is still being approved, so today the pilot starts with sample data and your honest feedback.</p>
-<h2>Security issues</h2><p>If you find a security problem, please email us and give us a reasonable time to fix it before sharing it.</p>`, env, 'Contact the InvoiceGuard team or join the free pilot.');
+<h2>Security issues</h2><p>If you find a security problem, please send us a message and give us a reasonable time to fix it before sharing it.</p>`, env, 'Contact the InvoiceGuard team or join the free pilot.');
 }

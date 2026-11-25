@@ -19,3 +19,20 @@ test('public pages stay off until the operator identity is set', async () => {
   assert.equal((await fetch(u + '/privacy')).status, 404); assert.equal((await fetch(u + '/contact')).status, 404); assert.equal((await fetch(u + '/app')).status, 200);
   server.close();
 });
+test('contact form: stored on our server, honeypot, validation, rate limit, admin read needs the token', async () => {
+  process.env.OPERATOR_NAME = 'T'; delete process.env.CONTACT_EMAIL; process.env.ADMIN_TOKEN = 'x'.repeat(32);
+  const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;
+  const html = await (await fetch(u + '/contact')).text(); assert.match(html, /<form method="post" action="\/contact">/); assert.doesNotMatch(html, /mailto:/);
+  const post = (body) => fetch(u + '/contact', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
+  let r = await post('message=' + encodeURIComponent('Hello, I am a seller <b>x</b>') + '&email=s%40example.com&website='); assert.equal(r.status, 303); assert.equal(r.headers.get('location'), '/contact?sent=1');
+  r = await post('message=bot+message+here&website=http%3A%2F%2Fspam'); assert.equal(r.headers.get('location'), '/contact?sent=1');
+  r = await post('message=hi'); assert.equal(r.headers.get('location'), '/contact?err=1');
+  r = await post('message=valid+message&email=notanemail'); assert.equal(r.headers.get('location'), '/contact?err=1');
+  assert.match(await (await fetch(u + '/contact?sent=1')).text(), /Thank you/);
+  assert.equal((await fetch(u + '/admin/messages')).status, 404); assert.equal((await fetch(u + '/admin/messages', { headers: { authorization: 'Bearer wrong' } })).status, 404);
+  const a = await (await fetch(u + '/admin/messages', { headers: { authorization: 'Bearer ' + 'x'.repeat(32) } })).json();
+  assert.equal(a.messages.length, 1); assert.match(a.messages[0].message, /seller/);
+  await post('message=second+message'); await post('message=third+message'); r = await post('message=fourth+message'); assert.equal(r.headers.get('location'), '/contact?err=2');
+  r = await fetch(u + '/contact', { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json', origin: 'http://evil.example' }, body: '{}' }); assert.equal(r.status, 403);
+  server.close(); delete process.env.OPERATOR_NAME; delete process.env.ADMIN_TOKEN;
+});
