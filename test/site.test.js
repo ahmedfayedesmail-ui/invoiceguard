@@ -114,3 +114,10 @@ test('weekly summary: admin-gated aggregates over events, invoices, accounts and
   assert.equal(d.windowDays, 7); assert.equal(d.newAccounts, 1); assert.ok('pv:/' in d.counters); assert.ok(d.eventsByType && d.invoicesByStatus);
   server.close(); delete process.env.ADMIN_TOKEN;
 });
+test('sample page script handles VIES-unavailable runs honestly', async () => {
+  process.env.OPERATOR_NAME = 'T';
+  const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;
+  const js = await (await fetch(u + '/sample.js')).text();
+  assert.match(js, /Waiting/); assert.match(js, /holds instead of guessing/); assert.match(js, /VIES unavailable/);
+  server.close(); delete process.env.OPERATOR_NAME;
+});
