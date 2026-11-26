@@ -64,8 +64,10 @@ github.com/amzn/selling-partner-api-models. Round-7 audit, 2026-11-26.
 | C5 | Report amounts can be locale-formatted | Reviewer nitpick, handled conservatively | vidr num(): rightmost of '.'/',' is the decimal separator; tests for "1,234.56" and "1.234,56" |
 | C6 | The upload throttle must also count failed attempts | Reviewer nitpick | `lastUpload` stamped before createFeed, not only on success |
 
-C7. Feed processing-report parsing (round-10): the settle path lifts a known-feed resend block
-only when a report line naming the document carries a failure marker, or the feed is CANCELLED.
-Real Amazon report layouts are unproven against a live seller account; ambiguity always keeps the
-human hold, never resends. The live-Amazon gate (ALLOW_LIVE_CONNECT) is enforced at oauth start,
-the OAuth callback, the apiFor choke point, sync entry and the hourly scheduler - mock-verified.
+C7. Feed processing reports (round-10, revised 10c): reports are downloaded and LOGGED as
+evidence for the human reviewer, but NO automatic resend decision is ever taken from report
+text - the real format is unproven against a live seller account and keyword matching lost to
+realistic layouts in reviewer reproduction. A known-feed resend block lifts only on the feed
+being CANCELLED (provably never processed) or on human dismissal after checking Seller Central.
+The live-Amazon gate (ALLOW_LIVE_CONNECT) is enforced at oauth start, the OAuth callback, the
+apiFor choke point, sync entry and the hourly scheduler - mock-verified.

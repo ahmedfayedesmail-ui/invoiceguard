@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth } from '../src/db.js';
 import { processReport, settleUnknownDocuments, unknownSettleCheck } from '../src/pipeline.js';
 import { createApp } from '../src/app.js';
+import { listRepairs, decideRepair, proposeRejectedRetry } from '../src/repair.js';
 import { encrypt } from '../src/auth.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
@@ -119,49 +120,40 @@ test('G2 (his verbatim scenario): known FATAL feed + VIDR still Pending + same F
   assert.match(String(block), /never resolved at document level/);
 });
 
-test('G2: the block lifts on document-level evidence (CANCELLED feed / report proves failure), holds on success', async () => {
-  // CANCELLED: the feed provably never ran.
+test('G2 (round-10c contract): report text NEVER lifts the block - only CANCELLED or a human', async () => {
+  const apiF = { uploadInvoice: async () => 'feed-N', feedStatus: async () => ({ status: 'FATAL', resultDocumentId: 'doc1' }), listFeeds: async () => [] };
+  // CANCELLED: the feed provably never ran -> the SAME document is resent.
   let db = openDb(); const n1 = seedUnknownCorrection(db);
   const apiC = { uploadInvoice: async () => 'feed-N', feedStatus: async () => ({ status: 'CANCELLED' }), listFeeds: async () => [{ feedId: 'feed-F1', status: 'CANCELLED', createdTime: new Date(Date.now() - 3500e3).toISOString() }] };
   const out1 = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiC, validate: vies });
   assert.deepEqual(out1.resubmitted, [n1]);
-  // Processing report proving OUR document failed: safe same-document retry.
-  db = openDb(); const n2 = seedUnknownCorrection(db);
-  db.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n2, feedId: 'feed-F1', fatal: true, report: `original-doc-id\tdoc-id\terror-code\nTX9\t${n2}\terror: totals mismatch - record failed` }));
-  const apiF = { uploadInvoice: async () => 'feed-N', feedStatus: async () => ({ status: 'FATAL', resultDocumentId: 'doc1' }), listFeeds: async () => [] };
-  const out2 = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiF, validate: vies });
-  assert.deepEqual(out2.resubmitted, [n2]);
-  // Report shows the document was ACCEPTED: never resent, hold stays.
-  db = openDb(); const n3 = seedUnknownCorrection(db);
-  db.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n3, feedId: 'feed-F1', report: `TX9\t${n3}\taccepted successfully` }));
-  const out3 = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiF, validate: vies });
-  assert.deepEqual(out3.resubmitted, [], 'accepted document must not be resent');
-  // Ambiguous report: hold stays (conservative default).
-  db = openDb(); const n4 = seedUnknownCorrection(db);
-  db.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n4, feedId: 'feed-F1', report: `processing summary for batch ${n4}` }));
-  const out4 = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiF, validate: vies });
-  assert.deepEqual(out4.resubmitted, [], 'ambiguity keeps the human hold');
-});
-
-test('G2 (reviewer repro): success phrasing and mixed lines can NEVER lift the resend block', async () => {
-  const apiF = { uploadInvoice: async () => 'feed-N', feedStatus: async () => ({ status: 'FATAL', resultDocumentId: 'doc1' }), listFeeds: async () => [] };
+  // Every report phrasing - including a genuine failure verdict, every reviewer repro, and
+  // realistic layouts - keeps the hold with ZERO uploads. Report text is human evidence only.
   for (const [label, line] of [
+    ['genuine failure verdict', (n) => `original-doc-id\tdoc-id\terror-code\nTX9\t${n}\terror: totals mismatch - record failed`],
+    ['accepted', (n) => `TX9\t${n}\taccepted successfully`],
     ['zero error count', (n) => `${n}\tprocessed successfully, 0 errors`],
     ['negated errors', (n) => `${n}\tcompleted - no errors found`],
     ['mixed markers', (n) => `${n}\taccepted; earlier errors corrected`],
+    ['reversed negation (reviewer repro)', (n) => `${n}\tOK\tErrors: 0`],
+    ['validation none (reviewer repro)', (n) => `${n}\tvalidation errors: none`],
+    ['TSV layout (reviewer repro)', (n) => `OK\t${n} Errors: 0`],
+    ['ambiguous', (n) => `processing summary for batch ${n}`],
   ]) {
-    const db = openDb(); const n = seedUnknownCorrection(db); const uploads = [];
+    const db2 = openDb(); const n = seedUnknownCorrection(db2); const uploads = [];
     const api = { ...apiF, uploadInvoice: async () => { uploads.push(n); return 'feed-N'; } };
-    db.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n, feedId: 'feed-F1', report: line(n) }));
-    const out = await settleUnknownDocuments(db, seller, pendingReport(), { api, validate: vies });
-    assert.deepEqual(out.resubmitted, [], `${label}: a successful/ambiguous report must keep the hold`);
+    db2.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n, feedId: 'feed-F1', report: line(n) }));
+    const out = await settleUnknownDocuments(db2, seller, pendingReport(), { api, validate: vies });
+    assert.deepEqual(out.resubmitted, [], `${label}: report text must never lift the block`);
     assert.equal(uploads.length, 0, `${label}: nothing reached Amazon`);
   }
-  // sanity: a genuine failure report still lifts the block (the escape hatch is real).
-  const db = openDb(); const n = seedUnknownCorrection(db);
-  db.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n, feedId: 'feed-F1', report: `${n}\terror: totals mismatch - record rejected` }));
-  const out = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiF, validate: vies });
-  assert.deepEqual(out.resubmitted, [n], 'a proven-failure report still clears the same-document resend');
+  // The human path: dismiss the hold after checking Seller Central -> the next sync resends.
+  db = openDb(); const n3 = seedUnknownCorrection(db);
+  proposeRejectedRetry(db, seller, { eventKey: 'UNKNOWN:REFUND:TX9', kind: 'unknown_outcome', number: n3, originalNumber: 'A-2026-000001', shipmentKey: 'REFUND:TX9', rectNumber: n3, action: 'hold', reason: 'test hold' });
+  const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
+  decideRepair(db, seller.id, hold.event_key, 'dismissed');
+  const out3 = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiF, validate: vies });
+  assert.deepEqual(out3.resubmitted, [n3], 'a human dismissal clears the same-document resend');
 });
 
 test('G2: a crash-window document (no blocking feed recorded) still uses the orphan cross-check', async () => {

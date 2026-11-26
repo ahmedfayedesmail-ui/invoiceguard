@@ -480,23 +480,13 @@ export async function unknownSettleCheck(db, seller, api, number) {
     let st = null;
     try { st = await api.feedStatus(bf); } catch { st = null; }
     if (st?.status === 'CANCELLED') logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'feed CANCELLED - Amazon provably never processed it' });
-    else {
-      // Document-level evidence: the report logged when the feed was polled, or fetched live now
-      // when Amazon exposes a result document. 'failed' lifts the block (Amazon provably does not
-      // hold a usable document); success, ambiguity and any fetch failure keep the human hold.
-      let verdict = null;
-      const rep = db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='feed_result' AND detail LIKE ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"feedId":"${bf}"%`);
-      if (rep) verdict = feedDocVerdict(rep.detail, number);
-      if (verdict !== 'failed' && st?.resultDocumentId && typeof api.downloadFeedResult === 'function') {
-        try {
-          const live = String(await api.downloadFeedResult(st.resultDocumentId));
-          logEvent(db, seller.id, 'feed_result', { number, feedId: bf, status: st.status, report: live.slice(0, 4000) });
-          verdict = feedDocVerdict(JSON.stringify({ report: live }), number);
-        } catch { /* no evidence: the hold stays */ }
-      }
-      if (verdict === 'failed') logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'processing report proves the document failed' });
-      else return `Feed ${bf} (${st?.status ?? 'outcome unconfirmed'}) was never resolved at document level and no evidence proves Amazon does not hold ${number} - it is NOT resent automatically. Check the feed's processing report in Seller Central; if Amazon does not hold the document, dismiss the hold in Repairs and the next sync resends it.`;
-    }
+    // Round-10c (reviewer decision): NO automatic lift from processing-report text. The real
+    // report format is unproven against a live seller account, and keyword matching kept losing
+    // to realistic layouts ("Errors: 0", reversed negations, TSV columns). The downloaded report
+    // stays logged as evidence for the human - it is never a resend trigger. The block lifts
+    // exactly two ways: CANCELLED above (Amazon provably never processed the feed), or a human
+    // who checked Seller Central dismissing the hold (handled before this branch).
+    else return `Feed ${bf} (${st?.status ?? 'outcome unconfirmed'}) was never resolved at document level, so ${number} is NOT resent - no automatic resend happens on report text alone. The block lifts exactly two ways: the feed proves Amazon never processed it (CANCELLED), or you check the document in Seller Central and dismiss the hold in Repairs - the next sync then resends the same document.`;
   }
   const since = new Date(attemptTs - 15 * 60e3).toISOString(), until = attemptTs + 15 * 60e3;
   if (typeof api.listFeeds !== 'function') return `Amazon's feed list is not available to cross-check the interrupted upload of ${number}, so it is NOT resent automatically. Check it in Seller Central.`;
@@ -509,31 +499,6 @@ export async function unknownSettleCheck(db, seller, api, number) {
   const orphans = (feeds ?? []).filter(f => !known.has(f.feedId) && f.status !== 'CANCELLED' && new Date(f.createdTime).getTime() <= until);
   if (orphans.length) return `Amazon's feed list shows feed ${orphans[0].feedId} (${orphans[0].status}, created ${orphans[0].createdTime}) from the interruption window of ${number} that we never recorded - Amazon may hold the document, so it is NOT resent automatically. Check that feed in Seller Central; if Amazon does not hold the document, dismiss the hold in Repairs and the next sync resends it.`;
   return null;
-}
-
-/** Conservative document-level verdict from a feed processing report: 'failed' only when a report
- * line naming the document also carries an error/failure marker; 'accepted' when it carries a
- * success marker; otherwise null (unresolved - the human hold stays). Real Amazon report formats
- * are unproven against a live seller account, so ambiguity NEVER lifts a resend block. */
-function feedDocVerdict(detail, number) {
-  let d; try { d = JSON.parse(detail); } catch { return null; }
-  const rep = String(d.report ?? ''); if (!rep || !rep.includes(number)) return null;
-  let failed = false, accepted = false;
-  for (const raw of rep.split('\n').filter(l => l.includes(number))) {
-    // Negated and zero error counts are success phrasing, not failure evidence ("0 errors", "no
-    // errors") - strip them before matching, or a plainly successful report reads as failed
-    // (reviewer round-10 repro: "processed successfully, 0 errors" lifted the block).
-    const line = raw.replace(/(?:no|0|zero)[ -]errors?/gi, ' ');
-    const bad = /error|failed|rejected|invalid/i.test(line);
-    const good = /accepted|success|processed|uploaded|done/i.test(line);
-    // A line carrying BOTH markers is ambiguous ("accepted; earlier errors corrected"), and
-    // ambiguity NEVER lifts a resend block.
-    if (bad && good) return null;
-    if (bad) failed = true;
-    if (good) accepted = true;
-  }
-  if (failed && accepted) return null; // conflicting lines: same rule
-  return failed ? 'failed' : accepted ? 'accepted' : null;
 }
 
 /** Fresh-report settling for correction documents whose upload outcome is unknown. An event still

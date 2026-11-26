@@ -577,11 +577,9 @@ test('boot recovery never closes a repair on an unknown or rejected document', a
 
 test('the crash window between Amazon acceptance and the local write is recovered as unknown, never blindly resent', async () => {
   const db = openDb();
-  let docNumber = null;
-  const api2 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE', resultDocumentId: 'rd1' }), downloadFeedResult: async () => `record\tdoc\tstatus\n1\t${docNumber}\terror: processing failed`, listFeeds: async () => [] };
+  const api2 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT number, shipment_key FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
-  docNumber = inv.number;
   // simulate the crash: Amazon accepted, the process died before the feed id was saved
   db.prepare("UPDATE invoices SET upload_status='sending' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, inv.shipment_key);
@@ -590,14 +588,17 @@ test('the crash window between Amazon acceptance and the local write is recovere
   const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
   assert.ok(hold, 'a human-visible hold exists for the crashed upload');
   await assert.rejects(() => approveRepair(db, seller, hold.event_key, { api: api2, validate: vies }), /Nothing was re-uploaded/);
-  // fresh report still lists the shipment as due -> the settle path resends the same document once
-  // the blocking feed's processing report proves the document failed (round-10 contract: "still
-  // due" alone never lifts the block, the report names the document with a failure verdict).
+  // fresh report still lists the shipment as due: the blocking feed is unresolved (DONE, no
+  // provable verdict), so NO automatic resend happens (round-10c: report text never lifts the
+  // block). The human checks Seller Central and dismisses the hold -> the next sync resends.
+  await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown', 'no automatic resend on an unresolved feed');
+  decideRepair(db, seller.id, hold.event_key, 'dismissed');
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'no second invoice was burned');
   await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
-  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'uploaded');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'uploaded', "Amazon's verdict closes the document");
 });
 
 test('an unknown-outcome credit note refuses re-approval and is settled by the fresh report (return flow)', async () => {
@@ -819,7 +820,7 @@ test('a FATAL feed is never treated as never-processed: unknown + hold, no retry
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
   // Amazon stops the feed with a FATAL error and generated a processing report
   const fatal = { feedStatus: async () => ({ status: 'FATAL', resultDocumentId: 'rd1' }),
-    downloadFeedResult: async (id) => { resultFetched++; assert.equal(id, 'rd1'); return 'record\tdoc\tstatus\n1\t' + inv.number + '\terror: simulated fatal failure'; } };
+    downloadFeedResult: async (id) => { resultFetched++; assert.equal(id, 'rd1'); return 'record-status\tmessage\nerror\tsimulated fatal report'; } };
   await pollFeeds(db, seller, fatal);
   assert.equal(resultFetched, 1, 'the FATAL processing report was fetched as evidence (Amazon generates one only sometimes)');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown',
@@ -829,11 +830,16 @@ test('a FATAL feed is never treated as never-processed: unknown + hold, no retry
   assert.equal(holds[0].suggestion.action, 'hold');
   assert.ok(!listRepairs(db, seller.id).some(r => ['retry_upload', 'retry_rect'].includes(r.suggestion.action)), 'FATAL alone never justifies a resend: no retry was proposed');
   assert.equal(calls, 1, 'nothing was resent during the poll');
-  // the fresh report still lists the shipment as due and the logged processing report proves THIS
-  // document failed -> the settle path resends the SAME document (round-10: the report, not the
-  // due-state, lifts the block).
-  const out = await processReport(db, seller, singleRow(null), { api: api0, validate: vies });
-  assert.equal(calls, 2, 'exactly one resend through the settle path');
+  // the fresh report still lists the shipment as due: the FATAL feed was never resolved at
+  // document level, so there is NO automatic resend - the logged report is human evidence only
+  // (round-10c). The human checks Seller Central and dismisses the hold -> the next sync resends
+  // the SAME document.
+  await processReport(db, seller, singleRow(null), { api: api0, validate: vies });
+  assert.equal(calls, 1, 'no automatic resend on report text alone');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown');
+  decideRepair(db, seller.id, holds[0].event_key, 'dismissed');
+  await processReport(db, seller, singleRow(null), { api: api0, validate: vies });
+  assert.equal(calls, 2, 'exactly one resend, after the human decision');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
 });
 
