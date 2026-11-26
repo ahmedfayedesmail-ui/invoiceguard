@@ -388,7 +388,8 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
   // Round-17 (critic round-15 P1-B): a newer report being fetched/processed RIGHT NOW blocks the
   // approval - issuing would race information that is already on its way in. The block lifts on
   // sync success (snapshot stored) or failure (mark cleared), never stuck.
-  if (snap?.in_flight || snap?.store_pending) throw new Error('A sync is running right now and a newer Amazon report is being processed, so this credit note is not issued yet. Review it again when the sync finishes. Nothing was issued.');
+  if (snap?.store_pending) throw new Error('A previous sync did not finish, so a newer Amazon report may exist that was never stored. This credit note is not issued until a sync or a report upload completes. Nothing was issued.');
+  if (snap?.in_flight) throw new Error('A sync is running right now and a newer Amazon report is being processed, so this credit note is not issued yet. Review it again when the sync finishes. Nothing was issued.');
   // Round-17 (critic round-15 P1-A): freshness is ordered by report GENERATION (one per report),
   // never by attempt_seq. A NULL stamp (a proposal recorded before freshness tracking) is older
   // than ANY stored snapshot, so it is re-validated too; with no snapshot at all there is nothing
@@ -486,4 +487,14 @@ export function decideRepair(db, sellerId, eventKey, decision) {
     try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
     logEvent(db, sellerId, 'unknown_hold_dismissed', { key: eventKey, number });
   }
+}
+
+/** Round-21 (critic round-18 P2): take a manually uploaded report in. The STORE is the recovery
+ * valve for a store_pending block, so a store failure must surface (it throws) - it is never
+ * treated as "a report with no refund rows". Only proposal detection may legitimately find
+ * nothing (non-VIDR formats), so only that step is allowed to fail quietly. */
+export function takeInManualReport(db, seller, text, { gen, seq, requestedAt, store = recordReportSnapshot }) {
+  store(db, seller.id, { gen, seq, requestedAt, text });
+  try { return detectRepairs(db, seller, text, { reportAttemptSeq: seq, reportRequestedAt: requestedAt, reportGen: gen }).proposed; }
+  catch { return 0; } // non-VIDR formats carry no refund rows
 }

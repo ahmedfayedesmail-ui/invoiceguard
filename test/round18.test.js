@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, currentAttemptSeq, nextReportGen } from '../src/db.js';
 import { processReport } from '../src/pipeline.js';
-import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport } from '../src/repair.js';
+import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, takeInManualReport } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'selR18', name: 'Test S.L.', nif: 'B1', address: 'x', country: 'ES' };
@@ -78,12 +78,12 @@ test('R16-2: the store ITSELF fails after download - the block stays up, survive
   markReportInFlight(db, seller.id, new Date('2026-11-26T10:00:00Z').toISOString());
   markReportStorePending(db, seller.id);
   // (storeDownloadedReport threw - simulated by never completing it)
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'the approval stays blocked');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/, 'the approval stays blocked');
   assert.equal(rectCount(db), 0, 'nothing was issued');
   // A crash and restart must NOT release this block: the last stored snapshot is known-stale.
   reconcileReportMarksAtBoot(db);
   assert.equal(latestReportSnapshot(db, seller.id).in_flight, 1, 'boot did not release a store-pending block');
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'still blocked after boot');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/, 'still blocked after boot');
   // The next sync retries: the download stores successfully and processing completes.
   const g2 = nextReportGen(db, seller.id);
   markReportInFlight(db, seller.id, new Date('2026-11-27T10:00:00Z').toISOString());
@@ -128,11 +128,11 @@ test('R16-5 (reviewer HOLD on 43a15bb): store failure, then a PRE-DOWNLOAD failu
   markReportInFlight(db, seller.id, new Date('2026-11-27T10:00:00Z').toISOString());
   clearReportInFlight(db, seller.id);
   assert.equal(latestReportSnapshot(db, seller.id).in_flight, 1, 'the pre-download failure did not release the store-pending block');
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'approval still blocked');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/, 'approval still blocked');
   assert.equal(rectCount(db), 0, 'nothing issued from the known-stale snapshot');
   // Defense in depth: even with in_flight forced off, store_pending alone blocks approval.
   db.prepare('UPDATE report_snapshots SET in_flight=0 WHERE seller_id=?').run(seller.id);
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'store_pending alone blocks');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/, 'store_pending alone blocks');
   // Next successful sync stores its report: block lifts, stale proposal is held.
   const g2 = nextReportGen(db, seller.id);
   markReportInFlight(db, seller.id, new Date('2026-11-28T10:00:00Z').toISOString());
@@ -153,12 +153,12 @@ test('R17-1 (critic round-17): crash BETWEEN downloadReport and markReportStoreP
   const s = latestReportSnapshot(db, seller.id);
   assert.equal(s.in_flight, 1, 'boot did not clear the mark');
   assert.equal(s.store_pending, 1, 'a crashed run cannot prove no newer report arrived');
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'approval blocked');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/, 'approval blocked');
   assert.equal(rectCount(db), 0, 'zero financial documents issued');
   // A later live-process pre-download failure still cannot release it.
   markReportInFlight(db, seller.id, new Date('2026-11-27T10:00:00Z').toISOString());
   clearReportInFlight(db, seller.id);
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'still blocked');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/, 'still blocked');
   // A successful sync stores the newer report (amounts halved): the block lifts and the stale proposal is held.
   const g2 = nextReportGen(db, seller.id);
   markReportInFlight(db, seller.id, new Date('2026-11-28T10:00:00Z').toISOString());
@@ -167,4 +167,30 @@ test('R17-1 (critic round-17): crash BETWEEN downloadReport and markReportStoreP
   clearReportInFlight(db, seller.id);
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /different refund amounts/, 'stale proposal held by revalidation');
   assert.equal(rectCount(db), 0, 'never issued from stale data');
+});
+
+test('R18-1 (critic round-18 P2): manual path - a STORE failure surfaces loudly and the block stays up; a successful manual store lifts it and approval proceeds', async () => {
+  const db = openDb();
+  const { p } = await seedProposal(db);
+  db.prepare('UPDATE report_snapshots SET in_flight=1, store_pending=1 WHERE seller_id=?').run(seller.id); // crashed-run block
+  const failingStore = () => { throw new Error('disk I/O error'); };
+  assert.throws(() => takeInManualReport(db, seller, refundReport(), { gen: nextReportGen(db, seller.id), seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString(), store: failingStore }), /disk I\/O error/, 'a store failure is NOT swallowed as "no refund rows"');
+  assert.equal(latestReportSnapshot(db, seller.id).store_pending, 1, 'the block is still up');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/);
+  assert.equal(rectCount(db), 0, 'nothing issued');
+  // A successful manual store (matching data) releases the valve.
+  takeInManualReport(db, seller, refundReport(), { gen: nextReportGen(db, seller.id), seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString() });
+  const s = latestReportSnapshot(db, seller.id);
+  assert.equal(s.in_flight, 0); assert.equal(s.store_pending, 0);
+  const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
+  assert.ok(res.rectNumber, 'approval proceeds after the successful manual store');
+});
+
+test('R18-2 (cosmetic): the block message distinguishes a running sync from a previous sync that did not finish', async () => {
+  const db = openDb();
+  const { p } = await seedProposal(db);
+  markReportInFlight(db, seller.id, new Date().toISOString());
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running right now/);
+  markReportStorePending(db, seller.id);
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/);
 });

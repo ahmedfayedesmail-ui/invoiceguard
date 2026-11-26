@@ -99,7 +99,7 @@ test('R15-5 (P1-B, superseded by round-20): a CRASHED sync leaves an in-flight m
   recordReportSnapshot(db, seller.id, { gen: g1, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-25T10:00:00Z').toISOString(), text: refundReport() });
   markReportInFlight(db, seller.id, new Date('2026-11-26T10:00:00Z').toISOString());
   reconcileReportMarksAtBoot(db);
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'still blocked after boot');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/, 'still blocked after boot');
   // The next successful sync stores its report (matching amounts) and lifts the block.
   const g2 = nextReportGen(db, seller.id);
   markReportInFlight(db, seller.id, new Date('2026-11-27T10:00:00Z').toISOString());
