@@ -4,7 +4,7 @@
 // InvoiceUploaded, and a done feed is not what marks it - the report status is.
 import { readFileSync } from 'node:fs';
 export class MockApi {
-  constructor(uploadedIds = []) { this.feeds = new Map(); this.uploaded = new Set(uploadedIds); this.creditDone = new Set(); this.template = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); }
+  constructor(uploadedIds = [], creditIds = []) { this.feeds = new Map(); this.uploaded = new Set(uploadedIds); this.creditDone = new Set(creditIds); this.template = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); }
   async requestVidr() { return 'mock-report'; }
   async waitReport() { return 'mock-doc'; }
   async downloadReport() {
