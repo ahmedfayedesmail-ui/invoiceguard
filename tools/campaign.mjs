@@ -314,6 +314,40 @@ async function part5() {
     check('H:rectify-api', r.status === 200 && /^R-/.test(r.body.number), `rectify ${r.status}`);
   });
 
+  // manual repair closure: refund -> proposal -> approve -> ready -> pack (exported) -> mark (uploaded); rejection path
+  await http('H:repair-closure', async () => {
+    const c2 = mkCaller();
+    check('H:repair-closure', (await c2('signup', { email: 'closure@t.es', password: 'Good-Pw-123!' })).status === 200, 'signup');
+    await c2('seller', { name: 'Closure S.L.', nif: 'B11111119', address: 'C 1', marketplaces: ['ES'] });
+    await c2('amazon/connect', { manual: true });
+    const t = report(1, { vat: 'valid', tag: 'CL', plain: true, mkt: ['ES', 'EUR'] }).text;
+    check('H:repair-closure', (await c2('manual/issue', { text: t, attest: true })).body.issued === 1, 'issue');
+    const lines = t.trim().split('\n'); const cols = lines[0].split('\t'); const ix = (n) => cols.indexOf(n);
+    const ref = lines[1].split('\t'); ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'RF-CL-1';
+    await c2('manual/issue', { text: lines[0] + '\n' + ref.join('\t') + '\n', attest: true });
+    const rep = (await c2('repairs')).body;
+    check('H:repair-closure', rep.proposed.length === 1, `proposals ${rep.proposed.length}`);
+    const ap = await c2('repairs/approve', { key: rep.proposed[0].event_key });
+    check('H:repair-closure', ap.status === 200 && /^R-/.test(ap.body.rectNumber ?? ''), `approve ${ap.status} ${JSON.stringify(ap.body).slice(0, 80)}`);
+    const ri = (await c2('dashboard')).body.invoices.find(i => /^R-/.test(i.number));
+    check('H:repair-closure', ri && ri.upload_status === 'ready', `rect status ${ri && ri.upload_status}`);
+    check('H:repair-closure', (await c2('pack', {})).status === 200, 'pack with correction');
+    let hist = (await c2('repairs')).body.history;
+    check('H:repair-closure', hist.some(h => h.state === 'exported'), `exported ${hist.map(h => h.state)}`);
+    await c2('invoices/mark', { all: true });
+    hist = (await c2('repairs')).body.history;
+    check('H:repair-closure', hist.some(h => h.state === 'uploaded'), `uploaded ${hist.map(h => h.state)}`);
+  });
+  await http('H:reject-flow', async () => {
+    const d = (await call('dashboard')).body; const r = d.invoices.find(i => /^R-/.test(i.number));
+    check('H:reject-flow', !!r, 'no correction invoice to reject');
+    check('H:reject-flow', (await call('invoices/reject', { number: r.number, error: '' })).status === 400, 'empty rejection accepted');
+    check('H:reject-flow', (await call('invoices/reject', { number: 'A-2026-999999', error: 'x' })).status === 404, 'phantom rejection');
+    const x = await call('invoices/reject', { number: r.number, error: 'Amazon: totals do not match' });
+    const r2 = (await call('dashboard')).body.invoices.find(i => i.number === r.number);
+    check('H:reject-flow', x.status === 200 && r2.upload_status === 'rejected', `reject ${x.status} ${r2.upload_status}`);
+  });
+
   // security headers on the app shell
   await http('H:sec-headers', async () => {
     const r = await fetch(base + '/app'); const csp = r.headers.get('content-security-policy') ?? '';

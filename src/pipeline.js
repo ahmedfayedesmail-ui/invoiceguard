@@ -107,9 +107,12 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   // Data-only corrections replace the invoice (latest invoice for the shipment is the valid one). Amount reductions go as a credit note.
   const documentType = opts.documentType ?? (rect.totals.incl < 0 ? 'CreditNote' : 'Invoice');
   const s = JSON.parse(db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key).raw);
-  const feedId = await api.uploadInvoice({ marketplaceId: MARKETPLACE[s.marketplace], pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
+  // Manual product: nothing leaves the system - the correction waits in Ready to upload and travels in the pack.
+  // Before this, manual corrections were inserted as 'submitted' and fell into limbo (never in the pack, never markable).
+  const manual = !!api.manual;
+  const feedId = manual ? null : await api.uploadInvoice({ marketplaceId: MARKETPLACE[s.marketplace], pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
   db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-    .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), feedId, 'submitted');
+    .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), feedId, manual ? 'ready' : 'submitted');
   appendAudit(db, seller.id, 'rectificativa', rect.number, rect);
   logEvent(db, seller.id, 'rectificativa', { number: rect.number, rectifies: originalNumber });
   return { rect, feedId, documentType, pdf };

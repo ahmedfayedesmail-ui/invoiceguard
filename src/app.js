@@ -362,7 +362,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (p === '/api/repairs') { // review queue: proposed first, then the recent history
         const proposed = listRepairs(db, seller.id, 'proposed');
-        const history = ['issued', 'approved', 'dismissed'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
+        const history = ['issued', 'exported', 'uploaded', 'rejected', 'approved', 'dismissed'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
         return json(res, 200, { proposed, history });
       }
       if (p === '/api/repairs/approve' || p === '/api/repairs/dismiss') {
@@ -377,12 +377,26 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/invoices/mark') {
         const nums = body.all === true ? db.prepare("SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready'").all(seller.id).map(r => r.number) : (Array.isArray(body.numbers) ? body.numbers.map(String).slice(0, 5000) : []);
         let n = 0; const now = new Date().toISOString();
-        for (const num of nums) { const r = db.prepare("SELECT shipment_key FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); n++; }
+        for (const num of nums) { const r = db.prepare("SELECT shipment_key FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, num); n++; }
         if (n) logEvent(db, seller.id, 'marked_uploaded', { count: n }); return json(res, 200, { ok: true, marked: n });
+      }
+      if (p === '/api/invoices/reject') { // manual product: Amazon refused an upload; keep the error, close nothing, offer the fix path
+        const num = String(body.number ?? ''); if (!num || num.length > 40) return json(res, 400, { error: 'Which invoice?' });
+        const reason = String(body.error ?? '').trim().slice(0, 500); if (!reason) return json(res, 400, { error: 'Paste the message Amazon showed you.' });
+        const inv = db.prepare('SELECT shipment_key, upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, num);
+        if (!inv) return json(res, 404, { error: `No invoice ${num}.` });
+        if (!['ready', 'uploaded', 'submitted'].includes(inv.upload_status)) return json(res, 409, { error: `Invoice ${num} is ${inv.upload_status}, not waiting on an Amazon upload.` });
+        db.prepare("UPDATE invoices SET upload_status='rejected', error=? WHERE seller_id=? AND number=?").run(reason, seller.id, num);
+        db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=? AND status IN ('ready','uploaded')").run(seller.id, inv.shipment_key);
+        db.prepare("UPDATE repairs SET state='rejected' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported','uploaded')").run(seller.id, num);
+        logEvent(db, seller.id, 'rejected', { number: num, error: reason.slice(0, 120) });
+        return json(res, 200, { ok: true });
       }
       if (p === '/api/pack') {
         const rows = db.prepare("SELECT number, issued_at, total, vat, json FROM invoices WHERE seller_id=? AND upload_status='ready' ORDER BY number LIMIT 2000").all(seller.id);
         if (!rows.length) return json(res, 404, { error: 'No invoices are waiting. Upload an order report first.' });
+        // Closure trail: every issued correction travelling in this pack moves to 'exported'.
+        db.prepare("UPDATE repairs SET state='exported' WHERE seller_id=? AND state='issued' AND rect_number IN (SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready')").run(seller.id, seller.id);
         const safe = (x) => String(x ?? '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60), cell = (v) => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
         const files = [], man = ['invoice_number,order_id,buyer,buyer_vat,issue_date,currency,total_incl_vat,vat,file'];
         for (const r of rows) { const inv = JSON.parse(r.json), name = `${safe(inv.orderId)}_${safe(r.number)}.pdf`; files.push({ name, data: await renderPdf(inv) }); man.push([r.number, inv.orderId, inv.buyer?.name, inv.buyer?.vat, String(inv.issueDate ?? '').slice(0, 10), inv.currency, r.total, r.vat, name].map(cell).join(',')); }
