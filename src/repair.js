@@ -325,15 +325,16 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
   // this proposal was built from, the refund event and its amounts are re-checked against it
   // before any money document is issued. Divergence (or the event no longer being due) stops the
   // approval with a clear reason; the hold is logged as stale_proposal_held.
-  if (r.report_seq != null) {
-    const snap = latestReportSnapshot(db, seller.id);
-    if (snap && snap.seq > r.report_seq) {
-      const fresh = parseVidr(snap.text).find(x => x.key === r.event_key);
-      const why = staleProposalReason(fresh, sug);
-      if (why) {
-        logEvent(db, seller.id, 'stale_proposal_held', { key: r.event_key, number: r.original_number, proposalSeq: r.report_seq, snapshotSeq: snap.seq, reason: why });
-        throw new Error(why + ' Nothing was issued.');
-      }
+  // A NULL stamp (a proposal recorded before freshness tracking) is older than ANY stored
+  // snapshot, so it is re-validated too; with no snapshot at all there is nothing to compare
+  // against and the proposal issues as before (reviewer re-check, round-16b).
+  const snap = latestReportSnapshot(db, seller.id);
+  if (snap && snap.seq > (r.report_seq ?? -1)) {
+    const fresh = parseVidr(snap.text).find(x => x.key === r.event_key);
+    const why = staleProposalReason(fresh, sug);
+    if (why) {
+      logEvent(db, seller.id, 'stale_proposal_held', { key: r.event_key, number: r.original_number, proposalSeq: r.report_seq, snapshotSeq: snap.seq, reason: why });
+      throw new Error(why + ' Nothing was issued.');
     }
   }
   const orig = JSON.parse(db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, r.original_number).json);
