@@ -160,13 +160,13 @@ async function retryRejectedUpload(db, seller, number, { api }) {
  * (still due there = safe automatic resend of the same document; a verdict = closed). */
 export function recoverUncertainUploads(db) {
   ensureRepairTables(db);
-  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at FROM invoices WHERE upload_status='sending'").all();
+  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at, feed_id FROM invoices WHERE upload_status='sending'").all();
   for (const inv of stuck) {
     // Round-9 (N4): status write + hold proposal in ONE transaction - a crash between them used to
     // leave the document 'unknown' with no visible hold (settle checks still prevented a resend,
     // but the hold was lost). Synchronous writes only; no awaits inside.
     tx(db, () => {
-      db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(inv.seller_id, inv.number);
+      db.prepare("UPDATE invoices SET upload_status='unknown', blocked_feed_id=? WHERE seller_id=? AND number=?").run(inv.feed_id ?? null, inv.seller_id, inv.number);
       db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=? AND status='sending'").run(inv.seller_id, inv.shipment_key);
       // attemptedAt = when the attempt STARTED (written before the Amazon call); the settle window
       // anchors on it (unknownSettleCheck), not on this recovery event's time, so a long downtime

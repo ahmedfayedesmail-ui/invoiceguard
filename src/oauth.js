@@ -63,6 +63,9 @@ export function oauthRoutes({ db, secret, env = process.env, fetchImpl = fetch, 
       const st = db.prepare('SELECT * FROM oauth_state WHERE token=?').get(q('state')); if (st) db.prepare('DELETE FROM oauth_state WHERE token=?').run(st.token); // single use
       if (!st || st.expires_at < now()) { fail(res, 'This link expired or was already used. Please start again from InvoiceGuard.'); return true; }
       if (q('error') || !q('spapi_oauth_code')) { fail(res, 'Amazon did not grant access. Nothing was connected.'); return true; }
+      // Real-data gate (critic round-8): the callback is a write path too - it must not persist a
+      // live connection while the pilot is sample-only, even with a valid Amazon code.
+      if (env.ALLOW_LIVE_CONNECT !== '1') { fail(res, 'A direct Amazon connection is not open yet - the pilot runs on sample data only. Nothing was connected.'); return true; }
       let j; try { const r = await fetchImpl('https://api.amazon.com/auth/o2/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'authorization_code', code: q('spapi_oauth_code'), redirect_uri: c.redirectUri, client_id: c.clientId, client_secret: c.clientSecret }) }); j = await r.json(); if (!r.ok || !j.refresh_token) j = null; } catch { j = null; }
       if (!j) { fail(res, 'Amazon did not accept the code. It may have expired (codes last five minutes). Please start again.'); return true; }
       const enc = encrypt({ clientId: c.clientId, clientSecret: c.clientSecret, refreshToken: j.refresh_token, region: 'EU', sellingPartnerId: q('selling_partner_id') || null }, secret);

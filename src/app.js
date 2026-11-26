@@ -65,6 +65,11 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     if (apis.has(seller.id)) return apis.get(seller.id);
     const c = db.prepare('SELECT * FROM amazon_conn WHERE seller_id=?').get(seller.id);
     if (!c) throw new Error('Amazon is not connected');
+    // Real-data gate, enforced at the execution choke point (critic round-8): EVERY Amazon call
+    // (sync, repair approval, correction retry, settling) builds its client here, so a legacy live
+    // connection in the database can never reach Amazon while the flag is unset - the flag, not
+    // the connection row, decides.
+    if (c.mode === 'live' && env.ALLOW_LIVE_CONNECT !== '1') throw Object.assign(new Error('A direct Amazon connection is not open yet - the pilot runs on sample data only, exactly as the homepage says.'), { status: 403 });
     const keys = c.mode === 'demo' ? db.prepare('SELECT shipment_key FROM invoices WHERE seller_id=?').all(seller.id).map(r => String(r.shipment_key)) : [];
     // Seed BOTH sides of the mock's memory from the ledger: uploaded shipments AND uploaded credit
     // notes (REFUND:<transactionId>), so a redeploy keeps Amazon's verdicts consistent with our books.
@@ -75,7 +80,9 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   // come through here; without the lock two overlapping syncs could race the upload claim checks.
   const syncing = new Set();
   async function sync(seller) {
-    if (db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(seller.id)?.mode === 'manual') throw Object.assign(new Error('Manual mode has no automatic sync. Upload an order report instead.'), { status: 409 });
+    const connMode = db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(seller.id)?.mode;
+    if (connMode === 'manual') throw Object.assign(new Error('Manual mode has no automatic sync. Upload an order report instead.'), { status: 409 });
+    if (connMode === 'live' && env.ALLOW_LIVE_CONNECT !== '1') throw Object.assign(new Error('A direct Amazon connection is not open yet - the pilot runs on sample data only, exactly as the homepage says.'), { status: 403 });
     if (syncing.has(seller.id)) throw Object.assign(new Error('A sync is already running for this account. Try again when it finishes.'), { status: 409 });
     syncing.add(seller.id);
     try { return await syncInner(seller); } finally { syncing.delete(seller.id); }
@@ -338,7 +345,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       const seller = sellerOf(user); if (!seller) return json(res, 409, { error: 'Complete your seller profile first' });
       if (p === '/api/seller/profile') { const c = cleanProfile(body); if (c.errors.length) return json(res, 400, { error: c.errors.join('. ') }); db.prepare('UPDATE sellers SET profile=? WHERE id=?').run(JSON.stringify(c.profile), seller.id); logEvent(db, seller.id, 'profile_updated', { fields: Object.keys(c.profile) }); return json(res, 200, { ok: true, profile: c.profile }); }
-      if (p === '/api/amazon/oauth/start') { const r = oauth.start(user, seller, body); return json(res, r.code, r.body); }
+      if (p === '/api/amazon/oauth/start') { if (env.ALLOW_LIVE_CONNECT !== '1') return json(res, 403, { error: 'A direct Amazon connection is not open yet - the pilot runs on sample data only, exactly as the homepage says.' }); const r = oauth.start(user, seller, body); return json(res, r.code, r.body); }
       if (p === '/api/amazon/connect') {
         let mode, enc = null;
         if (body.demo) mode = 'demo'; else if (body.manual) mode = 'manual';
@@ -514,6 +521,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!process.env.NO_RULE_CHECK) { setTimeout(recheck, 30e3).unref(); setInterval(recheck, 24 * 3600e3).unref(); }
   setInterval(async () => { for (const s of db.prepare('SELECT * FROM sellers').all()) { try { await F.watchRun(db, s, validateVat); } catch (e) { console.error('watch failed', e.message); } } }, 24 * 3600e3).unref();
   setInterval(async () => { // scheduler: Amazon's report is requested every 12 h in their SLA guidance; we poll hourly
-    for (const s of db.prepare('SELECT s.* FROM sellers s JOIN amazon_conn c ON c.seller_id=s.id WHERE c.mode != "manual"').all()) { try { await sync(s); } catch (e) { console.error('sync failed', s.id, e.message); } }
+    for (const s of db.prepare('SELECT s.*, c.mode AS conn_mode FROM sellers s JOIN amazon_conn c ON c.seller_id=s.id WHERE c.mode != "manual"').all()) {
+      // Real-data gate (critic round-8): a legacy live connection is never synced while the flag is unset.
+      if (s.conn_mode === 'live' && env.ALLOW_LIVE_CONNECT !== '1') continue;
+      try { await sync(s); } catch (e) { console.error('sync failed', s.id, e.message); } }
   }, 3600e3).unref();
 }

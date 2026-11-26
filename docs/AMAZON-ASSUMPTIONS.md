@@ -63,3 +63,9 @@ github.com/amzn/selling-partner-api-models. Round-7 audit, 2026-11-26.
 | C4 | A dryRun preview issues nothing | Verified real by reviewer | dryRun returns before issuance: no row, no audit entry, no burned number. Test asserts all three |
 | C5 | Report amounts can be locale-formatted | Reviewer nitpick, handled conservatively | vidr num(): rightmost of '.'/',' is the decimal separator; tests for "1,234.56" and "1.234,56" |
 | C6 | The upload throttle must also count failed attempts | Reviewer nitpick | `lastUpload` stamped before createFeed, not only on success |
+
+C7. Feed processing-report parsing (round-10): the settle path lifts a known-feed resend block
+only when a report line naming the document carries a failure marker, or the feed is CANCELLED.
+Real Amazon report layouts are unproven against a live seller account; ambiguity always keeps the
+human hold, never resends. The live-Amazon gate (ALLOW_LIVE_CONNECT) is enforced at oauth start,
+the OAuth callback, the apiFor choke point, sync entry and the hourly scheduler - mock-verified.

@@ -17,7 +17,7 @@ test('oauth stays off until every setting is present', () => {
   assert.equal(oauthConfig({ SPAPI_APP_ID: 'a', SPAPI_CLIENT_ID: 'b', SPAPI_CLIENT_SECRET: 'c', SPAPI_REDIRECT_URI: 'https://x/y' }).available, true);
 });
 
-const ENV = { SPAPI_APP_ID: 'amzn1.sellerapps.app.TEST', SPAPI_CLIENT_ID: 'cid', SPAPI_CLIENT_SECRET: 'csec', SPAPI_REDIRECT_URI: 'https://ig.example/oauth/amazon/redirect' };
+const ENV = { SPAPI_APP_ID: 'amzn1.sellerapps.app.TEST', SPAPI_CLIENT_ID: 'cid', SPAPI_CLIENT_SECRET: 'csec', SPAPI_REDIRECT_URI: 'https://ig.example/oauth/amazon/redirect', ALLOW_LIVE_CONNECT: '1' };
 async function boot(env = ENV, lwa) {
   const calls = []; const oauthFetch = async (u, o) => { calls.push({ u, body: String(o.body) }); return lwa ? lwa() : { ok: true, json: async () => ({ refresh_token: 'Atzr|REFRESH', access_token: 'a', expires_in: 3600 }) }; };
   const { server, db } = createApp({ validate: async v => ({ status: 'valid', vat: v }), secret: 'test-secret', env, oauthFetch }); await new Promise(r => server.listen(0, r));
@@ -72,7 +72,7 @@ test('Appstore flow: login URI validates the callback, continue needs a signed-i
 test('everything is closed when not configured', async () => {
   const { server, call, get } = await boot({});
   assert.equal((await call('me')).body.oauth, false);
-  assert.equal((await call('amazon/oauth/start', { country: 'ES' })).status, 503);
+  assert.equal((await call('amazon/oauth/start', { country: 'ES' })).status, 403, 'the real-data gate closes oauth/start before the not-configured 503');
   assert.equal((await get('/oauth/amazon/login?amazon_callback_uri=x&amazon_state=y')).status, 503);
   server.close();
 });
