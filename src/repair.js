@@ -4,6 +4,8 @@
 // (CorrectionReversal / Correction:: pairs) stay in pipeline.processCorrections.
 import { parseVidr } from './vidr.js';
 import { issueRectificativa } from './pipeline.js';
+import { renderPdf } from './pdf.js';
+import { marketplaceFor } from './spapi.js';
 import { EXTRA_LABEL, totalsOf } from './invoice.js';
 import { logEvent } from './db.js';
 
@@ -37,14 +39,23 @@ export function detectRepairs(db, seller, reportText, { now = new Date() } = {})
     (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at)
     VALUES (?,?,?,?,?,?,?, 'proposed', ?)`);
   for (const s of refunds) {
-    const orig = db.prepare("SELECT number, total FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1")
+    // Amazon's invoice-status column says what this refund needs: only CreditNotePending means the
+    // seller must upload a credit note. CreditNoteUploaded / CreditNoteCreatedByAmazon /
+    // CreditNoteProcessing are already covered - proposing there would double-credit. CreditNoteRejected
+    // has its own correction-and-retry path (Amazon: upload the same credit note again).
+    const st = s.invoiceStatus || '';
+    if (st !== 'CreditNotePending') { out.skipped.push({ key: s.key, reason: st === 'CreditNoteRejected' ? 'credit note rejected - the retry path re-uploads it, no new proposal is made' : `no credit note due from the seller (Amazon status: ${st || 'none'})` }); continue; }
+    const orig = db.prepare("SELECT number, total, vat FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1")
       .get(seller.id, `SHIPMENT:${s.shippingId}`);
     if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
     if (Math.abs(orig.total) < 0.005 || Math.abs(s.incl) < 0.005) { out.skipped.push({ key: s.key, reason: 'zero amount, nothing to credit' }); continue; } // a zero-total invoice has nothing to refund; proposing one would fail the differences rule
     const reason = `Return or refund received for order ${s.orderId} after invoice ${orig.number} was issued`;
     // Exact returned amounts per item (the refund row carries the same item columns as the shipment),
     // so approving a PARTIAL return credits only what came back, never the whole invoice.
-    const full = Math.abs(Math.abs(s.incl) - Math.abs(orig.total)) < 0.005;
+    // "Full" means Amazon's refund matches the invoice to the cent on BOTH gross and tax. A one-cent
+    // tax mismatch is not a plain cancellation: it goes the exact-lines path, which holds the credit
+    // note instead of zeroing blindly (Amazon rejects TotalVATAmount mismatches at 2 decimals).
+    const full = Math.abs(Math.abs(s.incl) - Math.abs(orig.total)) < 0.005 && Math.abs(Math.abs(s.vat) - Math.abs(orig.vat)) < 0.005;
     const suggestion = JSON.stringify({ action: 'credit_note', rectifies: orig.number, total: Math.abs(s.incl), vat: Math.abs(s.vat), transactionId: s.transactionId, full,
       lines: s.items.map(it => ({ sku: it.sku ?? null, excl: Math.abs(it.exclTotal), vat: Math.abs(it.vatTotal), extras: (it.extras ?? []).map(x => ({ part: x.part, excl: Math.abs(x.excl), vat: Math.abs(x.vat) })) })) });
     const r = ins.run(seller.id, s.key, 'return', orig.number, s.key, reason, suggestion, now.toISOString());
@@ -73,9 +84,64 @@ export const listRepairs = (db, sellerId, state = 'proposed') => {
  */
 export async function approveRepair(db, seller, eventKey, { api, validate } = {}) {
   ensureRepairTables(db);
-  const r = db.prepare("SELECT * FROM repairs WHERE seller_id=? AND event_key=? AND state IN ('proposed','approved')").get(seller.id, eventKey);
+  const r = db.prepare("SELECT * FROM repairs WHERE seller_id=? AND event_key=? AND state IN ('proposed','approved','rejected')").get(seller.id, eventKey);
   if (!r) throw new Error(`No open repair ${eventKey}`);
+  // Atomic claim: exactly one concurrent approval moves the repair to 'issuing'. A second approval
+  // changes zero rows and stops, so one Amazon event can never mint two financial documents.
+  const claimed = db.prepare("UPDATE repairs SET state='issuing' WHERE seller_id=? AND event_key=? AND state IN ('proposed','approved','rejected')").run(seller.id, eventKey);
+  if (!claimed.changes) throw new Error(`Repair ${eventKey} is already being issued`);
+  try {
+    return await approveClaimed(db, seller, r, { api, validate });
+  } catch (e) {
+    db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='issuing'").run(r.state === 'rejected' ? 'rejected' : 'proposed', seller.id, eventKey);
+    throw e;
+  }
+}
+
+/** Re-upload a rejected document: Amazon's prescribed retry is the SAME document, never a new number. */
+async function retryRejectedUpload(db, seller, number, { api }) {
+  const row = db.prepare('SELECT json, shipment_key, upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, number);
+  if (!row) throw new Error(`Document ${number} not found`);
+  if (row.upload_status !== 'rejected') throw new Error(`Document ${number} is ${row.upload_status}, not rejected - there is nothing to retry`);
+  const doc = JSON.parse(row.json);
+  const s = JSON.parse(db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key).raw);
+  const mp = marketplaceFor(s.marketplace);
+  if (!mp) throw new Error(`The shipment's store code "${s.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the upload target was not guessed. Nothing was re-uploaded.`);
+  const pdf = await renderPdf(doc);
+  const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) });
+  db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, number);
+  db.prepare("UPDATE shipments SET status='submitted' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
+  logEvent(db, seller.id, 'rejected_upload_retried', { number });
+  return feedId;
+}
+
+/** Queue a human-reviewed retry when Amazon rejects an uploaded document (invoice or credit note). */
+export function proposeRejectedRetry(db, seller, { eventKey, kind, number, shipmentKey, reason, now = new Date() }) {
+  ensureRepairTables(db);
+  const r = db.prepare(`INSERT OR IGNORE INTO repairs
+    (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at)
+    VALUES (?,?,?,?,?,?,?, 'proposed', ?)`)
+    .run(seller.id, eventKey, kind, number, shipmentKey, reason, JSON.stringify({ action: 'retry_upload', number }), now.toISOString());
+  if (r.changes) logEvent(db, seller.id, 'repair_proposed', { key: eventKey, original: number, reason });
+  return r.changes > 0;
+}
+
+async function approveClaimed(db, seller, r, { api, validate } = {}) {
+  const eventKey = r.event_key;
   const sug = JSON.parse(r.suggestion);
+  // Amazon rejected the upload; its docs say to upload the same document again.
+  if (sug.action === 'retry_upload') {
+    const feedId = await retryRejectedUpload(db, seller, sug.number, { api });
+    db.prepare("UPDATE repairs SET state='issued', rect_number=? WHERE seller_id=? AND event_key=?").run(sug.number, seller.id, eventKey);
+    return { retried: sug.number, feedId };
+  }
+  // A rejected credit note is retried through issueRectificativa, which re-uploads the SAME document.
+  if (r.state === 'rejected') {
+    if (!r.rect_number) throw new Error('This rejected repair has no issued document to retry.');
+    const { rect } = await issueRectificativa(db, seller, r.original_number, { recordKey: r.event_key }, { api, validate });
+    db.prepare("UPDATE repairs SET state='issued', rect_number=? WHERE seller_id=? AND event_key=?").run(rect.number, seller.id, eventKey);
+    return { rectNumber: rect.number, original: r.original_number, retried: true };
+  }
   if (sug.action !== 'credit_note') throw new Error(`Unsupported repair action ${sug.action}`);
   if (sug.full === undefined) throw new Error('This proposal was recorded before exact refund amounts were kept. Press Sync now so it is rebuilt, then review it again.');
   const orig = JSON.parse(db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, r.original_number).json);
@@ -100,6 +166,10 @@ export async function approveRepair(db, seller, eventKey, { api, validate } = {}
     throw new Error('The refunds for this invoice add up to more than the invoice itself. ' + MANUAL_FIX);
   let corrected;
   if (sug.full || !Array.isArray(sug.lines)) {
+    // Zeroing the whole invoice is only valid when the refund matches it to the cent on BOTH gross
+    // and tax; otherwise the credit note would carry amounts Amazon did not report. Hold, never guess.
+    if (cents(sug.total) !== cents(orig.totals.incl) || cents(sug.vat) !== cents(orig.totals.vat))
+      throw new Error('This is recorded as a full cancellation but the refund does not match the invoice to the cent on tax, so zeroing the invoice would issue wrong amounts. ' + MANUAL_FIX);
     corrected = orig.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
   } else {
     corrected = orig.lines.map(l => ({ ...l }));

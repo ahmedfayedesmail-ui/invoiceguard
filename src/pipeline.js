@@ -7,6 +7,7 @@ import { gate, gateReason, missingFields, correctionWindowOk, readiness } from '
 import { renderPdf } from './pdf.js';
 import { logEvent, appendAudit } from './db.js';
 import { marketplaceFor } from './spapi.js';
+import { proposeRejectedRetry } from './repair.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -106,6 +107,10 @@ function reconcileInvoice(db, seller, s) {
     db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
     db.prepare("UPDATE shipments SET status='rejected', reason=? WHERE seller_id=? AND key=?").run(reason, seller.id, key);
     logEvent(db, seller.id, 'confirmed_rejected', { number: inv.number, reason });
+    // Amazon's doc: "Seller must upload the invoice for this shipment again." Surface a reviewed
+    // retry in the Repairs queue - the SAME document goes up again, never a new invoice number.
+    proposeRejectedRetry(db, seller, { eventKey: `REJECTED:${key}`, kind: 'rejected_invoice', number: inv.number, shipmentKey: key,
+      reason: `Amazon rejected invoice ${inv.number}: ${reason}. Amazon expects the invoice for this shipment to be uploaded again - check the reason, then approve to re-upload the same document.` });
   } else if (s.invoiceStatus === 'InvoiceProcessing' && inv.upload_status === 'submitted') {
     db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
     db.prepare("UPDATE shipments SET status='processing' WHERE seller_id=? AND key=? AND status='submitted'").run(seller.id, key);
@@ -148,7 +153,9 @@ export async function pollFeeds(db, seller, api) {
       db.prepare("UPDATE shipments SET status='processing' WHERE seller_id=? AND key=? AND status='submitted'").run(seller.id, r.shipment_key);
       res.processing++;
     }
-    else if (['FATAL', 'CANCELLED'].includes(f.status)) { db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, r.number); db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key); logEvent(db, seller.id, 'confirmed_rejected', { number: r.number, reason: 'feed ' + f.status }); res.rejected++; }
+    else if (['FATAL', 'CANCELLED'].includes(f.status)) { db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, r.number); db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key); logEvent(db, seller.id, 'confirmed_rejected', { number: r.number, reason: 'feed ' + f.status });
+      proposeRejectedRetry(db, seller, { eventKey: `REJECTED:${r.shipment_key}`, kind: 'rejected_invoice', number: r.number, shipmentKey: r.shipment_key,
+        reason: `Amazon never processed invoice ${r.number} (feed ${f.status}). The same document can be uploaded again - approve to retry.` }); res.rejected++; }
     else res.pending++;
   }
   return res;
@@ -165,7 +172,9 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   // a financial document.
   if (opts.recordKey) {
     const prev = db.prepare("SELECT number, upload_status, json, tx_id FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, opts.recordKey);
-    if (prev && prev.upload_status === 'pending') {
+    // 'rejected' joins 'pending' here: Amazon's prescribed retry for a rejected credit note is the
+    // SAME document uploaded again ("Seller must upload the Credit Note for this transaction again").
+    if (prev && ['pending', 'rejected'].includes(prev.upload_status)) {
       const rect = JSON.parse(prev.json);
       const s0 = JSON.parse(db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key).raw);
       const mp0 = marketplaceFor(s0.marketplace);

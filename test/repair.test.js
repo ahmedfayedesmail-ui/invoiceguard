@@ -13,7 +13,7 @@ const vies = async (v) => ({ status: 'valid', vat: v });
 function refundReport() {
   const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
   const row = rows[0].split('\t');
-  const ref = [...row]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'r-100-1';
+  const ref = [...row]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'r-100-1'; ref[ix('invoice-status')] = 'CreditNotePending';
   ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '-' + ref[ix(n)]; });
   return [head, ref.join('\t')].join('\n');
 }
@@ -70,7 +70,7 @@ test('approving a return issues the chained credit note with the refund Transact
 /** One of the two SKU-A units comes back; shipping is not refunded. */
 function partialRefundReport(sku = 'SKU-A') {
   const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
-  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'r-100-1';
+  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'r-100-1'; ref[ix('invoice-status')] = 'CreditNotePending';
   ref[ix('item-vat-incl-amount')] = '-24.20'; ref[ix('item-vat-amount')] = '-4.20'; ref[ix('item-vat-excl-amount')] = '-20.00'; ref[ix('sku')] = sku;
   ['shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '0'; });
   return [head, ref.join('\t')].join('\n');
@@ -123,7 +123,7 @@ test('a refund for an invoice we did not issue is skipped, not proposed', () => 
 /** A RETURN-type row (item physically returned) - Amazon's third transaction type. */
 function returnTypeReport() {
   const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
-  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'RETURN'; ref[ix('transaction-id')] = 'ret-200-1';
+  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'RETURN'; ref[ix('transaction-id')] = 'ret-200-1'; ref[ix('invoice-status')] = 'CreditNotePending';
   ref[ix('invoice-status')] = 'CreditNotePending';
   ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '-' + ref[ix(n)]; });
   return [head, ref.join('\t')].join('\n');
@@ -140,7 +140,7 @@ test('a RETURN transaction (not only REFUND) becomes a repair proposal', async (
 
 function partialOf(txId, excl, vat, incl, sku = 'SKU-A') {
   const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
-  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = txId; ref[ix('sku')] = sku;
+  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = txId; ref[ix('sku')] = sku; ref[ix('invoice-status')] = 'CreditNotePending';
   ref[ix('item-vat-incl-amount')] = String(-incl); ref[ix('item-vat-amount')] = String(-vat); ref[ix('item-vat-excl-amount')] = String(-excl);
   ['shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '0'; });
   return [head, ref.join('\t')].join('\n');
@@ -250,4 +250,89 @@ test('mock amazon returns the second uploaded shipment as a RETURN row with halv
   await mock.uploadInvoice({ documentType: 'CreditNote', transactionId: 'RT-DEMO-1' });
   const again = (await mock.downloadReport()).trim().split('\n').map(r => r.split('\t'));
   assert.equal(again.find(r => r[ix('transaction-id')] === 'RT-DEMO-1')[ix('invoice-status')], 'CreditNoteUploaded', 'uploaded credit note reconciles');
+});
+
+test('two concurrent approvals of the same repair issue exactly one document', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, refundReport());
+  const [p] = listRepairs(db, seller.id);
+  const results = await Promise.allSettled([
+    approveRepair(db, seller, p.event_key, { api, validate: vies }),
+    approveRepair(db, seller, p.event_key, { api, validate: vies }),
+  ]);
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1, 'exactly one approval went through');
+  const bad = results.find(r => r.status === 'rejected');
+  assert.match(String(bad.reason), /No open repair|already being issued|already exists/);
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1, 'exactly one credit note exists');
+});
+
+test('a full refund with a one-cent tax mismatch is held, never zeroed blindly', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const [head, ...rows] = refundReport().trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const ref = rows[0].split('\t');
+  ref[ix('item-vat-amount')] = (parseFloat(ref[ix('item-vat-amount')]) - 0.01).toFixed(2); // one cent of tax more than the invoice
+  const d = detectRepairs(db, seller, [head, ref.join('\t')].join('\n'));
+  assert.equal(d.proposed, 1);
+  const [p] = listRepairs(db, seller.id);
+  assert.equal(p.suggestion.full, false, 'a gross match with a tax mismatch is not a plain full cancellation');
+  const before = db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c;
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /add up to more than the invoice|larger than that line|do not add up|does not match/);
+  assert.equal(db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c, before, 'nothing was issued');
+  assert.equal(listRepairs(db, seller.id).length, 1, 'the proposal went back to the review queue');
+});
+
+test('a refund Amazon already covers is not proposed (only CreditNotePending needs a credit note)', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  for (const st of ['CreditNoteUploaded', 'CreditNoteCreatedByAmazon', 'CreditNoteProcessing', 'CreditNoteRejected']) {
+    const [head, ...rows] = refundReport().trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+    const ref = rows[0].split('\t'); ref[ix('invoice-status')] = st; ref[ix('transaction-id')] = 'r-st-' + st;
+    const d = detectRepairs(db, seller, [head, ref.join('\t')].join('\n'));
+    assert.equal(d.proposed, 0, st + ' must not propose a credit note');
+    assert.equal(d.skipped.length, 1);
+  }
+  assert.equal(listRepairs(db, seller.id).length, 0);
+});
+
+test('a rejected invoice gets a reviewed retry that re-uploads the SAME document', async () => {
+  const db = openDb();
+  const calls = [];
+  const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
+  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  const invCount = db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c;
+  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const rej = [...rows[0].split('\t')]; rej[ix('invoice-status')] = 'InvoiceRejected'; rej[ix('invoice-status-description')] = 'TotalAmount mismatch';
+  await processReport(db, seller, [head, rej.join('\t')].join('\n'), { api: api2, validate: vies });
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'rejected');
+  const q = listRepairs(db, seller.id);
+  assert.equal(q.length, 1); assert.equal(q[0].kind, 'rejected_invoice'); assert.equal(q[0].suggestion.action, 'retry_upload');
+  const upBefore = calls.length;
+  const res = await approveRepair(db, seller, q[0].event_key, { api: api2, validate: vies });
+  assert.equal(res.retried, inv.number);
+  assert.equal(calls.length, upBefore + 1, 'one new upload happened');
+  assert.equal(calls[calls.length - 1].number, inv.number, 'the SAME invoice number was uploaded');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, invCount, 'no second invoice number was burned');
+});
+
+test('a rejected credit note retries the SAME document through the repair queue', async () => {
+  const db = openDb();
+  const api2 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }) };
+  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, refundReport());
+  const [p] = listRepairs(db, seller.id);
+  await approveRepair(db, seller, p.event_key, { api: api2, validate: vies });
+  const rect = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id);
+  const [head, ...rows] = refundReport().trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const rej = [...rows[0].split('\t')]; rej[ix('invoice-status')] = 'CreditNoteRejected';
+  await processReport(db, seller, [head, rej.join('\t')].join('\n'), { api: api2, validate: vies });
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, rect.number).upload_status, 'rejected');
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key).state, 'rejected');
+  const res = await approveRepair(db, seller, p.event_key, { api: api2, validate: vies });
+  assert.equal(res.rectNumber, rect.number, 'the SAME credit note number was retried');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, rect.number).upload_status, 'submitted');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1, 'no second credit note exists');
 });

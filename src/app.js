@@ -479,11 +479,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // in this deployment, and we say so in the runbook instead of pretending.
   if (!process.env.BACKUPS_OFF) {
     const { backupNow, anchorLog } = await import('./backup.js');
-    const snap = () => { try { const r = backupNow(process.env.DB_FILE ?? 'invoiceguard.db'); anchorLog(db); console.log(`backup: ${r.dest} (${r.bytes} bytes)`); } catch (e) { console.error('backup failed', e.message); } };
+    const snap = () => { try { const r = backupNow(process.env.DB_FILE ?? 'invoiceguard.db'); if (!r.ok) { console.error('backup skipped:', r.reason); return; } anchorLog(db); console.log(`backup: ${r.dest} (${r.bytes} bytes)`); } catch (e) { console.error('backup failed', e.message); } };
     setTimeout(snap, 60e3).unref(); setInterval(snap, 6 * 3600e3).unref();
   }
   const purge = () => { try { db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now()); } catch (e) { console.error('session purge failed', e.message); } };
   db.exec('CREATE TABLE IF NOT EXISTS contact_messages (id TEXT PRIMARY KEY, ts TEXT, email TEXT, message TEXT)');
+  try { db.prepare("UPDATE repairs SET state='proposed' WHERE state='issuing'").run(); } catch { /* repairs table is created on first use */ }
   applyBootReset(db); rotateKeys(db, process.env.APP_SECRET ?? 'dev-secret-change-me', process.env.APP_SECRET_PREVIOUS); purgeSecLog(db); setInterval(() => { try { purgeSecLog(db); } catch (e) { console.error(e.message); } }, 24 * 3600e3).unref(); purge(); const piiPurge = () => { try { const n = purgeBuyerData(db); if (n) console.log(`buyer data removed from ${n} shipment record(s)`); } catch (e) { console.error('buyer-data purge failed', e.message); } }; piiPurge(); setInterval(piiPurge, 6 * 3600e3).unref(); setInterval(purge, 3600e3).unref();
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));

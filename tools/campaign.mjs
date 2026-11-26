@@ -156,7 +156,7 @@ async function part2(n) {
       if (!orig) continue;
       const refundLines = text.trim().split('\n').slice(1).map(l => {
         const c = l.split('\t'); const ix = (k) => COLS.indexOf(k);
-        c[ix('transaction-type')] = 'REFUND'; c[ix('transaction-id')] = 'RF-' + ids[0];
+        c[ix('transaction-type')] = 'REFUND'; c[ix('transaction-id')] = 'RF-' + ids[0]; c[ix('invoice-status')] = 'CreditNotePending';
         for (const k of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount']) c[ix(k)] = '-' + c[ix(k)];
         return c.join('\t');
       });
@@ -323,7 +323,7 @@ async function part5() {
     const t = report(1, { vat: 'valid', tag: 'CL', plain: true, mkt: ['ES', 'EUR'] }).text;
     check('H:repair-closure', (await c2('manual/issue', { text: t, attest: true })).body.issued === 1, 'issue');
     const lines = t.trim().split('\n'); const cols = lines[0].split('\t'); const ix = (n) => cols.indexOf(n);
-    const ref = lines[1].split('\t'); ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'RF-CL-1';
+    const ref = lines[1].split('\t'); ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'RF-CL-1'; ref[ix('invoice-status')] = 'CreditNotePending';
     await c2('manual/issue', { text: lines[0] + '\n' + ref.join('\t') + '\n', attest: true });
     const rep = (await c2('repairs')).body;
     check('H:repair-closure', rep.proposed.length === 1, `proposals ${rep.proposed.length}`);

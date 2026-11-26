@@ -12,8 +12,13 @@ export function backupNow(dbFile = process.env.DB_FILE ?? 'invoiceguard.db', dir
   // Flush the WAL into the main file first; under WAL the main file is always crash-consistent,
   // so copying it right after a full checkpoint yields one consistent snapshot file.
   const side = new DatabaseSync(dbFile);
-  side.exec('PRAGMA busy_timeout=5000; PRAGMA wal_checkpoint(TRUNCATE);');
+  side.exec('PRAGMA busy_timeout=5000;');
+  // wal_checkpoint(TRUNCATE) returns (busy, log, checkpointed). busy=1 means another connection held
+  // the WAL, so not every frame reached the main file; copying then would silently snapshot a stale
+  // database. Report it honestly and copy nothing.
+  const cp = side.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get();
   side.close();
+  if (cp.busy) return { ok: false, reason: 'the database was busy, so the checkpoint did not finish and no snapshot was copied - the previous backup is still the newest good one', checkpoint: cp };
   const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
   const dest = join(dir, `invoiceguard-${stamp}.db`);
   copyFileSync(dbFile, dest);

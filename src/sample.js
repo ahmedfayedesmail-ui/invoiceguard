@@ -55,7 +55,7 @@ export async function sampleRepair(validate) {
   const cols = head.split('\t'), oi = cols.indexOf('order-id'), ti = cols.indexOf('transaction-type'), ii = cols.indexOf('transaction-id');
   const line = rows.find(r => r.split('\t')[oi] === orderId);
   if (!line) return { ok: false };
-  const c = line.split('\t'); c[ti] = 'REFUND'; c[ii] = 'RF-SAMPLE-1';
+  const c = line.split('\t'); c[ti] = 'REFUND'; c[ii] = 'RF-SAMPLE-1'; c[cols.indexOf('invoice-status')] = 'CreditNotePending';
   const t = () => new Date().toISOString().slice(11, 19);
   const steps = [{ t: t(), label: `Invoice ${inv.number} issued for order ${orderId}` }];
   detectRepairs(db, SAMPLE_SELLER, head + '\n' + c.join('\t') + '\n');
