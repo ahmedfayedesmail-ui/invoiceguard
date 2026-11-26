@@ -119,7 +119,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const wait = Math.max(throttled(sk, 10), throttled('sample|all', 100));
         if (wait) return json(res, 429, { error: 'Too many sample runs from this network. Try again in a few minutes.' }, { 'retry-after': String(wait) });
         noteFail(sk); noteFail('sample|all');
-        try { const rep = await sampleRepair(validate); if (rep.ok) bump('sample:repair'); return json(res, 200, rep); }
+        try { const { db: _inner, ...rep } = await sampleRepair(validate); if (rep.ok) bump('sample:repair'); return json(res, 200, rep); }
         catch (e) { console.error('sample repair', e); return json(res, 500, { error: 'The sample could not run right now. Try again in a minute.' }); }
       }
       const smp = p.match(/^\/api\/sample\/pdf\/([A-Z0-9-]+)$/);
