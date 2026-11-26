@@ -298,6 +298,8 @@ async function part5() {
   await http('H:preview-garbage', async () => { const r = await call('manual/preview', { text: 'garbage\n' }); check('H:preview-garbage', r.status === 400, 'garbage preview accepted'); });
   await http('H:repairs-list', async () => { const r = await call('repairs'); check('H:repairs-list', r.status === 200 && Array.isArray(r.body.proposed), 'repairs list'); });
   await http('H:repairs-approve-unknown', async () => { check('H:repairs-approve-unknown', (await call('repairs/approve', { key: 'REFUND:nope' })).status === 422, 'approved unknown repair'); });
+  await http('H:rules-review-denied', async () => { check('H:rules-review-denied', (await call('rules/review', { rule: 'AMZ-UPLOAD', note: 'x' })).status === 403, 'non-operator marked a rule reviewed'); });
+  await http('H:rules-no-canreview', async () => { const r = await call('rules'); check('H:rules-no-canreview', r.status === 200 && r.body.packs.every(p => p.rules.every(x => !x.canReview)), 'canReview leaked to non-operator'); });
   await http('H:repairs-bad-key', async () => { check('H:repairs-bad-key', (await call('repairs/approve', { key: '' })).status === 400, 'empty key accepted'); });
   await http('H:dashboard', async () => { const r = await call('dashboard'); check('H:dashboard', r.status === 200 && r.body.kpis.total === 2, `kpis ${JSON.stringify(r.body.kpis)}`); });
   await http('H:pack', async () => { const r = await call('pack', {}); check('H:pack', r.status === 200 && r.body.subarray(0, 2).toString() === 'PK', 'pack zip'); });

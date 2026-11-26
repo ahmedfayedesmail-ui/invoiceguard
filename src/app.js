@@ -341,9 +341,11 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/explainer') return json(res, 200, F.explainerState(db, seller));
       if (p === '/api/explainer/review') return json(res, 200, F.explainerReview(db, seller, seller.email ?? seller.name));
       if (p === '/api/explainer/unpublish') { F.explainerUnpublish(db, seller); return json(res, 200, { ok: true }); }
-      if (p === '/api/rules') return json(res, 200, { packs: allRuleStates(db), notResearched: ['GB', 'CH'], disclaimer: 'Reference data with official sources. Not legal or tax advice: have a gestor or lawyer review it before you rely on it.' });
+      const OPERATORS = new Set(String(process.env.OPERATOR_EMAILS ?? '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean));
+      const isOperator = OPERATORS.has(String(seller.email ?? '').toLowerCase());
+      if (p === '/api/rules') return json(res, 200, { packs: allRuleStates(db, undefined, undefined, { operator: isOperator }), notResearched: ['GB', 'CH'], disclaimer: 'Reference data with official sources. Not legal or tax advice: have a gestor or lawyer review it before you rely on it.' });
       if (p === '/api/rules/check') { const r = await checkSources(db, { only: body.rule }); return json(res, 200, { checked: r.length, unreachable: r.filter(x => x.fetch !== 'ok').length, missing: r.filter(x => x.missing.length).map(x => x.id) }); }
-      if (p === '/api/rules/review') { try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/rules/review') { if (!isOperator) return json(res, 403, { error: 'Only the InvoiceGuard operator can mark a rule as reviewed.' }); try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); } }
       if (p === '/api/manual/preview' || p === '/api/manual/issue') {
         const plan = planUpload(String(body.text ?? ''), { useDeliveryAddress: body.useDeliveryAddress === true });
         if (!plan.ok) return json(res, 400, { error: plan.error, format: plan.format ?? null });

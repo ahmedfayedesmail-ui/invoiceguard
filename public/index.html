@@ -22,7 +22,7 @@ dialog{max-height:92vh;overflow:auto;border:1px solid var(--line);border-radius:
 @media(max-width:720px){.kpis{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}main{padding:12px}}
 </style></head><body>
 <header><div class="logo">Invoice<b>Guard</b></div><div class="sp"></div><div id="who" class="mut small"></div><button id="out" hidden>Sign out</button></header>
-<main id="app"></main>
+<main id="app"><div class="card mut" style="max-width:400px;margin:60px auto">Loading…</div></main>
 <dialog id="dlg"></dialog>
 <script>
 const $=(s)=>document.querySelector(s), app=$('#app');
@@ -30,7 +30,7 @@ for(const m of['append','replaceChildren','prepend']){const o=Element.prototype[
 function h(tag,attrs={},...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==='on')for(const[ev,fn]of Object.entries(v))e.addEventListener(ev,fn);else if(k==='class')e.className=v;else if(v!==false&&v!=null)e.setAttribute(k,v===true?'':v)}for(const c of kids.flat(Infinity)){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(String(c)))}return e}
 async function api(path,body){const r=await fetch('/api/'+path,body===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||'Request failed'),{status:r.status,mfa:!!j.mfa});return j}
 async function apiBlob(path,body){const r=await fetch('/api/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Request failed');return{blob:await r.blob(),count:r.headers.get('x-count')}}
-const eur=(n)=>Number(n).toLocaleString('es-ES',{style:'currency',currency:'EUR'});
+const eur=(n,cur)=>{try{return Number(n).toLocaleString('es-ES',{style:'currency',currency:cur||'EUR'})}catch(_){return Number(n).toLocaleString('es-ES',{style:'currency',currency:'EUR'})}};
 const LABEL={uploaded:'Uploaded',submitted:'Uploading',held:'Held: check VAT',detected:'Waiting',ready:'Ready to upload',error:'Error',rejected:'Rejected'};
 let DEMO=false,MANUAL=false;const pill=(s)=>h('span',{class:'pill p-'+s},(LABEL[s]||s)+(DEMO&&(s==='uploaded'||s==='submitted')?' (simulated)':'')+(MANUAL&&s==='uploaded'?' (you confirmed)':''));
 const dmy=(d)=>d?String(d).slice(0,10).split('-').reverse().join('/'):'';
@@ -87,7 +87,9 @@ function dashBanner(d){const k=d.kpis,go=(t)=>{tab=t};const mk=(cls,txt,btn)=>h(
  if(k.held>0){const hr=(d.shipments||[]).filter(s=>s.status==='held'&&s.reason).slice(0,2).map(s=>String(s.reason).slice(0,90));return mk('','Needs you: '+k.held+(k.held===1?' invoice is':' invoices are')+' on hold.'+(hr.length?' First: '+hr.join(' / ')+'.':'')+' Each one says what to do.',h('button',{on:{click:()=>{tab='overview';app.replaceChildren();dashView()}}},'Show them'))}
  return mk('good','All good. Nothing is waiting on you.'+(k.total?' '+(k.uploaded+k.submitted)+' of '+k.total+' business shipments have their invoice.':''))}
 async function dashView(){
- let d;try{d=await api('dashboard')}catch(x){return app.append(h('div',{class:'card err'},x.message))}
+ const load=h('div',{class:'card mut'},'Loading your invoices…');if(!app.children.length)app.append(load);
+ let d;try{d=await api('dashboard')}catch(x){load.remove();return app.append(h('div',{class:'card err'},x.message))}
+ load.remove();
  const k=d.kpis;DEMO=d.conn?.mode==='demo';MANUAL=d.conn?.mode==='manual';if(MANUAL&&tab==='overview'&&!window.__t){window.__t=1;tab='upload'}const syncMsg=h('span',{class:'mut small'},d.conn?.last_sync?`Last sync ${new Date(d.conn.last_sync).toLocaleString('en-GB')}`:'Not synced yet');
  const syncBtn=h('button',{class:'pri',on:{click:async(e)=>{e.target.disabled=true;e.target.textContent='Syncing…';try{const r=await api('sync',{});await dashView0()}catch(x){syncMsg.textContent=x.message;syncMsg.className='err';e.target.disabled=false;e.target.textContent='Sync now'}}}},'Sync now');
  const dashView0=async()=>{app.replaceChildren();await dashView()};

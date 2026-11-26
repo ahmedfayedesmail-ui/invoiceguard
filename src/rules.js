@@ -41,8 +41,10 @@ export function ruleState(db, pack, rule, now = new Date()) {
   return { id: rule.id, country: pack.country, topic: rule.topic, gate: !!rule.gate, state, reasons: [...hard, ...soft], verifiedOn, ageDays, every, checkedAt: st.checked_at ?? null, missing, canReview: !missing.length && rule.status === 'verified' || !!st.reviewed_on };
 }
 
-export function allRuleStates(db, now = new Date(), packs = PACKS) {
-  return Object.values(packs).map(p => ({ country: p.country, name: p.name, coverage: p.coverage, marketplaceId: p.marketplace_id, rules: p.rules.map(r => ({ ...r, ...ruleState(db, p, r, now) })) }));
+export function allRuleStates(db, now = new Date(), packs = PACKS, { operator = false } = {}) {
+  // canReview lets someone mark a source re-read; that decision belongs to the operator only,
+  // so the flag is stripped for ordinary sellers (a user click must never un-gate a stale rule).
+  return Object.values(packs).map(p => ({ country: p.country, name: p.name, coverage: p.coverage, marketplaceId: p.marketplace_id, rules: p.rules.map(r => { const st = ruleState(db, p, r, now); return { ...r, ...st, canReview: operator && st.canReview }; }) }));
 }
 
 /** Packs that govern a document: the issuer's country, the EU base, and Amazon. */
