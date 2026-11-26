@@ -14,6 +14,15 @@ const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address
 const fakeApi = () => { const calls = []; return { calls, uploadInvoice: async (a) => { calls.push(a); return `feed-${calls.length}`; }, feedStatus: async () => ({ status: 'DONE' }) }; };
 const vies = async (v) => v === 'ESA1234567' ? { status: 'invalid', reason: 'bad_format', vat: v } : { status: 'valid', vat: v };
 
+/** Fixture with the invoice-status column rewritten per shipping-id (an all-status VIDR). */
+function withStatus(base, byId, descById = {}) {
+  const lines = base.trim().split('\n'); const c = lines[0].split('\t'); const ix = (n) => c.indexOf(n);
+  if (ix('invoice-status-description') === -1) { c.push('invoice-status-description'); lines[0] = c.join('\t'); }
+  const out = lines.slice(1).map(r => { const cols = r.split('\t'); while (cols.length < c.length) cols.push(''); const st = byId[cols[ix('shipping-id')]]; if (st) { cols[ix('invoice-status')] = st; if (descById[cols[ix('shipping-id')]]) cols[ix('invoice-status-description')] = descById[cols[ix('shipping-id')]]; } return cols.join('\t'); });
+  return [lines[0], ...out].join('\n');
+}
+const withMarketplace = (base, code) => { const lines = base.trim().split('\n'); const c = lines[0].split('\t'); const ix = c.indexOf('marketplace-id'); return [lines[0], ...lines.slice(1).map(r => { const cols = r.split('\t'); cols[ix] = code; return cols.join('\t'); })].join('\n'); };
+
 test('VIDR parsing groups shipments and detects who needs an invoice', () => {
   const s = parseVidr(text);
   assert.equal(s.length, 5);
@@ -42,8 +51,50 @@ test('pipeline: uploads valid B2B, holds bad VAT, ignores B2C and already-upload
   assert.equal(api.calls[0].total, 54.45); assert.equal(api.calls[0].vat, 9.45);
   const again = await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:05:00Z') });
   assert.equal(again.uploaded, 0); assert.equal(api.calls.length, 2, 'no duplicate upload');
-  const p = await pollFeeds(db, seller, api); assert.equal(p.uploaded, 2);
+  // A finished feed is not acceptance: DONE moves to processing, and only the report verdict uploads.
+  const p = await pollFeeds(db, seller, api); assert.equal(p.processing, 2); assert.equal(p.rejected, 0);
+  assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 0);
+  await processReport(db, seller, withStatus(text, { S1001: 'InvoiceUploaded', S1002: 'InvoiceUploaded' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
   assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 2);
+  assert.equal(api.calls.length, 2, 'confirmation re-uploads nothing');
+});
+
+test('acceptance: DONE alone never marks uploaded; the report verdict does, and rejection flips with its reason', async () => {
+  const db = openDb(); const api = fakeApi();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const p = await pollFeeds(db, seller, api);
+  assert.equal(p.processing, 2);
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE upload_status='processing'").get().c, 2);
+  await processReport(db, seller, withStatus(text, { S1001: 'InvoiceRejected', S1002: 'InvoiceUploaded' }, { S1001: 'TotalAmount does not match' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
+  const s1 = db.prepare("SELECT status, reason FROM shipments WHERE key='SHIPMENT:S1001'").get();
+  assert.equal(s1.status, 'rejected'); assert.match(s1.reason, /TotalAmount does not match/);
+  assert.equal(db.prepare("SELECT upload_status FROM invoices WHERE shipment_key='SHIPMENT:S1001'").get().upload_status, 'rejected');
+  assert.equal(db.prepare("SELECT upload_status FROM invoices WHERE shipment_key='SHIPMENT:S1002'").get().upload_status, 'uploaded');
+});
+
+test('upload target: store codes resolve (UK -> GB id), raw marketplace IDs pass through, unknown codes hold and never upload', async () => {
+  let db = openDb(), api = fakeApi();
+  const out = await processReport(db, seller, withMarketplace(text, 'UK'), { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  assert.equal(out.uploaded, 2); assert.deepEqual(api.calls.map(c => c.marketplaceId), ['A1F83G8C2ARO7P', 'A1F83G8C2ARO7P']);
+  db = openDb(); api = fakeApi();
+  await processReport(db, seller, withMarketplace(text, 'A1RKKUPIHCS9HS'), { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  assert.deepEqual(api.calls.map(c => c.marketplaceId), ['A1RKKUPIHCS9HS', 'A1RKKUPIHCS9HS']);
+  db = openDb(); api = fakeApi();
+  const out2 = await processReport(db, seller, withMarketplace(text, 'ZZ'), { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  assert.equal(out2.uploaded, 0); assert.equal(api.calls.length, 0);
+  assert.ok(out2.held.length >= 2); assert.match(out2.held[0].reason, /store code/);
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices").get().c, 0, 'held before issuing: no number burned');
+});
+
+test('a failed correction upload still leaves the issued correction recorded locally (never Amazon-only)', async () => {
+  const db = openDb(); const api = fakeApi();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const badApi = { uploadInvoice: async () => { throw new Error('SP-API 500'); }, feedStatus: async () => ({ status: 'DONE' }) };
+  await assert.rejects(() => issueRectificativa(db, seller, 'A-2026-000001', { mode: 'substitution', reason: 'Wrong buyer name', changes: { buyer: { name: 'Mediterranea Norte S.L.' } } }, { api: badApi }), /SP-API 500/);
+  const row = db.prepare("SELECT upload_status, feed_id, number FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id);
+  assert.ok(row, 'the correction is recorded even though the upload failed');
+  assert.equal(row.upload_status, 'pending'); assert.equal(row.feed_id, null);
+  assert.match(row.number, /^R-/);
 });
 
 test('intra-EU invoice carries Amazon citation text and zero VAT', async () => {

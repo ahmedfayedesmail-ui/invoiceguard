@@ -6,9 +6,13 @@ import { buyerCountryCheck } from './features.js';
 import { gate, gateReason, missingFields, correctionWindowOk, readiness } from './rules.js';
 import { renderPdf } from './pdf.js';
 import { logEvent, appendAudit } from './db.js';
-import { MARKETPLACE } from './spapi.js';
+import { marketplaceFor } from './spapi.js';
 
-const DUE_HOURS = 24; // Amazon's documented VCS report SLA; configurable until confirmed for non-VCS sellers.
+// Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
+// https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
+// defect-rate help phrases it as one business day. 24h is the stricter reading in both directions
+// (it never tells you you're on time when Amazon would call you late), so the countdown uses it.
+const DUE_HOURS = 24;
 
 export const explain = (m) => /FeatureNotAvailable|79509|closed beta/i.test(m) ? 'Amazon has not enabled invoice upload for this account. In Seller Central set VAT Calculation Service to "I will upload my own VAT invoices".' : /Tax Invoicing|Unauthorized|403/i.test(m) ? 'The app lacks the Tax Invoicing role. Amazon must approve it for this seller.' : m;
 
@@ -29,10 +33,14 @@ export async function processReport(db, seller, reportText, { api, validate = va
   const vats = [...new Set(list.filter(needsInvoice).map(s => s.buyerVat).filter(Boolean))];
   await Promise.allSettled(vats.map(v => validate(v)));
   for (const s of list) {
+    // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
+    // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
+    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s); out.skipped++; continue; }
+    if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s); out.skipped++; continue; }
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
-    if (existing && ['submitted', 'uploaded', 'ready'].includes(existing.status)) { out.skipped++; continue; }
+    if (existing && ['submitted', 'processing', 'uploaded', 'ready'].includes(existing.status)) { out.skipped++; continue; }
     if (!existing) logEvent(db, seller.id, 'detected', { key: s.key, orderId: s.orderId }); // evidence trail starts here
     if (s.buyerVat && hasOverride(db, seller.id, s.key, 'b2c')) { s.buyerVat = null; s.buyerCompany = s.billing?.name || ''; }
     if (s.buyerVat) {
@@ -53,6 +61,14 @@ export async function processReport(db, seller, reportText, { api, validate = va
       const miss = missingFields(buildInvoice(db, seller, s, { date: now, number: 'PREVIEW' }), country);
       if (miss.length) { const reason = `Invoice would miss required fields: ${miss.join(', ')}`; upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
     }
+    // The upload target is the store the order was placed on (the report's marketplace column).
+    // Unknown code: hold BEFORE issuing. Never fall back to the buyer's address country - that is a different store.
+    // (Manual accounts upload their pack themselves, so no target is needed.)
+    let mp = null;
+    if (!api.manual) {
+      mp = marketplaceFor(s.marketplace);
+      if (!mp) { const reason = `The report's store code "${s.marketplace || 'none'}" is not one we can map to an Amazon marketplace, so the upload target was not guessed.`; upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
+    }
     // Issue once, upload separately: a failed upload must never burn an invoice number or create a second invoice for the same shipment.
     let row = db.prepare("SELECT number, json FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key), inv;
     if (row) inv = JSON.parse(row.json);
@@ -68,7 +84,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
       db.prepare("UPDATE invoices SET upload_status='ready' WHERE seller_id=? AND number=?").run(seller.id, inv.number); upsertShipment(db, seller.id, s, 'ready'); logEvent(db, seller.id, 'issued_manual', { number: inv.number }); out.uploaded++; continue;
     }
     try {
-      const feedId = await api.uploadInvoice({ marketplaceId: MARKETPLACE[s.marketplace] ?? MARKETPLACE[s.billing.country], pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat });
+      const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat });
       db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, inv.number);
       upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++;
     } catch (e) { db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=?").run(seller.id, inv.number); upsertShipment(db, seller.id, s, 'error', explain(e.message)); out.errors.push({ key: s.key, error: e.message }); }
@@ -76,13 +92,63 @@ export async function processReport(db, seller, reportText, { api, validate = va
   return out;
 }
 
-/** Poll processing feeds and move them to uploaded / rejected. */
+/** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
+function reconcileInvoice(db, seller, s) {
+  const key = `SHIPMENT:${s.shippingId}`;
+  const inv = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
+  if (!inv) return;
+  if (s.invoiceStatus === 'InvoiceUploaded' && inv.upload_status !== 'uploaded') {
+    db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, inv.number);
+    db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=?").run(seller.id, key);
+    logEvent(db, seller.id, 'confirmed_uploaded', { number: inv.number });
+  } else if (s.invoiceStatus === 'InvoiceRejected' && inv.upload_status !== 'rejected') {
+    const reason = s.invoiceStatusDesc || 'Amazon rejected the invoice while processing it';
+    db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
+    db.prepare("UPDATE shipments SET status='rejected', reason=? WHERE seller_id=? AND key=?").run(reason, seller.id, key);
+    logEvent(db, seller.id, 'confirmed_rejected', { number: inv.number, reason });
+  } else if (s.invoiceStatus === 'InvoiceProcessing' && inv.upload_status === 'submitted') {
+    db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
+    db.prepare("UPDATE shipments SET status='processing' WHERE seller_id=? AND key=? AND status='submitted'").run(seller.id, key);
+  }
+}
+
+/** Reconcile Amazon's verdict on an uploaded credit note (CreditNote* statuses on the refund row). */
+function reconcileCreditNote(db, seller, s) {
+  const rect = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
+  if (!rect) return;
+  const hasRepairs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='repairs'").get();
+  if (s.invoiceStatus === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
+    db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, rect.number);
+    if (hasRepairs) db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, rect.number);
+    logEvent(db, seller.id, 'confirmed_uploaded', { number: rect.number });
+  } else if (s.invoiceStatus === 'CreditNoteRejected' && rect.upload_status !== 'rejected') {
+    db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
+    if (hasRepairs) db.prepare("UPDATE repairs SET state='rejected' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported','uploaded')").run(seller.id, rect.number);
+    logEvent(db, seller.id, 'confirmed_rejected', { number: rect.number, reason: s.invoiceStatusDesc || null });
+  }
+}
+
+/**
+ * Poll processing feeds. A feed reaching DONE is NOT proof Amazon accepted the document - the
+ * verdict per shipment is the invoice-status column of the next VAT invoice data report
+ * (InvoiceUploaded vs InvoiceRejected, per the create-and-upload-invoices doc). DONE moves a feed
+ * to 'processing' and stores Amazon's processing report as evidence; reconciliation happens in
+ * processReport. Only FATAL/CANCELLED (the feed never ran) mark a rejection directly.
+ */
 export async function pollFeeds(db, seller, api) {
-  const res = { uploaded: 0, rejected: 0, pending: 0 };
-  for (const r of db.prepare("SELECT number, feed_id, shipment_key FROM invoices WHERE seller_id=? AND upload_status='submitted'").all(seller.id)) {
+  const res = { processing: 0, rejected: 0, pending: 0 };
+  for (const r of db.prepare("SELECT number, feed_id, shipment_key FROM invoices WHERE seller_id=? AND upload_status IN ('submitted','processing')").all(seller.id)) {
     const f = await api.feedStatus(r.feed_id);
-    if (f.status === 'DONE') { db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, r.number); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key); res.uploaded++; }
-    else if (['FATAL', 'CANCELLED'].includes(f.status)) { db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, r.number); db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key); res.rejected++; }
+    if (f.status === 'DONE') {
+      if (f.resultDocumentId && api.downloadFeedResult) {
+        try { const rep = await api.downloadFeedResult(f.resultDocumentId); logEvent(db, seller.id, 'feed_result', { number: r.number, feedId: r.feed_id, report: String(rep).slice(0, 4000) }); }
+        catch (e) { logEvent(db, seller.id, 'feed_result_error', { number: r.number, feedId: r.feed_id, error: e.message }); }
+      }
+      db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, r.number);
+      db.prepare("UPDATE shipments SET status='processing' WHERE seller_id=? AND key=? AND status='submitted'").run(seller.id, r.shipment_key);
+      res.processing++;
+    }
+    else if (['FATAL', 'CANCELLED'].includes(f.status)) { db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, r.number); db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key); logEvent(db, seller.id, 'confirmed_rejected', { number: r.number, reason: 'feed ' + f.status }); res.rejected++; }
     else res.pending++;
   }
   return res;
@@ -111,11 +177,21 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   // Manual product: nothing leaves the system - the correction waits in Ready to upload and travels in the pack.
   // Before this, manual corrections were inserted as 'submitted' and fell into limbo (never in the pack, never markable).
   const manual = !!api.manual;
-  const feedId = manual ? null : await api.uploadInvoice({ marketplaceId: MARKETPLACE[s.marketplace], pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
+  const mp = marketplaceFor(s.marketplace);
+  if (!manual && !mp) throw new Error(`The original shipment's store code "${s.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the upload target was not guessed. The correction was not issued.`);
+  // Local record FIRST, upload second: Amazon must never hold a document we have no record of, and the
+  // R series stays gapless even when the upload fails (the issued correction waits as 'pending').
   db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-    .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), feedId, manual ? 'ready' : 'submitted');
+    .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), null, manual ? 'ready' : 'pending');
   appendAudit(db, seller.id, 'rectificativa', rect.number, rect);
   logEvent(db, seller.id, 'rectificativa', { number: rect.number, rectifies: originalNumber });
+  let feedId = null;
+  if (!manual) {
+    try {
+      feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
+      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, rect.number);
+    } catch (e) { logEvent(db, seller.id, 'upload_error', { number: rect.number, error: explain(e.message) }); throw e; }
+  }
   return { rect, feedId, documentType, pdf };
 }
 

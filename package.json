@@ -1,3 +1,14 @@
-{ "name": "invoice-guard", "version": "0.1.0", "type": "module", "private": true,
-  "scripts": { "test": "node --test --test-force-exit --no-warnings test/*.test.js" },
-  "dependencies": { "pdfkit": "^0.15.0" } }
+{
+  "name": "invoice-guard",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-force-exit --no-warnings test/*.test.js",
+    "backup": "node tools/backup.mjs",
+    "audit-anchor": "node tools/audit-anchor.mjs"
+  },
+  "dependencies": {
+    "pdfkit": "^0.15.0"
+  }
+}

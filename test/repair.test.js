@@ -67,6 +67,52 @@ test('approving a return issues the chained credit note with the refund Transact
   await assert.rejects(() => approveRepair(db, seller, p.event_key, { api, validate: vies }), /No open repair/);
 });
 
+/** One of the two SKU-A units comes back; shipping is not refunded. */
+function partialRefundReport(sku = 'SKU-A') {
+  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'r-100-1';
+  ref[ix('item-vat-incl-amount')] = '-24.20'; ref[ix('item-vat-amount')] = '-4.20'; ref[ix('item-vat-excl-amount')] = '-20.00'; ref[ix('sku')] = sku;
+  ['shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '0'; });
+  return [head, ref.join('\t')].join('\n');
+}
+
+test('a PARTIAL return credits only the returned amount, never the whole invoice', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const origBefore = db.prepare("SELECT json FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).json;
+  const r = detectRepairs(db, seller, partialRefundReport());
+  assert.equal(r.proposed, 1);
+  const [p] = listRepairs(db, seller.id);
+  assert.equal(p.suggestion.full, false); assert.equal(p.suggestion.total, 24.2); assert.equal(p.suggestion.vat, 4.2);
+  const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
+  const cn = JSON.parse(db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, res.rectNumber).json);
+  assert.equal(cn.totals.excl, -20); assert.equal(cn.totals.vat, -4.2); assert.equal(cn.totals.incl, -24.2, 'the credit note covers the returned unit only');
+  assert.equal(cn.lines.length, 1, 'only the returned line appears as a delta');
+  assert.equal(db.prepare("SELECT json FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).json, origBefore, 'the original invoice is untouched');
+});
+
+test('a refund we cannot match to the original lines issues nothing and says so', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, partialRefundReport('SKU-NOT-ON-INVOICE'));
+  const [p] = listRepairs(db, seller.id);
+  const before = db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c;
+  await assert.rejects(() => approveRepair(db, seller, p.event_key, { api, validate: vies }), /cannot be matched/);
+  assert.equal(db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c, before, 'nothing issued');
+  assert.equal(listRepairs(db, seller.id).length, 1, 'the proposal stays open for review');
+});
+
+test('a FULL return still cancels the whole invoice', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, refundReport());
+  const [p] = listRepairs(db, seller.id);
+  assert.equal(p.suggestion.full, true);
+  const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
+  const cn = JSON.parse(db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, res.rectNumber).json);
+  assert.equal(cn.totals.incl, -54.45, 'full cancellation');
+});
+
 test('a refund for an invoice we did not issue is skipped, not proposed', () => {
   const db = openDb();
   const r = detectRepairs(db, seller, refundReport());

@@ -3,7 +3,7 @@ import { nextNumber } from './db.js';
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const sum = (a) => r2(a.reduce((x, y) => x + y, 0));
 
-const EXTRA_LABEL = { shipping: 'Gastos de envío', 'gift-wrap': 'Envoltorio de regalo', 'item-promo': 'Promoción', 'shipping-promo': 'Promoción de envío', 'gift-promo': 'Promoción de regalo' };
+export const EXTRA_LABEL = { shipping: 'Gastos de envío', 'gift-wrap': 'Envoltorio de regalo', 'item-promo': 'Promoción', 'shipping-promo': 'Promoción de envío', 'gift-promo': 'Promoción de regalo' };
 
 // Country on the printed address: full name in the country's own language (postal convention), not a bare code.
 const COUNTRY_AUTONYM = { ES: 'España', DE: 'Deutschland', FR: 'France', IT: 'Italia', NL: 'Nederland', BE: 'Belgique / België', PL: 'Polska', SE: 'Sverige', IE: 'Ireland', AT: 'Österreich', PT: 'Portugal', GB: 'United Kingdom' };

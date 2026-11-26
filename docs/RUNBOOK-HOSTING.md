@@ -95,3 +95,9 @@ Fly.io only if Ahmed approves a card on file; Oracle is off-limits.
 - No phone-verification flows; stop and report if a host demands one.
 - No accounts carrying his name, country or personal email.
 - The anonymity rule applies to the new host's account details too.
+
+## Backups and audit anchoring (added 2026-11-26)
+
+- `npm run backup` copies the SQLite database (with WAL files) into `backups/` with a timestamp and keeps the last 14. Run it from an external scheduler daily and keep one copy OFF the Railway volume. The copies contain personal data: never commit them.
+- `npm run audit-anchor` prints every seller's audit-chain head hash. The audit log lives in the same database it protects, so record the head hash somewhere outside the database (a dated note, an email) after each backup: a full rewrite of the chain then shows as a mismatch on the next anchor run.
+- Both were verified against a real database copy on 2026-11-26.

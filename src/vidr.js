@@ -24,7 +24,7 @@ export function parseVidr(text) {
         key, orderId: r['order-id'], shippingId: r['shipping-id'], transactionId: r['transaction-id'] || r['shipping-id'],
         transactionType: r['transaction-type'] || 'SHIPMENT', marketplace: r['marketplace-id'], orderDate: r['order-date'], shipmentDate: r['shipment-date'],
         currency: r.currency || 'EUR', isBusiness: bool(r['is-business-order']), isAmazonInvoiced: bool(r['is-amazon-invoiced']),
-        invoiceStatus: r['invoice-status'], sellerVat: r['seller-vat-number'], buyerVat: r['buyer-vat-number'] || null,
+        invoiceStatus: r['invoice-status'], invoiceStatusDesc: r['invoice-status-description'] || null, sellerVat: r['seller-vat-number'], buyerVat: r['buyer-vat-number'] || null,
         buyerTaxType: r['buyer-tax-registration-type'] || null, buyerCompany: r['buyer-company-name'] || r['billing-name'] || r['buyer-name'],
         poNumber: r['purchase-order-number'] || null,
         billing: { name: r['billing-name'], lines: [r['bill-address-1'], r['bill-address-2'], r['bill-address-3']].filter(Boolean), city: r['bill-city'], postal: r['bill-postal-code'], country: r['bill-country'] },

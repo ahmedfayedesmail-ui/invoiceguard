@@ -1,7 +1,23 @@
 // Minimal SP-API client (EU). Auth is LWA only: no AWS SigV4 needed. fetchImpl is injectable for tests.
 import { gunzipSync } from 'node:zlib';
 export const ENDPOINT = { EU: 'https://sellingpartnerapi-eu.amazon.com', NA: 'https://sellingpartnerapi-na.amazon.com' };
-export const MARKETPLACE = { ES: 'A1RKKUPIHCS9HS', FR: 'A13V1IB3VIYZZH', DE: 'A1PA6795UKMFR9', IT: 'APJ6JRA9NG5V4', NL: 'A1805IZSGTT6HS', BE: 'AMEN7PMS3EDWL', PL: 'A1C3SOZRARQ6R3', SE: 'A2NODRKZP88ZB9', IE: 'A28R8C7NBKEWEA' };
+// Store codes -> marketplace IDs, from https://developer-docs.amazon.com/sp-api/docs/marketplace-ids (checked 2026-11-26).
+export const MARKETPLACE = { ES: 'A1RKKUPIHCS9HS', FR: 'A13V1IB3VIYZZH', DE: 'A1PA6795UKMFR9', IT: 'APJ6JRA9NG5V4', NL: 'A1805IZSGTT6HS', BE: 'AMEN7PMS3EDWL', PL: 'A1C3SOZRARQ6R3', SE: 'A2NODRKZP88ZB9', IE: 'A28R8C7NBKEWEA', GB: 'A1F83G8C2ARO7P' };
+
+/**
+ * Resolve the upload target for a report row. The VIDR `marketplace-id` column carries Amazon's
+ * store codes (IE, ES, UK, FR, ...), per the VIDR column reference - NOT the A1... IDs - while the
+ * Order Report path stores a country code derived from the sales channel. Accept a store code, a
+ * country code (UK is Amazon's code for GB), or a raw marketplace ID. Unknown: null, and the caller
+ * holds instead of guessing (the buyer's address country is NOT the store the order was placed on).
+ */
+export function marketplaceFor(codeOrId) {
+  if (!codeOrId) return null;
+  const m = String(codeOrId).trim().toUpperCase();
+  if (Object.values(MARKETPLACE).includes(m)) return m;
+  if (m === 'UK') return MARKETPLACE.GB;
+  return MARKETPLACE[m] ?? null;
+}
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 export class SpApi {
@@ -25,9 +41,13 @@ export class SpApi {
   }
 
   // ---- reports: pull the VAT invoice data report (pending invoices only) ----
-  async requestVidr(marketplaceIds, { pendingOnly = true } = {}) {
-    const r = await this.call('POST', '/reports/2021-06-30/reports', { reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', marketplaceIds,
-      reportOptions: pendingOnly ? { 'ReportOption=pendingInvoices': 'true' } : undefined });
+  async requestVidr(marketplaceIds, { pendingOnly = true, all = false, from } = {}) {
+    // all=true asks for every invoice status (InvoiceProcessing/Uploaded/Rejected, CreditNote*), not only
+    // what is due; Amazon then wants a date window of at most 30 days (create-and-upload-invoices doc).
+    const body = { reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', marketplaceIds };
+    if (all) { const to = new Date(), start = from ? new Date(from) : new Date(to.getTime() - 30 * 864e5); body.dataStartTime = start.toISOString(); body.dataEndTime = to.toISOString(); body.reportOptions = { all: 'true', reportPeriod: 'DAY' }; }
+    else if (pendingOnly) body.reportOptions = { 'ReportOption=pendingInvoices': 'true' };
+    const r = await this.call('POST', '/reports/2021-06-30/reports', body);
     return r.reportId;
   }
   async waitReport(reportId, { tries = 60, everyMs = 15000 } = {}) {
@@ -61,4 +81,11 @@ export class SpApi {
     return feed.feedId;
   }
   async feedStatus(feedId) { const r = await this.call('GET', `/feeds/2021-06-30/feeds/${feedId}`); return { status: r.processingStatus, resultDocumentId: r.resultFeedDocumentId }; }
+  // Feed result documents live under the FEEDS documents endpoint, not the reports one.
+  async downloadFeedResult(documentId) {
+    const d = await this.call('GET', `/feeds/2021-06-30/documents/${documentId}`);
+    const res = await this.f(d.url); let buf = Buffer.from(await res.arrayBuffer());
+    if (d.compressionAlgorithm === 'GZIP') buf = gunzipSync(buf);
+    return buf.toString('utf8');
+  }
 }

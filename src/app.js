@@ -14,7 +14,7 @@ import { makeZip } from './zip.js';
 import { oauthRoutes } from './oauth.js';
 import { hashPwAsync, checkPwAsync, hashQueueStats, Busy, encrypt, decrypt, newToken } from './auth.js';
 import { cachedValidator } from './viescache.js';
-import { SpApi, MARKETPLACE } from './spapi.js';
+import { SpApi, MARKETPLACE, marketplaceFor } from './spapi.js';
 import { MockApi } from './mockamazon.js';
 import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
@@ -70,8 +70,11 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   }
   async function sync(seller) {
     if (db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(seller.id)?.mode === 'manual') throw Object.assign(new Error('Manual mode has no automatic sync. Upload an order report instead.'), { status: 409 });
-    const api = apiFor(seller), ids = JSON.parse(seller.marketplace_ids || '[]').map(c => MARKETPLACE[c]);
-    const rid = await api.requestVidr(ids); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
+    const api = apiFor(seller), ids = JSON.parse(seller.marketplace_ids || '[]').map(c => marketplaceFor(c)).filter(Boolean);
+    // all-status report: one pass detects new work AND carries Amazon's verdict (InvoiceUploaded /
+    // InvoiceRejected / CreditNote*) on what we already sent - that verdict, not the feed state,
+    // is what marks a document uploaded (see pollFeeds).
+    const rid = await api.requestVidr(ids, { all: true }); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
     const out = await processReport(db, seller, text, { api, validate }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
     let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text).proposed; } catch { /* a report without refund rows proposes nothing */ }
     const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };
@@ -81,7 +84,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const DASH_LIMIT = Number(process.env.DASH_LIMIT ?? 500);
   function dashboard(seller) {
     const nowIso = new Date().toISOString();
-    const k = db.prepare("SELECT count(*) total, sum(status='uploaded') uploaded, sum(status='submitted') submitted, sum(status='held') held, sum(status IN ('held','rejected','error') OR (status='detected' AND due_at IS NOT NULL AND due_at < ?)) bad FROM shipments WHERE seller_id=?").get(nowIso, seller.id);
+    const k = db.prepare("SELECT count(*) total, sum(status='uploaded') uploaded, sum(status IN ('submitted','processing')) submitted, sum(status='held') held, sum(status IN ('held','rejected','error') OR (status='detected' AND due_at IS NOT NULL AND due_at < ?)) bad FROM shipments WHERE seller_id=?").get(nowIso, seller.id);
     const rows = db.prepare('SELECT key, order_id, shipping_id, buyer, buyer_vat, country, total, vat, shipment_date, due_at, status, reason FROM shipments WHERE seller_id=? ORDER BY shipment_date DESC, key LIMIT ?').all(seller.id, DASH_LIMIT);
     const inv = db.prepare('SELECT number, shipment_key, kind, rectifies, issued_at, total, upload_status FROM invoices WHERE seller_id=? ORDER BY issued_at DESC, number DESC LIMIT ?').all(seller.id, DASH_LIMIT);
     const invTotal = db.prepare('SELECT count(*) n FROM invoices WHERE seller_id=?').get(seller.id).n;

@@ -22,12 +22,16 @@ test('full seller journey on simulated Amazon', async () => {
   assert.equal((await call('amazon/connect', { demo: true })).body.mode, 'demo');
   const s = (await call('sync', {})).body; assert.equal(s.uploaded, 2); assert.equal(s.held.length, 1);
   const d = (await call('dashboard')).body;
-  assert.equal(d.kpis.total, 3); assert.equal(d.kpis.held, 1); assert.equal(d.kpis.uploaded, 2); assert.equal(d.kpis.estDefectPct, 33.3);
+  assert.equal(d.kpis.total, 3); assert.equal(d.kpis.held, 1);
+  assert.equal(d.kpis.uploaded, 0, 'not confirmed yet: a sent feed is not acceptance');
+  assert.equal(d.kpis.submitted, 2, 'sent to Amazon, waiting for the report verdict');
+  assert.equal(d.kpis.estDefectPct, 33.3);
   const pdf = await call(`invoices/${d.invoices.at(-1).number}/pdf`); assert.equal(pdf.body.subarray(0, 4).toString(), '%PDF');
   const num = d.invoices.find(i => i.total === 54.45).number;
   const r = await call('rectify', { number: num, mode: 'substitution', reason: 'Wrong buyer name', buyerName: 'New Name S.L.' }); assert.equal(r.status, 200); assert.match(r.body.number, /^R-/);
   assert.equal((await call('rectify', { number: num, mode: 'substitution', reason: 'x', buyerVat: 'ESA1234567' })).status, 422);
   assert.equal((await call('sync', {})).body.uploaded, 0, 'second sync does not duplicate');
+  const d2 = (await call('dashboard')).body; assert.equal(d2.kpis.uploaded, 2, 'the next report confirms both invoices with Amazon');
   assert.equal((await call('vat/check', { vat: 'DE811128135' })).body.status, 'valid');
   const html = await (await fetch(base + '/')).text(); assert.match(html, /InvoiceGuard/);
   assert.equal((await fetch(base + '/api/me', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: '{}' })).status, 415);
