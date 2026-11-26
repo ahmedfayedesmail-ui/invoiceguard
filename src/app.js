@@ -20,7 +20,7 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, clearAllInFlightReports } from './repair.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, clearAllInFlightReports, markReportStorePending, storeDownloadedReport } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -104,15 +104,28 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     // Round-17 (P1-B): credit-note approvals are blocked while this newer report is in flight;
     // a failed sync clears the mark explicitly, so the block never sticks.
     markReportInFlight(db, seller.id, reportRequestedAt.toISOString());
+    // Round-18 (critic round-16): the two failure classes are separated. BEFORE the download
+    // completes, clearing the block is fine - the stored snapshot is genuinely the latest. The
+    // moment the download completes, the report is stored IMMEDIATELY and the block stays up
+    // while processing runs: a stale snapshot is never usable for approval once a newer report
+    // has arrived. If the store itself fails, the block stays up (store_pending) until a later
+    // sync stores a report - boot does not release it. A processing failure AFTER a successful
+    // store lifts the block safely: approval revalidates against the newer stored report.
+    let downloaded = false, stored = false;
     try {
       const rid = await api.requestVidr(ids, { all: true }); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
+      downloaded = true;
+      markReportStorePending(db, seller.id);
+      storeDownloadedReport(db, seller.id, { gen: reportGen, seq: reportAttemptSeq, requestedAt: reportRequestedAt.toISOString(), text });
+      stored = true;
       const out = await processReport(db, seller, text, { api, validate, reportRequestedAt, reportAttemptSeq }); const corr = await processCorrections(db, seller, text, { api, validate, reportAttemptSeq }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
       const settled = await settleUnknownDocuments(db, seller, text, { api, validate, reportAttemptSeq }); if (settled.resubmitted.length) logEvent(db, seller.id, 'sync_settled_unknown', settled);
-      let repairsProposed = 0; try { recordReportSnapshot(db, seller.id, { gen: reportGen, seq: reportAttemptSeq, requestedAt: reportRequestedAt.toISOString(), text }); repairsProposed = detectRepairs(db, seller, text, { reportAttemptSeq, reportRequestedAt, reportGen }).proposed; } catch { /* a report without refund rows proposes nothing */ } // round-16/17: proposals carry the source report's freshness
+      let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text, { reportAttemptSeq, reportRequestedAt, reportGen }).proposed; } catch { /* a report without refund rows proposes nothing */ } // round-16/17: proposals carry the source report's freshness
       const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };
       db.prepare('UPDATE amazon_conn SET last_sync=?, last_sync_result=? WHERE seller_id=?').run(result.at, JSON.stringify({ detected: out.detected, uploaded: out.uploaded, held: out.held.length, deferred: out.deferred.length, errors: out.errors.length }), seller.id);
+      clearReportInFlight(db, seller.id);
       return result;
-    } catch (e) { clearReportInFlight(db, seller.id); throw e; }
+    } catch (e) { if (!downloaded || stored) clearReportInFlight(db, seller.id); throw e; }
   }
   const DASH_LIMIT = Number(process.env.DASH_LIMIT ?? 500);
   function dashboard(seller) {

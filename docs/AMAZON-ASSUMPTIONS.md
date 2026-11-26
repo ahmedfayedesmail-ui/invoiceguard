@@ -122,4 +122,13 @@ increments once per report taken in, INDEPENDENT of attempt_seq (which only orde
 attempts): two consecutive reports with no upload between them still order (critic round-15 P1-A).
 While a newer report is being fetched/processed, credit-note approvals are blocked by an in-flight
 mark in the database; sync success stores the report and lifts the block, sync failure clears it
-explicitly, and boot clears any mark a crash left behind (critic round-15 P1-B).
+explicitly, and boot clears any mark a crash left behind (critic round-15 P1-B). The two failure
+classes are separated (critic round-16): a failure BEFORE the download clears the block (the
+stored snapshot is genuinely the latest), while the moment a download completes the report is
+stored IMMEDIATELY and the block stays up until processing completes - a stale snapshot is never
+usable for approval once a newer report has arrived. A processing failure after a successful store
+lifts the block safely because approval revalidates against the newer stored report. If the store
+itself fails, the store_pending flag keeps the block up across boots until a later sync stores a
+report - never stuck, never unsafe. (Edge documented: if the DB write path itself is broken, no
+marker can be persisted; the in-flight mark set before the request still holds the block until
+boot.)

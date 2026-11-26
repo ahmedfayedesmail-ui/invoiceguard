@@ -33,20 +33,43 @@ export function ensureRepairTables(db) {
   // credit-note approvals; the mark lives in the DB so it survives an approval on another path.
   try { db.exec("ALTER TABLE report_snapshots ADD COLUMN in_flight INTEGER DEFAULT 0"); } catch { /* exists */ }
   try { db.exec('ALTER TABLE report_snapshots ADD COLUMN in_flight_at TEXT'); } catch { /* exists */ }
+  // Round-18 (critic round-16): set from the moment a newer report is DOWNLOADED until it is
+  // STORED. Boot must never release this block: a newer report arrived and was never stored, so
+  // the last stored snapshot is known-stale.
+  try { db.exec("ALTER TABLE report_snapshots ADD COLUMN store_pending INTEGER DEFAULT 0"); } catch { /* exists */ }
   db.exec('DELETE FROM report_snapshots WHERE gen IS NULL AND text IS NOT NULL'); // old rows always carry report text; an in-flight placeholder (round-17 P1-B) does not and must survive
 }
 
 /** Round-16: store the seller's latest report (snapshot + request time + text) so approval-time
  * re-validation can compare a proposal against fresher data. */
-export function recordReportSnapshot(db, sellerId, { gen, seq, requestedAt, text }) {
+function upsertSnapshot(db, sellerId, { gen, seq, requestedAt, text }, liftBlock) {
+  if (liftBlock) db.prepare(`INSERT INTO report_snapshots (seller_id, gen, seq, requested_at, text, in_flight, in_flight_at, store_pending) VALUES (?,?,?,?,?,0,NULL,0)
+    ON CONFLICT(seller_id) DO UPDATE SET gen=excluded.gen, seq=excluded.seq, requested_at=excluded.requested_at, text=excluded.text, in_flight=0, in_flight_at=NULL, store_pending=0`).run(sellerId, gen, seq, requestedAt, text);
+  else db.prepare(`INSERT INTO report_snapshots (seller_id, gen, seq, requested_at, text, store_pending) VALUES (?,?,?,?,?,0)
+    ON CONFLICT(seller_id) DO UPDATE SET gen=excluded.gen, seq=excluded.seq, requested_at=excluded.requested_at, text=excluded.text, store_pending=0`).run(sellerId, gen, seq, requestedAt, text);
+}
+export function recordReportSnapshot(db, sellerId, snap) {
   ensureRepairTables(db);
   // Storing the report also lifts the in-flight approval block (round-17 P1-B, success path).
-  db.prepare(`INSERT INTO report_snapshots (seller_id, gen, seq, requested_at, text, in_flight, in_flight_at) VALUES (?,?,?,?,?,0,NULL)
-    ON CONFLICT(seller_id) DO UPDATE SET gen=excluded.gen, seq=excluded.seq, requested_at=excluded.requested_at, text=excluded.text, in_flight=0, in_flight_at=NULL`).run(sellerId, gen, seq, requestedAt, text);
+  upsertSnapshot(db, sellerId, snap, true);
+}
+/** Round-18 (critic round-16): store a just-downloaded report IMMEDIATELY, while the in-flight
+ * block stays up until processing completes. From this moment the invariant holds: approval
+ * revalidates against THIS report, never against a stale one. */
+export function storeDownloadedReport(db, sellerId, snap) {
+  ensureRepairTables(db);
+  upsertSnapshot(db, sellerId, snap, false);
+}
+/** Round-18 (critic round-16): mark that a newer report has been downloaded but not stored yet.
+ * If the store fails, the approval block must stay up (and survive boot) until a later sync
+ * stores a report. markReportInFlight has already created the row in the auto-sync flow. */
+export function markReportStorePending(db, sellerId) {
+  ensureRepairTables(db);
+  db.prepare('UPDATE report_snapshots SET store_pending=1 WHERE seller_id=?').run(sellerId);
 }
 export function latestReportSnapshot(db, sellerId) {
   ensureRepairTables(db);
-  return db.prepare('SELECT gen, seq, requested_at, text, in_flight FROM report_snapshots WHERE seller_id=?').get(sellerId) ?? null;
+  return db.prepare('SELECT gen, seq, requested_at, text, in_flight, store_pending FROM report_snapshots WHERE seller_id=?').get(sellerId) ?? null;
 }
 /** Round-17 (critic round-15 P1-B): mark that a newer report is being fetched/processed - credit-
  * note approvals hold until the report lands (recordReportSnapshot) or the sync fails
@@ -60,10 +83,13 @@ export function clearReportInFlight(db, sellerId) {
   ensureRepairTables(db);
   db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE seller_id=?').run(sellerId);
 }
-/** A crashed sync can leave the mark set; at boot no sync is running, so every mark is stale. */
+/** A crashed sync can leave the mark set; at boot no sync is running, so every mark is stale -
+ * EXCEPT store_pending rows (round-18, critic round-16): a newer report was downloaded but never
+ * stored, so the block survives boot until a later sync stores a report (safe direction, never
+ * stuck: the next successful sync stores its report and lifts the block). */
 export function clearAllInFlightReports(db) {
   ensureRepairTables(db);
-  db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE in_flight=1').run();
+  db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE in_flight=1 AND (store_pending IS NULL OR store_pending=0)').run();
 }
 
 /**
