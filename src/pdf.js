@@ -20,7 +20,7 @@ export function renderPdf(inv) {
     let y = 110;
     const block = (title, p, x) => {
       doc.font('Helvetica-Bold').fontSize(9).text(title, x, y);
-      doc.font('Helvetica').fontSize(10).text([p.name, p.vat ? `NIF/VAT: ${p.vat}` : p.nif ? `NIF: ${p.nif}` : null, p.registrationNo ? `Reg. no.: ${p.registrationNo}` : null, ...(Array.isArray(p.address) ? p.address : [p.address])].filter(Boolean).join('\n'), x, y + 13, { width: 230 });
+      doc.font('Helvetica').fontSize(10).text([p.name, p.vat ? `NIF/VAT: ${p.vat}` : p.nif ? `NIF/VAT: ${p.nif}` : null, p.registrationNo ? `Reg. no.: ${p.registrationNo}` : null, ...(Array.isArray(p.address) ? p.address : [p.address])].filter(Boolean).join('\n'), x, y + 13, { width: 230 });
     };
     block(T('EMISOR'), inv.seller, 50); block(T('CLIENTE'), inv.buyer, 310);
     y = 200;

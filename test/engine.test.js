@@ -50,6 +50,7 @@ test('intra-EU invoice carries Amazon citation text and zero VAT', async () => {
   const db = openDb(); const s = parseVidr(text)[1];
   const inv = buildInvoice(db, seller, s, { date: new Date('2026-11-24') });
   assert.equal(inv.totals.vat, 0); assert.match(inv.vatNote.text, /art\. 25/); assert.equal(inv.vatNote.source, 'amazon');
+  assert.match(inv.vatNote.text, /Innergemeinschaftliche/, 'intra-EU note also in the buyer language for a German buyer');
 });
 
 test('rectificativa by substitution: new R number, references original, VIES-checked, original untouched', async () => {

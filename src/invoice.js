@@ -27,11 +27,16 @@ export const totalsOf = (lines) => {
 };
 
 /** Legal wording for 0% VAT. Prefer Amazon's own citation text from the report. */
+// Intra-EU 0% supply note, in the buyer's language, so a buyer-side reviewer reads the legal basis in their own words.
+const INTRA_EU_NOTE = { DE: 'Innergemeinschaftliche steuerfreie Lieferung (Reverse Charge).', FR: 'Livraison intracommunautaire exonérée de TVA (autoliquidation).', IT: 'Cessione intracomunitaria esente IVA (inversione contabile).', NL: 'Intracommunautaire levering, vrijgesteld van btw (verlegd).', PL: 'Wewn\u0105trzwsp\u00f3lnotowa dostawa towar\u00f3w zwolniona z VAT (odwrotne obci\u0105\u017cenie).', SE: 'Gemenskapsintern f\u00f6rs\u00e4ljning, momsfri (omv\u00e4nd skattskyldighet).', IE: 'Intra-Community supply, zero-rated (reverse charge).', BE: 'Intracommunautaire levering, vrijgesteld van btw (verlegd).', PT: 'Entrega intracomunit\u00e1ria isenta de IVA (autoliquida\u00e7\u00e3o).' };
+
 export function vatNote(s, country = 'ES') {
-  if (s.citation) return { text: s.citation, source: 'amazon' };
-  const zero = s.vat === 0 && s.excl > 0;
-  if (country === 'ES' && zero && s.buyerVat && s.shipCountry && s.shipFromCountry && s.shipCountry !== s.shipFromCountry)
-    return { text: 'Entrega intracomunitaria exenta de IVA. Inversión del sujeto pasivo.', source: 'fallback_verify_with_accountant' };
+  const intraEU = s.vat === 0 && s.excl > 0 && s.buyerVat && s.shipCountry && s.shipFromCountry && s.shipCountry !== s.shipFromCountry;
+  const local = intraEU ? INTRA_EU_NOTE[s.shipCountry] : null;
+  if (s.citation) return { text: local && !s.citation.includes(local.slice(0, 12)) ? s.citation + ' ' + local : s.citation, source: 'amazon' };
+  if (country === 'ES' && intraEU)
+    return { text: 'Entrega intracomunitaria exenta de IVA. Inversi\u00f3n del sujeto pasivo.' + (local ? ' ' + local : ''), source: 'fallback_verify_with_accountant' };
+  if (local) return { text: local, source: 'fallback_verify_with_accountant' };
   return null;
 }
 

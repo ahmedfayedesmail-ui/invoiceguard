@@ -19,18 +19,32 @@ export const page = (title, body, env, desc) => `<!doctype html><html lang="en">
 const who = (c) => c.name ? esc(c.name) : 'the InvoiceGuard operator';
 const contactLine = (c) => c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : 'the form on the <a href="/contact">contact page</a>';
 
+// Country-aware landing copy: the visitor's market (guessed from the browser language) decides which
+// local rule and which familiar pains we name. Spain stays the default market of the pilot.
+const MARKET_COPY = {
+  ES: { name: 'Spain', rule: 'Spain: a business invoice is due within one business day, and Verifactu reporting is on the way.', familiar: ['Amazon\'s own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.', 'One Pan-EU order shows your Spanish CIF, the next a German VAT number, and it is never clear which one belongs on the invoice.', 'Verifactu is on the way in Spain, and nobody can say plainly which of your invoices it covers.'] },
+  DE: { name: 'Germany', rule: 'Germany: \u00a714 UStG sets what must be on every invoice, and Amazon wants the upload within one business day.', familiar: ['Amazon\'s own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.', 'One Pan-EU order goes out with one of your VAT numbers, the next with another, and it is never clear which one belongs on the invoice.', 'A single missing detail under \u00a714 UStG can cost your buyer their input VAT deduction - and you the buyer.'] },
+  FR: { name: 'France', rule: 'France: B2B e-invoicing becomes mandatory in stages from 2026, and Amazon wants the upload within one business day.', familiar: ['Amazon\'s own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.', 'One Pan-EU order goes out with one of your VAT numbers, the next with another, and it is never clear which one belongs on the invoice.', 'France\'s e-invoicing mandate phases in from 2026, and nobody can say plainly which of your invoices it covers.'] },
+  IT: { name: 'Italy', rule: 'Italy: e-invoicing through the SDI system already applies, and Amazon wants the upload within one business day.', familiar: ['Amazon\'s own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.', 'One Pan-EU order goes out with one of your VAT numbers, the next with another, and it is never clear which one belongs on the invoice.', 'Italy already runs e-invoicing through SDI, and an invoice that ignores its rules is not an invoice.'] },
+};
+const EU_COPY = { name: 'the EU', rule: 'Amazon asks for the invoice within one business day of dispatch, and each EU country adds its own invoicing rules on top.', familiar: MARKET_COPY.ES.familiar };
+
+/** Best-effort market guess from the Accept-Language header. Spain (the pilot market) is the fallback. */
+export const countryFromLang = (al) => { const m = /\b(de|fr|it|es)\b/i.exec(String(al ?? '')); return m ? m[1].toUpperCase() : 'ES'; };
+
 export function landing(env = process.env, opts = {}) {
   const cta = opts.ctaHref || '/sample';
+  const market = MARKET_COPY[opts.country] ?? EU_COPY;
+  const guessed = !!MARKET_COPY[opts.country] && opts.country !== 'ES';
   const h1 = opts.variant === 'b' ? 'Your first Amazon Business order comes with a one-business-day invoice deadline.' : 'Amazon Business invoices, without the hand-made part.';
   const lead = opts.variant === 'b' ? 'InvoiceGuard builds and checks the invoice from your Seller Central report, so the deadline is met without the hand-made part. Pilot, free for now.' : 'Amazon says invoicing is automatic. Many sellers still end up making every invoice by hand. InvoiceGuard takes the order report you download from Seller Central, builds an invoice for each business order, and checks it before anything goes out: the buyer\'s VAT number, the required details, the numbering, the deadline. If something looks wrong, it stops and tells you what to fix, in plain English.';
   return page('InvoiceGuard: B2B invoices for Amazon sellers, checked before they go out', `
 <section class="hero"><h1>${h1}</h1>
 <p class="lead">${lead}</p>
-<p><a class="btn" href="${cta}">Watch it work, no account needed</a> &nbsp; <a class="btn alt" href="/app">Try it with sample data</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p></section>
+<p class="mut" style="margin-top:-4px">${esc(market.rule)}${guessed ? ' <span style="font-size:13px">(We guessed your market from your browser language.)</span>' : ''}</p>
+<p><a class="btn" href="${cta}">Watch it work: 2 minutes, no account</a> &nbsp; <a class="btn alt" href="/app">Try it yourself: free account</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p></section>
 <div class="note"><b>Honest status:</b> InvoiceGuard is a pilot. It is not connected to Amazon. You upload your own order report and you upload the finished invoices to Amazon yourself. The sample data in the app is made up, and nothing from it is sent to Amazon. We say so on every screen that shows sample data. We have not yet tested on a real Seller Central file.</div>
-<h2>Sound familiar?</h2><ul><li>Amazon's own invoicing is switched on, yet the invoices never arrive, so you keep making them by hand.</li>
-<li>One Pan-EU order shows your Spanish CIF, the next a German VAT number, and it is never clear which one belongs on the invoice.</li>
-<li>Verifactu is on the way in Spain, and nobody can say plainly which of your invoices it covers.</li></ul>
+<h2>Sound familiar?</h2><ul>${market.familiar.map(f => '<li>' + esc(f) + '</li>').join('')}</ul>
 <p>These are the threads sellers post on Amazon's own forums. They are why InvoiceGuard exists.</p>
 <h2>Who it is for</h2><p>Sellers who sell to businesses on Amazon in the EU and want invoices that are complete, numbered in order, and issued on time, without doing it by hand. It is built for small teams, not accountants.</p>
 <h2 id="how">How it works</h2>
@@ -42,7 +56,7 @@ export function landing(env = process.env, opts = {}) {
 <h2>Your data</h2><p>We keep only what the service needs, we do not sell it, and we do not use advertising or analytics trackers. Read the <a href="/privacy">privacy page</a> for the details.</p>
 <h2 id="pricing">Pricing</h2><p>InvoiceGuard is free during the pilot. We have not set paid plans yet. If we introduce them, the prices will be shown here before anyone is charged, and pilot users will be told first.</p>
 <h2>Free pilot</h2><p>We are looking for a few sellers to try InvoiceGuard for free and tell us what is missing. See the <a href="/contact">contact page</a> to get in touch.</p>
-<p style="margin-top:26px"><a class="btn" href="/sample">Watch it work, no account needed</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p>`, env, 'InvoiceGuard builds and checks B2B invoices for Amazon sellers in the EU. Pilot stage, honest about what works today.');
+<p style="margin-top:26px"><a class="btn" href="/sample">Watch it work: 2 minutes, no account</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p>`, env, 'InvoiceGuard builds and checks B2B invoices for Amazon sellers in the EU. Pilot stage, honest about what works today.');
 }
 
 export function privacy(env = process.env) {

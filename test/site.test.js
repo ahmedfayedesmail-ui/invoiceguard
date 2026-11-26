@@ -1,10 +1,23 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { landing, privacy, contact, faq } from '../src/site.js'; import { createApp } from '../src/app.js';
+import { landing, privacy, contact, faq, countryFromLang } from '../src/site.js'; import { createApp } from '../src/app.js';
 test('public pages: no scripts, no third-party requests, operator details escaped', () => {
   const env = { OPERATOR_NAME: 'A <b>Co</b>', CONTACT_EMAIL: 'hi@example.com' };
   for (const f of [landing, privacy, contact, faq]) { const h = f(env); assert.ok(!/<script/i.test(h)); assert.ok(!/https?:\/\/(?!www\.w3)/.test(h.replace(/href="mailto:[^"]*"/g, ''))); assert.ok(!h.includes('<b>Co</b>')); }
   assert.match(privacy(env), /hi@example\.com/); assert.match(contact(env), /A &lt;b&gt;Co&lt;\/b&gt;/);
   assert.match(landing({}), /Honest status/); assert.match(privacy({}), /contact page/);
+});
+test('landing adapts to the visitor market and every CTA says what happens', () => {
+  const de = landing({}, { country: 'DE', variant: 'b' });
+  assert.match(de, /Germany: /); assert.match(de, /UStG/); assert.match(de, /browser language/);
+  const es = landing({}, { country: 'ES' });
+  assert.match(es, /Spain: /); assert.match(es, /Verifactu/); assert.ok(!es.includes('browser language'));
+  const unknown = landing({}, { country: 'XX' });
+  assert.match(unknown, /the EU/);
+  for (const h of [de, es, unknown]) { assert.match(h, /Watch it work: 2 minutes, no account/); assert.match(h, /Try it yourself: free account/); }
+  assert.equal(countryFromLang('de-DE,de;q=0.9,en;q=0.8'), 'DE');
+  assert.equal(countryFromLang('fr-FR'), 'FR');
+  assert.equal(countryFromLang('en-US'), 'ES', 'non-mapped languages fall back to the pilot market');
+  assert.equal(countryFromLang(undefined), 'ES');
 });
 test('routes: / privacy contact are public once the operator is set, app moved to /app', async () => {
   process.env.OPERATOR_NAME = 'T'; process.env.CONTACT_EMAIL = 't@example.com';

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
 import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode } from './db.js';
-import { landing, privacy, contact, sample, faq, notFound } from './site.js';
+import { landing, privacy, contact, sample, faq, notFound, countryFromLang } from './site.js';
 import { ARTICLES, articlesIndex, articlePage } from './articles.js';
 import { sampleRun, samplePdf } from './sample.js';
 import { applyBootReset } from './reset.js';
@@ -150,7 +150,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         bump('pv:' + p);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
         if (p === '/contact') return res.end(contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }));
-        if (p === '/') { const v = abVariant(); bump('pv:/:' + v); return res.end(landing(process.env, { variant: v, ctaHref: '/go/sample?v=' + v })); }
+        if (p === '/') { const v = abVariant(); bump('pv:/:' + v); return res.end(landing(process.env, { variant: v, ctaHref: '/go/sample?v=' + v, country: countryFromLang(req.headers['accept-language']) })); }
         return res.end(PUB[p]());
       }
       if (req.method === 'POST' && p === '/contact' && PUBLIC_READY) { // plain HTML form: stored on our own server only
@@ -338,8 +338,8 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
           sample: plan.shipments.slice(0, 20).map(x => ({ orderId: x.orderId, buyer: x.buyerCompany, buyerVat: x.buyerVat, currency: x.currency, total: x.incl, vat: x.vat })) };
         if (p === '/api/manual/preview') return json(res, 200, view);
         if (body.attest !== true) return json(res, 400, { error: 'Please confirm the two checks first.' });
-        const prev = (key) => db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, key)?.status;
-        for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; if (!['ready', 'uploaded', 'submitted'].includes(prev(st.key))) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
+        const prev = (key) => db.prepare('SELECT status, reason FROM shipments WHERE seller_id=? AND key=?').get(seller.id, key);
+        for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; const pv = prev(st.key); const alreadyHeld = pv?.status === 'held' && pv?.reason === h.reason; if (!alreadyHeld && !['ready', 'uploaded', 'submitted'].includes(pv?.status)) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
         const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
         logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
         return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length });
