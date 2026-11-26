@@ -52,3 +52,14 @@ github.com/amzn/selling-partner-api-models. Round-7 audit, 2026-11-26.
 - U3 Real CorrectionReversal / Correction:: pair timing (same report vs split across reports).
 - U4 The Amazon Tax Invoicing developer role is not yet approved: every production claim stays held until one complete real-seller cycle (real report -> invoice -> upload -> acceptance -> return -> credit note -> acceptance).
 - U5 VCS upload acceptance criteria beyond the documented metadata (real-account rejection reasons may teach more).
+
+## Concurrency and crash atomicity (round-8 audit, independent reviewer)
+
+| # | Assumption | Status | Enforcement |
+|---|------------|--------|-------------|
+| C1 | Two executions can overlap (manual "Sync now" + hourly scheduler, retried request, sync + repair approval). The database, not the read-then-write order, decides who talks to Amazon | Verified real by reviewer reproduction | Atomic claim: every Amazon call is gated by `UPDATE ... SET upload_status='sending', sending_at=? ... AND upload_status IN (...)` - the loser changes 0 rows and skips. Unique indexes: one invoice per shipment, one correction document per Amazon event. Per-seller sync lock in the app layer. Tests simulate the interleaving across the awaits |
+| C2 | A crash between a status write and its Repairs proposal must leave neither behind - a rejected/unknown document without its review is never revisited | Verified real by reviewer | Status write + proposal run in one SQLite transaction everywhere (pollFeeds CANCELLED/FATAL, reconcile verdicts, all unknown-outcome handlers). Test: fault-injected mid-transaction crash rolls back both, next poll completes them |
+| C3 | One failing feed must never abort polling of the rest | Verified real by reviewer | Per-feed try/catch in pollFeeds: 404 (feed aged out of Amazon's 90-day feed API) gets the FATAL unknown+hold discipline; transient errors skip only that feed and are counted. Tests for both |
+| C4 | A dryRun preview issues nothing | Verified real by reviewer | dryRun returns before issuance: no row, no audit entry, no burned number. Test asserts all three |
+| C5 | Report amounts can be locale-formatted | Reviewer nitpick, handled conservatively | vidr num(): rightmost of '.'/',' is the decimal separator; tests for "1,234.56" and "1.234,56" |
+| C6 | The upload throttle must also count failed attempts | Reviewer nitpick | `lastUpload` stamped before createFeed, not only on success |

@@ -1,5 +1,15 @@
 // Parser for Amazon's VAT Invoice Data Report (GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT), tab-separated.
-const num = (x) => { const n = parseFloat(String(x ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+// Locale-safe amounts: the rightmost of '.'/',' is the decimal separator, the other is grouping -
+// "1.234,56" (ES), "1,234.56" (US) and "1234,56" all parse to 1234.56. A single separator is taken
+// as-is (the documented report format uses '.'), so "1,56" becomes 1.56 and "1,234" stays 1234.
+const num = (x) => {
+  let s = String(x ?? '').trim(); if (!s) return 0;
+  const dot = s.lastIndexOf('.'), com = s.lastIndexOf(',');
+  if (dot >= 0 && com >= 0) s = com > dot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else if (com >= 0) s = /,\d{1,2}$/.test(s) && s.indexOf(',') === com ? s.replace(',', '.') : s.replace(/,/g, '');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+};
 const bool = (x) => String(x).toUpperCase() === 'TRUE';
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 

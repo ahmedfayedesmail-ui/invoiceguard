@@ -7,7 +7,7 @@ import { issueRectificativa } from './pipeline.js';
 import { renderPdf } from './pdf.js';
 import { marketplaceFor } from './spapi.js';
 import { EXTRA_LABEL, totalsOf } from './invoice.js';
-import { logEvent } from './db.js';
+import { logEvent, tx } from './db.js';
 
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const MANUAL_FIX = 'Correct the invoice yourself in Documents > Invoices - nothing was issued.';
@@ -120,7 +120,10 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   // Same discipline as the first upload: mark 'sending' BEFORE the call, so a crash in the window
   // between Amazon accepting the retry and the local write is recovered at boot by
   // recoverUncertainUploads ('unknown' + human hold) - never invisible, never blindly resent.
-  db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, number);
+  // Round-8: this write is the ATOMIC CLAIM - a concurrent settle path or a double-submitted
+  // approval must never upload the same document twice. The loser changes 0 rows and stops.
+  const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), seller.id, number);
+  if (!claim.changes) throw new Error(`Document ${number} is already being retried by another run. Nothing was re-uploaded.`);
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
   try {
@@ -129,11 +132,14 @@ async function retryRejectedUpload(db, seller, number, { api }) {
     // Same discipline as the first upload: an unknown outcome is never resent blindly. The document
     // goes to 'unknown' with a human-visible hold; the next Amazon report settles it.
     if (e.unknownOutcome) {
-      db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, number);
-      db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
-      logEvent(db, seller.id, 'upload_unknown_outcome', { number, error: e.message });
-      proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${row.shipment_key}`, kind: 'unknown_outcome', number, shipmentKey: row.shipment_key, action: 'hold',
-        reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there, cross-checked against Amazon's own feed list, lets the next sync resubmit it; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+      // Status write + hold proposal in ONE transaction (round-8): no crash can lose the hold.
+      tx(db, () => {
+        db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, number);
+        db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
+        logEvent(db, seller.id, 'upload_unknown_outcome', { number, error: e.message });
+        proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${row.shipment_key}`, kind: 'unknown_outcome', number, shipmentKey: row.shipment_key, action: 'hold',
+          reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there, cross-checked against Amazon's own feed list, lets the next sync resubmit it; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+      });
     } else {
       // A DEFINITE refusal (Amazon never accepted the retry): restore 'rejected' so the reviewed
       // retry stays available. Only an unknown outcome holds.

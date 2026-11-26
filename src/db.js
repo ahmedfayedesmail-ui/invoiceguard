@@ -23,6 +23,14 @@ export function openDb(file = ':memory:') {
   CREATE INDEX IF NOT EXISTS idx_ship_date ON shipments (seller_id, shipment_date);
   CREATE INDEX IF NOT EXISTS idx_inv_issued ON invoices (seller_id, issued_at);
   CREATE INDEX IF NOT EXISTS idx_vat_checks ON vat_checks (seller_id, checked_at);`);
+  // Round-8 dedup invariants, enforced by the database itself so no execution interleaving can
+  // create them twice: one invoice per shipment, one correction document per Amazon event
+  // (recordKey-less manual corrections keep the original shipment key and stay exempt - several of
+  // them per shipment are legitimate). Guarded: a legacy duplicate must never crash boot.
+  try {
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_invoice_per_shipment ON invoices (seller_id, shipment_key) WHERE kind='invoice'`);
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_rect_per_event ON invoices (seller_id, shipment_key) WHERE kind='rectificativa' AND shipment_key NOT LIKE 'SHIPMENT:%'`);
+  } catch (e) { console.error('dedup index migration skipped (legacy duplicate?):', e.message); }
   // One-time repair for the stage-2 limbo defect: corrections approved before the fix sit at
   // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
   db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
@@ -45,6 +53,14 @@ export function nextNumber(db, sellerId, series, date = new Date()) {
     db.exec('COMMIT');
     return `${series}-${year}-${String(n).padStart(6, '0')}`;
   } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
+/** Run a block of SYNCHRONOUS writes atomically: either every write lands or none does.
+ * Closes the crash window between a status write and its Repairs proposal (round-8). Never hold
+ * this across an await, and never call nextNumber inside it (it opens its own BEGIN IMMEDIATE). */
+export function tx(db, fn) {
+  db.exec('BEGIN');
+  try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { try { db.exec('ROLLBACK'); } catch { /* already rolled back */ } throw e; }
 }
 
 export const logEvent = (db, sellerId, type, detail) =>

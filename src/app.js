@@ -71,8 +71,16 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     const api = c.mode === 'demo' ? new MockApi(keys.filter(k => k.startsWith('SHIPMENT:')).map(k => k.slice(9)), keys.filter(k => k.startsWith('REFUND:')).map(k => k.slice(7))) : c.mode === 'manual' ? { manual: true, uploadInvoice: async () => 'manual' } : new SpApi(decrypt(c.secret_enc, secret));
     apis.set(seller.id, api); return api;
   }
+  // Round-8: per-seller sync lock. Both entry paths (manual "Sync now" and the hourly scheduler)
+  // come through here; without the lock two overlapping syncs could race the upload claim checks.
+  const syncing = new Set();
   async function sync(seller) {
     if (db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(seller.id)?.mode === 'manual') throw Object.assign(new Error('Manual mode has no automatic sync. Upload an order report instead.'), { status: 409 });
+    if (syncing.has(seller.id)) throw Object.assign(new Error('A sync is already running for this account. Try again when it finishes.'), { status: 409 });
+    syncing.add(seller.id);
+    try { return await syncInner(seller); } finally { syncing.delete(seller.id); }
+  }
+  async function syncInner(seller) {
     const api = apiFor(seller), ids = JSON.parse(seller.marketplace_ids || '[]').map(c => marketplaceFor(c)).filter(Boolean);
     // all-status report: one pass detects new work AND carries Amazon's verdict (InvoiceUploaded /
     // InvoiceRejected / CreditNote*) on what we already sent - that verdict, not the feed state,

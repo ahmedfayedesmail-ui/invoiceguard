@@ -95,6 +95,7 @@ export class SpApi {
     if (transactionId && (documentType === 'CreditNote' || String(transactionId).startsWith('Correction'))) opts['metadata:TransactionId'] = transactionId;
     for (const [k, v] of Object.entries(opts)) if (/[^A-Za-z0-9,\/\\ _;:#\-.]/.test(String(v).replace(/\./g, ''))) throw new Error(`Invalid character in feed option ${k}`);
     let feed;
+    this.lastUpload = Date.now(); // the throttle counts ATTEMPTS too: a failing retry loop must not hammer Amazon
     try {
       feed = await this.call('POST', '/feeds/2021-06-30/feeds', { feedType: 'UPLOAD_VAT_INVOICE', marketplaceIds: [marketplaceId], inputFeedDocumentId: doc.feedDocumentId, feedOptions: opts });
     } catch (e) {
@@ -104,7 +105,6 @@ export class SpApi {
       if (!/-> 4\d\d/.test(e.message)) e.unknownOutcome = true;
       throw e;
     }
-    this.lastUpload = Date.now();
     return feed.feedId;
   }
   async feedStatus(feedId) { const r = await this.call('GET', `/feeds/2021-06-30/feeds/${feedId}`); return { status: r.processingStatus, resultDocumentId: r.resultFeedDocumentId }; }
