@@ -13,6 +13,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm ci
+      - name: Install lxml (offline XSD validation of FA(3) and FatturaPA tests)
+        run: python3 -m pip install lxml
       - name: Test suite
         run: npm test
       - name: 1005-case campaign
