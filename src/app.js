@@ -19,6 +19,7 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections } from './pipeline.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -342,7 +343,22 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; const pv = prev(st.key); const alreadyHeld = pv?.status === 'held' && pv?.reason === h.reason; if (!alreadyHeld && !['ready', 'uploaded', 'submitted'].includes(pv?.status)) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
         const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
         logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
-        return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length });
+        let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, String(body.text ?? '')).proposed; } catch { /* non-VIDR formats carry no refund rows */ }
+        return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
+      }
+      if (p === '/api/repairs') { // review queue: proposed first, then the recent history
+        const proposed = listRepairs(db, seller.id, 'proposed');
+        const history = ['issued', 'approved', 'dismissed'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
+        return json(res, 200, { proposed, history });
+      }
+      if (p === '/api/repairs/approve' || p === '/api/repairs/dismiss') {
+        if (typeof body.key !== 'string' || !body.key || body.key.length > 200) return json(res, 400, { error: 'Choose a repair first.' });
+        try {
+          if (p === '/api/repairs/dismiss') { decideRepair(db, seller.id, body.key, 'dismissed'); logEvent(db, seller.id, 'repair_dismissed', { key: body.key }); return json(res, 200, { ok: true }); }
+          const r = await approveRepair(db, seller, body.key, { api: apiFor(seller), validate });
+          logEvent(db, seller.id, 'repair_issued', { key: body.key, rect: r.rectNumber, rectifies: r.original });
+          return json(res, 200, r);
+        } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
       }
       if (p === '/api/invoices/mark') {
         const nums = body.all === true ? db.prepare("SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready'").all(seller.id).map(r => r.number) : (Array.isArray(body.numbers) ? body.numbers.map(String).slice(0, 5000) : []);

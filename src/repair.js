@@ -4,6 +4,7 @@
 // (CorrectionReversal / Correction:: pairs) stay in pipeline.processCorrections.
 import { parseVidr } from './vidr.js';
 import { issueRectificativa } from './pipeline.js';
+import { logEvent } from './db.js';
 
 export function ensureRepairTables(db) {
   db.exec(`CREATE TABLE IF NOT EXISTS repairs (
@@ -21,7 +22,11 @@ export function ensureRepairTables(db) {
 export function detectRepairs(db, seller, reportText, { now = new Date() } = {}) {
   ensureRepairTables(db);
   const out = { proposed: 0, skipped: [], proposals: [] };
-  const refunds = parseVidr(reportText).filter(s => s.transactionType === 'REFUND' && !s.isCorrectionReversal);
+  const all = parseVidr(reportText);
+  // W12: never drop an unknown Amazon transaction type silently - surface it in the event log.
+  const unknown = [...new Set(all.map(s => s.transactionType).filter(t => !['SHIPMENT', 'REFUND'].includes(t)))];
+  if (unknown.length) logEvent(db, seller.id, 'vidr_unknown_transaction_types', { types: unknown });
+  const refunds = all.filter(s => s.transactionType === 'REFUND' && !s.isCorrectionReversal);
   const ins = db.prepare(`INSERT OR IGNORE INTO repairs
     (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at)
     VALUES (?,?,?,?,?,?,?, 'proposed', ?)`);
