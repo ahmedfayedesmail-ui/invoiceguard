@@ -25,8 +25,8 @@ const withMarketplace = (base, code) => { const lines = base.trim().split('\n');
 
 test('VIDR parsing groups shipments and detects who needs an invoice', () => {
   const s = parseVidr(text);
-  assert.equal(s.length, 5);
-  assert.deepEqual(s.filter(needsInvoice).map(x => x.shippingId), ['S1001', 'S1002', 'S1003']);
+  assert.equal(s.length, 6);
+  assert.deepEqual(s.filter(needsInvoice).map(x => x.shippingId), ['S1001', 'S1002', 'S1003', 'S1006']);
   const a = s[0]; assert.equal(a.incl, 54.45); assert.equal(a.vat, 9.45); assert.equal(a.excl, 45);
 });
 
@@ -46,25 +46,25 @@ test('VIES: service outage is never treated as invalid', async () => {
 test('pipeline: uploads valid B2B, holds bad VAT, ignores B2C and already-uploaded, is idempotent', async () => {
   const db = openDb(); const api = fakeApi();
   const out = await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  assert.equal(out.detected, 3); assert.equal(out.uploaded, 2); assert.equal(out.held.length, 1); assert.equal(out.held[0].orderId, '405-2087716-3305528');
-  assert.deepEqual(api.calls.map(c => c.number), ['A-2026-000001', 'A-2026-000002']);
+  assert.equal(out.detected, 4); assert.equal(out.uploaded, 3); assert.equal(out.held.length, 1); assert.equal(out.held[0].orderId, '405-2087716-3305528');
+  assert.deepEqual(api.calls.map(c => c.number), ['A-2026-000001', 'A-2026-000002', 'A-2026-000003']);
   assert.equal(api.calls[0].total, 54.45); assert.equal(api.calls[0].vat, 9.45);
   const again = await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:05:00Z') });
-  assert.equal(again.uploaded, 0); assert.equal(api.calls.length, 2, 'no duplicate upload');
+  assert.equal(again.uploaded, 0); assert.equal(api.calls.length, 3, 'no duplicate upload');
   // A finished feed is not acceptance: DONE moves to processing, and only the report verdict uploads.
-  const p = await pollFeeds(db, seller, api); assert.equal(p.processing, 2); assert.equal(p.rejected, 0);
+  const p = await pollFeeds(db, seller, api); assert.equal(p.processing, 3); assert.equal(p.rejected, 0);
   assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 0);
   await processReport(db, seller, withStatus(text, { S1001: 'InvoiceUploaded', S1002: 'InvoiceUploaded' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
   assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 2);
-  assert.equal(api.calls.length, 2, 'confirmation re-uploads nothing');
+  assert.equal(api.calls.length, 3, 'confirmation re-uploads nothing');
 });
 
 test('acceptance: DONE alone never marks uploaded; the report verdict does, and rejection flips with its reason', async () => {
   const db = openDb(); const api = fakeApi();
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const p = await pollFeeds(db, seller, api);
-  assert.equal(p.processing, 2);
-  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE upload_status='processing'").get().c, 2);
+  assert.equal(p.processing, 3);
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE upload_status='processing'").get().c, 3);
   await processReport(db, seller, withStatus(text, { S1001: 'InvoiceRejected', S1002: 'InvoiceUploaded' }, { S1001: 'TotalAmount does not match' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
   const s1 = db.prepare("SELECT status, reason FROM shipments WHERE key='SHIPMENT:S1001'").get();
   assert.equal(s1.status, 'rejected'); assert.match(s1.reason, /TotalAmount does not match/);
@@ -75,10 +75,10 @@ test('acceptance: DONE alone never marks uploaded; the report verdict does, and 
 test('upload target: store codes resolve (UK -> GB id), raw marketplace IDs pass through, unknown codes hold and never upload', async () => {
   let db = openDb(), api = fakeApi();
   const out = await processReport(db, seller, withMarketplace(text, 'UK'), { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  assert.equal(out.uploaded, 2); assert.deepEqual(api.calls.map(c => c.marketplaceId), ['A1F83G8C2ARO7P', 'A1F83G8C2ARO7P']);
+  assert.equal(out.uploaded, 3); assert.deepEqual(api.calls.map(c => c.marketplaceId), ['A1F83G8C2ARO7P', 'A1F83G8C2ARO7P', 'A1F83G8C2ARO7P']);
   db = openDb(); api = fakeApi();
   await processReport(db, seller, withMarketplace(text, 'A1RKKUPIHCS9HS'), { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  assert.deepEqual(api.calls.map(c => c.marketplaceId), ['A1RKKUPIHCS9HS', 'A1RKKUPIHCS9HS']);
+  assert.deepEqual(api.calls.map(c => c.marketplaceId), ['A1RKKUPIHCS9HS', 'A1RKKUPIHCS9HS', 'A1RKKUPIHCS9HS']);
   db = openDb(); api = fakeApi();
   const out2 = await processReport(db, seller, withMarketplace(text, 'ZZ'), { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   assert.equal(out2.uploaded, 0); assert.equal(api.calls.length, 0);

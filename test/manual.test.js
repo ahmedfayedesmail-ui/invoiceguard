@@ -44,7 +44,7 @@ test('vidr preview: consumer and non-invoiceable rows are skipped up front, not 
   const p = planUpload(readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'));
   assert.equal(p.ok, true);
   assert.equal(p.format, 'vidr');
-  assert.equal(p.shipments.length, 3, 'only the 3 business shipments the engine will actually attempt');
+  assert.equal(p.shipments.length, 4, 'only the 4 business shipments the engine will actually attempt');
   assert.equal(p.skipped.length, 2, 'the 2 rows with no buyer company are counted as skipped, matching issue-time behaviour');
   assert.ok(p.skipped.every(s => s.why && s.why.length > 10));
 });

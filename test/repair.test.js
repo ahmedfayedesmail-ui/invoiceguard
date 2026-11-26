@@ -228,3 +228,26 @@ function correctionReport() {
   rev[ix('invoice-status')] = 'CreditNotePending';
   return [head, rev.join('\t')].join('\n');
 }
+
+/** The demo mock: with two uploaded shipments the second comes back as a RETURN, so the
+    /sample and demo flows dogfood the RETURN path too (Amazon's transaction-type vocabulary). */
+test('mock amazon returns the second uploaded shipment as a RETURN row with halved amounts', async () => {
+  const { MockApi } = await import('../src/mockamazon.js');
+  const mock = new MockApi(['S1001', 'S1002']);
+  const [head, ...rows] = (await mock.downloadReport()).trim().split('\n');
+  const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const rt = rows.map(r => r.split('\t')).find(r => r[ix('transaction-id')] === 'RT-DEMO-1');
+  assert.ok(rt, 'mock must emit the RT-DEMO-1 return once two shipments are uploaded');
+  assert.equal(rt[ix('transaction-type')], 'RETURN');
+  assert.equal(rt[ix('shipping-id')], 'S1002');
+  const orig = rows.map(r => r.split('\t')).find(r => r[ix('shipping-id')] === 'S1002' && r[ix('transaction-type')] === 'SHIPMENT');
+  for (const n of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount']) {
+    const exp = -Math.round(parseFloat(orig[ix(n)]) / 2 * 100) / 100;
+    assert.equal(parseFloat(rt[ix(n)]).toFixed(2), exp.toFixed(2), n + ' halved and negative');
+  }
+  for (const n of ['shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount']) assert.equal(rt[ix(n)], '0', n + ' zeroed on the partial return');
+  assert.equal(rt[ix('invoice-status')], 'CreditNotePending');
+  await mock.uploadInvoice({ documentType: 'CreditNote', transactionId: 'RT-DEMO-1' });
+  const again = (await mock.downloadReport()).trim().split('\n').map(r => r.split('\t'));
+  assert.equal(again.find(r => r[ix('transaction-id')] === 'RT-DEMO-1')[ix('invoice-status')], 'CreditNoteUploaded', 'uploaded credit note reconciles');
+});

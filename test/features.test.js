@@ -67,10 +67,10 @@ test('buyer-country routing', () => {
 test('export zip: contents, totals, range validation, external docs', async () => {
   const { server, db, seller, call } = await boot(); await call('sync', {});
   const today = new Date().toISOString().slice(0, 10);
-  const x = await F.buildExport(db, seller, today, today); assert.equal(x.count, 2);
-  const f = unzip(x.zip); assert.ok(Object.keys(f).filter(n => n.endsWith('.pdf')).length === 2);
+  const x = await F.buildExport(db, seller, today, today); assert.equal(x.count, 3);
+  const f = unzip(x.zip); assert.ok(Object.keys(f).filter(n => n.endsWith('.pdf')).length === 3);
   for (const [n, d] of Object.entries(f)) if (n.endsWith('.pdf')) assert.equal(d.subarray(0, 4).toString(), '%PDF');
-  const csv = f['invoices.csv'].toString().trim().split('\n'); assert.equal(csv.length, 3);
+  const csv = f['invoices.csv'].toString().trim().split('\n'); assert.equal(csv.length, 4);
   const tot = f['totals-by-country-and-rate.csv'].toString(); assert.match(tot, /"ES","EUR","0.21"/);
   const net = db.prepare('SELECT SUM(total - vat) n FROM invoices').get().n;
   const sumNet = tot.trim().split('\n').slice(1).reduce((a, l) => a + Number(l.split(',')[3].replace(/"/g, '')), 0); assert.ok(Math.abs(sumNet - net) < 0.01, 'totals reconcile with invoices');
