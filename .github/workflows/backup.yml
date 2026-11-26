@@ -8,6 +8,8 @@ on:
   schedule:
     - cron: '17 */12 * * *'
   workflow_dispatch:
+  push:
+    paths: ['.github/workflows/backup.yml', 'tools/restore-drill.mjs', 'src/restore.js']
 permissions:
   contents: read
 jobs:
