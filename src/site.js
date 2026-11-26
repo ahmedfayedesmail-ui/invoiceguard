@@ -50,6 +50,11 @@ export function landing(env = process.env, opts = {}) {
 <h2>Sound familiar?</h2><ul>${market.familiar.map(f => '<li>' + esc(f) + '</li>').join('')}</ul>
 <p>These are the threads sellers post on Amazon's own forums. They are why InvoiceGuard exists.</p>
 <h2>Who it is for</h2><p>Sellers who sell to businesses on Amazon in the EU and want invoices that are complete, numbered in order, and issued on time, without doing it by hand. It is built for small teams, not accountants.</p>
+<h2 id="report">Where to get your report from Seller Central</h2>
+<p>When uploads open, you will need one file from Amazon. Either works:</p>
+<ul><li><b>VAT Invoice Data Report</b> (best). Amazon offers it to sellers enrolled in its VAT Calculation Service who chose to upload their own invoices. Request it in Seller Central under Reports for each marketplace you sell on, and download it as a tab-delimited text file.</li>
+<li><b>Order Report</b>. In Seller Central open Reports, then Order Reports. Switch on "Buyer tax identifiers" and "Buyer company name" in the column settings, request your dates and download the text file.</li></ul>
+<p>Menu names can differ a little by country and change over time. If you cannot find a report, tell us which marketplace you use and we will help. Your file is never sent to Amazon from here.</p>
 <h2 id="how">How it works</h2>
 <div class="grid"><div class="card"><h3>1. You try it on sample orders</h3><p>The pilot account comes with made-up sample orders - the same steps you will follow with your own order report (downloaded from Seller Central) once uploads open. We read the business shipments and skip the rest.</p></div>
 <div class="card"><h3>2. It builds and checks the invoice</h3><p>Required details, numbering and deadlines are checked before the invoice is final, and the buyer's VAT number is checked in the EU's VIES service. Selling across the EU? The buyer's country rules are applied as data, each with its source and the date we last verified it.</p></div>
