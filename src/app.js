@@ -348,7 +348,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (mt) { // per-order evidence trail: every recorded step for this invoice and its order, oldest first
         const num = mt[1], inv = db.prepare('SELECT shipment_key, number, rectifies, issued_at, uploaded_at FROM invoices WHERE seller_id=? AND number=?').get(seller.id, num);
         if (!inv) return json(res, 404, { error: 'not found' });
-        const ship = inv.shipment_key ? db.prepare('SELECT order_id, due_at, shipment_date FROM shipments WHERE seller_id=? AND key=?').get(seller.id, inv.shipment_key) : null;
+        const ship = inv.shipment_key ? db.prepare('SELECT order_id AS orderId, due_at, shipment_date FROM shipments WHERE seller_id=? AND key=?').get(seller.id, inv.shipment_key) : null;
         const match = (d) => d && (d.key === inv.shipment_key || d.number === num || d.rect === num || d.rectifies === num || d.original === num);
         const events = db.prepare('SELECT ts, type, detail FROM events WHERE seller_id=? ORDER BY ts').all(seller.id)
           .filter(e => { try { return match(JSON.parse(e.detail)); } catch { return false; } })

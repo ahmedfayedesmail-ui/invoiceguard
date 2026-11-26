@@ -78,7 +78,7 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
   assert.equal((await call('pack')).status, 404);
   const d2 = (await call('dashboard')).body; assert.equal(d2.kpis.ready, 0); assert.equal(d2.kpis.uploaded, 1);
   const tr = (await call('invoices/' + d.invoices[0].number + '/trail')).body;
-  assert.equal(tr.number, d.invoices[0].number); assert.ok(tr.issuedAt);
+  assert.equal(tr.number, d.invoices[0].number); assert.ok(tr.issuedAt); assert.equal(tr.orderId, 'M2');
   const types = tr.events.map(e => e.type);
   assert.ok(types.includes('detected'), 'trail starts at detection');
   assert.ok(types.includes('issued_manual')); assert.ok(types.includes('exported')); assert.ok(types.includes('uploaded'));
