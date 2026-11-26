@@ -70,4 +70,14 @@ text - the real format is unproven against a live seller account and keyword mat
 realistic layouts in reviewer reproduction. A known-feed resend block lifts only on the feed
 being CANCELLED (provably never processed) or on human dismissal after checking Seller Central.
 The live-Amazon gate (ALLOW_LIVE_CONNECT) is enforced at oauth start, the OAuth callback, the
-apiFor choke point, sync entry and the hourly scheduler - mock-verified.
+apiFor choke point (checked before the client cache), the /oauth/amazon/login and
+/oauth/amazon/continue flow entries, sync entry and the hourly scheduler - mock-verified.
+
+C8. VIDR beats feed (round-11, critic round-9): the invoice-status column is Amazon's
+DOCUMENT-level statement; the feed status is FEED-level. When the report has stated
+InvoiceProcessing/CreditNoteProcessing for a document (vidr_processing_at), a conflicting feed
+state (FATAL, CANCELLED, aged-out 404) is logged as a feed_conflict event for a human - the
+document never regresses toward resend (no unknown+hold, no rejected+retry). Without that current
+verdict the feed discipline is unchanged: FATAL/404 means unknown + human hold, CANCELLED means
+rejected + reviewed retry. The verdict timestamp is cleared on every fresh upload attempt, so a
+verdict from a previous cycle can never protect a retry's feed.

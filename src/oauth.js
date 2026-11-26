@@ -74,12 +74,16 @@ export function oauthRoutes({ db, secret, env = process.env, fetchImpl = fetch, 
       html(res, 200, 'Amazon connected', '<p>Your Amazon account is connected. Amazon asks you to renew this permission once a year and will email you a reminder first.</p><a class="btn" href="/app">Open InvoiceGuard</a>'); return true;
     }
     if (p === '/oauth/amazon/login') { // Amazon Appstore sends the seller here first
+      // Real-data gate (critic round-9): do not even START the auth flow while the feature is
+      // closed - no pending row, no consent page.
+      if (env.ALLOW_LIVE_CONNECT !== '1') { fail(res, 'A direct Amazon connection is not open yet - the pilot runs on sample data only. Nothing was started.'); return true; }
       const cb = q('amazon_callback_uri'), as = q('amazon_state');
       if (!isAmazonCallback(cb) || !as) { fail(res, 'This request did not come from Amazon in the expected form, so we stopped.'); return true; }
       const t = tok(); db.prepare('INSERT INTO oauth_pending VALUES (?,?,?,?,?)').run(t, cb, as, q('version') === 'beta' ? 1 : 0, now() + STATE_TTL);
       html(res, 200, 'Connect your Amazon account', `<p>Continue to give InvoiceGuard permission to read your VAT invoice data and upload invoices for your Amazon store. You can take this permission back in Seller Central at any time.</p><a class="btn" href="/oauth/amazon/continue?t=${t}">Continue</a>`); return true;
     }
     if (p === '/oauth/amazon/continue') {
+      if (env.ALLOW_LIVE_CONNECT !== '1') { fail(res, 'A direct Amazon connection is not open yet - the pilot runs on sample data only. Nothing was started.'); return true; }
       const pend = db.prepare('SELECT * FROM oauth_pending WHERE token=?').get(q('t')); if (!pend || pend.expires_at < now()) { fail(res, 'This link expired. Please start again from Amazon.'); return true; }
       const user = userOf(req), seller = user && sellerOf(user);
       if (!user) { html(res, 200, 'Sign in first', `<p>Sign in or create your InvoiceGuard account. You will be sent straight back to finish connecting Amazon.</p><a class="btn" href="/app?oauth=${pend.token}">Sign in</a>`); return true; }

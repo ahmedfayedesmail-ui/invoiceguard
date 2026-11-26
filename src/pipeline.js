@@ -123,7 +123,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
     upsertShipment(db, seller.id, s, 'sending');
     try {
       const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat });
-      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, inv.number);
+      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL, vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, inv.number);
       upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++;
     } catch (e) {
       if (e.unknownOutcome) {
@@ -191,11 +191,19 @@ function reconcileInvoice(db, seller, s) {
     else proposeRejectedRetry(db, seller, { eventKey: `REJECTED:${docKey}`, kind: 'rejected_invoice', number: inv.number, originalNumber: inv.number, shipmentKey: docKey, rawReason: s.invoiceStatusDesc,
         reason: `Amazon rejected invoice ${inv.number}: ${reason}. Amazon expects the invoice for this shipment to be uploaded again - check the reason, then approve to re-upload the same document.` });
     });
-  } else if (s.invoiceStatus === 'InvoiceProcessing' && ['submitted', 'unknown'].includes(inv.upload_status)) {
-    // Amazon processing a document we were unsure about settles the unknown: it provably has it.
-    if (inv.upload_status === 'unknown') closeRepairsFor(db, seller.id, [`UNKNOWN:${docKey}`], 'issued');
-    db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
-    db.prepare("UPDATE shipments SET status='processing' WHERE seller_id=? AND key=? AND status='submitted'").run(seller.id, key);
+  } else if (s.invoiceStatus === 'InvoiceProcessing') {
+    // Amazon's DOCUMENT-LEVEL statement that it holds the document and is processing it. Recorded
+    // with its timestamp (round-11, critic round-9): while this verdict stands, a conflicting
+    // FEED-level state (FATAL / CANCELLED / aged-out 404) is logged by pollFeeds as evidence but
+    // never moves the document back toward resend. Cleared on every fresh upload attempt, so a
+    // verdict from a previous cycle can never protect a retry's feed.
+    db.prepare("UPDATE invoices SET vidr_processing_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, inv.number);
+    if (['submitted', 'unknown'].includes(inv.upload_status)) {
+      // Amazon processing a document we were unsure about settles the unknown: it provably has it.
+      if (inv.upload_status === 'unknown') closeRepairsFor(db, seller.id, [`UNKNOWN:${docKey}`], 'issued');
+      db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
+      db.prepare("UPDATE shipments SET status='processing' WHERE seller_id=? AND key=? AND status='submitted'").run(seller.id, key);
+    }
   }
 }
 
@@ -211,13 +219,18 @@ function reconcileCreditNote(db, seller, s) {
       closeRepairsFor(db, seller.id, [`UNKNOWN:${s.key}`, s.key], 'uploaded');
       logEvent(db, seller.id, 'confirmed_uploaded', { number: rect.number });
     });
-  } else if (s.invoiceStatus === 'CreditNoteProcessing' && !['processing', 'uploaded'].includes(rect.upload_status)) {
+  } else if (s.invoiceStatus === 'CreditNoteProcessing') {
     // Amazon's own statement that it HOLDS the credit note and is processing it (the doc: no seller
     // action is needed then). This settles a local 'unknown': the document provably arrived, so any
     // resend is forbidden - processCorrections' done() now counts it complete and skips it.
-    if (rect.upload_status === 'unknown') closeRepairsFor(db, seller.id, [`UNKNOWN:${s.key}`], 'issued');
-    db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
-    logEvent(db, seller.id, 'credit_note_processing', { number: rect.number });
+    // Round-11: recorded with its timestamp like every document-level processing verdict; while it
+    // stands, a conflicting feed state is evidence only, never a state change toward resend.
+    db.prepare("UPDATE invoices SET vidr_processing_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, rect.number);
+    if (!['processing', 'uploaded'].includes(rect.upload_status)) {
+      if (rect.upload_status === 'unknown') closeRepairsFor(db, seller.id, [`UNKNOWN:${s.key}`], 'issued');
+      db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
+      logEvent(db, seller.id, 'credit_note_processing', { number: rect.number });
+    }
   } else if (s.invoiceStatus === 'CreditNoteRejected' && rect.upload_status !== 'rejected') {
     // Status write + retry proposal in ONE transaction (round-8), same crash-window discipline.
     tx(db, () => {
@@ -241,8 +254,8 @@ function reconcileCreditNote(db, seller, s) {
  * processReport. Only FATAL/CANCELLED (the feed never ran) mark a rejection directly.
  */
 export async function pollFeeds(db, seller, api) {
-  const res = { processing: 0, rejected: 0, pending: 0, unknown: 0, errors: 0 };
-  for (const r of db.prepare("SELECT number, feed_id, shipment_key, kind, rectifies FROM invoices WHERE seller_id=? AND upload_status IN ('submitted','processing')").all(seller.id)) {
+  const res = { processing: 0, rejected: 0, pending: 0, unknown: 0, errors: 0, conflicts: 0 };
+  for (const r of db.prepare("SELECT number, feed_id, shipment_key, kind, rectifies, vidr_processing_at FROM invoices WHERE seller_id=? AND upload_status IN ('submitted','processing')").all(seller.id)) {
     let f;
     try { f = await api.feedStatus(r.feed_id); }
     catch (e) {
@@ -250,7 +263,10 @@ export async function pollFeeds(db, seller, api) {
       // feed older than Amazon's 90-day retention) or an outage stalls reconciliation for ALL feeds
       // on every sync. A 404 means the outcome can never be confirmed from the feed side: same
       // unknown + hold discipline as FATAL. Any other error: skip THIS feed, keep polling.
-      if (/\b404\b/.test(e.message)) { holdUnknownFeed(db, seller, r, `Amazon no longer returns feed ${r.feed_id} (its API only serves feeds from the last 90 days), so the outcome cannot be confirmed from the feed side`); res.unknown++; }
+      if (/\b404\b/.test(e.message)) {
+        if (r.vidr_processing_at) { feedConflict(db, seller, r, '404'); res.conflicts++; }
+        else { holdUnknownFeed(db, seller, r, `Amazon no longer returns feed ${r.feed_id} (its API only serves feeds from the last 90 days), so the outcome cannot be confirmed from the feed side`); res.unknown++; }
+      }
       else { res.errors++; logEvent(db, seller.id, 'feed_poll_error', { number: r.number, feedId: r.feed_id, error: e.message }); }
       continue;
     }
@@ -264,6 +280,11 @@ export async function pollFeeds(db, seller, api) {
       res.processing++;
     }
     else if (f.status === 'CANCELLED') {
+      // Round-11 (critic round-9): a current VIDR document-level processing verdict WINS over the
+      // feed-level state. The conflict is recorded as evidence, never as a state change toward
+      // resend - no 'rejected', no retry proposal, the conflict itself stays for a human.
+      if (r.vidr_processing_at) { feedConflict(db, seller, r, 'CANCELLED'); res.conflicts++; }
+      else {
       // Status write + retry proposal land in ONE transaction (round-8): a crash between them must
       // never leave a rejected document without its review - nothing else would revisit it.
       tx(db, () => {
@@ -277,7 +298,7 @@ export async function pollFeeds(db, seller, api) {
         else proposeRejectedRetry(db, seller, { eventKey: `REJECTED:${r.shipment_key}`, kind: 'rejected_invoice', number: r.number, shipmentKey: r.shipment_key, action: 'retry_upload',
           reason: `Amazon never processed invoice ${r.number} (feed CANCELLED before processing began). The same document can be uploaded again - approve to retry.` });
       });
-      res.rejected++; }
+      res.rejected++; } }
     else if (f.status === 'FATAL') {
       // FATAL is NOT CANCELLED (Feeds use-case guide): "the feed was stopped due to a fatal error.
       // Some, none, or all of the operations within the feed might have completed successfully." So
@@ -287,8 +308,11 @@ export async function pollFeeds(db, seller, api) {
         try { const rep = await api.downloadFeedResult(f.resultDocumentId); logEvent(db, seller.id, 'feed_result', { number: r.number, feedId: r.feed_id, fatal: true, report: String(rep).slice(0, 4000) }); }
         catch (e) { logEvent(db, seller.id, 'feed_result_error', { number: r.number, feedId: r.feed_id, fatal: true, error: e.message }); }
       }
-      holdUnknownFeed(db, seller, r, `feed ${r.feed_id} ended FATAL: Amazon may have processed some or all of it ("some, none, or all of the operations might have completed successfully", Feeds use-case guide)`);
-      res.unknown++; }
+      // Round-11: same priority rule as CANCELLED - a current VIDR processing verdict wins; the
+      // FATAL (and the report fetched above) stays as logged evidence, the state never regresses.
+      if (r.vidr_processing_at) { feedConflict(db, seller, r, 'FATAL'); res.conflicts++; }
+      else { holdUnknownFeed(db, seller, r, `feed ${r.feed_id} ended FATAL: Amazon may have processed some or all of it ("some, none, or all of the operations might have completed successfully", Feeds use-case guide)`);
+      res.unknown++; } }
     else res.pending++;
   }
   return res;
@@ -299,6 +323,13 @@ export async function pollFeeds(db, seller, api) {
  * a crash between the status write and the proposal cannot lose the hold. The VIDR verdict settles
  * the document; a resend only happens through the settle path (fresh report still due + feed-list
  * cross-check). */
+/** Round-11: a feed state that contradicts Amazon's current document-level processing verdict is
+ * recorded as EVIDENCE for a human (feed_conflict event), never applied as a state change. */
+function feedConflict(db, seller, r, feedStatus) {
+  logEvent(db, seller.id, 'feed_conflict', { number: r.number, feedId: r.feed_id, feedStatus, vidrProcessingAt: r.vidr_processing_at,
+    note: `Amazon's VAT report says it holds ${r.number} and is processing it, but feed ${r.feed_id} shows ${feedStatus}. The document-level verdict wins: the document stays in processing and is never resent automatically. Check Seller Central if this persists.` });
+}
+
 function holdUnknownFeed(db, seller, r, what) {
   tx(db, () => {
     db.prepare("UPDATE invoices SET upload_status='unknown', blocked_feed_id=? WHERE seller_id=? AND number=?").run(r.feed_id, seller.id, r.number);
@@ -363,7 +394,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
         }
         throw e;
       }
-      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL WHERE seller_id=? AND number=?").run(feedId0, seller.id, prev.number);
+      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL, vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId0, seller.id, prev.number);
       logEvent(db, seller.id, 'rectificativa_upload_retried', { number: prev.number });
       return { rect, feedId: feedId0, documentType: documentType0, pdf: pdf0, retried: true };
     }
@@ -428,7 +459,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     if (!claimR.changes) throw new Error(`Correction document ${rect.number} is already being uploaded by another run. Nothing was re-uploaded.`);
     try {
       feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
-      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, rect.number);
+      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL, vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, rect.number);
     } catch (e) {
       // Unknown outcome: Amazon may hold the document. Mark it honestly AND put a visible hold in the
       // Repairs queue - no blind resend; a fresh report that still asks for the document is the only

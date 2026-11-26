@@ -148,7 +148,7 @@ async function retryRejectedUpload(db, seller, number, { api }) {
     }
     throw e;
   }
-  db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, number);
+  db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, number);
   db.prepare("UPDATE shipments SET status='submitted' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   logEvent(db, seller.id, 'rejected_upload_retried', { number });
   return feedId;

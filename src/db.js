@@ -31,8 +31,9 @@ export function openDb(file = ':memory:') {
   // on. Preflight: existing duplicates make a unique index impossible - fail fast and name the
   // offending rows (keep the earliest document of each pair) instead of logging and running
   // unprotected. Post-check: verify both indexes actually exist.
-  const dupInv = db.prepare("SELECT seller_id, shipment_key, count(*) c FROM invoices WHERE kind='invoice' GROUP BY 1,2 HAVING c>1").all();
-  const dupRect = db.prepare("SELECT seller_id, shipment_key, count(*) c FROM invoices WHERE kind='rectificativa' AND (shipment_key NOT LIKE 'SHIPMENT:%' OR shipment_key LIKE 'SHIPMENT:Correction::%') GROUP BY 1,2 HAVING c>1").all();
+  // Round-11 (critic round-9): name the actual document NUMBERS, not just keys and counts.
+  const dupInv = db.prepare("SELECT seller_id, shipment_key, group_concat(number, ', ') numbers, count(*) c FROM invoices WHERE kind='invoice' GROUP BY 1,2 HAVING c>1").all();
+  const dupRect = db.prepare("SELECT seller_id, shipment_key, group_concat(number, ', ') numbers, count(*) c FROM invoices WHERE kind='rectificativa' AND (shipment_key NOT LIKE 'SHIPMENT:%' OR shipment_key LIKE 'SHIPMENT:Correction::%') GROUP BY 1,2 HAVING c>1").all();
   if (dupInv.length || dupRect.length) throw new Error(`Refusing to start: duplicate financial documents exist, so the uniqueness migration cannot run safely. Resolve these rows manually first (keep the earliest document of each pair): ${JSON.stringify([...dupInv, ...dupRect]).slice(0, 900)}`);
   // Round-9 (N2): the round-8 predicate exempted every SHIPMENT: key, which silently left Amazon
   // Correction:: events uncovered - their record keys are 'SHIPMENT:Correction::...'. The drop
@@ -59,6 +60,7 @@ export function openDb(file = ':memory:') {
   // any length this is the anchor for the feed-list settle window - the recovery event's own time is
   // boot time, which can be hours later.
   try { db.exec('ALTER TABLE invoices ADD COLUMN sending_at TEXT'); } catch { /* column exists */ }
+  try { db.exec('ALTER TABLE invoices ADD COLUMN vidr_processing_at TEXT'); } catch { /* column exists */ } // round-11: when Amazon's report last stated document-level processing
   return db;
 }
 

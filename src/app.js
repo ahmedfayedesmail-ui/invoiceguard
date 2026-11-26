@@ -62,14 +62,15 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
 
   const oauth = oauthRoutes({ db, secret, env, fetchImpl: oauthFetch, userOf, sellerOf, forgetApi: (id) => apis.delete(id) });
   function apiFor(seller) {
-    if (apis.has(seller.id)) return apis.get(seller.id);
     const c = db.prepare('SELECT * FROM amazon_conn WHERE seller_id=?').get(seller.id);
     if (!c) throw new Error('Amazon is not connected');
-    // Real-data gate, enforced at the execution choke point (critic round-8): EVERY Amazon call
-    // (sync, repair approval, correction retry, settling) builds its client here, so a legacy live
-    // connection in the database can never reach Amazon while the flag is unset - the flag, not
-    // the connection row, decides.
+    // Real-data gate, enforced at the execution choke point (critic round-8) and checked BEFORE the
+    // client cache (critic round-9): EVERY Amazon call (sync, repair approval, correction retry,
+    // settling) builds its client here, so neither a legacy live connection in the database nor a
+    // cached client from an earlier flag-on moment can reach Amazon while the flag is unset - the
+    // flag, not the connection row and not the cache, decides.
     if (c.mode === 'live' && env.ALLOW_LIVE_CONNECT !== '1') throw Object.assign(new Error('A direct Amazon connection is not open yet - the pilot runs on sample data only, exactly as the homepage says.'), { status: 403 });
+    if (apis.has(seller.id)) return apis.get(seller.id);
     const keys = c.mode === 'demo' ? db.prepare('SELECT shipment_key FROM invoices WHERE seller_id=?').all(seller.id).map(r => String(r.shipment_key)) : [];
     // Seed BOTH sides of the mock's memory from the ledger: uploaded shipments AND uploaded credit
     // notes (REFUND:<transactionId>), so a redeploy keeps Amazon's verdicts consistent with our books.
