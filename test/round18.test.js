@@ -194,3 +194,20 @@ test('R18-2 (cosmetic): the block message distinguishes a running sync from a pr
   markReportStorePending(db, seller.id);
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/);
 });
+
+test('R18-3 (reviewer HOLD on 8e8471e): manual store failure with NO prior block still blocks approvals; re-upload releases', async () => {
+  const db = openDb();
+  const { p } = await seedProposal(db);
+  assert.equal(latestReportSnapshot(db, seller.id).store_pending ?? 0, 0, 'no prior block');
+  assert.equal(latestReportSnapshot(db, seller.id).in_flight ?? 0, 0);
+  const failingStore = () => { throw new Error('disk I/O error'); };
+  assert.throws(() => takeInManualReport(db, seller, refundReport(0.5), { gen: nextReportGen(db, seller.id), seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString(), store: failingStore }), /disk I\/O error/);
+  assert.equal(latestReportSnapshot(db, seller.id).store_pending, 1, 'the failed store left store_pending=1');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /previous sync did not finish/);
+  assert.equal(rectCount(db), 0, 'nothing issued from the stale snapshot');
+  // Re-upload (divergent report) stores successfully: block lifts, stale proposal held by revalidation.
+  takeInManualReport(db, seller, refundReport(0.5), { gen: nextReportGen(db, seller.id), seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString() });
+  assert.equal(latestReportSnapshot(db, seller.id).store_pending, 0);
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /do not add up against the original invoice/, 'the re-upload re-stamped the proposal from the divergent report; the exact credit cannot be computed, so nothing issues');
+  assert.equal(rectCount(db), 0);
+});

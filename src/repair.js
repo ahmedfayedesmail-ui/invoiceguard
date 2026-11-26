@@ -494,6 +494,10 @@ export function decideRepair(db, sellerId, eventKey, decision) {
  * treated as "a report with no refund rows". Only proposal detection may legitimately find
  * nothing (non-VIDR formats), so only that step is allowed to fail quietly. */
 export function takeInManualReport(db, seller, text, { gen, seq, requestedAt, store = recordReportSnapshot }) {
+  // Mark BEFORE storing (mirrors the sync path): a failed store leaves store_pending=1, so the
+  // block the endpoint's error message promises really exists even with no prior block.
+  markReportInFlight(db, seller.id, requestedAt);
+  markReportStorePending(db, seller.id);
   store(db, seller.id, { gen, seq, requestedAt, text });
   try { return detectRepairs(db, seller, text, { reportAttemptSeq: seq, reportRequestedAt: requestedAt, reportGen: gen }).proposed; }
   catch { return 0; } // non-VIDR formats carry no refund rows
