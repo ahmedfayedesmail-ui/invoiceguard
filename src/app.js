@@ -65,7 +65,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     if (apis.has(seller.id)) return apis.get(seller.id);
     const c = db.prepare('SELECT * FROM amazon_conn WHERE seller_id=?').get(seller.id);
     if (!c) throw new Error('Amazon is not connected');
-    const api = c.mode === 'demo' ? new MockApi() : c.mode === 'manual' ? { manual: true, uploadInvoice: async () => 'manual' } : new SpApi(decrypt(c.secret_enc, secret));
+    const api = c.mode === 'demo' ? new MockApi(db.prepare('SELECT shipment_key FROM invoices WHERE seller_id=?').all(seller.id).map(r => String(r.shipment_key).replace(/^SHIPMENT:/, ''))) : c.mode === 'manual' ? { manual: true, uploadInvoice: async () => 'manual' } : new SpApi(decrypt(c.secret_enc, secret));
     apis.set(seller.id, api); return api;
   }
   async function sync(seller) {

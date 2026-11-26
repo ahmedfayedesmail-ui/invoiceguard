@@ -1,7 +1,7 @@
 // Simulated Amazon for demos and tests: serves a VIDR report and accepts invoice uploads.
 import { readFileSync } from 'node:fs';
 export class MockApi {
-  constructor() { this.feeds = new Map(); this.uploaded = new Set(); this.template = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); }
+  constructor(uploadedIds = []) { this.feeds = new Map(); this.uploaded = new Set(uploadedIds); this.template = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); }
   async requestVidr() { return 'mock-report'; }
   async waitReport() { return 'mock-doc'; }
   async downloadReport() {
