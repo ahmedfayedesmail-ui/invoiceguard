@@ -1,5 +1,7 @@
 # InvoiceGuard
 
+[![CI](https://github.com/ahmedfayedesmail-ui/invoiceguard/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmedfayedesmail-ui/invoiceguard/actions/workflows/ci.yml)
+
 Invoice helper for Amazon sellers who sell across EU countries. It watches shipments, checks that each invoice has what the rules ask for, issues the invoice as a PDF, and holds anything it is not sure about instead of guessing.
 
 **Status: v1 pilot.** Amazon connection is in demo mode only (simulated, nothing is uploaded to Amazon, VAT checks in demo data are not live lookups). Nothing here is tax advice. Always confirm with your own adviser.
