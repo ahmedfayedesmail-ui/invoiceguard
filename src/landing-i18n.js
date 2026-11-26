@@ -1,7 +1,7 @@
 // Localized landing pages (ES, DE, FR, IT, NL, PL). Hand-written native-quality copy, not machine output.
 // The honesty gates are identical in every language: one business day is Amazon policy (never "the law"),
 // pilot status is stated, no tax advice, unverified countries are said to wait rather than guess.
-import { esc, CSS } from './site.js';
+import { esc, CSS, hreflangHead } from './site.js';
 
 const NAV = {
   es: ['Muestra en vivo', 'Cómo funciona', 'Preguntas', 'Artículos', 'Privacidad', 'Contacto', 'Abrir la app'],
@@ -21,7 +21,7 @@ const FOOT = {
 };
 export const LOCALE_PATHS = Object.keys(NAV); // ['es','de','fr','it','nl','pl']
 
-const pageLoc = (title, body, desc, L, lang) => `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:type" content="website"><meta name="twitter:card" content="summary"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>${CSS}</style></head><body>
+const pageLoc = (title, body, desc, L, lang, host) => `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${hreflangHead(host, lang === 'en' ? '/' : '/' + lang)}<title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:type" content="website"><meta name="twitter:card" content="summary"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>${CSS}</style></head><body>
 <header><a class="logo" href="/${lang}">Invoice<b>Guard</b></a><span class="sp"></span><nav><a href="/sample">${NAV[lang][0]}</a><a href="/${lang}#how">${NAV[lang][1]}</a><a href="/faq">${NAV[lang][2]}</a><a href="/articles">${NAV[lang][3]}</a><a href="/privacy">${NAV[lang][4]}</a><a href="/contact">${NAV[lang][5]}</a></nav><a class="btn" href="/app">${NAV[lang][6]}</a></header>
 <main>${body}</main>
 <footer><a href="/${lang}">${FOOT[lang][0]}</a><a href="/faq">${FOOT[lang][1]}</a><a href="/articles">${FOOT[lang][2]}</a><a href="/privacy">${FOOT[lang][3]}</a><a href="/contact">${FOOT[lang][4]}</a><div style="margin-top:8px">${esc(FOOT[lang][5])}</div><div style="margin-top:6px;font-size:13px"><a href="/">EN</a> · ${LOCALE_PATHS.map(l => l === lang ? `<b>${l.toUpperCase()}</b>` : `<a href="/${l}">${l.toUpperCase()}</a>`).join(' · ')}</div></footer></body></html>`;
@@ -225,7 +225,7 @@ L.pl = {
   ctaContact: "Dołącz do darmowego pilotażu",
 };
 
-export function landingLocalized(lang) {
+export function landingLocalized(lang, host) {
   const s = L[lang];
   if (!s) return null;
   return pageLoc(s.title, `
@@ -244,5 +244,5 @@ export function landingLocalized(lang) {
 <h2>${esc(s.dataH)}</h2><p>${s.data}</p>
 <h2 id="pricing">${esc(s.pricingH)}</h2><p>${esc(s.pricing)}</p>
 <h2>${esc(s.pilotH)}</h2><p>${s.pilot}</p>
-<p style="margin-top:26px"><a class="btn" href="/sample">${esc(s.ctaSample)}</a> &nbsp; <a class="btn alt" href="/contact">${esc(s.ctaContact)}</a></p>`, s.desc, L, lang);
+<p style="margin-top:26px"><a class="btn" href="/sample">${esc(s.ctaSample)}</a> &nbsp; <a class="btn alt" href="/contact">${esc(s.ctaContact)}</a></p>`, s.desc, L, lang, host);
 }

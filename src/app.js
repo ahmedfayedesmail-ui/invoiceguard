@@ -73,7 +73,8 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     const api = apiFor(seller), ids = JSON.parse(seller.marketplace_ids || '[]').map(c => MARKETPLACE[c]);
     const rid = await api.requestVidr(ids); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
     const out = await processReport(db, seller, text, { api, validate }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
-    const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, at: new Date().toISOString() };
+    let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text).proposed; } catch { /* a report without refund rows proposes nothing */ }
+    const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };
     db.prepare('UPDATE amazon_conn SET last_sync=?, last_sync_result=? WHERE seller_id=?').run(result.at, JSON.stringify({ detected: out.detected, uploaded: out.uploaded, held: out.held.length, deferred: out.deferred.length, errors: out.errors.length }), seller.id);
     return result;
   }
@@ -139,13 +140,13 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (req.method === 'GET' && p === '/robots.txt') {
         if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
         res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' });
-        return res.end('User-agent: *\nAllow: /$\nAllow: /faq\nAllow: /sample\nAllow: /privacy\nAllow: /contact\nAllow: /articles\nDisallow: /\n\nSitemap: https://' + req.headers.host + '/sitemap.xml\n');
+        return res.end('User-agent: *\nAllow: /$\nAllow: /faq\nAllow: /sample\nAllow: /privacy\nAllow: /contact\nAllow: /articles\nAllow: /es$\nAllow: /de$\nAllow: /fr$\nAllow: /it$\nAllow: /nl$\nAllow: /pl$\nDisallow: /\n\nSitemap: https://' + req.headers.host + '/sitemap.xml\n');
       }
       if (req.method === 'GET' && p === '/sitemap.xml') {
         if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
         const b = 'https://' + req.headers.host, d = new Date().toISOString().slice(0, 10);
         res.writeHead(200, { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' });
-        return res.end('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + ['/', '/faq', '/sample', '/privacy', '/contact', '/articles', ...ARTICLES.map(a => '/articles/' + a.slug)].map(u => `<url><loc>${b}${u}</loc><lastmod>${d}</lastmod></url>`).join('') + '</urlset>\n');
+        return res.end('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + ['/', '/es', '/de', '/fr', '/it', '/nl', '/pl', '/faq', '/sample', '/privacy', '/contact', '/articles', ...ARTICLES.map(a => '/articles/' + a.slug)].map(u => `<url><loc>${b}${u}</loc><lastmod>${d}</lastmod></url>`).join('') + '</urlset>\n');
       }
       if (req.method === 'GET' && (p === '/articles' || p.startsWith('/articles/'))) {
         if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
@@ -160,14 +161,14 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
         bump('pv:' + p);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
-        return res.end(landingLocalized(loc[1]));
+        return res.end(landingLocalized(loc[1], req.headers.host));
       }
       if (req.method === 'GET' && PUB[p] && !PUBLIC_READY) { if (p === '/') { res.writeHead(302, { location: '/app' }); return res.end(); } return json(res, 404, { error: 'Not found' }); }
       if (req.method === 'GET' && PUB[p]) {
         bump('pv:' + p);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
         if (p === '/contact') return res.end(contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }));
-        if (p === '/') { const v = abVariant(); bump('pv:/:' + v); return res.end(landing(process.env, { variant: v, ctaHref: '/go/sample?v=' + v, country: countryFromLang(req.headers['accept-language']) })); }
+        if (p === '/') { const v = abVariant(); bump('pv:/:' + v); return res.end(landing(process.env, { variant: v, ctaHref: '/go/sample?v=' + v, country: countryFromLang(req.headers['accept-language']), host: req.headers.host })); }
         return res.end(PUB[p]());
       }
       if (req.method === 'POST' && p === '/contact' && PUBLIC_READY) { // plain HTML form: stored on our own server only
