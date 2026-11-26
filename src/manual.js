@@ -1,7 +1,7 @@
 // Manual path: the seller downloads an order report from Seller Central and uploads it here. No Amazon connection.
 // Verified against Amazon's API documentation only (developer-docs.amazon.com, report type pages); NOT against real downloaded files yet.
 // Every column that is not documented is optional. Anything we cannot read exactly is held with a reason, never guessed.
-import { parseVidr } from './vidr.js';
+import { parseVidr, needsInvoice } from './vidr.js';
 
 export const FORMATS = {
   vidr: 'VAT Invoice Data Report',
@@ -76,6 +76,14 @@ export function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
   return out;
 }
 
+/** Why a VIDR shipment will not produce an invoice, in the words the preview shows. Mirrors needsInvoice() in vidr.js. */
+const vidrSkipReason = (s) => s.isAmazonInvoiced ? 'Amazon creates this invoice'
+  : !s.isBusiness ? 'Not a business order: looks like a consumer order'
+  : s.transactionType !== 'SHIPMENT' ? 'Not a shipment (transaction type: ' + (s.transactionType || 'unknown') + ')'
+  : s.isCorrection || s.isCorrectedTx ? 'A correction row: it belongs with the original invoice, not a new one'
+  : !needsInvoice(s) ? 'Amazon is not waiting for an invoice for this order (status: ' + (s.invoiceStatus || 'none') + ')'
+  : null;
+
 /** Full file -> plan. Pure: nothing is stored. */
 export function planUpload(text, opts = {}) {
   const t = parseTable(text);
@@ -85,7 +93,11 @@ export function planUpload(text, opts = {}) {
   if (!format) return { ok: false, error: 'We do not recognise this file. Use the Order Report (with the buyer tax columns switched on) or the VAT Invoice Data Report, both as tab-delimited text.' };
   if (format === 'allorders') return { ok: false, format, error: 'The All Orders Report has no buyer name, address or VAT number, so it cannot make an invoice. Use the Order Report with the buyer columns switched on.' };
   if (format === 'vidr') {
-    const sh = parseVidr(text); return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: sh, held: [], skipped: [], truncated: !!t.truncated };
+    // Same honesty as the Order Report: rows that cannot produce an invoice are counted as skipped up front,
+    // so the preview's "Ready to invoice" matches what issue will actually attempt.
+    const kept = [], skipped = [];
+    for (const s of parseVidr(text)) { const why = vidrSkipReason(s); if (why) skipped.push({ orderId: s.orderId, why }); else kept.push(s); }
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held: [], skipped, truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows, opts);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };

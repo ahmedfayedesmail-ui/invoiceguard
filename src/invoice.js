@@ -5,6 +5,12 @@ const sum = (a) => r2(a.reduce((x, y) => x + y, 0));
 
 const EXTRA_LABEL = { shipping: 'Gastos de envío', 'gift-wrap': 'Envoltorio de regalo', 'item-promo': 'Promoción', 'shipping-promo': 'Promoción de envío', 'gift-promo': 'Promoción de regalo' };
 
+// Country on the printed address: full name in the country's own language (postal convention), not a bare code.
+const COUNTRY_AUTONYM = { ES: 'España', DE: 'Deutschland', FR: 'France', IT: 'Italia', NL: 'Nederland', BE: 'Belgique / België', PL: 'Polska', SE: 'Sverige', IE: 'Ireland', AT: 'Österreich', PT: 'Portugal', GB: 'United Kingdom' };
+const countryLine = (code) => COUNTRY_AUTONYM[code] ?? code;
+// Reverse of countryLine, for reading a buyer country back from a stored address line (older invoices).
+const countryCodeOf = (line) => { if (!line) return line; if (COUNTRY_AUTONYM[line]) return line; const hit = Object.entries(COUNTRY_AUTONYM).find(([, n]) => n === line); return hit ? hit[0] : line; };
+
 /** Build invoice lines from a parsed shipment. Amounts come from Amazon's own tax data (VIDR). */
 export function linesFromShipment(s) {
   const lines = [];
@@ -47,7 +53,7 @@ export function buildInvoice(db, seller, s, { date = new Date(), number } = {}) 
     operationDate: s.shipmentDate ? s.shipmentDate.slice(0, 10) : null, orderId: s.orderId, shippingId: s.shippingId, currency: s.currency, poNumber: s.poNumber,
     seller: { name: seller.name, nif: seller.nif, address: seller.address, ...(pf.registrationNo ? { registrationNo: pf.registrationNo } : {}) },
     ...(hasPayment(pf) ? { payment: paymentOf(pf, date) } : {}),
-    buyer: { name: s.billing.name || s.buyerCompany, company: s.buyerCompany, vat: s.buyerVat, address: [...s.billing.lines, `${s.billing.postal} ${s.billing.city}`.trim(), s.billing.country].filter(Boolean) },
+    buyer: { name: s.billing.name || s.buyerCompany, company: s.buyerCompany, vat: s.buyerVat, address: [...s.billing.lines, `${s.billing.postal} ${s.billing.city}`.trim(), countryLine(s.billing.country)].filter(Boolean) },
     lines, totals, vatNote: vatNote(s, seller.country ?? 'ES'),
   };
 }
@@ -76,7 +82,7 @@ export function buildRectificativa(db, seller, original, { mode, reason, changes
   const totals = totalsOf(lines);
   const buyerChanged = JSON.stringify(corrected.buyer) !== JSON.stringify(original.buyer);
   return {
-    type: 'rectificativa', langs: resolveLangs(seller.invoice_lang ?? 'auto', seller.country ?? 'ES', original.buyerCountry ?? original.buyer.address?.at?.(-1)), buyerCountry: original.buyerCountry ?? original.buyer.address?.at?.(-1), mode, series: 'R', number: nextNumber(db, seller.id, 'R', date), issueDate: date.toISOString().slice(0, 10),
+    type: 'rectificativa', langs: resolveLangs(seller.invoice_lang ?? 'auto', seller.country ?? 'ES', original.buyerCountry ?? countryCodeOf(original.buyer.address?.at?.(-1))), buyerCountry: original.buyerCountry ?? countryCodeOf(original.buyer.address?.at?.(-1)), mode, series: 'R', number: nextNumber(db, seller.id, 'R', date), issueDate: date.toISOString().slice(0, 10),
     operationDate: original.operationDate, orderId: original.orderId, shippingId: original.shippingId, currency: original.currency, poNumber: original.poNumber,
     seller: { ...original.seller, ...(changes.seller ?? {}) }, buyer: corrected.buyer, lines, totals, vatNote: original.vatNote,
     rectifies: { number: original.number, issueDate: original.issueDate, reason, buyerChanged, previousBuyer: buyerChanged ? original.buyer : null, sellerChanged: !!changes.seller && JSON.stringify({ ...original.seller, ...changes.seller }) !== JSON.stringify(original.seller), previousSeller: changes.seller ? original.seller : null },

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../src/app.js';
@@ -38,6 +38,15 @@ test('order report: clean order, consumer skip, and every hold has a reason', ()
   const q = planUpload(file({ 'order-id': 'OK1' }), { useDeliveryAddress: true });
   assert.equal(q.shipments.length, 1);
   const s = q.shipments[0]; assert.equal(s.buyerVat, 'ESB12345674'); assert.equal(s.items[0].vatRate, 21); assert.equal(s.incl, 121); assert.equal(s.vat, 21); assert.equal(s.marketplace, 'ES');
+});
+
+test('vidr preview: consumer and non-invoiceable rows are skipped up front, not promised as invoices', () => {
+  const p = planUpload(readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'));
+  assert.equal(p.ok, true);
+  assert.equal(p.format, 'vidr');
+  assert.equal(p.shipments.length, 3, 'only the 3 business shipments the engine will actually attempt');
+  assert.equal(p.skipped.length, 2, 'the 2 rows with no buyer company are counted as skipped, matching issue-time behaviour');
+  assert.ok(p.skipped.every(s => s.why && s.why.length > 10));
 });
 
 test('zip writer produces a valid archive', () => {
