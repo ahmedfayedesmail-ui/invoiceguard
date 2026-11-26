@@ -117,19 +117,29 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
 export async function processCorrections(db, seller, reportText, { api, validate }) {
   const out = { creditNotes: 0, invoices: 0, skipped: [], errors: [] };
   const list = parseVidr(reportText).filter(s => s.isCorrectionReversal || s.isCorrectedTx);
-  for (const s of list) {
-    const done = db.prepare('SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=?').get(seller.id, s.key);
-    if (done) continue;
-    const orig = db.prepare("SELECT number, json FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, `SHIPMENT:${s.shippingId}`);
-    if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
-    const reason = s.correctionDetails || 'Billing name or address corrected at the buyer\'s request via Amazon';
+  const done = (key) => db.prepare('SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=?').get(seller.id, key);
+  const original = (s) => db.prepare("SELECT number, json FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, `SHIPMENT:${s.shippingId}`);
+  const reasonOf = (s) => s.correctionDetails || 'Billing name or address corrected at the buyer\'s request via Amazon';
+  const zeroTotal = (orig) => Math.abs(JSON.parse(orig.json).totals?.incl ?? 0) < 0.005;
+  // Pass 1: reversals (credit notes) first. Pass 2: replacements, only when their reversal
+  // landed (or the original was zero-amount, where there is nothing to reverse) - a half pair
+  // would leave Amazon's books inconsistent.
+  for (const s of list.filter(s => s.isCorrectionReversal)) {
+    if (done(s.key)) continue;
+    const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
+    if (zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'zero-amount original: nothing to reverse' }); continue; }
     try {
-      if (s.isCorrectionReversal) {
-        const o = JSON.parse(orig.json), zero = o.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
-        await issueRectificativa(db, seller, orig.number, { mode: 'differences', reason, changes: { lines: zero }, documentType: 'CreditNote', transactionId: s.transactionId, recordKey: s.key }, { api, validate }); out.creditNotes++;
-      } else {
-        await issueRectificativa(db, seller, orig.number, { mode: 'substitution', reason, changes: { buyer: { name: s.billing.name || s.buyerCompany, vat: s.buyerVat ?? undefined, address: [...s.billing.lines, `${s.billing.postal} ${s.billing.city}`.trim(), s.billing.country].filter(Boolean) } }, documentType: 'Invoice', transactionId: s.transactionId, recordKey: s.key }, { api, validate }); out.invoices++;
-      }
+      const o = JSON.parse(orig.json), zero = o.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
+      await issueRectificativa(db, seller, orig.number, { mode: 'differences', reason: reasonOf(s), changes: { lines: zero }, documentType: 'CreditNote', transactionId: s.transactionId, recordKey: s.key }, { api, validate }); out.creditNotes++;
+    } catch (e) { out.errors.push({ key: s.key, error: explain(e.message) }); }
+  }
+  for (const s of list.filter(s => s.isCorrectedTx)) {
+    if (done(s.key)) continue;
+    const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
+    const cn = db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%'").get(seller.id, orig.number);
+    if (!zeroTotal(orig) && !cn) { out.skipped.push({ key: s.key, reason: 'credit-note reversal not completed - pair kept together' }); continue; }
+    try {
+      await issueRectificativa(db, seller, orig.number, { mode: 'substitution', reason: reasonOf(s), changes: { buyer: { name: s.billing.name || s.buyerCompany, vat: s.buyerVat ?? undefined, address: [...s.billing.lines, `${s.billing.postal} ${s.billing.city}`.trim(), s.billing.country].filter(Boolean) } }, documentType: 'Invoice', transactionId: s.transactionId, recordKey: s.key }, { api, validate }); out.invoices++;
     } catch (e) { out.errors.push({ key: s.key, error: explain(e.message) }); }
   }
   return out;

@@ -31,9 +31,10 @@ export function detectRepairs(db, seller, reportText, { now = new Date() } = {})
     (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at)
     VALUES (?,?,?,?,?,?,?, 'proposed', ?)`);
   for (const s of refunds) {
-    const orig = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1")
+    const orig = db.prepare("SELECT number, total FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1")
       .get(seller.id, `SHIPMENT:${s.shippingId}`);
     if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
+    if (Math.abs(orig.total) < 0.005 || Math.abs(s.incl) < 0.005) { out.skipped.push({ key: s.key, reason: 'zero amount, nothing to credit' }); continue; } // a zero-total invoice has nothing to refund; proposing one would fail the differences rule
     const reason = `Return or refund received for order ${s.orderId} after invoice ${orig.number} was issued`;
     const suggestion = JSON.stringify({ action: 'credit_note', rectifies: orig.number, total: Math.abs(s.incl), vat: Math.abs(s.vat), transactionId: s.transactionId });
     const r = ins.run(seller.id, s.key, 'return', orig.number, s.key, reason, suggestion, now.toISOString());
