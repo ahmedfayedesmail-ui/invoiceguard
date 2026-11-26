@@ -23,6 +23,9 @@ export function openDb(file = ':memory:') {
   CREATE INDEX IF NOT EXISTS idx_ship_date ON shipments (seller_id, shipment_date);
   CREATE INDEX IF NOT EXISTS idx_inv_issued ON invoices (seller_id, issued_at);
   CREATE INDEX IF NOT EXISTS idx_vat_checks ON vat_checks (seller_id, checked_at);`);
+  // One-time repair for the stage-2 limbo defect: corrections approved before the fix sit at
+  // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
+  db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
   return db;
 }
 
