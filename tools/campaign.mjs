@@ -348,6 +348,10 @@ async function part5() {
     check('H:reject-flow', x.status === 200 && r2.upload_status === 'rejected', `reject ${x.status} ${r2.upload_status}`);
   });
 
+  // localized landings: every agreed locale serves native copy with its own html lang
+  for (const [l, marker] of [['es', 'Facturas de Amazon Business'], ['de', 'Amazon-Business-Rechnungen'], ['fr', 'factures Amazon Business'], ['it', 'Fatture Amazon Business'], ['nl', 'Amazon Business-facturen'], ['pl', 'Faktury Amazon Business']])
+    await http(`H:landing-${l}`, async () => { const r = await call('/' + l, undefined, true); check(`H:landing-${l}`, r.status === 200 && r.body.includes(`<html lang="${l}">`) && r.body.includes(marker), `locale ${l}: ${r.status}`); });
+
   // security headers on the app shell
   await http('H:sec-headers', async () => {
     const r = await fetch(base + '/app'); const csp = r.headers.get('content-security-policy') ?? '';

@@ -5,6 +5,7 @@ import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
 import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode } from './db.js';
 import { landing, privacy, contact, sample, faq, notFound, countryFromLang } from './site.js';
+import { landingLocalized } from './landing-i18n.js';
 import { ARTICLES, articlesIndex, articlePage } from './articles.js';
 import { sampleRun, samplePdf } from './sample.js';
 import { applyBootReset } from './reset.js';
@@ -152,6 +153,8 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
         if (p === '/contact') return res.end(contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }));
         if (p === '/') { const v = abVariant(); bump('pv:/:' + v); return res.end(landing(process.env, { variant: v, ctaHref: '/go/sample?v=' + v, country: countryFromLang(req.headers['accept-language']) })); }
+        const loc = /^\/(es|de|fr|it|nl|pl)$/.exec(p);
+        if (loc) { bump('pv:/' + loc[1]); const html = landingLocalized(loc[1]); if (html) return res.end(html); }
         return res.end(PUB[p]());
       }
       if (req.method === 'POST' && p === '/contact' && PUBLIC_READY) { // plain HTML form: stored on our own server only

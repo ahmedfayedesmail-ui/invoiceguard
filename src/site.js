@@ -1,8 +1,8 @@
 // Public pages: landing, privacy, contact. Plain HTML, no scripts, no cookies, no third-party requests.
 // Operator details come from the environment so nothing is invented: OPERATOR_NAME, CONTACT_EMAIL, OPERATOR_COUNTRY.
-const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const UPDATED = '25 November 2026';
-const CSS = `:root{--ink:#14202b;--mut:#5d6b78;--line:#e4e9ee;--bg:#f5f7f9;--pri:#0f766e;--priD:#0b5a54}*{box-sizing:border-box}body{margin:0;font:16px/1.65 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+export const CSS = `:root{--ink:#14202b;--mut:#5d6b78;--line:#e4e9ee;--bg:#f5f7f9;--pri:#0f766e;--priD:#0b5a54}*{box-sizing:border-box}body{margin:0;font:16px/1.65 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
 header{background:#fff;border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}.logo{font-weight:700;font-size:19px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}.logo b{color:var(--pri)}.sp{flex:1}
 nav a{color:var(--mut);text-decoration:none;margin-left:16px;font-size:15px}nav a:hover{color:var(--ink)}
 .btn{display:inline-block;background:var(--pri);color:#fff;padding:11px 20px;border-radius:8px;text-decoration:none;font-weight:600}.btn:hover{background:var(--priD)}.btn.alt{background:#fff;color:var(--pri);border:1px solid var(--pri)}
@@ -15,7 +15,7 @@ const cfg = (env) => ({ name: String(env.OPERATOR_NAME ?? '').trim(), email: Str
 export const page = (title, body, env, desc) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(desc ?? 'InvoiceGuard helps Amazon sellers issue and check B2B invoices.')}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc ?? 'InvoiceGuard helps Amazon sellers issue and check B2B invoices.')}"><meta property="og:type" content="website"><meta name="twitter:card" content="summary"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>${CSS}</style></head><body>
 <header><a class="logo" href="/">Invoice<b>Guard</b></a><span class="sp"></span><nav><a href="/sample">Live sample</a><a href="/#how">How it works</a><a href="/faq">FAQ</a><a href="/articles">Articles</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a></nav><a class="btn" href="/app">Open the app</a></header>
 <main>${body}</main>
-<footer><a href="/">Home</a><a href="/faq">FAQ</a><a href="/articles">Articles</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a><div style="margin-top:8px">InvoiceGuard is a pilot-stage tool. It is not tax or legal advice.</div></footer></body></html>`;
+<footer><a href="/">Home</a><a href="/faq">FAQ</a><a href="/articles">Articles</a><a href="/privacy">Privacy</a><a href="/contact">Contact</a><div style="margin-top:8px">InvoiceGuard is a pilot-stage tool. It is not tax or legal advice.</div><div style="margin-top:6px;font-size:13px"><b>EN</b> · <a href="/es">ES</a> · <a href="/de">DE</a> · <a href="/fr">FR</a> · <a href="/it">IT</a> · <a href="/nl">NL</a> · <a href="/pl">PL</a></div></footer></body></html>`;
 const who = (c) => c.name ? esc(c.name) : 'the InvoiceGuard operator';
 const contactLine = (c) => c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : 'the form on the <a href="/contact">contact page</a>';
 
@@ -30,7 +30,7 @@ const MARKET_COPY = {
 const EU_COPY = { name: 'the EU', rule: 'Amazon asks for the invoice within one business day of dispatch, and each EU country adds its own invoicing rules on top.', familiar: MARKET_COPY.ES.familiar };
 
 /** Best-effort market guess from the Accept-Language header. Spain (the pilot market) is the fallback. */
-export const countryFromLang = (al) => { const m = /\b(de|fr|it|es)\b/i.exec(String(al ?? '')); return m ? m[1].toUpperCase() : 'ES'; };
+export const countryFromLang = (al) => { const m = /\b(nl|pl|de|fr|it|es)\b/i.exec(String(al ?? '')); return m ? m[1].toUpperCase() : 'ES'; };
 
 export function landing(env = process.env, opts = {}) {
   const cta = opts.ctaHref || '/sample';
