@@ -100,33 +100,84 @@ export async function approveRepair(db, seller, eventKey, { api, validate } = {}
 
 /** Re-upload a rejected document: Amazon's prescribed retry is the SAME document, never a new number. */
 async function retryRejectedUpload(db, seller, number, { api }) {
-  const row = db.prepare('SELECT json, shipment_key, upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, number);
+  const row = db.prepare('SELECT json, shipment_key, upload_status, kind FROM invoices WHERE seller_id=? AND number=?').get(seller.id, number);
   if (!row) throw new Error(`Document ${number} not found`);
+  if (row.kind !== 'invoice') throw new Error(`Document ${number} is a correction document - those retry through their own record-key path, not this one. Nothing was re-uploaded.`);
+  if (row.upload_status === 'unknown') throw new Error(`The upload outcome of ${number} is unknown - Amazon may already hold it. It is NOT resent on approval alone; the next Amazon report settles it. Nothing was re-uploaded.`);
   if (row.upload_status !== 'rejected') throw new Error(`Document ${number} is ${row.upload_status}, not rejected - there is nothing to retry`);
+  const ship = db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key);
+  if (!ship) throw new Error(`Shipment ${row.shipment_key} of document ${number} is not on record, so the retry target cannot be proven. Nothing was re-uploaded.`);
   const doc = JSON.parse(row.json);
-  const s = JSON.parse(db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key).raw);
+  const s = JSON.parse(ship.raw);
   const mp = marketplaceFor(s.marketplace);
   if (!mp) throw new Error(`The shipment's store code "${s.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the upload target was not guessed. Nothing was re-uploaded.`);
   const pdf = await renderPdf(doc);
-  const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) });
+  let feedId;
+  try {
+    feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) });
+  } catch (e) {
+    // Same discipline as the first upload: an unknown outcome is never resent blindly. The document
+    // goes to 'unknown' with a human-visible hold; the next Amazon report settles it.
+    if (e.unknownOutcome) {
+      db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, number);
+      db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
+      logEvent(db, seller.id, 'upload_unknown_outcome', { number, error: e.message });
+      proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${row.shipment_key}`, kind: 'unknown_outcome', number, shipmentKey: row.shipment_key, action: 'hold',
+        reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there means the next sync resubmits it safely, a verdict closes it.` });
+    }
+    throw e;
+  }
   db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, number);
   db.prepare("UPDATE shipments SET status='submitted' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   logEvent(db, seller.id, 'rejected_upload_retried', { number });
   return feedId;
 }
 
-/** A rejection reason about the document's CONTENT (totals, mandatory data) must not get a blind
- * retry: resending the same bytes repeats the same verdict. Technical failures get the retry. */
-export const classifyRejection = (reason) =>
-  /totalamount|totalvatamount|mismatch|does not match|missing|mandatory|invalid/i.test(String(reason ?? '')) ? 'content' : 'technical';
+/** Boot recovery for the crash window BETWEEN Amazon accepting an upload and the local write of its
+ * feed id: such documents sit in 'sending'. Local data alone cannot prove whether Amazon holds them,
+ * so they become 'unknown' with a human-visible hold - and the next Amazon report settles them
+ * (still due there = safe automatic resend of the same document; a verdict = closed). */
+export function recoverUncertainUploads(db) {
+  ensureRepairTables(db);
+  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies FROM invoices WHERE upload_status='sending'").all();
+  for (const inv of stuck) {
+    db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(inv.seller_id, inv.number);
+    db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=? AND status='sending'").run(inv.seller_id, inv.shipment_key);
+    logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, error: 'the app stopped between Amazon accepting the upload and saving the result' });
+    proposeRejectedRetry(db, { id: inv.seller_id }, { eventKey: `UNKNOWN:${inv.shipment_key}`, kind: 'unknown_outcome', number: inv.number, originalNumber: inv.rectifies ?? inv.number, shipmentKey: inv.shipment_key, rectNumber: inv.kind === 'rectificativa' ? inv.number : null, action: 'hold',
+      reason: `The app stopped while uploading ${inv.number}; Amazon may already have received the document. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the next sync resubmits the same document safely, a verdict closes it.` });
+  }
+  return stuck.length;
+}
+
+/** Three-way classification of an Amazon rejection reason.
+ * 'content': about the document's data (totals, mandatory fields) - resending the same bytes repeats
+ *   the same verdict, so the document HOLDS for a real correction.
+ * 'technical': a processing failure - Amazon's prescribed retry of the SAME document is safe.
+ * 'unknown': anything else, including an empty reason. Also HOLDS: guessing here sends money
+ *   documents, so an unclear reason goes to a human, never to an automatic retry. */
+export const classifyRejection = (reason) => {
+  const r = String(reason ?? '');
+  if (/totalamount|totalvatamount|mismatch|does not match|missing|mandatory|invalid/i.test(r)) return 'content';
+  if (/internal|timeout|timed out|throttl|temporarily|unavailable|try again|rate limit|processing error|502|503|504/i.test(r)) return 'technical';
+  return 'unknown';
+};
 
 /** Queue (or re-open) a human-reviewed retry when Amazon rejects an uploaded document.
  * Repeat rejections of the same document re-open the review: the document lifecycle
  * reject -> retry -> reject again must surface a fresh proposal every time. */
-export function proposeRejectedRetry(db, seller, { eventKey, kind, number, originalNumber, shipmentKey, rectNumber = null, action, reason, now = new Date() }) {
+export function proposeRejectedRetry(db, seller, { eventKey, kind, number, originalNumber, shipmentKey, rectNumber = null, action, retryAction = 'retry_upload', reason, rawReason, now = new Date() }) {
   ensureRepairTables(db);
-  const act = action ?? (classifyRejection(reason) === 'content' ? 'hold' : 'retry_upload');
-  const text = act === 'hold' ? reason + ' Amazon rejected the CONTENT of this document, so re-uploading it unchanged would likely repeat the rejection - the data needs a real correction first. Nothing was re-uploaded.' : reason;
+  // EVERY rejection path goes through the classifier unless the caller proved the document never
+  // reached Amazon (feed FATAL/CANCELLED) and passes an explicit action. retryAction picks the retry
+  // mechanics for the document type; the classifier alone decides hold vs retry.
+  const cls = classifyRejection(rawReason ?? reason);
+  const act = action ?? (cls === 'technical' ? retryAction : 'hold');
+  const text = act === 'hold'
+    ? reason + (cls === 'content'
+      ? ' Amazon rejected the CONTENT of this document, so re-uploading it unchanged would likely repeat the rejection - the data needs a real correction first. Nothing was re-uploaded.'
+      : " Amazon's rejection reason is unclear, so this is held for a human to read in Seller Central instead of guessing. Nothing was re-uploaded.")
+    : reason;
   const sug = JSON.stringify({ action: act, number });
   const prev = db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, eventKey);
   if (prev && ['proposed', 'issuing'].includes(prev.state)) return false; // already awaiting review or in flight
@@ -156,12 +207,16 @@ export function recoverStuckRepairs(db) {
   for (const r of stuck) {
     const sug = JSON.parse(r.suggestion);
     let docStatus = null, next;
+    // Only a document that provably went out closes the repair. 'rejected', 'unknown' and missing
+    // all come BACK to the review queue: a hold repair closed on an 'unknown' document would vanish
+    // from review, and a 'rejected' document still needs its retry decision.
+    const GONE_OUT = ['submitted', 'processing', 'uploaded', 'ready'];
     if (['retry_upload', 'retry_rect', 'hold'].includes(sug.action)) {
       docStatus = db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(r.seller_id, sug.number)?.upload_status ?? null;
-      next = (docStatus && docStatus !== 'rejected') ? 'issued' : 'proposed';
+      next = GONE_OUT.includes(docStatus) ? 'issued' : 'proposed';
     } else {
       docStatus = db.prepare("SELECT upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(r.seller_id, r.event_key)?.upload_status ?? null;
-      next = (docStatus && docStatus !== 'pending') ? 'issued' : 'proposed';
+      next = GONE_OUT.includes(docStatus) ? 'issued' : 'proposed';
     }
     db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='issuing'").run(next, r.seller_id, r.event_key);
     logEvent(db, r.seller_id, 'repair_recovered', { key: r.event_key, to: next, document: docStatus });

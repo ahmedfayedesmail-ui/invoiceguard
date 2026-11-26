@@ -39,3 +39,30 @@ test('marketplaceFor: store codes, country codes, raw IDs; unknown stays null', 
   assert.equal(marketplaceFor('ZZ'), null);
   assert.equal(marketplaceFor(''), null);
 });
+
+test('POSTs that create documents are never blindly retried: 5xx fails once with unknownOutcome, 429 retries safely, GETs retry', async () => {
+  const counts = {};
+  let feedsReplies = [{ status: 500, json: async () => ({}) }];
+  const f = async (url, opts) => {
+    const u = String(url);
+    if (u.includes('auth/o2/token')) return { ok: true, json: async () => ({ access_token: 't', expires_in: 3600 }) };
+    const key = opts.method + ' ' + u.replace(/^https?:\/\/[^/]+/, '').slice(0, 40);
+    counts[key] = (counts[key] ?? 0) + 1;
+    if (u.includes('/feeds/2021-06-30/documents') && opts.method === 'POST') return { ok: true, json: async () => ({ feedDocumentId: 'd1', url: 'https://upload.example/put' }) };
+    if (u === 'https://upload.example/put') return { ok: true };
+    if (u.includes('/feeds/2021-06-30/feeds') && opts.method === 'POST') return feedsReplies.length > 1 ? feedsReplies.shift() : feedsReplies[0];
+    return { ok: true, json: async () => ({}) };
+  };
+  const api = new SpApi({ clientId: 'c', clientSecret: 's', refreshToken: 'r', fetchImpl: f, sleepFn: async () => {} });
+  const feedsKey = Object.keys(counts);
+  await assert.rejects(() => api.uploadInvoice({ marketplaceId: 'A1RKKUPIHCS9HS', pdf: Buffer.from('%PDF-1.4 fake'), orderId: 'o1', shippingId: 'sh1', number: 'A-1', total: 10, vat: 2 }),
+    (e) => { assert.equal(e.unknownOutcome, true, 'a 5xx on feed creation leaves the outcome unknown'); return true; });
+  const feedPosts = Object.entries(counts).find(([k]) => k.includes('POST') && k.includes('/feeds/2021-06-30/feeds'));
+  assert.equal(feedPosts[1], 1, 'the non-idempotent feed-creation POST was NOT retried on 5xx');
+  // 429 is a pre-processing refusal: retrying cannot duplicate, so it does retry
+  feedsReplies = [{ status: 429, json: async () => ({}) }, { ok: true, status: 201, json: async () => ({ feedId: 'F9' }) }];
+  counts['POST /feeds/2021-06-30/feeds'] = 0;
+  const feedId = await api.uploadInvoice({ marketplaceId: 'A1RKKUPIHCS9HS', pdf: Buffer.from('%PDF-1.4 fake'), orderId: 'o1', shippingId: 'sh1', number: 'A-1', total: 10, vat: 2 });
+  assert.equal(feedId, 'F9');
+  assert.equal(counts['POST /feeds/2021-06-30/feeds'], 2, 'a throttled POST retried exactly once before succeeding');
+});

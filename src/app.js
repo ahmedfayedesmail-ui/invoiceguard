@@ -19,8 +19,8 @@ import { MockApi } from './mockamazon.js';
 import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
-import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections } from './pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs } from './repair.js';
+import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -79,6 +79,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     // is what marks a document uploaded (see pollFeeds).
     const rid = await api.requestVidr(ids, { all: true }); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
     const out = await processReport(db, seller, text, { api, validate }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
+    const settled = await settleUnknownDocuments(db, seller, text, { api, validate }); if (settled.resubmitted.length) logEvent(db, seller.id, 'sync_settled_unknown', settled);
     let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text).proposed; } catch { /* a report without refund rows proposes nothing */ }
     const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };
     db.prepare('UPDATE amazon_conn SET last_sync=?, last_sync_result=? WHERE seller_id=?').run(result.at, JSON.stringify({ detected: out.detected, uploaded: out.uploaded, held: out.held.length, deferred: out.deferred.length, errors: out.errors.length }), seller.id);
@@ -87,7 +88,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const DASH_LIMIT = Number(process.env.DASH_LIMIT ?? 500);
   function dashboard(seller) {
     const nowIso = new Date().toISOString();
-    const k = db.prepare("SELECT count(*) total, sum(status='uploaded') uploaded, sum(status IN ('submitted','processing')) submitted, sum(status='held') held, sum(status IN ('held','rejected','error') OR (status='detected' AND due_at IS NOT NULL AND due_at < ?)) bad FROM shipments WHERE seller_id=?").get(nowIso, seller.id);
+    const k = db.prepare("SELECT count(*) total, sum(status='uploaded') uploaded, sum(status IN ('submitted','processing')) submitted, sum(status='held') held, sum(status IN ('held','rejected','error','unknown') OR (status='detected' AND due_at IS NOT NULL AND due_at < ?)) bad FROM shipments WHERE seller_id=?").get(nowIso, seller.id);
     const rows = db.prepare('SELECT key, order_id, shipping_id, buyer, buyer_vat, country, total, vat, shipment_date, due_at, status, reason FROM shipments WHERE seller_id=? ORDER BY shipment_date DESC, key LIMIT ?').all(seller.id, DASH_LIMIT);
     const inv = db.prepare('SELECT number, shipment_key, kind, rectifies, issued_at, total, upload_status FROM invoices WHERE seller_id=? ORDER BY issued_at DESC, number DESC LIMIT ?').all(seller.id, DASH_LIMIT);
     const invTotal = db.prepare('SELECT count(*) n FROM invoices WHERE seller_id=?').get(seller.id).n;
@@ -488,6 +489,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // document was already created/submitted before the crash is held for human review instead of
   // blindly re-approvable (which would hit the idempotency guard and wedge the repair forever).
   try { recoverStuckRepairs(db); } catch { /* repairs table is created on first use */ }
+  // Documents caught in the crash window between Amazon accepting an upload and the local write of
+  // its result ('sending') become 'unknown' with a human-visible hold; the next report settles them.
+  try { recoverUncertainUploads(db); } catch { /* invoices table is created on first use */ }
   applyBootReset(db); rotateKeys(db, process.env.APP_SECRET ?? 'dev-secret-change-me', process.env.APP_SECRET_PREVIOUS); purgeSecLog(db); setInterval(() => { try { purgeSecLog(db); } catch (e) { console.error(e.message); } }, 24 * 3600e3).unref(); purge(); const piiPurge = () => { try { const n = purgeBuyerData(db); if (n) console.log(`buyer data removed from ${n} shipment record(s)`); } catch (e) { console.error('buyer-data purge failed', e.message); } }; piiPurge(); setInterval(piiPurge, 6 * 3600e3).unref(); setInterval(purge, 3600e3).unref();
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));

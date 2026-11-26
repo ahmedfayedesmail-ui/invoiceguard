@@ -33,10 +33,18 @@ export class SpApi {
     this.token = j.access_token; this.exp = Date.now() + j.expires_in * 1000; return this.token;
   }
   async call(method, path, body, attempt = 0) {
-    const res = await this.f(this.base + path, { method, headers: { 'x-amz-access-token': await this.accessToken(), 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-    if ((res.status === 429 || res.status >= 500) && attempt < 4) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1); }
+    // Retry discipline: only safe calls retry automatically. GETs are reads. A 429 is Amazon rejecting
+    // the request BEFORE processing it, so a retried POST cannot duplicate anything. A 5xx or a network
+    // drop on a POST leaves the outcome UNKNOWN (Amazon may have processed it): the feeds API offers no
+    // idempotency key (create-and-upload-invoices doc, checked 2026-11-26), so a blind second POST
+    // /feeds could double-submit the document. No automatic retry there - the caller reconciles first.
+    let res;
+    try { res = await this.f(this.base + path, { method, headers: { 'x-amz-access-token': await this.accessToken(), 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); }
+    catch (e) { if (method === 'GET' && attempt < 4) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1); } throw e; }
+    const safeToRetry = res.status === 429 || (res.status >= 500 && method === 'GET');
+    if (safeToRetry && attempt < 4) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1); }
     const j = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(`SP-API ${method} ${path} -> ${res.status} ${JSON.stringify(j.errors ?? j)}`);
+    if (!res.ok) { const e = new Error(`SP-API ${method} ${path} -> ${res.status} ${JSON.stringify(j.errors ?? j)}`); if (method !== 'GET' && res.status >= 500) e.unknownOutcome = true; throw e; }
     return j;
   }
 
@@ -50,9 +58,10 @@ export class SpApi {
       // key is literally "ReportOption=All", the window maxes at 30 days, and dataStartTime/dataEndTime
       // must sit on day boundaries of the report period. TODO(first live seller): confirm Amazon accepts
       // this exact request shape - until then it is covered by mock tests only.
-      const to = new Date(), start = from ? new Date(from) : new Date(to.getTime() - 29 * 864e5);
+      const end = new Date(); end.setUTCHours(0, 0, 0, 0); // whole days only: both ends on day boundaries
+      const start = from ? new Date(from) : new Date(end.getTime() - 29 * 864e5);
       start.setUTCHours(0, 0, 0, 0);
-      body.dataStartTime = start.toISOString(); body.dataEndTime = to.toISOString();
+      body.dataStartTime = start.toISOString(); body.dataEndTime = end.toISOString();
       body.reportOptions = { 'ReportOption=All': 'true' };
     }
     else if (pendingOnly) body.reportOptions = { 'ReportOption=pendingInvoices': 'true' };

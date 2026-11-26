@@ -164,7 +164,7 @@ function docsShell(d,redraw){const box=h('div',{});const draw=()=>box.replaceChi
 function compShell(d){const box=h('div',{});const items=[['main','Overview'],...(MANUAL?[]:[['radar','Radar']]),['vat','VAT check'],['watch','VAT watch'],['rules','Rules']];const draw=()=>box.replaceChildren(subNav(items,compSub,id=>{compSub=id;draw()}),compSub==='main'?compView(d):compSub==='radar'?radarView():compSub==='vat'?vatView(d):compSub==='watch'?watchView():rulesView());draw();return box}
 function helpShell(){const box=h('div',{});const draw=()=>box.replaceChildren(subNav([['guide','Setup guide'],['wizard','What applies to me']],helpSub,id=>{helpSub=id;draw()}),helpSub==='guide'?guideView():wizardView());draw();return box}
 function compView(d){
- const now=Date.now();const open=d.shipments.filter(s=>['detected','held','error','rejected'].includes(s.status)).map(s=>({s,left:s.due_at?Math.round((new Date(s.due_at)-now)/36e5):null})).sort((a,b)=>(a.left??1e9)-(b.left??1e9));
+ const now=Date.now();const open=d.shipments.filter(s=>['detected','held','error','rejected','unknown'].includes(s.status)).map(s=>({s,left:s.due_at?Math.round((new Date(s.due_at)-now)/36e5):null})).sort((a,b)=>(a.left??1e9)-(b.left??1e9));
  const aud=h('div',{class:'mut'},'Not checked yet.');
  const chk=async()=>{aud.textContent='Checking...';try{const r=await api('audit/verify');aud.className=r.ok?'ok':'err';aud.textContent=r.ok?'All good: '+r.entries+' issued documents, none changed since they were issued.':'Problem: a document was changed after issue (entry '+r.brokenAt+(r.reason?', '+r.reason:'')+'). Contact support before sending anything else.'}catch(e){aud.className='err';aud.textContent=e.message}};
  return h('div',{},
