@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
 import { processReport } from '../src/pipeline.js';
-import { detectRepairs, listRepairs, decideRepair } from '../src/repair.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'selR', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
@@ -47,6 +47,24 @@ test('decisions move a proposal out of the queue, and only once', async () => {
   assert.equal(listRepairs(db, seller.id, 'approved').length, 1);
   assert.throws(() => decideRepair(db, seller.id, p.event_key, 'approved'), /No proposed repair/);
   assert.throws(() => decideRepair(db, seller.id, 'nope', 'dismissed'), /No proposed repair/);
+});
+
+test('approving a return issues the chained credit note with the refund TransactionId and closes the repair', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, refundReport());
+  const [p] = listRepairs(db, seller.id);
+  const before = db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c;
+  const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
+  assert.equal(res.original, p.original_number); assert.ok(res.rectNumber);
+  const cn = db.prepare('SELECT * FROM invoices WHERE seller_id=? AND number=?').get(seller.id, res.rectNumber);
+  assert.equal(cn.kind, 'rectificativa'); assert.equal(cn.rectifies, p.original_number);
+  const cj = JSON.parse(cn.json); assert.ok(cj.totals.incl < 0, 'credit note is negative');
+  assert.equal(db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c, before + 1);
+  assert.equal(listRepairs(db, seller.id).length, 0);
+  assert.equal(listRepairs(db, seller.id, 'issued')[0].rect_number, res.rectNumber);
+  // no double issue
+  await assert.rejects(() => approveRepair(db, seller, p.event_key, { api, validate: vies }), /No open repair/);
 });
 
 test('a refund for an invoice we did not issue is skipped, not proposed', () => {

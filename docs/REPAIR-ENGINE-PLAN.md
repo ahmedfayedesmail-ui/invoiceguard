@@ -13,6 +13,26 @@ Honesty gates (standing):
 - Review-first pilot: a human reviews every repair before upload, until
   per-marketplace validation says otherwise.
 
+From the-leap.md / wow-moment.md (2026-11-26, in this repo's sibling docs):
+- The claim "nobody else repairs invoices" stays dated and sourced ("verified
+  across live competitor pages, November 2026") and is re-checked before every
+  public push.
+- The loop only counts when it closes on the REAL Amazon flow: detect in VIDR,
+  upload credit note + corrected invoice with correct TransactionIds, read the
+  processing report, retry/escalate on rejection. A generated PDF without
+  confirmed Amazon acceptance is not a repair.
+- Every order carries a visible timestamped trail: detected -> issued ->
+  uploaded -> accepted. Per order, not statistical.
+- Rectificativa copy says "built to the regulation" (RD 1619/2012 art. 15)
+  until a tax professional validates it; never "certified" or "legally valid".
+- "Verifactu-ready" stays an architecture claim (user obligation Oct 2028).
+- Marketing speaks about the demo/pilot until Amazon's Tax Invoicing role is
+  approved; no production claims.
+- Wow staging: /sample gets a fourth card - a return arrives after issuance,
+  the timeline repairs itself live, ending in Amazon's acceptance receipt.
+  Copy: "Returns happen. Your invoices fix themselves." / ES: "Las
+  devoluciones pasan. Tus facturas se corrigen solas."
+
 ## Correction events (detection)
 1. Return / refund after issuance (VIDR contains refund/return records).
 2. Wrong buyer data (buyer name/address/VAT ID changed or corrected).
