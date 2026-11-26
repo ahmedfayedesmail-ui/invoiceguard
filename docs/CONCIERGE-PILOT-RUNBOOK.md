@@ -1,0 +1,84 @@
+# Concierge Pilot runbook (first real sellers)
+
+**What this is.** A hand-run pilot for up to 3 Spanish sellers. A person (the operator) runs each step with the seller, using InvoiceGuard as a tool. It is NOT automation. We call it a "Concierge Pilot" everywhere until SP-API access is proven with a real account. Nothing is uploaded to Amazon by InvoiceGuard in this pilot: the SELLER uploads in their own Seller Central.
+
+**What counts as success.** One complete real cycle, with proof at every step: report -> invoice -> upload -> acceptance -> return -> credit note -> acceptance. Until a cycle is complete we make no production claim (see `AMAZON-ASSUMPTIONS.md` U1-U5).
+
+## 0. Wording rules (apply to every message with a seller)
+- Say "Concierge Pilot" and "we help you prepare the documents". Never "automatic", "fully automated", "integrated with Amazon".
+- No promise that Amazon will accept anything. We say: "we build to Amazon's documented format; Amazon decides".
+- No tax advice. Questions like "which VAT rate/exemption applies" go back to the seller's own advisor. We show what the data says and what we checked.
+- The one-business-day invoice window is Amazon's VCS POLICY, not law. Correction uploads are not part of Amazon's invoice-defect (IDR) measure. Never say "you will never miss the deadline".
+- "Rectificativa" = built to the Spanish regulation's content rules. Never "certified". "Verifactu-ready" = architecture only.
+- Never use the operator's or Ahmed's personal name, country or email. Use InvoiceGuard only. No registered entity is claimed.
+
+## 1. Gate checklist (before ANY real file is touched)
+All must be true and written down in the seller's evidence log (section 6):
+1. **Written consent** from the seller (email or message, kept). Template below.
+2. The seller is selling under THEIR OWN Seller Central account (never an employer's), selling in Spain, and is the person allowed to share the data.
+3. The seller's VAT Calculation Service setting is "I will upload my own invoices" (otherwise Amazon refuses uploads with error 79509; the app tells them this). The seller confirms it themselves.
+4. Manual-upload gate: `ALLOW_MANUAL_UPLOAD` stays OFF until 1-3 hold. **Opening it is a decision that goes back to Main/Ahmed each time** (do not flip it on our own). It is a global flag, so while it is on, any signup can upload. Keep the window short, the pilot account known, and turn it OFF again when the seller's cycle is done. The landing page says uploads are not open; update that sentence in the same change (small copy fix + deploy) or the page contradicts reality.
+5. Backups are running (green run of "Off-server backup and restore drill" within the last 12 h) before the first real upload.
+
+**Consent template (send, keep the reply):**
+> We are running a small hand-held pilot of InvoiceGuard. If you agree, you send us (or upload yourself) your VAT Invoice Data Report. It contains your buyers' business details, so it is sensitive. We use it only to prepare your invoices and credit notes, keep it only as long as needed (buyer personal data is deleted 30 days after the order), never share it, and delete your data on request. We do not upload anything to Amazon for you, you do. We cannot promise Amazon will accept the documents, and we give no tax advice. Please answer "I agree" from your own account email.
+
+## 2. How we receive the file securely
+Preferred (Option A, keeps data inside the system's own protections): the seller signs up on the live site, we open the gate for the pilot window, and the seller uploads the VIDR **themselves** in the app (HTTPS, session-protected, encrypted fields, 30-day buyer-data purge, audit chain). No buyer data travels by email or chat.
+
+Fallback (Option B, only if Option A is not possible): the seller sends the file as a password-protected archive (7z/zip AES) to the pilot mailbox, password sent through a DIFFERENT channel. We process it only in a local throwaway database (never committed), then delete the file and the database, and note the deletion in the log. Never paste rows into chat, never put real files in the repo or in /downloads bundles (the repo is public; `*.db` is ignored, also ignore `pilot-data/`).
+
+Never accept: screenshots of order rows by chat, files from anyone other than the seller, files from an account we have no consent for.
+
+## 3. Processing, step by step
+1. **Preview first** (`/api/manual/preview` = the app's preview step). Read the three lists: will invoice / held (with reason) / skipped (consumer, already uploaded, not a shipment). Compare counts against the seller's own knowledge ("you shipped about N B2B orders").
+2. **Detection record**: write down for each order that will be invoiced: order-id, shipping-id, transaction-id, invoice-status as read from the file (see log, section 6, column "Detected"). Held rows get the app's reason verbatim.
+3. **Issue** (`/api/manual/issue`). Check: invoice numbers are consecutive, the buyer VAT checks ran (VIES result recorded), held rows have a plain reason and a fix path (Repairs tab).
+4. **Review every held row with the seller**. Typical: bad buyer VAT format, VAT not registered in VIES, missing address. We never guess a value. The seller supplies the fix; we re-run.
+5. **Deliver the pack** (export zip: PDFs, list, README). Send it to the seller in the same secure way as section 2 (Option A: they download it in the app).
+6. **The seller uploads** the invoices in their Seller Central. We do NOT have their login. The exact Seller Central screen and wording are UNVERIFIED by us (not documented in the developer docs we rely on), so for the first seller ask for a redacted screenshot of each screen they use, and write the real menu names into `PILOT-SELLER-STEPS.md` and the landing guide afterwards.
+7. When the seller confirms the upload, press "mark uploaded" in the app (`/api/invoices/mark`). If Amazon shows an error, copy the exact message into "reject" (`/api/invoices/reject`); the document stays, nothing is deleted, the fix path opens. Retries reuse the SAME document number (never a second document for one order).
+8. **Later report**: after Amazon's processing time (feed processing can take up to 8 hours; allow a full day), the seller downloads a NEW VIDR (all statuses, same date range). We load it as a fresh preview/sync. Expected: our orders now show `InvoiceUploaded` (or `InvoiceProcessing` first). `InvoiceRejected` -> capture the reason, go to section 5. Still `InvoicePending` after a day -> NOT proof of anything, never resend blindly; ask the seller to check the Seller Central status of that invoice, then decide.
+
+## 4. Returns and credit notes
+1. A return appears in a later VIDR as a `REFUND` (or `RETURN`) row, status `CreditNotePending`, with its own transaction-id. The app proposes a credit note in Repairs (rectificativa chained to the original invoice, same amounts, refund's transaction-id).
+2. Operator checks: the original invoice exists and was `InvoiceUploaded` (accepted) first; the credit amount does not exceed the original (cumulative guard); full vs partial is right.
+3. Seller approves in Repairs. We deliver the credit-note PDF; the seller uploads it as a credit note in Seller Central.
+4. Mark uploaded, then a LATER VIDR must show `CreditNoteUploaded` for that transaction-id. That row is the acceptance proof for the credit note.
+
+## 5. CorrectionReversal cases (billing data corrected by the buyer/Amazon)
+Amazon issues a PAIR for the same order: a row whose transaction-id starts with `CorrectionReversal` (type REFUND, amounts unchanged, cancels the old invoice) and a row whose transaction-id starts with `Correction::` (type SHIPMENT, the replacement with the corrected data). The VIDR format is documented (AMAZON-ASSUMPTIONS R6) but the real timing of the pair (same report or split) is UNPROVEN (U3), so this is the most valuable thing to capture on a real account.
+1. Record BOTH full transaction-ids exactly as printed, the `original-vat-invoice-number`, and the correction-details text.
+2. Our order: credit note for the CorrectionReversal row FIRST, then the replacement invoice for the `Correction::` row. The app keeps them together and holds the replacement until the credit note is accepted. Do not upload the replacement first.
+3. Each document keeps the TransactionId of ITS row. Never reuse one transaction-id for two documents, never invent one.
+4. Later VIDR: both rows must show an uploaded status. If only half is accepted, stop, record, ask the seller to show the Seller Central status, and do not resend until we know which half Amazon holds.
+5. If the pair arrives split across two reports, log both report dates. This answers U3.
+
+## 6. Evidence log (one per seller, kept OUTSIDE the repo, e.g. `pilot-data/seller-N/log.md`; seller identified by code S1/S2/S3, never by name)
+One row per order/document. Redact buyer personal data; keep order ids only if the seller consented to that.
+
+| Step | What to record | Proof kept |
+|------|----------------|-----------|
+| Consent | date, channel, text of "I agree" | the message |
+| Detected | order-id, shipping-id, transaction-id, `invoice-status`, report date range, report downloaded at | header-and-status columns only |
+| Document | our number, issue time, buyer VAT check result, audit-chain head | PDF hash (audit entry) |
+| Uploaded | when, by whom (seller), screen used, any Amazon message | redacted screenshot |
+| Later report | date of the new VIDR, new `invoice-status` for that row | status column of the new file |
+| Acceptance | `InvoiceUploaded` / `CreditNoteUploaded` seen in the later report AND/OR Seller Central status | status column + screenshot |
+| Return -> credit note | refund transaction-id, our credit-note number, chained original number | as above |
+| CorrectionReversal | both transaction-ids, our two document numbers, order uploaded, both final statuses | as above |
+| Surprises | any column/format/status we did not expect, any rejection reason | verbatim text |
+
+Anything unexpected (new column names, new status values, locale number formats) is the point of the pilot: write it down verbatim, then fix the code in a normal reviewed change.
+
+## 7. Close-out per seller
+1. Final VIDR shows no `*Pending` rows for the processed orders (or each exception is explained in the log).
+2. Export the seller's pack and ledger for them (their data, theirs to keep).
+3. Delete the seller's uploaded data on request, and in any case follow the 30-day buyer-data purge. Turn `ALLOW_MANUAL_UPLOAD` OFF again (Main/Ahmed decision).
+4. Write a short result for Main: what worked, what Amazon showed, what to fix. Only a COMPLETE cycle with acceptance proof at both ends may be called "tested with a real seller"; anything less is "partially tested".
+
+## 8. Stop rules
+- Seller withdraws consent, or the account is not theirs: stop, delete, log.
+- Amazon asks for phone/identity verification of anyone: stop and report.
+- Any data leaves the secure path (email body, chat, repo): stop, report to Main at once, delete, log.
+- A feed result is unclear (`unknown`/FATAL): never resend; follow the hold text and check Seller Central first.
