@@ -143,6 +143,27 @@ test('G2: the block lifts on document-level evidence (CANCELLED feed / report pr
   assert.deepEqual(out4.resubmitted, [], 'ambiguity keeps the human hold');
 });
 
+test('G2 (reviewer repro): success phrasing and mixed lines can NEVER lift the resend block', async () => {
+  const apiF = { uploadInvoice: async () => 'feed-N', feedStatus: async () => ({ status: 'FATAL', resultDocumentId: 'doc1' }), listFeeds: async () => [] };
+  for (const [label, line] of [
+    ['zero error count', (n) => `${n}\tprocessed successfully, 0 errors`],
+    ['negated errors', (n) => `${n}\tcompleted - no errors found`],
+    ['mixed markers', (n) => `${n}\taccepted; earlier errors corrected`],
+  ]) {
+    const db = openDb(); const n = seedUnknownCorrection(db); const uploads = [];
+    const api = { ...apiF, uploadInvoice: async () => { uploads.push(n); return 'feed-N'; } };
+    db.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n, feedId: 'feed-F1', report: line(n) }));
+    const out = await settleUnknownDocuments(db, seller, pendingReport(), { api, validate: vies });
+    assert.deepEqual(out.resubmitted, [], `${label}: a successful/ambiguous report must keep the hold`);
+    assert.equal(uploads.length, 0, `${label}: nothing reached Amazon`);
+  }
+  // sanity: a genuine failure report still lifts the block (the escape hatch is real).
+  const db = openDb(); const n = seedUnknownCorrection(db);
+  db.prepare('INSERT INTO events (ts, seller_id, type, detail) VALUES (?,?,?,?)').run(new Date().toISOString(), seller.id, 'feed_result', JSON.stringify({ number: n, feedId: 'feed-F1', report: `${n}\terror: totals mismatch - record rejected` }));
+  const out = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiF, validate: vies });
+  assert.deepEqual(out.resubmitted, [n], 'a proven-failure report still clears the same-document resend');
+});
+
 test('G2: a crash-window document (no blocking feed recorded) still uses the orphan cross-check', async () => {
   const db = openDb(); const rectNumber = seedUnknownCorrection(db, { blocked: null });
   const api = { uploadInvoice: async () => 'feed-N', feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [{ feedId: 'feed-ORPHAN', status: 'DONE', createdTime: new Date(Date.now() - 3500e3).toISOString() }] };

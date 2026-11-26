@@ -519,10 +519,20 @@ function feedDocVerdict(detail, number) {
   let d; try { d = JSON.parse(detail); } catch { return null; }
   const rep = String(d.report ?? ''); if (!rep || !rep.includes(number)) return null;
   let failed = false, accepted = false;
-  for (const line of rep.split('\n').filter(l => l.includes(number))) {
-    if (/error|failed|rejected|invalid/i.test(line)) failed = true;
-    if (/accepted|success|processed|uploaded|done/i.test(line)) accepted = true;
+  for (const raw of rep.split('\n').filter(l => l.includes(number))) {
+    // Negated and zero error counts are success phrasing, not failure evidence ("0 errors", "no
+    // errors") - strip them before matching, or a plainly successful report reads as failed
+    // (reviewer round-10 repro: "processed successfully, 0 errors" lifted the block).
+    const line = raw.replace(/(?:no|0|zero)[ -]errors?/gi, ' ');
+    const bad = /error|failed|rejected|invalid/i.test(line);
+    const good = /accepted|success|processed|uploaded|done/i.test(line);
+    // A line carrying BOTH markers is ambiguous ("accepted; earlier errors corrected"), and
+    // ambiguity NEVER lifts a resend block.
+    if (bad && good) return null;
+    if (bad) failed = true;
+    if (good) accepted = true;
   }
+  if (failed && accepted) return null; // conflicting lines: same rule
   return failed ? 'failed' : accepted ? 'accepted' : null;
 }
 
