@@ -7,7 +7,8 @@
     "test": "node --test --test-force-exit --no-warnings test/*.test.js",
     "backup": "node tools/backup.mjs",
     "audit-anchor": "node tools/audit-anchor.mjs",
-    "restore-check": "node tools/restore-check.mjs"
+    "restore-check": "node tools/restore-check.mjs",
+    "restore-drill": "node tools/restore-drill.mjs"
   },
   "dependencies": {
     "pdfkit": "^0.15.0"

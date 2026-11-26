@@ -1,8 +1,9 @@
-import { logSec, migrateSecLog, purgeSecLog, rotateKeys, passwordProblem, migrateSecurity, totpMatch, newTotpSecret, otpauthUrl, purgeBuyerData, PW_HISTORY, PW_MAX_AGE_DAYS } from './security.js';
+import { logSec, migrateSecLog, purgeSecLog, rotateKeys, passwordProblem, migrateSecurity, newRecoveryCodes, recoveryLeft, recoveryValid, recoveryConsume, totpMatch, newTotpSecret, otpauthUrl, purgeBuyerData, PW_HISTORY, PW_MAX_AGE_DAYS } from './security.js';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
+import { applyPendingRestore } from './restore.js';
 import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode, currentAttemptSeq, nextReportGen } from './db.js';
 import { landing, privacy, contact, sample, faq, notFound, countryFromLang } from './site.js';
 import { landingLocalized } from './landing-i18n.js';
@@ -268,6 +269,17 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
           return res.end(data);
         } catch (e) { console.error('snapshot failed', e.message); return json(res, 500, { error: 'Snapshot failed. Nothing was changed.' }); }
       }
+      if (req.method === 'POST' && p === '/admin/db-restore') { // operator-only: validate and STAGE a snapshot; it is applied at the next restart
+        const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
+        const h = (x) => createHash('sha256').update(x).digest();
+        if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
+        const chunks = []; let n = 0; const LIM = 200e6;
+        for await (const c of req) { n += c.length; if (n > LIM) return json(res, 413, { error: 'snapshot too large' }); chunks.push(c); }
+        const { stageRestore } = await import('./restore.js');
+        const r = stageRestore(Buffer.concat(chunks), process.env.DB_FILE ?? 'invoiceguard.db');
+        console.log('db-restore staging:', r.ok ? 'validated and staged' : 'refused: ' + r.reason);
+        return json(res, r.ok ? 200 : 422, r.ok ? { ok: true, staged: true, counts: r.counts, next: 'Restart or redeploy the service to apply it. The current database is kept as backups/pre-restore-*.db.' } : { ok: false, error: r.reason });
+      }
       if (req.method === 'GET' && p === '/admin/weekly-summary') { // operator half of the weekly summary: aggregates only
         const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
         const h = (x) => createHash('sha256').update(x).digest();
@@ -298,10 +310,24 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const ref = String(body.ref ?? '').trim();
         const referredBy = /^[a-f0-9]{10}$/.test(ref) && db.prepare('SELECT 1 FROM users WHERE ref_code=?').get(ref) ? ref : null;
         try { db.prepare('INSERT INTO users (id,email,salt,hash,seller_id,created_at,pw_changed_at,ref_code,referred_by) VALUES (?,?,?,?,?,?,?,?,?)').run(id, email, salt, hash, null, new Date().toISOString(), new Date().toISOString(), newRefCode(db), referredBy); db.prepare('INSERT INTO pw_history VALUES (?,?,?,?)').run(id, salt, hash, new Date().toISOString()); } catch (e) { if (/UNIQUE/.test(e.message)) return json(res, 409, { error: 'An account with this email already exists' }); throw e; }
+        const recoveryCodes = newRecoveryCodes(db, id);
         bump('signup:total'); if (referredBy) { bump('signup:ref'); bump('ref:' + referredBy); }
         if (referredBy) logSec(db, req, 'signup_referred', id, email);
         logSec(db, req, 'signup', id, email); const t = newToken(); db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(t, id, Date.now() + 14 * 864e5);
-        return json(res, 200, { ok: true }, { 'set-cookie': `sid=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600${secureFlag(req)}` });
+        return json(res, 200, { ok: true, recoveryCodes }, { 'set-cookie': `sid=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600${secureFlag(req)}` });
+      }
+      if (p === '/api/recover') { // signed-out password reset with a one-time recovery code; two-step sign-in (if on) stays on
+        const em = String(body.email ?? '').trim().toLowerCase(), nw = String(body.next ?? ''), fk = 'rec|' + failKey(req, em), ak = 'racct|' + em, wait = Math.max(throttled(fk, 5), throttled(ak, 10));
+        if (wait) return json(res, 429, { error: `Too many wrong attempts. Try again in ${Math.ceil(wait / 60)} minute(s).` }, { 'retry-after': String(wait) });
+        const u = db.prepare('SELECT * FROM users WHERE email=?').get(em);
+        if (!u || !recoveryValid(db, u.id, body.code)) { logSec(db, req, 'recover_failed', u?.id ?? null, em); noteFail(fk); noteFail(ak); return json(res, 401, { error: 'That email and recovery code do not match, or the code was already used.' }); }
+        const pr = passwordProblem(nw, em); if (pr) return json(res, 400, { error: pr });
+        for (const h of db.prepare('SELECT salt, hash FROM pw_history WHERE user_id=? ORDER BY at DESC LIMIT ?').all(u.id, PW_HISTORY)) if (await checkPwAsync(nw, h.salt, h.hash)) return json(res, 400, { error: `Choose a password you have not used in your last ${PW_HISTORY}` });
+        if (!recoveryConsume(db, u.id, body.code)) return json(res, 401, { error: 'That email and recovery code do not match, or the code was already used.' });
+        const { salt, hash } = await hashPwAsync(nw), now = new Date().toISOString();
+        db.prepare('UPDATE users SET salt=?, hash=?, pw_changed_at=? WHERE id=?').run(salt, hash, now, u.id); db.prepare('INSERT INTO pw_history VALUES (?,?,?,?)').run(u.id, salt, hash, now);
+        db.prepare('DELETE FROM sessions WHERE user_id=?').run(u.id); fails.delete(fk); fails.delete(ak); logSec(db, req, 'password_recovered', u.id, em);
+        return json(res, 200, { ok: true, codesLeft: recoveryLeft(db, u.id), twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(u.id) });
       }
       if (p === '/api/login') {
         const em = String(body.email ?? '').trim().toLowerCase(), fk = failKey(req, em), ak = 'acct|' + em, wait = Math.max(throttled(fk), throttled(ak, 10)); // per IP+email, and per account across all IPs
@@ -322,6 +348,11 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       const user = userOf(req); if (!user) return json(res, 401, { error: 'Sign in required' });
       if (p === '/api/logout') { logSec(db, req, 'logout', user.id); db.prepare('DELETE FROM sessions WHERE token=?').run(cookie(req, 'sid')); return json(res, 200, { ok: true }, { 'set-cookie': 'sid=; Max-Age=0; Path=/' }); }
+      if (p === '/api/recovery/new') { // replaces all earlier codes; needs the current password
+        const fk = 'rcn|' + user.id; if (throttled(fk, 10)) return json(res, 429, { error: 'Too many wrong attempts. Try again later.' });
+        if (!(await checkPwAsync(String(body.password ?? ''), user.salt, user.hash))) { noteFail(fk); return json(res, 401, { error: 'Your password is wrong' }); }
+        const recoveryCodes = newRecoveryCodes(db, user.id); logSec(db, req, 'recovery_codes_new', user.id); return json(res, 200, { ok: true, recoveryCodes });
+      }
       if (p === '/api/password') {
         const cur = String(body.current ?? ''), nw = String(body.next ?? ''), fk = 'pw|' + user.id; if (throttled(fk, 10)) return json(res, 429, { error: 'Too many wrong attempts. Try again later.' });
         if (!(await checkPwAsync(cur, user.salt, user.hash))) { noteFail(fk); return json(res, 401, { error: 'Your current password is wrong' }); }
@@ -361,7 +392,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         logSec(db, req, 'referral_added', user.id);
         return json(res, 200, { ok: true });
       }
-      if (p === '/api/me') { const s = sellerOf(user); const c = s && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(s.id); return json(res, 200, { email: user.email, referralCode: user.ref_code ?? null, oauth: oauth.available(), security: { twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(user.id), passwordAgeDays: user.pw_changed_at ? Math.floor((Date.now() - Date.parse(user.pw_changed_at)) / 864e5) : null, passwordMaxAgeDays: PW_MAX_AGE_DAYS }, seller: s && { country: s.country ?? 'ES', name: s.name, nif: s.nif, address: s.address, marketplaces: JSON.parse(s.marketplace_ids), profile: sellerProfile(s) }, amazon: c?.mode ?? null, features: { referrals: process.env.REFERRALS_UI === '1' } }); }
+      if (p === '/api/me') { const s = sellerOf(user); const c = s && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(s.id); return json(res, 200, { email: user.email, referralCode: user.ref_code ?? null, oauth: oauth.available(), security: { twoStep: !!db.prepare('SELECT 1 FROM mfa WHERE user_id=? AND enabled=1').get(user.id), passwordAgeDays: user.pw_changed_at ? Math.floor((Date.now() - Date.parse(user.pw_changed_at)) / 864e5) : null, passwordMaxAgeDays: PW_MAX_AGE_DAYS, recoveryLeft: recoveryLeft(db, user.id) }, seller: s && { country: s.country ?? 'ES', name: s.name, nif: s.nif, address: s.address, marketplaces: JSON.parse(s.marketplace_ids), profile: sellerProfile(s) }, amazon: c?.mode ?? null, features: { referrals: process.env.REFERRALS_UI === '1' } }); }
       if (p === '/api/seller') {
         const { name, nif, address, marketplaces } = body; const cc = String(body.country ?? 'ES').toUpperCase(); if (!/^[A-Z]{2}$/.test(cc)) return json(res, 400, { error: 'Choose the country you issue invoices from' }); const mk = (marketplaces ?? []).filter(m => MARKETPLACE[m]);
         if (!name || !nif || !address || !mk.length) return json(res, 400, { error: 'Name, tax ID, address and at least one marketplace are required' });
@@ -535,6 +566,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  applyPendingRestore(process.env.DB_FILE ?? 'invoiceguard.db'); // before the database is opened
   const { server, db, sync } = createApp({ db: openDb(process.env.DB_FILE ?? 'invoiceguard.db') });
   // Automatic backups: a checkpoint-consistent snapshot on boot and every 6 h, kept on the same
   // volume (newest 14). Off-host copies stay an operator task - there is no free external storage

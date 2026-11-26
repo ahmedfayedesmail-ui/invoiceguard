@@ -41,6 +41,29 @@ export function migrateSecurity(db) {
   CREATE TABLE IF NOT EXISTS pw_history (user_id TEXT, salt TEXT, hash TEXT, at TEXT);
   CREATE INDEX IF NOT EXISTS idx_pwh ON pw_history (user_id, at);`);
   try { db.exec('ALTER TABLE users ADD COLUMN pw_changed_at TEXT'); } catch { /* exists */ }
+  db.exec('CREATE TABLE IF NOT EXISTS recovery_codes (user_id TEXT, code_hash TEXT, used_at TEXT, created_at TEXT, PRIMARY KEY (user_id, code_hash))');
+}
+
+// Account recovery without email (we have no mail service yet): one-time recovery codes, shown once, stored only as hashes.
+// 12 characters of base32 = 60 bits each, so a plain SHA-256 is enough; guessing is also rate-limited at the route.
+const RC_ALPHA = 'abcdefghijklmnopqrstuvwxyz234567';
+const rcNorm = (c) => String(c ?? '').toLowerCase().replace(/[^a-z2-7]/g, '');
+const rcHash = (userId, c) => createHash('sha256').update(userId + '|' + rcNorm(c)).digest('hex');
+export function newRecoveryCodes(db, userId, n = 8) {
+  const codes = [], now = new Date().toISOString();
+  db.prepare('DELETE FROM recovery_codes WHERE user_id=?').run(userId);
+  for (let i = 0; i < n; i++) {
+    const b = randomBytes(12); let s = ''; for (const x of b) s += RC_ALPHA[x % 32];
+    const c = s.match(/.{4}/g).join('-'); codes.push(c);
+    db.prepare('INSERT INTO recovery_codes VALUES (?,?,NULL,?)').run(userId, rcHash(userId, c), now);
+  }
+  return codes;
+}
+export const recoveryLeft = (db, userId) => db.prepare('SELECT count(*) c FROM recovery_codes WHERE user_id=? AND used_at IS NULL').get(userId).c;
+export const recoveryValid = (db, userId, code) => rcNorm(code).length === 12 && !!db.prepare('SELECT 1 FROM recovery_codes WHERE user_id=? AND code_hash=? AND used_at IS NULL').get(userId, rcHash(userId, code));
+export function recoveryConsume(db, userId, code) {
+  const r = db.prepare('UPDATE recovery_codes SET used_at=? WHERE user_id=? AND code_hash=? AND used_at IS NULL').run(new Date().toISOString(), userId, rcHash(userId, code));
+  return r.changes === 1;
 }
 
 /** Remove buyer personal data (name, billing address) from shipment records older than PII_DAYS after shipment.
