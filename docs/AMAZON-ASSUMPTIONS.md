@@ -79,5 +79,10 @@ InvoiceProcessing/CreditNoteProcessing for a document (vidr_processing_at), a co
 state (FATAL, CANCELLED, aged-out 404) is logged as a feed_conflict event for a human - the
 document never regresses toward resend (no unknown+hold, no rejected+retry). Without that current
 verdict the feed discipline is unchanged: FATAL/404 means unknown + human hold, CANCELLED means
-rejected + reviewed retry. The verdict timestamp is cleared on every fresh upload attempt, so a
-verdict from a previous cycle can never protect a retry's feed.
+rejected + reviewed retry. The verdict timestamp is cleared at the ATOMIC CLAIM of every fresh
+upload attempt (round-12, critic round-10: clearing on upload SUCCESS could wipe a verdict that a
+concurrent sync stamped while the Amazon call was in flight), so a verdict from a previous cycle
+can never protect a retry's feed, while a verdict stamped DURING the call is respected: the
+success handler lands the document in 'processing' (or keeps the state the verdict set) instead of
+regressing it to 'submitted'. feed_conflict events are deduplicated per document+feed+status -
+repeats only bump the event's count.

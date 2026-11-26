@@ -122,7 +122,7 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   // recoverUncertainUploads ('unknown' + human hold) - never invisible, never blindly resent.
   // Round-8: this write is the ATOMIC CLAIM - a concurrent settle path or a double-submitted
   // approval must never upload the same document twice. The loser changes 0 rows and stops.
-  const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), seller.id, number);
+  const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), seller.id, number); // round-12: stale verdict dies at the claim, before the call
   if (!claim.changes) throw new Error(`Document ${number} is already being retried by another run. Nothing was re-uploaded.`);
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
@@ -148,7 +148,13 @@ async function retryRejectedUpload(db, seller, number, { api }) {
     }
     throw e;
   }
-  db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, number);
+  // Round-12 (critic round-10): the stamp was already cleared at the claim. A VIDR verdict that
+  // landed while this upload was in flight is FRESH evidence and wins: the document lands in
+  // 'processing' (or keeps the state the verdict set), never regressed to 'submitted'.
+  db.prepare(`UPDATE invoices SET feed_id=?, upload_status = CASE
+        WHEN upload_status <> 'sending' THEN upload_status
+        WHEN vidr_processing_at IS NOT NULL THEN 'processing'
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, seller.id, number);
   db.prepare("UPDATE shipments SET status='submitted' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   logEvent(db, seller.id, 'rejected_upload_retried', { number });
   return feedId;

@@ -118,12 +118,18 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // Round-8: this write is also the ATOMIC CLAIM on the upload. Two overlapping executions (Sync
     // now + the hourly scheduler, or a retried request) can both pass every read above; only the one
     // whose claim flips a real state talks to Amazon. The loser changes 0 rows and skips.
-    const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), seller.id, inv.number);
+    const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), seller.id, inv.number); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after
     if (!claim.changes) { out.skipped++; continue; }
     upsertShipment(db, seller.id, s, 'sending');
     try {
       const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat });
-      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL, vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, inv.number);
+      // Round-12 (critic round-10): the stamp was already cleared at the claim. If a sync stamped a
+      // FRESH VIDR verdict (or moved the state) while this call was in flight, that newer evidence
+      // wins: the document lands in 'processing' (or keeps the verdict's state), never regresses.
+      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=NULL, upload_status = CASE
+        WHEN upload_status <> 'sending' THEN upload_status
+        WHEN vidr_processing_at IS NOT NULL THEN 'processing'
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, seller.id, inv.number);
       upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++;
     } catch (e) {
       if (e.unknownOutcome) {
@@ -326,6 +332,13 @@ export async function pollFeeds(db, seller, api) {
 /** Round-11: a feed state that contradicts Amazon's current document-level processing verdict is
  * recorded as EVIDENCE for a human (feed_conflict event), never applied as a state change. */
 function feedConflict(db, seller, r, feedStatus) {
+  // Round-12 (critic round-10, P2): the hourly poll must not insert the same conflict forever.
+  // One event per document+feed+status; a repeat only bumps its count and last-seen time.
+  const existing = db.prepare("SELECT rowid AS id FROM events WHERE seller_id=? AND type='feed_conflict' AND json_extract(detail,'$.number')=? AND json_extract(detail,'$.feedId')=? AND json_extract(detail,'$.feedStatus')=?").get(seller.id, r.number, r.feed_id, feedStatus);
+  if (existing) {
+    db.prepare("UPDATE events SET detail=json_set(detail, '$.repeats', COALESCE(json_extract(detail,'$.repeats'),0)+1, '$.lastSeenAt', ?) WHERE rowid=?").run(new Date().toISOString(), existing.id);
+    return;
+  }
   logEvent(db, seller.id, 'feed_conflict', { number: r.number, feedId: r.feed_id, feedStatus, vidrProcessingAt: r.vidr_processing_at,
     note: `Amazon's VAT report says it holds ${r.number} and is processing it, but feed ${r.feed_id} shows ${feedStatus}. The document-level verdict wins: the document stays in processing and is never resent automatically. Check Seller Central if this persists.` });
 }
@@ -374,7 +387,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       // blindly.
       // Round-8: atomic claim - a concurrent execution (settle path vs human-approved retry) must
       // never upload the same correction document twice.
-      const claim0 = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), seller.id, prev.number);
+      const claim0 = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), seller.id, prev.number); // round-12: stale verdict dies at the claim, before the call
       if (!claim0.changes) throw new Error(`Correction document ${prev.number} is already being uploaded by another run. Nothing was re-uploaded.`);
       let feedId0;
       try {
@@ -394,7 +407,11 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
         }
         throw e;
       }
-      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL, vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId0, seller.id, prev.number);
+      // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
+      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=NULL, upload_status = CASE
+        WHEN upload_status <> 'sending' THEN upload_status
+        WHEN vidr_processing_at IS NOT NULL THEN 'processing'
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId0, seller.id, prev.number);
       logEvent(db, seller.id, 'rectificativa_upload_retried', { number: prev.number });
       return { rect, feedId: feedId0, documentType: documentType0, pdf: pdf0, retried: true };
     }
@@ -455,11 +472,15 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     // and when the attempt started. A crash in this window is recovered at boot by
     // recoverUncertainUploads, never blindly resent.
     // Round-8: atomic claim on the upload, same as the first-upload path.
-    const claimR = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), seller.id, rect.number);
+    const claimR = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), seller.id, rect.number); // round-12: stale verdict dies at the claim, before the call
     if (!claimR.changes) throw new Error(`Correction document ${rect.number} is already being uploaded by another run. Nothing was re-uploaded.`);
     try {
       feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
-      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted', blocked_feed_id=NULL, vidr_processing_at=NULL WHERE seller_id=? AND number=?").run(feedId, seller.id, rect.number);
+      // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
+      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=NULL, upload_status = CASE
+        WHEN upload_status <> 'sending' THEN upload_status
+        WHEN vidr_processing_at IS NOT NULL THEN 'processing'
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, seller.id, rect.number);
     } catch (e) {
       // Unknown outcome: Amazon may hold the document. Mark it honestly AND put a visible hold in the
       // Repairs queue - no blind resend; a fresh report that still asks for the document is the only
