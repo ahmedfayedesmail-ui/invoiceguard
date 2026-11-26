@@ -25,11 +25,11 @@
       const invs = d.invoices.map((i) =>
         '<div class="card"><p><b>Invoice ' + esc(i.number) + '</b> · ' + eur(i.total) + '</p>' +
         '<p><a class="btn" href="/api/sample/pdf/' + encodeURIComponent(i.number) + '" target="_blank" rel="noopener">Open the invoice PDF</a></p></div>').join('');
-      out.innerHTML = '<h2>Three orders, checked</h2>' + cards +
+      out.innerHTML = '<h2>' + d.shipments.length + ' orders, checked</h2>' + cards +
         '<h2>The invoices it built</h2>' + (d.invoices.length ? invs : '<p class="mut">None this run: an order above is waiting on the EU VAT lookup, and InvoiceGuard holds instead of guessing. Run it again in a little while and the invoice appears.</p>') +
         '<p class="mut">All of this is made-up sample data. Nothing was stored and nothing was sent to Amazon.</p>';
       await showRepair(out);
-      out.insertAdjacentHTML('beforeend', '<p><a class="btn" href="/app">Try it with your own orders</a></p>');
+      out.insertAdjacentHTML('beforeend', '<p><a class="btn" href="/app">Try it yourself: free account, sample data during the pilot</a></p>');
     } catch (e) {
       out.innerHTML = '<p class="err">' + esc(e.message) + '</p>';
       btn.disabled = false;

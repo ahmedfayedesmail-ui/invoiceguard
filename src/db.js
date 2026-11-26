@@ -29,12 +29,21 @@ export function openDb(file = ':memory:') {
   // them per shipment are legitimate). Guarded: a legacy duplicate must never crash boot.
   try {
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_invoice_per_shipment ON invoices (seller_id, shipment_key) WHERE kind='invoice'`);
-    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_rect_per_event ON invoices (seller_id, shipment_key) WHERE kind='rectificativa' AND shipment_key NOT LIKE 'SHIPMENT:%'`);
+    // Round-9 (N2): the round-8 predicate exempted every SHIPMENT: key, which silently left Amazon
+    // Correction:: events uncovered - their record keys are 'SHIPMENT:Correction::...'. The drop
+    // replaces the narrower round-8 index on existing databases; the widened predicate covers
+    // Correction:: keys while other SHIPMENT:-keyed corrections (the original shipment key, where
+    // several corrections can be legitimate) stay exempt.
+    db.exec(`DROP INDEX IF EXISTS uniq_rect_per_event`);
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_rect_per_event ON invoices (seller_id, shipment_key) WHERE kind='rectificativa' AND (shipment_key NOT LIKE 'SHIPMENT:%' OR shipment_key LIKE 'SHIPMENT:Correction::%')`);
   } catch (e) { console.error('dedup index migration skipped (legacy duplicate?):', e.message); }
   // One-time repair for the stage-2 limbo defect: corrections approved before the fix sit at
   // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
   db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
   try { db.exec('ALTER TABLE invoices ADD COLUMN tx_id TEXT'); } catch { /* column exists */ }
+  // Round-9 (N1): fingerprint of a recordKey-less correction (original + mode + reason + changes),
+  // so a double-submitted identical correction is recognized as the same document.
+  try { db.exec('ALTER TABLE invoices ADD COLUMN dedupe_key TEXT'); } catch { /* column exists */ }
   // Round-7: the moment an upload attempt STARTED, written before the Amazon call. After a crash of
   // any length this is the anchor for the feed-list settle window - the recovery event's own time is
   // boot time, which can be hours later.
@@ -42,17 +51,19 @@ export function openDb(file = ':memory:') {
   return db;
 }
 
-/** Gapless numbering per seller, series and year. Returns e.g. A-2026-000001. */
-export function nextNumber(db, sellerId, series, date = new Date()) {
+/** Gapless numbering per seller, series and year. Returns e.g. A-2026-000001.
+ * allocateNumber is the same allocation WITHOUT opening a transaction: call it only inside
+ * txImm/tx, so a rolled-back insert never burns a number in a correlative series (round-9). */
+export function allocateNumber(db, sellerId, series, date = new Date()) {
   const year = date.getUTCFullYear();
+  const row = db.prepare('SELECT n FROM counters WHERE seller_id=? AND series=? AND year=?').get(sellerId, series, year);
+  const n = (row?.n ?? 0) + 1;
+  db.prepare('INSERT INTO counters (seller_id, series, year, n) VALUES (?,?,?,?) ON CONFLICT(seller_id,series,year) DO UPDATE SET n=excluded.n').run(sellerId, series, year, n);
+  return `${series}-${year}-${String(n).padStart(6, '0')}`;
+}
+export function nextNumber(db, sellerId, series, date = new Date()) {
   db.exec('BEGIN IMMEDIATE');
-  try {
-    const row = db.prepare('SELECT n FROM counters WHERE seller_id=? AND series=? AND year=?').get(sellerId, series, year);
-    const n = (row?.n ?? 0) + 1;
-    db.prepare('INSERT INTO counters (seller_id, series, year, n) VALUES (?,?,?,?) ON CONFLICT(seller_id,series,year) DO UPDATE SET n=excluded.n').run(sellerId, series, year, n);
-    db.exec('COMMIT');
-    return `${series}-${year}-${String(n).padStart(6, '0')}`;
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  try { const n = allocateNumber(db, sellerId, series, date); db.exec('COMMIT'); return n; } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
 /** Run a block of SYNCHRONOUS writes atomically: either every write lands or none does.
@@ -60,6 +71,15 @@ export function nextNumber(db, sellerId, series, date = new Date()) {
  * this across an await, and never call nextNumber inside it (it opens its own BEGIN IMMEDIATE). */
 export function tx(db, fn) {
   db.exec('BEGIN');
+  try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { try { db.exec('ROLLBACK'); } catch { /* already rolled back */ } throw e; }
+}
+
+/** Same atomic block as tx, but takes the write lock up front (BEGIN IMMEDIATE): for
+ * check-then-write sequences (round-9 correction issuance) so a concurrent writer cannot
+ * interleave between the check and the insert. Same rules: synchronous writes only,
+ * never held across an await. */
+export function txImm(db, fn) {
+  db.exec('BEGIN IMMEDIATE');
   try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { try { db.exec('ROLLBACK'); } catch { /* already rolled back */ } throw e; }
 }
 

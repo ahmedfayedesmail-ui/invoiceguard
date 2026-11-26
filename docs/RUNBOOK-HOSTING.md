@@ -68,6 +68,12 @@ Fly.io only if Ahmed approves a card on file; Oracle is off-limits.
    connections. BOTH stay unset while the pilot is sample-data-only (that is
    what the homepage and FAQ promise); set them only when the real-data gate
    decision is made.
+   HARD DEPLOYMENT INVARIANT: exactly ONE app process may run against the
+   SQLite file at any time. The dedupe and claim guards assume it (the
+   per-seller sync lock is in-memory; the database indexes back it up, but
+   the check-then-act guards serialize only inside one process). Never run a
+   second replica, a overlapping deploy, or a local copy against the same
+   file. On Railway this means a single replica with no rolling overlap.
    (pick any writable path; free plan has no disk, so the file lives in
    the container and is rebuilt from the snapshot on each cold start -
    see step 6).

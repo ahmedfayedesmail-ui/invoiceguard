@@ -120,13 +120,13 @@ export function faq(env = process.env) {
 }
 
 export function sample(env = process.env) {
-  return page('Live sample: InvoiceGuard checks three made-up Amazon orders', `
-<section class="hero"><h1>See InvoiceGuard work on three made-up orders.</h1>
+  return page('Live sample: InvoiceGuard checks made-up Amazon orders', `
+<section class="hero"><h1>See InvoiceGuard work on made-up Amazon orders.</h1>
 <p class="lead">This runs the real checks on sample orders, right now: it builds the invoices and verifies the buyer VAT numbers with the EU service. No account, nothing stored, nothing sent to Amazon. The data is made up.</p>
 <p><button class="btn" id="run" type="button">Run the sample</button></p></section>
 <div id="out" aria-live="polite"></div>
 <style>button.btn{font:inherit;cursor:pointer;border:0}button.btn:disabled{opacity:.6;cursor:default}.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600}.p-held{background:#fde8e8;color:#b91c1c}.p-uploaded{background:#e6f6ec;color:#047857}.err{color:#b91c1c}</style>
-<script src="/sample.js"></script>`, env, 'Run InvoiceGuard on three made-up Amazon orders and see the checks and the invoice PDFs. No account needed.');
+<script src="/sample.js"></script>`, env, 'Run InvoiceGuard on made-up Amazon orders and see the checks and the invoice PDFs. No account needed.');
 }
 
 export function contact(env = process.env, opts = {}) {

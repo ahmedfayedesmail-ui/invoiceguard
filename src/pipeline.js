@@ -5,7 +5,8 @@ import { verifyBuyer, hasOverride } from './verify.js';
 import { buyerCountryCheck } from './features.js';
 import { gate, gateReason, missingFields, correctionWindowOk, readiness } from './rules.js';
 import { renderPdf } from './pdf.js';
-import { logEvent, appendAudit, tx } from './db.js';
+import { logEvent, appendAudit, tx, txImm, allocateNumber } from './db.js';
+import { createHash } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
 
@@ -372,30 +373,46 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     const v = await validate(opts.changes.buyer.vat);
     if (v.status !== 'valid') throw new Error(`Corrected buyer VAT is not valid in VIES (${v.status}: ${v.reason})`);
   }
-  const rect = buildRectificativa(db, seller, original, opts);
-  if (rect.warnings.length) throw new Error(rect.warnings[0]);
-  const pdf = await renderPdf(rect);
-  // Data-only corrections replace the invoice (latest invoice for the shipment is the valid one). Amount reductions go as a credit note.
-  const documentType = opts.documentType ?? (rect.totals.incl < 0 ? 'CreditNote' : 'Invoice');
   const s = JSON.parse(db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key).raw);
   // Manual product: nothing leaves the system - the correction waits in Ready to upload and travels in the pack.
   // Before this, manual corrections were inserted as 'submitted' and fell into limbo (never in the pack, never markable).
   const manual = !!api.manual;
   const mp = marketplaceFor(s.marketplace);
   if (!manual && !mp) throw new Error(`The original shipment's store code "${s.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the upload target was not guessed. The correction was not issued.`);
-  // Local record FIRST, upload second: Amazon must never hold a document we have no record of, and the
-  // R series stays gapless even when the upload fails (the issued correction waits as 'pending').
+  // Round-9 (N1/N3): the dedupe check, the number allocation and the insert run in ONE IMMEDIATE
+  // transaction. A concurrent issue can never interleave between the check and the write (N1 - a
+  // /api/rectify double-click minted and auto-uploaded two documents), and a failed insert rolls
+  // the number back with it, so the correlative R series never burns a number on a rejected write
+  // (N3). Manual corrections carry no Amazon event key, so their dedupe key is a fingerprint of
+  // (original, mode, reason, changes, documentType): re-issuing the byte-identical correction
+  // while the first is still open (not rejected) is a double-click, not a new document.
+  const dedupe = opts.recordKey ? null : createHash('sha256').update(JSON.stringify({ o: originalNumber, m: opts.mode ?? 'substitution', r: opts.reason ?? '', c: opts.changes ?? {}, d: opts.documentType ?? null })).digest('hex');
+  let rect;
   try {
-    db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), null, manual ? 'ready' : 'pending', opts.transactionId ?? null);
-    appendAudit(db, seller.id, 'rectificativa', rect.number, rect);
-    logEvent(db, seller.id, 'rectificativa', { number: rect.number, rectifies: originalNumber });
+    txImm(db, () => {
+      if (dedupe) {
+        const dup = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND dedupe_key=? AND upload_status <> 'rejected' ORDER BY issued_at DESC LIMIT 1").get(seller.id, originalNumber, dedupe);
+        if (dup) throw new Error(`This exact correction already exists as ${dup.number} (${['pending', 'ready'].includes(dup.upload_status) ? 'waiting in Ready to upload' : dup.upload_status}). A repeated submission does not issue a second document - review or upload the existing one. Nothing new was issued.`);
+      }
+      const number = allocateNumber(db, seller.id, 'R', opts.now ?? new Date());
+      rect = buildRectificativa(db, seller, original, { ...opts, number });
+      if (rect.warnings.length) throw new Error(rect.warnings[0]);
+      // Local record FIRST, upload second: Amazon must never hold a document we have no record of,
+      // and the R series stays gapless even when the upload fails (waits as 'pending').
+      db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id,dedupe_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), null, manual ? 'ready' : 'pending', opts.transactionId ?? null, dedupe);
+      appendAudit(db, seller.id, 'rectificativa', rect.number, rect);
+      logEvent(db, seller.id, 'rectificativa', { number: rect.number, rectifies: originalNumber });
+    });
   } catch (e) {
     // Round-8: a concurrent execution issued the correction for this event first (the database
     // unique index rejects the duplicate). No second document exists; that run owns the upload.
     if (/UNIQUE/i.test(e.message)) throw new Error(`A correction document for this event was issued by a concurrent run. No second document was issued.`);
     throw e;
   }
+  const pdf = await renderPdf(rect);
+  // Data-only corrections replace the invoice (latest invoice for the shipment is the valid one). Amount reductions go as a credit note.
+  const documentType = opts.documentType ?? (rect.totals.incl < 0 ? 'CreditNote' : 'Invoice');
   let feedId = null;
   if (!manual) {
     // Mark BEFORE the call: 'sending' + sending_at record that the upload may have reached Amazon

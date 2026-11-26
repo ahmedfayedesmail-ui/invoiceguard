@@ -162,14 +162,19 @@ export function recoverUncertainUploads(db) {
   ensureRepairTables(db);
   const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at FROM invoices WHERE upload_status='sending'").all();
   for (const inv of stuck) {
-    db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(inv.seller_id, inv.number);
-    db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=? AND status='sending'").run(inv.seller_id, inv.shipment_key);
-    // attemptedAt = when the attempt STARTED (written before the Amazon call); the settle window
-    // anchors on it (unknownSettleCheck), not on this recovery event's time, so a long downtime
-    // cannot push the original feed outside the cross-check window.
-    logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'the app stopped between Amazon accepting the upload and saving the result' });
-    proposeRejectedRetry(db, { id: inv.seller_id }, { eventKey: `UNKNOWN:${inv.shipment_key}`, kind: 'unknown_outcome', number: inv.number, originalNumber: inv.rectifies ?? inv.number, shipmentKey: inv.shipment_key, rectNumber: inv.kind === 'rectificativa' ? inv.number : null, action: 'hold',
-      reason: `The app stopped while uploading ${inv.number}; Amazon may already have received the document. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the next sync resubmits the same document safely, a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+    // Round-9 (N4): status write + hold proposal in ONE transaction - a crash between them used to
+    // leave the document 'unknown' with no visible hold (settle checks still prevented a resend,
+    // but the hold was lost). Synchronous writes only; no awaits inside.
+    tx(db, () => {
+      db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(inv.seller_id, inv.number);
+      db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=? AND status='sending'").run(inv.seller_id, inv.shipment_key);
+      // attemptedAt = when the attempt STARTED (written before the Amazon call); the settle window
+      // anchors on it (unknownSettleCheck), not on this recovery event's time, so a long downtime
+      // cannot push the original feed outside the cross-check window.
+      logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'the app stopped between Amazon accepting the upload and saving the result' });
+      proposeRejectedRetry(db, { id: inv.seller_id }, { eventKey: `UNKNOWN:${inv.shipment_key}`, kind: 'unknown_outcome', number: inv.number, originalNumber: inv.rectifies ?? inv.number, shipmentKey: inv.shipment_key, rectNumber: inv.kind === 'rectificativa' ? inv.number : null, action: 'hold',
+        reason: `The app stopped while uploading ${inv.number}; Amazon may already have received the document. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the next sync resubmits the same document safely, a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+    });
   }
   return stuck.length;
 }

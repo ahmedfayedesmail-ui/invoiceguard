@@ -69,7 +69,7 @@ export function buildInvoice(db, seller, s, { date = new Date(), number } = {}) 
  * mode 'differences': only the deltas (negative = reduction), same reference.
  * changes: { buyer?: {...}, lines?: [...] (full corrected lines) }
  */
-export function buildRectificativa(db, seller, original, { mode, reason, changes = {}, date = new Date() }) {
+export function buildRectificativa(db, seller, original, { mode, reason, changes = {}, date = new Date(), number }) {
   if (!['substitution', 'differences'].includes(mode)) throw new Error('mode must be substitution or differences');
   if (!reason) throw new Error('A reason is required on a rectificativa');
   const corrected = { buyer: { ...original.buyer, ...(changes.buyer ?? {}) }, lines: changes.lines ?? original.lines };
@@ -87,7 +87,7 @@ export function buildRectificativa(db, seller, original, { mode, reason, changes
   const totals = totalsOf(lines);
   const buyerChanged = JSON.stringify(corrected.buyer) !== JSON.stringify(original.buyer);
   return {
-    type: 'rectificativa', langs: resolveLangs(seller.invoice_lang ?? 'auto', seller.country ?? 'ES', original.buyerCountry ?? countryCodeOf(original.buyer.address?.at?.(-1))), buyerCountry: original.buyerCountry ?? countryCodeOf(original.buyer.address?.at?.(-1)), mode, series: 'R', number: nextNumber(db, seller.id, 'R', date), issueDate: date.toISOString().slice(0, 10),
+    type: 'rectificativa', langs: resolveLangs(seller.invoice_lang ?? 'auto', seller.country ?? 'ES', original.buyerCountry ?? countryCodeOf(original.buyer.address?.at?.(-1))), buyerCountry: original.buyerCountry ?? countryCodeOf(original.buyer.address?.at?.(-1)), mode, series: 'R', number: number ?? nextNumber(db, seller.id, 'R', date), issueDate: date.toISOString().slice(0, 10),
     operationDate: original.operationDate, orderId: original.orderId, shippingId: original.shippingId, currency: original.currency, poNumber: original.poNumber,
     seller: { ...original.seller, ...(changes.seller ?? {}) }, buyer: corrected.buyer, lines, totals, vatNote: original.vatNote,
     rectifies: { number: original.number, issueDate: original.issueDate, reason, buyerChanged, previousBuyer: buyerChanged ? original.buyer : null, sellerChanged: !!changes.seller && JSON.stringify({ ...original.seller, ...changes.seller }) !== JSON.stringify(original.seller), previousSeller: changes.seller ? original.seller : null },
