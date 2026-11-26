@@ -195,3 +195,36 @@ test('public sample: run, pdf, page, no auth needed', async () => {
     assert.equal(Buffer.from(await cpdf.arrayBuffer()).subarray(0, 4).toString(), '%PDF');
   } finally { delete process.env.OPERATOR_NAME; server.close(); }
 });
+
+test('real-data gate: live Amazon connections and own-report uploads are refused unless explicitly opened', async () => {
+  const { server } = createApp({ validate, secret: 'test-secret-gate' }); await new Promise(r => server.listen(0, r));
+  const base = 'http://localhost:' + server.address().port;
+  const jar = async () => { const r = await fetch(base + '/api/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'gate' + Math.random() + '@x.es', password: 'Long-Enough-Pw-42!' }) }); return r.headers.get('set-cookie').split(';')[0]; };
+  const sid = await jar();
+  await fetch(base + '/api/seller', { method: 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: JSON.stringify({ name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid', marketplaces: ['ES'] }) });
+  const post = (path, body) => fetch(base + '/api/' + path, { method: 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: JSON.stringify(body) });
+  // live credentials: refused, exactly as the homepage promises (no Amazon connection)
+  const live = await post('amazon/connect', { clientId: 'x', clientSecret: 'y', refreshToken: 'z' });
+  assert.equal(live.status, 403); assert.match((await live.json()).error, /not open yet/);
+  // manual own-report mode: refused
+  const man = await post('amazon/connect', { manual: true });
+  assert.equal(man.status, 403); assert.match((await man.json()).error, /sample data/);
+  // the upload endpoints: refused
+  assert.equal((await post('manual/preview', { text: 'a\tb\n1\t2' })).status, 403);
+  assert.equal((await post('manual/issue', { text: 'a\tb\n1\t2', attest: true })).status, 403);
+  // the sample-data demo stays open
+  const demo = await post('amazon/connect', { demo: true });
+  assert.equal(demo.status, 200); assert.equal((await demo.json()).mode, 'demo');
+  server.close();
+});
+
+test('real-data gate opens only by explicit env switch', async () => {
+  const { server } = createApp({ validate, secret: 'test-secret-gate2', env: { ALLOW_MANUAL_UPLOAD: '1' } }); await new Promise(r => server.listen(0, r));
+  const base = 'http://localhost:' + server.address().port;
+  const r = await fetch(base + '/api/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'gate2' + Math.random() + '@x.es', password: 'Long-Enough-Pw-42!' }) });
+  const sid = r.headers.get('set-cookie').split(';')[0];
+  await fetch(base + '/api/seller', { method: 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: JSON.stringify({ name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid', marketplaces: ['ES'] }) });
+  const man = await fetch(base + '/api/amazon/connect', { method: 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: JSON.stringify({ manual: true }) });
+  assert.equal(man.status, 200);
+  server.close();
+});

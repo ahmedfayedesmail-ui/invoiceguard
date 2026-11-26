@@ -342,7 +342,13 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/amazon/connect') {
         let mode, enc = null;
         if (body.demo) mode = 'demo'; else if (body.manual) mode = 'manual';
-        else { if (secret === 'dev-secret-change-me') return json(res, 500, { error: 'Server is not configured for live credentials: set APP_SECRET to a long random value first' }); const { clientId, clientSecret, refreshToken } = body; if (!clientId || !clientSecret || !refreshToken) return json(res, 400, { error: 'Client ID, client secret and refresh token are required' }); mode = 'live'; enc = encrypt({ clientId, clientSecret, refreshToken, region: 'EU' }, secret); }
+        else mode = 'live';
+        // Real-data gate (pilot): until we have tested on a real Seller Central file, the public app
+        // runs on made-up sample data only - the homepage and FAQ promise exactly that. Opening real
+        // uploads or a live connection is a deliberate env switch, never an accident.
+        if (mode === 'live' && env.ALLOW_LIVE_CONNECT !== '1') return json(res, 403, { error: 'A direct Amazon connection is not open yet - the pilot runs on sample data only, exactly as the homepage says.' });
+        if (mode === 'manual' && env.ALLOW_MANUAL_UPLOAD !== '1') return json(res, 403, { error: 'Uploading your own report is not open yet - the pilot runs on made-up sample data only, exactly as the homepage says.' });
+        if (mode === 'live') { if (secret === 'dev-secret-change-me') return json(res, 500, { error: 'Server is not configured for live credentials: set APP_SECRET to a long random value first' }); const { clientId, clientSecret, refreshToken } = body; if (!clientId || !clientSecret || !refreshToken) return json(res, 400, { error: 'Client ID, client secret and refresh token are required' }); mode = 'live'; enc = encrypt({ clientId, clientSecret, refreshToken, region: 'EU' }, secret); }
         if (mode === 'manual' && db.prepare('SELECT mode FROM amazon_conn WHERE seller_id=?').get(seller.id)?.mode === 'demo') { // leaving the simulated demo: remove its made-up data so it never mixes with real invoices
           db.exec('BEGIN'); try { for (const t of ['shipments', 'invoices', 'vat_checks', 'counters', 'audit', 'alerts', 'vat_watch', 'vat_watch_log', 'ext_docs']) { try { db.prepare(`DELETE FROM ${t} WHERE seller_id=?`).run(seller.id); } catch (e) { if (!/no such table/.test(e.message)) throw e; } } db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
           logEvent(db, seller.id, 'demo_data_removed', {});
@@ -390,6 +396,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/rules/check') { const r = await checkSources(db, { only: body.rule }); return json(res, 200, { checked: r.length, unreachable: r.filter(x => x.fetch !== 'ok').length, missing: r.filter(x => x.missing.length).map(x => x.id) }); }
       if (p === '/api/rules/review') { if (!isOperator) return json(res, 403, { error: 'Only the InvoiceGuard operator can mark a rule as reviewed.' }); try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); } }
       if (p === '/api/manual/preview' || p === '/api/manual/issue') {
+        if (env.ALLOW_MANUAL_UPLOAD !== '1') return json(res, 403, { error: 'Uploading your own report is not open yet - the pilot runs on made-up sample data only, exactly as the homepage says.' });
         const plan = planUpload(String(body.text ?? ''), { useDeliveryAddress: body.useDeliveryAddress === true });
         if (!plan.ok) return json(res, 400, { error: plan.error, format: plan.format ?? null });
         const view = { format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: plan.truncated, willIssue: plan.shipments.length, held: plan.held.map(h => ({ orderId: h.orderId, reason: h.reason })).slice(0, 100), heldCount: plan.held.length, skippedCount: plan.skipped.length, skipped: plan.skipped.slice(0, 20),

@@ -56,7 +56,7 @@ test('zip writer produces a valid archive', () => {
 });
 
 test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', async () => {
-  const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test' }); await new Promise(r => server.listen(0, r));
+  const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test', env: { ALLOW_MANUAL_UPLOAD: '1' } }); await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`; let sid = '';
   const call = async (path, body) => { const r = await fetch(base + '/api/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: body === undefined ? undefined : JSON.stringify(body) }); const c = r.headers.get('set-cookie'); if (c) sid = c.split(';')[0];
     return { status: r.status, body: (r.headers.get('content-type') || '').includes('json') ? await r.json() : Buffer.from(await r.arrayBuffer()) }; };
@@ -88,7 +88,7 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
 });
 
 test('leaving demo mode removes the sample data and lands on the upload route', async () => {
-  const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test' }); await new Promise(r => server.listen(0, r));
+  const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test', env: { ALLOW_MANUAL_UPLOAD: '1' } }); await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`; let sid = '';
   const call = async (path, body) => { const r = await fetch(base + '/api/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: body === undefined ? undefined : JSON.stringify(body) }); const c = r.headers.get('set-cookie'); if (c) sid = c.split(';')[0]; return { status: r.status, body: await r.json().catch(() => null) }; };
   await call('signup', { email: 'dm@x.es', password: 'Long-Enough-Pw-42!' });

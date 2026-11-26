@@ -63,6 +63,11 @@ Fly.io only if Ahmed approves a card on file; Oracle is off-limits.
    repo, Docker runtime, plan **Free**. Region closest to EU users.
 3. Set env: `APP_SECRET`, `ADMIN_TOKEN`, `OPERATOR_NAME`,
    `OPERATOR_EMAILS`, `COOKIE_SECURE=1`, `DB_FILE=/var/data/app.db`
+   Real-data gates (round-8): `ALLOW_MANUAL_UPLOAD=1` opens sellers uploading
+   their own order reports, `ALLOW_LIVE_CONNECT=1` opens direct Amazon
+   connections. BOTH stay unset while the pilot is sample-data-only (that is
+   what the homepage and FAQ promise); set them only when the real-data gate
+   decision is made.
    (pick any writable path; free plan has no disk, so the file lives in
    the container and is rebuilt from the snapshot on each cold start -
    see step 6).

@@ -40,18 +40,18 @@ export function landing(env = process.env, opts = {}) {
   const market = MARKET_COPY[opts.country] ?? EU_COPY;
   const guessed = !!MARKET_COPY[opts.country] && opts.country !== 'ES';
   const h1 = opts.variant === 'b' ? 'Your first Amazon Business order comes with a one-business-day invoice deadline.' : 'Amazon Business invoices, without the hand-made part.';
-  const lead = opts.variant === 'b' ? 'InvoiceGuard builds and checks the invoice from your Seller Central report, so the deadline is met without the hand-made part. Pilot, free for now.' : 'Amazon says invoicing is automatic. Many sellers still end up making every invoice by hand. InvoiceGuard takes the order report you download from Seller Central, builds an invoice for each business order, and checks it before anything goes out: the buyer\'s VAT number, the required details, the numbering, the deadline. If something looks wrong, it stops and tells you what to fix, in plain English.';
+  const lead = opts.variant === 'b' ? 'InvoiceGuard builds and checks the invoice from your Seller Central report, so the deadline is met without the hand-made part. Pilot, free for now.' : 'Amazon says invoicing is automatic. Many sellers still end up making every invoice by hand. InvoiceGuard takes the order report you download from Seller Central, builds an invoice for each business shipment in it (one per order when the report has no shipment IDs), and checks it before anything goes out: the buyer\'s VAT number, the required details, the numbering, the deadline. If something looks wrong, it stops and tells you what to fix, in plain English.';
   return page('InvoiceGuard: B2B invoices for Amazon sellers, checked before they go out', `
 <section class="hero"><h1>${h1}</h1>
 <p class="lead">${lead}</p>
 <p class="mut" style="margin-top:-4px">${esc(market.rule)}${guessed ? ' <span style="font-size:13px">(We guessed your market from your browser language.)</span>' : ''}</p>
 <p><a class="btn" href="${cta}">Watch it work: 2 minutes, no account</a> &nbsp; <a class="btn alt" href="/app">Try it yourself: free account</a> &nbsp; <a class="btn alt" href="/contact">Join the free pilot</a></p></section>
-<div class="note"><b>Honest status:</b> InvoiceGuard is a pilot. It is not connected to Amazon. You upload your own order report and you upload the finished invoices to Amazon yourself. The sample data in the app is made up, and nothing from it is sent to Amazon. We say so on every screen that shows sample data. We have not yet tested on a real Seller Central file.</div>
+<div class="note"><b>Honest status:</b> InvoiceGuard is a pilot. It is not connected to Amazon. Today it runs on made-up sample data only - you cannot upload your own Seller Central report yet, because we have not yet tested on a real one. We open uploads when we have, and this page will say so. Nothing from the sample data is sent to Amazon.</div>
 <h2>Sound familiar?</h2><ul>${market.familiar.map(f => '<li>' + esc(f) + '</li>').join('')}</ul>
 <p>These are the threads sellers post on Amazon's own forums. They are why InvoiceGuard exists.</p>
 <h2>Who it is for</h2><p>Sellers who sell to businesses on Amazon in the EU and want invoices that are complete, numbered in order, and issued on time, without doing it by hand. It is built for small teams, not accountants.</p>
 <h2 id="how">How it works</h2>
-<div class="grid"><div class="card"><h3>1. You upload your order report</h3><p>Download it from Seller Central and drop it in. We read the business orders and skip the rest.</p></div>
+<div class="grid"><div class="card"><h3>1. You try it on sample orders</h3><p>The pilot account comes with made-up sample orders - the same steps you will follow with your own order report (downloaded from Seller Central) once uploads open. We read the business shipments and skip the rest.</p></div>
 <div class="card"><h3>2. It builds and checks the invoice</h3><p>Required details, numbering and deadlines are checked before the invoice is final, and the buyer's VAT number is checked in the EU's VIES service. Selling across the EU? The buyer's country rules are applied as data, each with its source and the date we last verified it.</p></div>
 <div class="card"><h3>3. You download the pack</h3><p>You get the PDFs, a list, and short steps for uploading them to Amazon. Anything we are unsure about is held with the reason. We never guess.</p></div></div>
 <h2>What you get</h2><ul><li>A simple dashboard: what was invoiced, what is held and why.</li><li>Invoices as PDFs, in the buyer's language where supported, and corrections when an order changes.</li><li>Buyer VAT numbers checked in the EU VIES service when you ask.</li><li>Every invoice carries its own evidence trail: the order detected, the invoice issued, the upload - each with its timestamp, so you can show it went out inside Amazon's window.</li><li>A tamper-evident log of every invoice issued.</li><li>Country rules kept as data. Each rule shows its source, the date we last verified it, and a status: verified, secondary or unverified. A rule we cannot verify blocks issuing instead of being assumed.</li></ul>
@@ -73,7 +73,7 @@ export function privacy(env = process.env) {
 <table><tr><th>Data</th><th>Why</th></tr>
 <tr><td>Your email address and a salted hash of your password (never the password itself)</td><td>To sign you in.</td></tr>
 <tr><td>Your business name, tax ID, address, and the marketplaces you sell on</td><td>To put on your invoices and apply the right rules.</td></tr>
-<tr><td>The order report you upload (order number, date, totals, buyer name, buyer country and buyer VAT number): order number, date, totals, buyer name, buyer country and buyer VAT number</td><td>To build and check invoices. In demo mode these are made-up sample data.</td></tr>
+<tr><td>The order report the app works on (order number, date, totals, buyer name, buyer country and buyer VAT number)</td><td>To build and check invoices. In the current pilot these are made-up sample data - your own report cannot be uploaded yet.</td></tr>
 <tr><td>Invoices we issue for you and a log of what was issued and when</td><td>So you have your records and they cannot be quietly altered.</td></tr>
 <tr><td>Your Amazon connection credentials, encrypted (AES-256-GCM) with a key held only on the server</td><td>Only if a direct Amazon connection is switched on, which it is not today.</td></tr>
 <tr><td>A security log: time, type of event (sign-in, failed sign-in, password change), your network address, and a short fingerprint of the email, never the password</td><td>To spot and investigate attacks. Kept for 13 months.</td></tr>
@@ -102,11 +102,11 @@ export function faq(env = process.env) {
   return page('InvoiceGuard: frequently asked questions', `
 <h1>Frequently asked questions</h1>
 <h2>Does InvoiceGuard upload invoices to Amazon for me?</h2>
-<p>Not today. You download the order report from Seller Central and drop it in, and you upload the finished invoice PDFs to Amazon yourself. We say this on every screen where it matters.</p>
+<p>No, and it is not connected to Amazon at all. In the current pilot the app runs on made-up sample data only. When uploads open, the flow stays manual: you download the order report from Seller Central and drop it in, and you upload the finished invoice PDFs to Amazon yourself.</p>
 <h2>Is InvoiceGuard connected to my Seller Central account?</h2>
-<p>No. We never ask for your Amazon login. The only thing that reaches us is the report file you choose to upload.</p>
+<p>No. We never ask for your Amazon login or your Amazon developer credentials. In the current pilot nothing of yours reaches us - the app runs on made-up sample data.</p>
 <h2>Which orders does it invoice?</h2>
-<p>Business orders from your report. Consumer orders are skipped. If a business order has a problem, such as a buyer VAT number that fails the EU check, the invoice is held with the reason and the next step, never guessed.</p>
+<p>The business shipments in the report: one invoice per shipment, or one per order when the report has no shipment IDs. Consumer orders are skipped. If a business order has a problem, such as a buyer VAT number that fails the EU check, the invoice is held with the reason and the next step, never guessed.</p>
 <h2>What about Verifactu?</h2>
 <p>Verifactu concerns invoices that Spanish businesses issue through verifiable invoicing systems. On 25 November 2026 a new law (Real Decreto-ley 43/2026) postponed the deadline: invoicing systems must be adapted before 6 October 2028. Whether it covers your Amazon invoices depends on your own setup, and that is a question for your gestor. InvoiceGuard is not a Verifactu-verifiable system. What it gives you is the invoice documents and a tamper-evident record of what was issued and when, which is the part you keep.</p>
 <h2>I sell across the EU. Which VAT number goes on the invoice?</h2>
