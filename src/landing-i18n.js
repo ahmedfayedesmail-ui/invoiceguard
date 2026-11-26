@@ -47,6 +47,9 @@ const L = {
     ],
     getH: 'Lo que recibes',
     get: ['Un panel sencillo: qué se facturó, qué está en espera y por qué.', 'Facturas en PDF, en el idioma del comprador cuando está soportado, y rectificativas cuando un pedido cambia.', 'NIF de compradores comprobados en el servicio europeo VIES cuando lo pides.', 'Cada factura lleva su propio registro de evidencias: el pedido detectado, la factura emitida, la subida, cada uno con su fecha y hora, para que puedas demostrar que salió dentro del plazo de Amazon.', 'Un registro inviolable de cada factura emitida.', 'Reglas por país guardadas como datos. Cada regla muestra su fuente, la fecha de verificación y un estado: verificada, secundaria o no verificada. Una regla que no podemos verificar bloquea la emisión en lugar de asumirse.'],
+    covH: 'Dónde funciona hoy',
+    covIntro: 'La cobertura por país es por función, y lo decimos claramente:',
+    cov: [['España', 'facturas y rectificativas, incluidas notas de crédito (rectificativas por diferencias), con reglas verificadas.'], ['Alemania', 'facturas con reglas verificadas. Correcciones: solo correcciones de datos (factura sustitutiva); las correcciones de importes y las notas de crédito están en espera hasta verificar las reglas alemanas para ellas.'], ['Francia', 'facturas con reglas verificadas; algunas facturas requieren datos adicionales que la app te pide. Correcciones: solo de datos; las notas de crédito están en espera. Nuestras reglas francesas están verificadas hasta el 31/12/2026 y la app detiene la emisión después de esa fecha hasta releerlas.'], ['Italia, Países Bajos, Polonia', 'en espera. No hemos terminado de verificar sus reglas, así que la app espera en lugar de adivinar.']],
     notH: 'Lo que no hace',
     not: ['No da asesoramiento fiscal ni legal. Confirma tu situación con tu asesor.', 'No presenta nada ante Hacienda.', 'Algunos países están en espera hasta que leamos el texto legal oficial. La app te dice cuáles.', 'La cifra de "tasa de defectos" de la app es una estimación nuestra, no un dato de Amazon.'],
     dataH: 'Tus datos',
@@ -79,6 +82,9 @@ const L = {
     ],
     getH: 'Was Sie bekommen',
     get: ['Ein einfaches Dashboard: was abgerechnet wurde, was zurückgehalten ist und warum.', 'Rechnungen als PDFs, wo unterstützt in der Sprache des Käufers, und Korrekturrechnungen, wenn sich eine Bestellung ändert.', 'USt-IdNrn. von Käufern, auf Wunsch im EU-VIES-Dienst geprüft.', 'Jede Rechnung trägt ihre eigene Nachweiskette: Bestellung erkannt, Rechnung ausgestellt, Upload, jeweils mit Zeitstempel, damit du zeigen kannst, dass sie innerhalb der Amazon-Frist herausging.', 'Ein manipulationssicheres Protokoll jeder ausgestellten Rechnung.', 'Länderregeln als Daten gepflegt. Jede Regel zeigt Quelle, Prüfdatum und Status: verifiziert, sekundär oder unverifiziert. Eine Regel, die wir nicht verifizieren können, blockiert die Ausstellung, statt angenommen zu werden.'],
+    covH: 'Wo es heute funktioniert',
+    covIntro: 'Die Länderabdeckung gilt pro Funktion, und wir sagen es klar:',
+    cov: [['Spanien', 'Rechnungen und Korrekturen, einschließlich Gutschriften (Korrekturrechnungen nach Differenzen) - verifizierte Regeln.'], ['Deutschland', 'Rechnungen mit verifizierten Regeln. Korrekturen: nur Datenkorrekturen (Ersatzrechnung); Betragskorrekturen und Gutschriften werden zurückgehalten, bis die deutschen Korrekturnregeln dafür verifiziert sind.'], ['Frankreich', 'Rechnungen mit verifizierten Regeln; manche Rechnungen brauchen zusätzliche Angaben, die die App erfragt. Korrekturen: nur Datenkorrekturen; Gutschriften werden zurückgehalten. Unsere französischen Regeln sind bis 31.12.2026 verifiziert; danach hält die App die Ausstellung an, bis sie erneut gelesen wurden.'], ['Italien, Niederlande, Polen', 'zurückgehalten. Wir haben ihre Regeln noch nicht vollständig verifiziert, also wartet die App, statt zu raten.']],
     notH: 'Was es nicht tut',
     not: ['Es gibt keine Steuer- oder Rechtsberatung. Bestätigen Sie Ihre Situation mit Ihrem Berater.', 'Es reicht nichts bei einer Steuerbehörde ein.', 'Einige Länder sind pausiert, bis wir den offiziellen Gesetzestext gelesen haben. Die App sagt Ihnen welche.', 'Die "Fehlerrate" in der App ist unsere eigene Schätzung, keine Amazon-Zahl.'],
     dataH: 'Ihre Daten',
@@ -113,6 +119,9 @@ L.fr = {
   ],
   getH: "Ce que vous recevez",
   get: ["Un tableau de bord simple : ce qui a été facturé, ce qui est en attente et pourquoi.", "Des factures en PDF, dans la langue de l'acheteur quand c'est pris en charge, et des factures rectificatives quand une commande change.", "Les numéros de TVA des acheteurs vérifiés dans le service européen VIES quand vous le demandez.", "Chaque facture porte sa propre piste de preuves : commande détectée, facture émise, téléversement, chacun avec son horodatage, pour prouver qu'elle est partie dans le délai d'Amazon.", "Un journal inviolable de chaque facture émise.", "Des règles par pays conservées comme données. Chaque règle montre sa source, sa date de vérification et un statut : vérifiée, secondaire ou non vérifiée. Une règle que nous ne pouvons pas vérifier bloque l'émission au lieu d'être supposée."],
+  covH: 'Où ça marche aujourd\'hui',
+  covIntro: 'La couverture par pays est par fonction, et nous le disons clairement :',
+  cov: [['Espagne', 'factures et corrections, y compris les avoirs (factures rectificatives par différences), avec des règles vérifiées.'], ['Allemagne', 'factures avec règles vérifiées. Corrections : corrections de données uniquement (facture de remplacement) ; les corrections de montants et les avoirs sont suspendus jusqu\'à vérification des règles allemandes correspondantes.'], ['France', 'factures avec règles vérifiées ; certaines factures exigent des mentions supplémentaires que l\'app vous demande. Corrections : corrections de données uniquement ; les avoirs sont suspendus. Nos règles françaises sont vérifiées jusqu\'au 31/12/2026 et l\'app suspend l\'émission après cette date jusqu\'à leur relecture.'], ['Italie, Pays-Bas, Pologne', 'en attente. Nous n\'avons pas fini de vérifier leurs règles, donc l\'app attend plutôt que de deviner.']],
   notH: "Ce que ça ne fait pas",
   not: ["Pas de conseil fiscal ou juridique. Confirmez votre situation avec votre conseiller.", "Rien n'est déposé auprès d'une administration fiscale.", "Certains pays sont en attente jusqu'à ce que nous ayons lu le texte officiel. L'app vous dit lesquels.", "Le « taux de défauts » de l'app est notre propre estimation, pas un chiffre d'Amazon."],
   dataH: "Vos données",
@@ -146,6 +155,9 @@ L.it = {
   ],
   getH: "Cosa ricevi",
   get: ["Una dashboard semplice: cosa è stato fatturato, cosa è in attesa e perché.", "Fatture in PDF, nella lingua dell'acquirente dove supportato, e note di credito quando un ordine cambia.", "Partite IVA degli acquirenti verificate nel servizio europeo VIES quando lo chiedi.", "Ogni fattura porta la propria traccia di evidenze: ordine rilevato, fattura emessa, caricamento, ciascuno con il suo timestamp, così puoi dimostrare che è uscita entro la finestra di Amazon.", "Un registro a prova di manomissione di ogni fattura emessa.", "Regole per paese conservate come dati. Ogni regola mostra la fonte, la data di verifica e uno stato: verificata, secondaria o non verificata. Una regola che non possiamo verificare blocca l'emissione invece di essere presunta."],
+  covH: 'Dove funziona oggi',
+  covIntro: 'La copertura per paese è per funzione, e lo diciamo chiaramente:',
+  cov: [['Spagna', 'fatture e correzioni, incluse le note di credito (fatture rettificative per differenze), con regole verificate.'], ['Germania', 'fatture con regole verificate. Correzioni: solo correzioni dei dati (fattura sostitutiva); le correzioni di importi e le note di credito sono sospese finché le regole tedesche per esse non sono verificate.'], ['Francia', 'fatture con regole verificate; alcune fatture richiedono dati aggiuntivi che la app ti chiede. Correzioni: solo dei dati; le note di credito sono sospese. Le nostre regole francesi sono verificate fino al 31/12/2026 e la app sospende la emissione dopo quella data finché non vengono rilette.'], ['Italia, Paesi Bassi, Polonia', 'in attesa. Non abbiamo finito di verificare le loro regole, quindi la app aspetta invece di indovinare.']],
   notH: "Cosa non fa",
   not: ["Non dà consulenza fiscale o legale. Conferma la tua situazione con il tuo consulente.", "Non presenta nulla a un'amministrazione fiscale.", "Alcuni paesi sono in attesa finché non abbiamo letto il testo legale ufficiale. L'app ti dice quali.", "La cifra del \"tasso di difetti\" nell'app è una nostra stima, non un dato di Amazon."],
   dataH: "I tuoi dati",
@@ -179,6 +191,9 @@ L.nl = {
   ],
   getH: "Wat je krijgt",
   get: ["Een eenvoudig dashboard: wat is gefactureerd, wat is aangehouden en waarom.", "Facturen als pdf, waar ondersteund in de taal van de koper, en creditnota's als een bestelling verandert.", "Btw-nummers van kopers op verzoek gecontroleerd in de Europese VIES-dienst.", "Elke factuur draagt zijn eigen bewijsspoor: bestelling gedetecteerd, factuur uitgereikt, upload, elk met een tijdstempel, zodat je kunt laten zien dat hij binnen de termijn van Amazon is verstuurd.", "Een fraudebestendig logboek van elke uitgereikte factuur.", "Landelijke regels als data bijgehouden. Elke regel toont bron, controledatum en status: geverifieerd, secundair of ongeverifieerd. Een regel die we niet kunnen verifiëren blokkeert het uitreiken in plaats van aangenomen te worden."],
+  covH: 'Waar het vandaag werkt',
+  covIntro: 'De dekking per land geldt per functie, en we zeggen het duidelijk:',
+  cov: [['Spanje', 'facturen en correcties, inclusief creditnota\'s (correctiefacturen per verschillen) - geverifieerde regels.'], ['Duitsland', 'facturen met geverifieerde regels. Correcties: alleen gegevenscorrecties (vervangende factuur); bedragcorrecties en creditnota\'s worden aangehouden tot de Duitse correctieregels daarvoor geverifieerd zijn.'], ['Frankrijk', 'facturen met geverifieerde regels; sommige facturen vereisen extra gegevens die de app vraagt. Correcties: alleen gegevenscorrecties; creditnota\'s worden aangehouden. Onze Franse regels zijn geverifieerd tot 31-12-2026 en de app houdt de uitgifte na die datum aan tot ze opnieuw zijn gelezen.'], ['Italië, Nederland, Polen', 'aangehouden. We hebben hun regels nog niet volledig geverifieerd, dus de app wacht liever dan te gokken.']],
   notH: "Wat het niet doet",
   not: ["Het geeft geen fiscaal of juridisch advies. Bevestig je eigen situatie met je adviseur.", "Het dient niets in bij een belastingdienst.", "Sommige landen staan on hold tot we de officiële wettekst hebben gelezen. De app vertelt je welke.", "Het 'defectenpercentage' in de app is onze eigen schatting, geen Amazon-cijfer."],
   dataH: "Je gegevens",
@@ -212,6 +227,9 @@ L.pl = {
   ],
   getH: "Co dostajesz",
   get: ["Prosty panel: co zafakturowano, co czeka i dlaczego.", "Faktury jako PDF, tam gdzie obsługiwane w języku kupującego, oraz faktury korygujące, gdy zamówienie się zmieni.", "Numery VAT kupujących sprawdzane w europejskim serwisie VIES na życzenie.", "Każda faktura ma własny ślad dowodowy: zamówienie wykryte, faktura wystawiona, wysyłka, każde ze znacznikiem czasu, więc możesz pokazać, że wyszła w terminie Amazon.", "Odporny na manipulacje dziennik każdej wystawionej faktury.", "Zasady krajowe przechowywane jako dane. Każda zasada pokazuje źródło, datę weryfikacji i status: zweryfikowana, wtórna lub niezweryfikowana. Zasada, której nie możemy zweryfikować, blokuje wystawienie zamiast być założoną."],
+  covH: 'Gdzie to działa dziś',
+  covIntro: 'Pokrycie krajów jest podane dla każdej funkcji osobno i mówimy wprost:',
+  cov: [['Hiszpania', 'faktury i korekty, w tym noty kredytowe (faktury korygujące różnicowo), ze zweryfikowanymi zasadami.'], ['Niemcy', 'faktury ze zweryfikowanymi zasadami. Korekty: tylko korekty danych (faktura zastępcza); korekty kwot i noty kredytowe są wstrzymane do czasu weryfikacji niemieckich zasad dla nich.'], ['Francja', 'faktury ze zweryfikowanymi zasadami; niektóre faktury wymagają dodatkowych danych, o które prosi aplikacja. Korekty: tylko danych; noty kredytowe są wstrzymane. Nasze francuskie zasady są zweryfikowane do 31.12.2026, a po tej dacie aplikacja wstrzymuje wystawianie do czasu ich ponownego przeczytania.'], ['Włochy, Holandia, Polska', 'wstrzymane. Nie skończyliśmy weryfikować ich zasad, więc aplikacja czeka zamiast zgadywać.']],
   notH: "Czego nie robi",
   not: ["Nie udziela porad podatkowych ani prawnych. Potwierdź swoją sytuację z doradcą.", "Nie składa niczego w urzędzie skarbowym.", "Niektóre kraje czekają, aż przeczytamy oficjalny tekst prawny. Aplikacja mówi które.", "Liczba 'wskaźnik błędów' w aplikacji to nasze własne oszacowanie, nie dane Amazona."],
   dataH: "Twoje dane",
@@ -240,6 +258,7 @@ export function landingLocalized(lang, host) {
 <h2 id="how">${esc(s.howH)}</h2>
 <div class="grid">${s.cards.map(([h, p]) => `<div class="card"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join('')}</div>
 <h2>${esc(s.getH)}</h2><ul>${s.get.map(x => '<li>' + esc(x) + '</li>').join('')}</ul>
+<h2>${esc(s.covH)}</h2><p>${esc(s.covIntro)}</p><ul>${s.cov.map(([n, t]) => '<li><b>' + esc(n) + '</b>: ' + esc(t) + '</li>').join('')}</ul>
 <h2>${esc(s.notH)}</h2><ul>${s.not.map(x => '<li>' + esc(x) + '</li>').join('')}</ul>
 <h2>${esc(s.dataH)}</h2><p>${s.data}</p>
 <h2 id="pricing">${esc(s.pricingH)}</h2><p>${esc(s.pricing)}</p>

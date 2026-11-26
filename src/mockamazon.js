@@ -15,9 +15,15 @@ export class MockApi {
       if (this.uploaded.has(c[ix('shipping-id')])) c[ix('invoice-status')] = 'InvoiceUploaded';
       return c.join('\t'); });
     // Once something was uploaded, a return arrives for it: the demo then shows the repair flow on the next sync.
-    const first = rows.find(r => this.uploaded.has(r.split('\t')[ix('shipping-id')]));
-    if (first) { const c = first.split('\t'); c[ix('transaction-type')] = 'REFUND'; c[ix('transaction-id')] = 'RF-DEMO-1'; c[ix('shipment-date')] = `${today}T09:00:00Z`;
+    const ups = rows.filter(r => this.uploaded.has(r.split('\t')[ix('shipping-id')]));
+    if (ups[0]) { const c = ups[0].split('\t'); c[ix('transaction-type')] = 'REFUND'; c[ix('transaction-id')] = 'RF-DEMO-1'; c[ix('shipment-date')] = `${today}T09:00:00Z`;
       c[ix('invoice-status')] = this.creditDone.has('RF-DEMO-1') ? 'CreditNoteUploaded' : 'CreditNotePending'; out.push(c.join('\t')); }
+    // A second uploaded shipment comes back as a partial RETURN (Amazon's other return transaction
+    // type), so the demo dogfoods the RETURN path too: half the item amounts, shipping kept.
+    if (ups[1]) { const c = ups[1].split('\t'); c[ix('transaction-type')] = 'RETURN'; c[ix('transaction-id')] = 'RT-DEMO-1'; c[ix('shipment-date')] = `${today}T10:00:00Z`;
+      for (const n of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount']) { const v = parseFloat(c[ix(n)]) / 2; c[ix(n)] = (-Math.round(v * 100) / 100).toFixed(2); }
+      for (const n of ['shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount', 'gift-wrap-vat-incl-amount', 'gift-wrap-vat-amount', 'gift-wrap-vat-excl-amount']) { if (ix(n) >= 0) c[ix(n)] = '0'; }
+      c[ix('invoice-status')] = this.creditDone.has('RT-DEMO-1') ? 'CreditNoteUploaded' : 'CreditNotePending'; out.push(c.join('\t')); }
     return [head, ...out].join('\n');
   }
   async uploadInvoice({ shippingId, documentType, transactionId }) { const id = `mock-feed-${this.feeds.size + 1}`; this.feeds.set(id, shippingId); if (documentType === 'CreditNote' && transactionId) this.creditDone.add(transactionId); else this.uploaded.add(shippingId); return id; }
