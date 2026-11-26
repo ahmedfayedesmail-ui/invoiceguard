@@ -68,11 +68,12 @@ happens, how we would notice early, mitigation now, fallback if it hits.
 - Mitigation now: Dockerfile + stateless app = portable; SQLite file is the
   only state; keep a migration runbook (below). Zero-cost requirement means
   the fallback host must be free.
-- Fallback: free-tier alternatives researched and kept current in the
-  runbook (e.g. Oracle Cloud free tier VM, Fly.io free allowance,
-  Cloudflare Workers + D1 with a small adapter). Estimated migration time
-  target: same day. Domain is a railway.app subdomain, so links change -
-  mitigate by announcing the new URL everywhere it appears.
+- Fallback: free-tier alternatives verified 2026-11-26 and written up in
+  docs/RUNBOOK-HOSTING.md (primary: Render free web service, no card;
+  Fly.io needs a card so it waits on Ahmed's say-so; Oracle Always Free
+  is blocked by the no-phone-verification rule). Estimated migration
+  time target: same day. Domain is a railway.app subdomain, so links
+  change - the runbook has the URL-change checklist.
 
 ### W6. Data loss (seller invoice records)
 - Likelihood: low (verified 2026-11-26: signup/counter data survives
