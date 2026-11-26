@@ -66,3 +66,44 @@ test('POSTs that create documents are never blindly retried: 5xx fails once with
   assert.equal(feedId, 'F9');
   assert.equal(counts['POST /feeds/2021-06-30/feeds'], 2, 'a throttled POST retried exactly once before succeeding');
 });
+
+test('listFeeds paginates with nextToken ALONE and sends filters only on the first call', async () => {
+  const seen = [];
+  const mk = (n, from) => Array.from({ length: n }, (_, i) => ({ feedId: 'f' + (from + i), processingStatus: 'DONE', createdTime: '2026-11-20T00:00:00.000Z' }));
+  const pages = {
+    '': { feeds: mk(100, 0), nextToken: 'tok2' },
+    tok2: { feeds: mk(1, 100), nextToken: 'tok3' },
+    tok3: { feeds: [{ feedId: 'f101', processingStatus: 'CANCELLED', createdTime: '2026-11-20T00:00:00.000Z' }] },
+  };
+  const f = async (url) => {
+    const u = new URL(String(url));
+    if (u.pathname.includes('auth/o2/token')) return { ok: true, json: async () => ({ access_token: 't', expires_in: 3600 }) };
+    const params = Object.fromEntries(u.searchParams.entries());
+    seen.push(params);
+    return { ok: true, json: async () => pages[params.nextToken ?? ''] };
+  };
+  const api = new SpApi({ clientId: 'c', clientSecret: 's', refreshToken: 'r', fetchImpl: f });
+  const feeds = await api.listFeeds({ createdSince: '2026-11-19T00:00:00.000Z' });
+  assert.equal(feeds.length, 102, 'all three pages were collected - page 2+ feeds are never invisible');
+  assert.equal(seen.length, 3);
+  assert.equal(seen[0].createdSince, '2026-11-19T00:00:00.000Z', 'createdSince goes on the first call');
+  assert.equal(seen[0].feedTypes, 'UPLOAD_VAT_INVOICE');
+  assert.equal(seen[0].pageSize, '100');
+  for (const p of seen.slice(1))
+    assert.deepEqual(Object.keys(p), ['nextToken'], 'genuine model: nextToken is sent ALONE - with any other parameter the request fails');
+  assert.equal(seen[1].nextToken, 'tok2');
+  assert.equal(seen[2].nextToken, 'tok3');
+});
+
+test('listFeeds refuses a non-converging feed list instead of trusting a truncated one', async () => {
+  let calls = 0;
+  const f = async (url) => {
+    const u = new URL(String(url));
+    if (u.pathname.includes('auth/o2/token')) return { ok: true, json: async () => ({ access_token: 't', expires_in: 3600 }) };
+    calls++;
+    return { ok: true, json: async () => ({ feeds: [{ feedId: 'fx', processingStatus: 'DONE', createdTime: '2026-11-20T00:00:00.000Z' }], nextToken: 'never-ends' }) };
+  };
+  const api = new SpApi({ clientId: 'c', clientSecret: 's', refreshToken: 'r', fetchImpl: f });
+  await assert.rejects(() => api.listFeeds({ maxPages: 3 }), (e) => { assert.ok(e.inconclusive, 'the caller must HOLD, not trust a partial list'); return true; });
+  assert.equal(calls, 3, 'it stopped at the page cap');
+});

@@ -120,7 +120,7 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   // Same discipline as the first upload: mark 'sending' BEFORE the call, so a crash in the window
   // between Amazon accepting the retry and the local write is recovered at boot by
   // recoverUncertainUploads ('unknown' + human hold) - never invisible, never blindly resent.
-  db.prepare("UPDATE invoices SET upload_status='sending' WHERE seller_id=? AND number=?").run(seller.id, number);
+  db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, number);
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
   try {
@@ -133,7 +133,7 @@ async function retryRejectedUpload(db, seller, number, { api }) {
       db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
       logEvent(db, seller.id, 'upload_unknown_outcome', { number, error: e.message });
       proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${row.shipment_key}`, kind: 'unknown_outcome', number, shipmentKey: row.shipment_key, action: 'hold',
-        reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there, cross-checked against Amazon's own feed list, lets the next sync resubmit it; a verdict closes it.` });
+        reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there, cross-checked against Amazon's own feed list, lets the next sync resubmit it; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
     } else {
       // A DEFINITE refusal (Amazon never accepted the retry): restore 'rejected' so the reviewed
       // retry stays available. Only an unknown outcome holds.
@@ -154,13 +154,16 @@ async function retryRejectedUpload(db, seller, number, { api }) {
  * (still due there = safe automatic resend of the same document; a verdict = closed). */
 export function recoverUncertainUploads(db) {
   ensureRepairTables(db);
-  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies FROM invoices WHERE upload_status='sending'").all();
+  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at FROM invoices WHERE upload_status='sending'").all();
   for (const inv of stuck) {
     db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(inv.seller_id, inv.number);
     db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=? AND status='sending'").run(inv.seller_id, inv.shipment_key);
-    logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, error: 'the app stopped between Amazon accepting the upload and saving the result' });
+    // attemptedAt = when the attempt STARTED (written before the Amazon call); the settle window
+    // anchors on it (unknownSettleCheck), not on this recovery event's time, so a long downtime
+    // cannot push the original feed outside the cross-check window.
+    logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'the app stopped between Amazon accepting the upload and saving the result' });
     proposeRejectedRetry(db, { id: inv.seller_id }, { eventKey: `UNKNOWN:${inv.shipment_key}`, kind: 'unknown_outcome', number: inv.number, originalNumber: inv.rectifies ?? inv.number, shipmentKey: inv.shipment_key, rectNumber: inv.kind === 'rectificativa' ? inv.number : null, action: 'hold',
-      reason: `The app stopped while uploading ${inv.number}; Amazon may already have received the document. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the next sync resubmits the same document safely, a verdict closes it.` });
+      reason: `The app stopped while uploading ${inv.number}; Amazon may already have received the document. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the next sync resubmits the same document safely, a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
   }
   return stuck.length;
 }
@@ -337,6 +340,15 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
 export function decideRepair(db, sellerId, eventKey, decision) {
   ensureRepairTables(db);
   if (!['approved', 'dismissed'].includes(decision)) throw new Error(`Unknown decision "${decision}"`);
+  const prev = db.prepare('SELECT kind, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(sellerId, eventKey);
   const r = db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(decision, sellerId, eventKey);
   if (!r.changes) throw new Error(`No proposed repair ${eventKey}`);
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome') {
+    // Human resolution of the feed-list orphan hold: the human checked Amazon, and unknownSettleCheck
+    // treats a dismissal newer than the attempt time as clearing the cross-check, so the next sync
+    // resends the same document if a fresh report still lists it as due.
+    let number = null;
+    try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
+    logEvent(db, sellerId, 'unknown_hold_dismissed', { key: eventKey, number });
+  }
 }

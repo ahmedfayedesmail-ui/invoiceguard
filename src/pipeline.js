@@ -93,10 +93,11 @@ export async function processReport(db, seller, reportText, { api, validate = va
       const block = await unknownSettleCheck(db, seller, api, inv.number);
       if (block) { upsertShipment(db, seller.id, s, 'unknown', block); logEvent(db, seller.id, 'unknown_resend_blocked', { number: inv.number, reason: block }); out.held.push({ key: s.key, orderId: s.orderId, reason: block }); continue; }
     }
-    // Mark BEFORE the call: 'sending' records that the upload may have reached Amazon. A crash in
-    // this window is recovered at boot by recoverUncertainUploads (marked 'unknown' + human hold),
-    // never blindly resent.
-    db.prepare("UPDATE invoices SET upload_status='sending' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
+    // Mark BEFORE the call: 'sending' + sending_at record that the upload may have reached Amazon
+    // and WHEN the attempt started. A crash in this window is recovered at boot by
+    // recoverUncertainUploads (marked 'unknown' + human hold), never blindly resent, and sending_at
+    // anchors the feed-list settle window no matter how long the server was down.
+    db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, inv.number);
     upsertShipment(db, seller.id, s, 'sending');
     try {
       const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat });
@@ -116,7 +117,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
         upsertShipment(db, seller.id, s, 'unknown', 'the upload outcome is unknown - Amazon may have received the document');
         logEvent(db, seller.id, 'upload_unknown_outcome', { number: inv.number, error: e.message });
         proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${s.key}`, kind: 'unknown_outcome', number: inv.number, shipmentKey: s.key, action: 'hold',
-          reason: `The upload of invoice ${inv.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report will confirm whether Amazon has it; if the shipment stays pending there, the next sync resubmits it safely.` });
+          reason: `The upload of invoice ${inv.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report will confirm whether Amazon has it; if the shipment stays pending there, the next sync resubmits it safely. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
       } else {
         db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=?").run(seller.id, inv.number); upsertShipment(db, seller.id, s, 'error', explain(e.message));
       }
@@ -203,7 +204,7 @@ function reconcileCreditNote(db, seller, s) {
  * processReport. Only FATAL/CANCELLED (the feed never ran) mark a rejection directly.
  */
 export async function pollFeeds(db, seller, api) {
-  const res = { processing: 0, rejected: 0, pending: 0 };
+  const res = { processing: 0, rejected: 0, pending: 0, unknown: 0 };
   for (const r of db.prepare("SELECT number, feed_id, shipment_key, kind, rectifies FROM invoices WHERE seller_id=? AND upload_status IN ('submitted','processing')").all(seller.id)) {
     const f = await api.feedStatus(r.feed_id);
     if (f.status === 'DONE') {
@@ -215,16 +216,34 @@ export async function pollFeeds(db, seller, api) {
       db.prepare("UPDATE shipments SET status='processing' WHERE seller_id=? AND key=? AND status='submitted'").run(seller.id, r.shipment_key);
       res.processing++;
     }
-    else if (['FATAL', 'CANCELLED'].includes(f.status)) { db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, r.number); db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key); logEvent(db, seller.id, 'confirmed_rejected', { number: r.number, reason: 'feed ' + f.status });
-      // FATAL/CANCELLED means the feed NEVER ran: Amazon provably does not hold the document, so a
-      // same-document retry is safe without classification. Correction documents retry through the
-      // record-key path - their shipment key is the correction event, which has no shipments row, so
-      // the plain retry path could never resolve them.
+    else if (f.status === 'CANCELLED') { db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, r.number); db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key); logEvent(db, seller.id, 'confirmed_rejected', { number: r.number, reason: 'feed CANCELLED' });
+      // CANCELLED means the feed NEVER ran ("cancelled before it started processing", Feeds use-case
+      // guide): Amazon provably does not hold the document, so a same-document retry is safe without
+      // classification. Correction documents retry through the record-key path - their shipment key
+      // is the correction event, which has no shipments row, so the plain path could never resolve them.
       if (r.kind === 'rectificativa') proposeRejectedRetry(db, seller, { eventKey: r.shipment_key, kind: 'rejected_correction_document', number: r.number, originalNumber: r.rectifies, shipmentKey: r.shipment_key, rectNumber: r.number, action: 'retry_rect',
-        reason: `Amazon never processed correction document ${r.number} (feed ${f.status}). The same document can be uploaded again - approve to retry.` });
+        reason: `Amazon never processed correction document ${r.number} (feed CANCELLED before processing began). The same document can be uploaded again - approve to retry.` });
       else proposeRejectedRetry(db, seller, { eventKey: `REJECTED:${r.shipment_key}`, kind: 'rejected_invoice', number: r.number, shipmentKey: r.shipment_key, action: 'retry_upload',
-        reason: `Amazon never processed invoice ${r.number} (feed ${f.status}). The same document can be uploaded again - approve to retry.` });
+        reason: `Amazon never processed invoice ${r.number} (feed CANCELLED before processing began). The same document can be uploaded again - approve to retry.` });
       res.rejected++; }
+    else if (f.status === 'FATAL') {
+      // FATAL is NOT CANCELLED (Feeds use-case guide): "the feed was stopped due to a fatal error.
+      // Some, none, or all of the operations within the feed might have completed successfully." So
+      // FATAL is never proof that Amazon holds nothing. Fetch the processing report when Amazon
+      // generated one (it does only sometimes, and its format can differ), keep it as evidence, and
+      // mark the outcome UNKNOWN with a human hold - no retry is proposed. The VIDR verdict settles
+      // the document; a resend only happens through the settle path (fresh report still due +
+      // feed-list cross-check).
+      if (f.resultDocumentId && api.downloadFeedResult) {
+        try { const rep = await api.downloadFeedResult(f.resultDocumentId); logEvent(db, seller.id, 'feed_result', { number: r.number, feedId: r.feed_id, fatal: true, report: String(rep).slice(0, 4000) }); }
+        catch (e) { logEvent(db, seller.id, 'feed_result_error', { number: r.number, feedId: r.feed_id, fatal: true, error: e.message }); }
+      }
+      db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, r.number);
+      db.prepare("UPDATE shipments SET status='unknown', reason='the feed ended FATAL - Amazon may have processed some or all of it' WHERE seller_id=? AND key=?").run(seller.id, r.shipment_key);
+      logEvent(db, seller.id, 'upload_unknown_outcome', { number: r.number, error: `feed ${r.feed_id} ended FATAL: Amazon may have processed some or all of it` });
+      proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${r.shipment_key}`, kind: 'unknown_outcome', number: r.number, originalNumber: r.rectifies ?? r.number, shipmentKey: r.shipment_key, rectNumber: r.kind === 'rectificativa' ? r.number : null, action: 'hold',
+        reason: `Amazon stopped the feed for ${r.number} with a FATAL error - and a FATAL feed may still have been processed ("some, none, or all of the operations might have completed successfully", Feeds use-case guide), so it is NOT resent automatically. The next Amazon report settles it: still due there, cross-checked against Amazon's own feed list, lets the next sync resubmit the same document; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+      res.unknown++; }
     else res.pending++;
   }
   return res;
@@ -256,12 +275,13 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       if (!mp0) throw new Error(`The original shipment's store code "${s0.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the pending correction ${prev.number} could not be retried.`);
       const pdf0 = await renderPdf(rect);
       const documentType0 = rect.totals.incl < 0 ? 'CreditNote' : 'Invoice';
-      // Same discipline as a first upload: mark 'sending' BEFORE the call, so a crash between Amazon
-      // accepting the retry and the local write is recovered at boot (recoverUncertainUploads ->
-      // 'unknown' + human hold), never invisible. And an unknown outcome of the retry itself is
-      // recorded as 'unknown' + hold - previously this branch saved nothing and a later retry would
-      // have resent blindly.
-      db.prepare("UPDATE invoices SET upload_status='sending' WHERE seller_id=? AND number=?").run(seller.id, prev.number);
+      // Same discipline as a first upload: mark 'sending' + sending_at BEFORE the call, so a crash
+      // between Amazon accepting the retry and the local write is recovered at boot
+      // (recoverUncertainUploads -> 'unknown' + human hold), never invisible, and the settle window
+      // anchors on the real attempt time. An unknown outcome of the retry itself is recorded as
+      // 'unknown' + hold - previously this branch saved nothing and a later retry would have resent
+      // blindly.
+      db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, prev.number);
       let feedId0;
       try {
         feedId0 = await api.uploadInvoice({ marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId });
@@ -270,7 +290,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
           db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, prev.number);
           logEvent(db, seller.id, 'upload_unknown_outcome', { number: prev.number, error: e.message });
           proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${opts.recordKey}`, kind: 'unknown_outcome', number: prev.number, originalNumber, shipmentKey: opts.recordKey, rectNumber: prev.number, action: 'hold',
-            reason: `The retry upload of correction document ${prev.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there, cross-checked against Amazon's own feed list, means the same document is resent; a verdict closes it.` });
+            reason: `The retry upload of correction document ${prev.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there, cross-checked against Amazon's own feed list, means the same document is resent; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
         } else {
           // A DEFINITE refusal (Amazon never accepted): restore the prior state so the reviewed
           // retry stays available. Only an unknown outcome holds.
@@ -312,9 +332,10 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   logEvent(db, seller.id, 'rectificativa', { number: rect.number, rectifies: originalNumber });
   let feedId = null;
   if (!manual) {
-    // Mark BEFORE the call: 'sending' records that the upload may have reached Amazon. A crash in
-    // this window is recovered at boot by recoverUncertainUploads, never blindly resent.
-    db.prepare("UPDATE invoices SET upload_status='sending' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
+    // Mark BEFORE the call: 'sending' + sending_at record that the upload may have reached Amazon
+    // and when the attempt started. A crash in this window is recovered at boot by
+    // recoverUncertainUploads, never blindly resent.
+    db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, rect.number);
     try {
       feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
       db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, rect.number);
@@ -327,7 +348,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
         logEvent(db, seller.id, 'upload_unknown_outcome', { number: rect.number, error: e.message });
         const docKey = opts.recordKey ?? row.shipment_key;
         proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${docKey}`, kind: 'unknown_outcome', number: rect.number, originalNumber: originalNumber, shipmentKey: docKey, rectNumber: rect.number, action: 'hold',
-          reason: `The upload of correction document ${rect.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the same document is resent automatically, a verdict closes it.` });
+          reason: `The upload of correction document ${rect.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the same document is resent automatically, a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
       }
       else { db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=?").run(seller.id, rect.number); logEvent(db, seller.id, 'upload_error', { number: rect.number, error: explain(e.message) }); }
       throw e;
@@ -344,17 +365,28 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
  * ledger) is something Amazon holds that we cannot account for - the resend is BLOCKED for a human.
  * Returns null when the resend is clear (report due + no orphan feed), else the hold reason. */
 export async function unknownSettleCheck(db, seller, api, number) {
+  // The window anchors on sending_at - the moment the attempt STARTED, written before the Amazon
+  // call. The recovery event's own time is boot time, which after a long downtime could be hours
+  // later and would miss the original feed entirely (round-7 review).
+  const doc = db.prepare('SELECT sending_at FROM invoices WHERE seller_id=? AND number=?').get(seller.id, number);
   const ev = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='upload_unknown_outcome' AND detail LIKE ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`);
-  if (!ev) return `No interruption record exists for ${number}, so the upload outcome cannot be reconstructed. It is NOT resent automatically - check it in Seller Central.`;
-  const evTs = new Date(ev.ts).getTime();
-  const since = new Date(evTs - 15 * 60e3).toISOString(), until = evTs + 15 * 60e3;
+  const attemptTs = new Date(doc?.sending_at ?? ev?.ts ?? 0).getTime();
+  if (!attemptTs) return `No interruption record exists for ${number}, so the upload outcome cannot be reconstructed. It is NOT resent automatically - check it in Seller Central.`;
+  // Human resolution for an orphan feed we cannot auto-resolve: Amazon keeps feeds for up to 90
+  // days, so an unrelated orphan does NOT age out of the list by itself. A human who checked the
+  // feed in Seller Central dismisses the hold; the dismissal is recorded here and clears the resend.
+  const dismissed = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='unknown_hold_dismissed' AND detail LIKE ? AND ts >= ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`, new Date(attemptTs).toISOString());
+  if (dismissed) return null;
+  const since = new Date(attemptTs - 15 * 60e3).toISOString(), until = attemptTs + 15 * 60e3;
   if (typeof api.listFeeds !== 'function') return `Amazon's feed list is not available to cross-check the interrupted upload of ${number}, so it is NOT resent automatically. Check it in Seller Central.`;
   let feeds;
   try { feeds = await api.listFeeds({ createdSince: since }); }
   catch (e) { return `The cross-check against Amazon's feed list failed (${explain(e.message)}), so ${number} is NOT resent automatically. Try the next sync, or check it in Seller Central.`; }
   const known = new Set(db.prepare('SELECT feed_id FROM invoices WHERE seller_id=? AND feed_id IS NOT NULL').all(seller.id).map(r => r.feed_id));
-  const orphans = (feeds ?? []).filter(f => !known.has(f.feedId) && !['FATAL', 'CANCELLED'].includes(f.status) && new Date(f.createdTime).getTime() <= until);
-  if (orphans.length) return `Amazon's feed list shows feed ${orphans[0].feedId} (created ${orphans[0].createdTime}) from the interruption window of ${number} that we never recorded - Amazon may hold the document, so it is NOT resent automatically. Check that feed in Seller Central.`;
+  // Only CANCELLED feeds are excluded: a cancelled feed never started processing (Feeds use-case
+  // guide). A FATAL feed may have completed some or all of its operations, so it still blocks.
+  const orphans = (feeds ?? []).filter(f => !known.has(f.feedId) && f.status !== 'CANCELLED' && new Date(f.createdTime).getTime() <= until);
+  if (orphans.length) return `Amazon's feed list shows feed ${orphans[0].feedId} (${orphans[0].status}, created ${orphans[0].createdTime}) from the interruption window of ${number} that we never recorded - Amazon may hold the document, so it is NOT resent automatically. Check that feed in Seller Central; if Amazon does not hold the document, dismiss the hold in Repairs and the next sync resends it.`;
   return null;
 }
 

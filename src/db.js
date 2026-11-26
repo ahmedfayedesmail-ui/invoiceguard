@@ -27,6 +27,10 @@ export function openDb(file = ':memory:') {
   // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
   db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
   try { db.exec('ALTER TABLE invoices ADD COLUMN tx_id TEXT'); } catch { /* column exists */ }
+  // Round-7: the moment an upload attempt STARTED, written before the Amazon call. After a crash of
+  // any length this is the anchor for the feed-list settle window - the recovery event's own time is
+  // boot time, which can be hours later.
+  try { db.exec('ALTER TABLE invoices ADD COLUMN sending_at TEXT'); } catch { /* column exists */ }
   return db;
 }
 

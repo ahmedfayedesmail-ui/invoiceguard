@@ -111,11 +111,22 @@ export class SpApi {
 
   // The feed list is the cross-check for interrupted uploads (unknownSettleCheck): a feed Amazon
   // created that we never recorded is the orphan that blocks a blind resend. A GET - safe to retry.
-  async listFeeds({ createdSince, feedType = 'UPLOAD_VAT_INVOICE' } = {}) {
+  // Pagination per the genuine Feeds model (feeds_2021-06-30.json): the first call carries the
+  // filters; a returned nextToken must be sent ALONE ("Specifying nextToken with any other parameters
+  // will cause the request to fail"). A partial page is never treated as complete: if pagination does
+  // not converge, this throws and the caller HOLDS the resend instead of trusting a truncated list.
+  async listFeeds({ createdSince, feedType = 'UPLOAD_VAT_INVOICE', maxPages = 10 } = {}) {
+    const out = [];
     const q = new URLSearchParams({ feedTypes: feedType, pageSize: '100' });
     if (createdSince) q.set('createdSince', createdSince);
-    const r = await this.call('GET', `/feeds/2021-06-30/feeds?${q.toString()}`);
-    return (r.feeds ?? []).map(f => ({ feedId: f.feedId, status: f.processingStatus, createdTime: f.createdTime }));
+    let path = `/feeds/2021-06-30/feeds?${q.toString()}`;
+    for (let page = 0; ; page++) {
+      if (page >= maxPages) { const e = new Error(`Amazon's feed list did not converge after ${maxPages} pages`); e.inconclusive = true; throw e; }
+      const r = await this.call('GET', path);
+      out.push(...(r.feeds ?? []).map(f => ({ feedId: f.feedId, status: f.processingStatus, createdTime: f.createdTime, resultDocumentId: f.resultFeedDocumentId ?? null })));
+      if (!r.nextToken) return out;
+      path = `/feeds/2021-06-30/feeds?${new URLSearchParams({ nextToken: r.nextToken }).toString()}`;
+    }
   }
   // Feed result documents live under the FEEDS documents endpoint, not the reports one.
   async downloadFeedResult(documentId) {

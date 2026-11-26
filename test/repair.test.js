@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
-import { processReport, processCorrections, pollFeeds, settleUnknownDocuments } from '../src/pipeline.js';
+import { processReport, processCorrections, pollFeeds, settleUnknownDocuments, unknownSettleCheck } from '../src/pipeline.js';
 import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
@@ -653,11 +653,12 @@ test('a feed failure on a correction document proposes the record-key retry, nev
   await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   await processCorrections(db, seller, correctionPair(), { api: api2, validate: vies });
   const cn = db.prepare("SELECT number, feed_id FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
-  const fatal = { feedStatus: async (id) => ({ status: id === cn.feed_id ? 'FATAL' : 'DONE' }) };
-  await pollFeeds(db, seller, fatal);
+  // CANCELLED = the feed never started processing (Feeds use-case guide): a safe same-document retry
+  const cancelled = { feedStatus: async (id) => ({ status: id === cn.feed_id ? 'CANCELLED' : 'DONE' }) };
+  await pollFeeds(db, seller, cancelled);
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, cn.number).upload_status, 'rejected');
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_correction_document');
-  assert.ok(q, 'a retry was proposed for the failed correction feed');
+  assert.ok(q, 'a retry was proposed for the cancelled correction feed');
   assert.equal(q.suggestion.action, 'retry_rect', 'correction documents go through the record-key path');
   const res = await approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
   assert.equal(res.rectNumber, cn.number, 'the SAME correction document was retried, no crash on the missing shipments row');
@@ -715,9 +716,9 @@ test('a retried correction document is marked sending before Amazon, and an inte
   const corr = correctionPair();
   await processCorrections(db, seller, corr, { api: api2, validate: vies });
   const cn = db.prepare("SELECT number, feed_id FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
-  // the credit note's feed fails fatally -> a reviewed retry of the same document is proposed
-  const fatal = { feedStatus: async (id) => ({ status: id === cn.feed_id ? 'FATAL' : 'DONE' }) };
-  await pollFeeds(db, seller, fatal);
+  // the credit note's feed is cancelled before processing -> a reviewed retry of the same document is proposed
+  const cancelled = { feedStatus: async (id) => ({ status: id === cn.feed_id ? 'CANCELLED' : 'DONE' }) };
+  await pollFeeds(db, seller, cancelled);
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_correction_document');
   assert.ok(q, 'a retry was proposed for the failed correction feed');
   // the retry itself is interrupted after Amazon may have received it
@@ -769,10 +770,12 @@ test('a fresh pending report alone does not clear a resend: an orphan feed from 
   assert.equal(calls, 1, 'no resend while an orphan feed exists');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown');
   assert.ok(out.held.some(h => /feed-orphan-1/.test(h.reason)), 'the hold names the orphan feed');
-  // the orphan clears (it aged out of the window or was identified) -> the resend proceeds
-  feeds = [];
+  // Amazon keeps feeds for up to 90 days, so the orphan does NOT age out of the list: the resolution
+  // is a human checking the feed in Seller Central and dismissing the hold -> the resend proceeds
+  const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
+  decideRepair(db, seller.id, hold.event_key, 'dismissed');
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
-  assert.equal(calls, 2, 'exactly one cleared resend');
+  assert.equal(calls, 2, 'exactly one cleared resend after the human dismissal');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
 });
 
@@ -787,9 +790,9 @@ test('the replacement waits for acceptance of the credit note - a failed reversa
   assert.equal(r1.invoices, 0, 'the replacement waits for the credit note to be confirmed');
   assert.ok(r1.skipped.some(x => /not yet confirmed accepted/.test(x.reason)));
   const cn = db.prepare("SELECT number, feed_id FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
-  // the credit note's feed fails BEFORE any replacement exists
-  const fatal = { feedStatus: async (id) => ({ status: id === cn.feed_id ? 'FATAL' : 'DONE' }) };
-  await pollFeeds(db, seller, fatal);
+  // the credit note's feed is cancelled BEFORE any replacement exists
+  const cancelled = { feedStatus: async (id) => ({ status: id === cn.feed_id ? 'CANCELLED' : 'DONE' }) };
+  await pollFeeds(db, seller, cancelled);
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, cn.number).upload_status, 'rejected');
   const r2 = await processCorrections(db, seller, corr, { api: api2, validate: vies });
   assert.equal(r2.invoices, 0, 'no replacement while the reversal is unconfirmed');
@@ -799,4 +802,76 @@ test('the replacement waits for acceptance of the credit note - a failed reversa
   await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
   const r3 = await processCorrections(db, seller, corr, { api: api2, validate: vies });
   assert.equal(r3.invoices, 1, 'the replacement goes out only after acceptance');
+});
+
+// ---------- round-7: FATAL is not CANCELLED; attempt-time anchoring; human orphan resolution ----------
+
+test('a FATAL feed is never treated as never-processed: unknown + hold, no retry proposal, only the settle path resends', async () => {
+  const db = openDb();
+  let calls = 0, resultFetched = 0;
+  const api0 = { uploadInvoice: async () => { calls++; return 'f' + calls; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
+  await processReport(db, seller, singleRow(null), { api: api0, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
+  // Amazon stops the feed with a FATAL error and generated a processing report
+  const fatal = { feedStatus: async () => ({ status: 'FATAL', resultDocumentId: 'rd1' }),
+    downloadFeedResult: async (id) => { resultFetched++; assert.equal(id, 'rd1'); return 'record-status\tmessage\nerror\tsimulated fatal report'; } };
+  await pollFeeds(db, seller, fatal);
+  assert.equal(resultFetched, 1, 'the FATAL processing report was fetched as evidence (Amazon generates one only sometimes)');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown',
+    'FATAL means "some, none, or all of the operations might have completed" - never proof Amazon holds nothing');
+  const holds = listRepairs(db, seller.id).filter(r => r.kind === 'unknown_outcome');
+  assert.equal(holds.length, 1, 'a visible unknown-outcome hold was created');
+  assert.equal(holds[0].suggestion.action, 'hold');
+  assert.ok(!listRepairs(db, seller.id).some(r => ['retry_upload', 'retry_rect'].includes(r.suggestion.action)), 'FATAL alone never justifies a resend: no retry was proposed');
+  assert.equal(calls, 1, 'nothing was resent during the poll');
+  // the fresh report still lists the shipment as due and the feed list shows no orphan -> the settle path resends the SAME document
+  const out = await processReport(db, seller, singleRow(null), { api: api0, validate: vies });
+  assert.equal(calls, 2, 'exactly one resend through the settle path');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
+});
+
+test('a long downtime cannot hide the original feed: the settle window anchors on the attempt start', async () => {
+  const db = openDb();
+  const api0 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
+  await processReport(db, seller, singleRow(null), { api: api0, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const inv = db.prepare("SELECT number, shipment_key FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  // simulate a crash in the upload window TWO HOURS ago: the feed id was never recorded
+  const twoHoursBack = new Date(Date.now() - 2 * 3600e3).toISOString();
+  db.prepare("UPDATE invoices SET upload_status='sending', feed_id=NULL, sending_at=? WHERE seller_id=? AND number=?").run(twoHoursBack, seller.id, inv.number);
+  db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, inv.shipment_key);
+  assert.equal(recoverUncertainUploads(db), 1);
+  const ev = db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='upload_unknown_outcome' ORDER BY ts DESC LIMIT 1").get(seller.id);
+  assert.equal(JSON.parse(ev.detail).attemptedAt, twoHoursBack, 'the recovery event keeps the original attempt time, not the boot time');
+  // the feed Amazon created during the original attempt, 2 hours back. The listFeeds stub filters by
+  // createdSince exactly like the real API - an event-time window around NOW would never see it.
+  const orphan = { feedId: 'feed-old-orphan', status: 'DONE', createdTime: new Date(Date.parse(twoHoursBack) + 60e3).toISOString() };
+  let calls = 0;
+  const api2 = { uploadInvoice: async () => { calls++; return 'f9'; }, feedStatus: async () => ({ status: 'DONE' }),
+    listFeeds: async ({ createdSince } = {}) => [orphan].filter(f => !createdSince || f.createdTime >= createdSince) };
+  const out = await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
+  assert.equal(calls, 0, 'the orphan from the original attempt window still blocks after hours of downtime');
+  assert.ok(out.held.some(h => /feed-old-orphan/.test(h.reason)), 'the hold names the orphan feed');
+  // the human checked the feed in Seller Central: Amazon does not hold the document -> dismiss -> resend
+  const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
+  decideRepair(db, seller.id, hold.event_key, 'dismissed');
+  assert.ok(db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='unknown_hold_dismissed'").get(seller.id), 'the dismissal is on record');
+  await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
+  assert.equal(calls, 1, 'the dismissal cleared the resend even with the orphan still listed');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
+});
+
+test('the orphan cross-check blocks on a FATAL feed but not on a CANCELLED one (cancelled feeds never ran)', async () => {
+  const db = openDb();
+  const api0 = { uploadInvoice: async () => { const e = new Error('socket hang up'); e.unknownOutcome = true; throw e; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
+  await processReport(db, seller, singleRow(null), { api: api0, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown');
+  const nowIso = new Date().toISOString();
+  const mk = (status) => ({ listFeeds: async () => [{ feedId: 'fx-' + status, status, createdTime: nowIso }] });
+  const fatalBlock = await unknownSettleCheck(db, seller, mk('FATAL'), inv.number);
+  assert.ok(fatalBlock && /fx-FATAL/.test(fatalBlock), 'a FATAL orphan may have been processed - it blocks the resend');
+  assert.ok(/dismiss the hold/.test(fatalBlock), 'the block names the human resolution path');
+  const cancelBlock = await unknownSettleCheck(db, seller, mk('CANCELLED'), inv.number);
+  assert.equal(cancelBlock, null, 'a CANCELLED orphan never started processing - it does not block');
 });
