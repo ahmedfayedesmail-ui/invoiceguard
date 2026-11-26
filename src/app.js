@@ -147,14 +147,19 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
         return res.end(html);
       }
+      const loc = /^\/(es|de|fr|it|nl|pl)$/.exec(p);
+      if (req.method === 'GET' && loc) {
+        if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
+        bump('pv:' + p);
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
+        return res.end(landingLocalized(loc[1]));
+      }
       if (req.method === 'GET' && PUB[p] && !PUBLIC_READY) { if (p === '/') { res.writeHead(302, { location: '/app' }); return res.end(); } return json(res, 404, { error: 'Not found' }); }
       if (req.method === 'GET' && PUB[p]) {
         bump('pv:' + p);
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
         if (p === '/contact') return res.end(contact(process.env, { sent: url.searchParams.get('sent') === '1', err: url.searchParams.get('err') }));
         if (p === '/') { const v = abVariant(); bump('pv:/:' + v); return res.end(landing(process.env, { variant: v, ctaHref: '/go/sample?v=' + v, country: countryFromLang(req.headers['accept-language']) })); }
-        const loc = /^\/(es|de|fr|it|nl|pl)$/.exec(p);
-        if (loc) { bump('pv:/' + loc[1]); const html = landingLocalized(loc[1]); if (html) return res.end(html); }
         return res.end(PUB[p]());
       }
       if (req.method === 'POST' && p === '/contact' && PUBLIC_READY) { // plain HTML form: stored on our own server only

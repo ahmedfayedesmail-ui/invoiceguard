@@ -266,7 +266,7 @@ async function part4() {
 // ================= PART 5: HTTP API cases on a real server =================
 async function part5() {
   const validate = async (v) => VALID_VATS.includes(v) ? { status: 'valid', vat: v } : { status: 'invalid', reason: 'bad_format', vat: v };
-  const { server } = createApp({ validate, secret: 'campaign' });
+  process.env.OPERATOR_NAME = 'Campaign Operator'; const { server } = createApp({ validate, secret: 'campaign' });
   await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const mkCaller = () => { let sid = ''; return async (path, body, raw) => {
@@ -391,7 +391,7 @@ async function part5() {
     check('H:load-issues', bad === 0, `${bad}/40 concurrent issue flows had errors`);
     R.perf = { ...(R.perf || {}), issue40xMs: ms };
   });
-  server.close();
+  server.close(); delete process.env.OPERATOR_NAME;
 }
 
 // ================= PART 6: live production checks =================
