@@ -117,3 +117,29 @@ test('R16-4: a failure BEFORE the download clears the block - the stored snapsho
   const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
   assert.ok(res.rectNumber, 'the approval proceeds on the last stored report, which is genuinely the latest');
 });
+
+test('R16-5 (reviewer HOLD on 43a15bb): store failure, then a PRE-DOWNLOAD failure on the next sync - approval stays blocked until a successful store', async () => {
+  const db = openDb();
+  const { p } = await seedProposal(db);
+  // Sync N: download OK (amounts halved), store FAILED -> store_pending stays set.
+  markReportInFlight(db, seller.id, new Date('2026-11-26T10:00:00Z').toISOString());
+  markReportStorePending(db, seller.id);
+  // Sync N+1 fails BEFORE download (Amazon down): its catch calls clearReportInFlight.
+  markReportInFlight(db, seller.id, new Date('2026-11-27T10:00:00Z').toISOString());
+  clearReportInFlight(db, seller.id);
+  assert.equal(latestReportSnapshot(db, seller.id).in_flight, 1, 'the pre-download failure did not release the store-pending block');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'approval still blocked');
+  assert.equal(rectCount(db), 0, 'nothing issued from the known-stale snapshot');
+  // Defense in depth: even with in_flight forced off, store_pending alone blocks approval.
+  db.prepare('UPDATE report_snapshots SET in_flight=0 WHERE seller_id=?').run(seller.id);
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'store_pending alone blocks');
+  // Next successful sync stores its report: block lifts, stale proposal is held.
+  const g2 = nextReportGen(db, seller.id);
+  markReportInFlight(db, seller.id, new Date('2026-11-28T10:00:00Z').toISOString());
+  markReportStorePending(db, seller.id);
+  storeDownloadedReport(db, seller.id, { gen: g2, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-28T10:00:00Z').toISOString(), text: refundReport(0.5) });
+  clearReportInFlight(db, seller.id);
+  assert.equal(latestReportSnapshot(db, seller.id).in_flight, 0, 'block lifted by the successful store');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /different refund amounts/, 'stale proposal held');
+  assert.equal(rectCount(db), 0, 'never issued');
+});

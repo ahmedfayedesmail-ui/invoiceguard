@@ -81,7 +81,9 @@ export function markReportInFlight(db, sellerId, at) {
 }
 export function clearReportInFlight(db, sellerId) {
   ensureRepairTables(db);
-  db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE seller_id=?').run(sellerId);
+  // Round-19 (reviewer on 43a15bb): a store_pending row (newer report downloaded, never stored)
+  // is NOT released by a later pre-download failure; only a successful store lifts it.
+  db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE seller_id=? AND (store_pending IS NULL OR store_pending=0)').run(sellerId);
 }
 /** A crashed sync can leave the mark set; at boot no sync is running, so every mark is stale -
  * EXCEPT store_pending rows (round-18, critic round-16): a newer report was downloaded but never
@@ -383,7 +385,7 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
   // Round-17 (critic round-15 P1-B): a newer report being fetched/processed RIGHT NOW blocks the
   // approval - issuing would race information that is already on its way in. The block lifts on
   // sync success (snapshot stored) or failure (mark cleared), never stuck.
-  if (snap?.in_flight) throw new Error('A sync is running right now and a newer Amazon report is being processed, so this credit note is not issued yet. Review it again when the sync finishes. Nothing was issued.');
+  if (snap?.in_flight || snap?.store_pending) throw new Error('A sync is running right now and a newer Amazon report is being processed, so this credit note is not issued yet. Review it again when the sync finishes. Nothing was issued.');
   // Round-17 (critic round-15 P1-A): freshness is ordered by report GENERATION (one per report),
   // never by attempt_seq. A NULL stamp (a proposal recorded before freshness tracking) is older
   // than ANY stored snapshot, so it is re-validated too; with no snapshot at all there is nothing
