@@ -190,6 +190,18 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         for (const r of rows) { byType[r.type] = (byType[r.type] ?? 0) + 1; if (r.type === 'report_uploaded') { try { const d = JSON.parse(r.detail); ingest.reports++; ingest.rows += d.rows ?? 0; ingest.issued += d.issued ?? 0; ingest.held += d.held ?? 0; } catch { /* skip malformed */ } } }
         return json(res, 200, { windowDays: 7, eventsByType: byType, ingest });
       }
+      if (req.method === 'GET' && p === '/admin/db-snapshot') { // operator-only consistent DB backup (VACUUM INTO), for the W6 data-loss fallback
+        const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
+        const h = (x) => createHash('sha256').update(x).digest();
+        if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
+        try {
+          const tmp = `/tmp/ig-snapshot-${Date.now()}.db`;
+          db.exec(`VACUUM INTO '${tmp}'`);
+          const data = readFileSync(tmp); (await import('node:fs')).rmSync(tmp, { force: true });
+          res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="invoiceguard-snapshot-${new Date().toISOString().slice(0, 10)}.db"`, 'content-length': data.length, 'cache-control': 'no-store' });
+          return res.end(data);
+        } catch (e) { console.error('snapshot failed', e.message); return json(res, 500, { error: 'Snapshot failed. Nothing was changed.' }); }
+      }
       if (req.method === 'GET' && p === '/admin/weekly-summary') { // operator half of the weekly summary: aggregates only
         const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');
         const h = (x) => createHash('sha256').update(x).digest();

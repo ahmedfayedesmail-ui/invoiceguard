@@ -318,6 +318,17 @@ async function part5() {
     check('H:sec-headers', csp.includes("default-src 'self'"), 'CSP on /app');
   });
 
+  // DB snapshot: hidden without token, served with it, restores as valid SQLite
+  await http('H:snapshot', async () => {
+    check('H:snapshot', (await fetch(base + '/admin/db-snapshot')).status === 404, 'snapshot hidden without token');
+    process.env.ADMIN_TOKEN = 'campaign-admin-token-0123456789';
+    const r = await fetch(base + '/admin/db-snapshot', { headers: { authorization: 'Bearer campaign-admin-token-0123456789' } });
+    check('H:snapshot', r.status === 200, `snapshot ${r.status}`);
+    const buf = Buffer.from(await r.arrayBuffer());
+    check('H:snapshot', buf.subarray(0, 15).toString() === 'SQLite format 3', 'snapshot is a SQLite file');
+    delete process.env.ADMIN_TOKEN;
+  });
+
   // concurrent load: 200 parallel dashboard reads + 40 parallel pack builds
   await http('H:load-reads', async () => {
     const t0 = Date.now();
