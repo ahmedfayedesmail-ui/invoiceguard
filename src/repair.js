@@ -19,7 +19,7 @@ export function ensureRepairTables(db) {
 }
 
 /**
- * Plain returns/refunds (transaction-type REFUND rows that are not Amazon
+ * Plain returns/refunds (transaction-type RETURN or REFUND rows that are not Amazon
  * billing-data corrections) referencing an invoice we issued become proposals.
  * Idempotent: one proposal per (seller, event key).
  */
@@ -28,9 +28,11 @@ export function detectRepairs(db, seller, reportText, { now = new Date() } = {})
   const out = { proposed: 0, skipped: [], proposals: [] };
   const all = parseVidr(reportText);
   // W12: never drop an unknown Amazon transaction type silently - surface it in the event log.
-  const unknown = [...new Set(all.map(s => s.transactionType).filter(t => !['SHIPMENT', 'REFUND'].includes(t)))];
+  const unknown = [...new Set(all.map(s => s.transactionType).filter(t => !['SHIPMENT', 'REFUND', 'RETURN'].includes(t)))];
   if (unknown.length) logEvent(db, seller.id, 'vidr_unknown_transaction_types', { types: unknown });
-  const refunds = all.filter(s => s.transactionType === 'REFUND' && !s.isCorrectionReversal);
+  // Amazon's transaction-type vocabulary is SHIPMENT / RETURN / REFUND (create-and-upload-invoices doc):
+  // both RETURNs and REFUNDs can put a credit note due (CreditNotePending). Missing either loses money.
+  const refunds = all.filter(s => ['REFUND', 'RETURN'].includes(s.transactionType) && !s.isCorrectionReversal);
   const ins = db.prepare(`INSERT OR IGNORE INTO repairs
     (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at)
     VALUES (?,?,?,?,?,?,?, 'proposed', ?)`);
@@ -77,33 +79,62 @@ export async function approveRepair(db, seller, eventKey, { api, validate } = {}
   if (sug.action !== 'credit_note') throw new Error(`Unsupported repair action ${sug.action}`);
   if (sug.full === undefined) throw new Error('This proposal was recorded before exact refund amounts were kept. Press Sync now so it is rebuilt, then review it again.');
   const orig = JSON.parse(db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, r.original_number).json);
+  const cents = (n) => Math.round(n * 100);
+  // Cumulative guard: prior credit notes against this invoice count toward what may still be
+  // credited. Each new refund is checked against what REMAINS, never against the original alone,
+  // so a stream of partial refunds can never credit more than the invoice was worth.
+  // This event's own pending row (an earlier upload that failed) is not "already credited":
+  // it is the document we are about to retry, so it is excluded from the cumulative count.
+  const prior = db.prepare("SELECT json FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND upload_status NOT IN ('rejected') AND shipment_key != ?").all(seller.id, r.original_number, r.event_key)
+    .map(p => JSON.parse(p.json));
+  if (prior.some(j => j.mode === 'substitution')) throw new Error(`Invoice ${r.original_number} was replaced by a substitution correction, so refund lines cannot be matched against the original safely. ` + MANUAL_FIX);
+  // remaining[i]: what is left of each original line after prior difference credits (deltas are negative).
+  const remaining = orig.lines.map(l => ({ ...l }));
+  let creditedCents = 0, creditedVatCents = 0;
+  for (const j of prior) {
+    if (j.mode !== 'differences') continue;
+    creditedCents += cents(Math.abs(j.totals.incl)); creditedVatCents += cents(Math.abs(j.totals.vat));
+    for (const d of j.lines ?? []) { const m = remaining.find(l => l.description === d.description); if (m) { m.excl = r2(m.excl + d.excl); m.vat = r2(m.vat + d.vat); } }
+  }
+  if (creditedCents + cents(sug.total) > cents(orig.totals.incl) + 0 || creditedVatCents + cents(sug.vat) > cents(orig.totals.vat) + 0)
+    throw new Error('The refunds for this invoice add up to more than the invoice itself. ' + MANUAL_FIX);
   let corrected;
   if (sug.full || !Array.isArray(sug.lines)) {
     corrected = orig.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
   } else {
     corrected = orig.lines.map(l => ({ ...l }));
-    const take = (line, amount) => {
+    const take = (line, amount, rem) => {
       line.excl = r2(line.excl - amount.excl); line.vat = r2(line.vat - amount.vat);
+      if (rem) { rem.excl = r2(rem.excl - amount.excl); rem.vat = r2(rem.vat - amount.vat); }
       if (line.excl < -0.005 || line.vat < -0.005) throw new Error(`The returned amount for "${line.description}" is larger than that line on the original invoice. ` + MANUAL_FIX);
+      if (rem && (rem.excl < -0.005 || rem.vat < -0.005)) throw new Error(`The refunds for "${line.description}" add up to more than that line was worth. ` + MANUAL_FIX);
     };
     for (const it of sug.lines) {
       if (Math.abs(it.excl) > 0.005 || Math.abs(it.vat) > 0.005) {
-        const line = it.sku ? corrected.find(l => l.sku === it.sku) : null;
-        if (!line) throw new Error('The returned items cannot be matched to the original invoice lines, so the exact credit cannot be computed. ' + MANUAL_FIX);
-        take(line, it);
+        // Duplicate SKUs: match the one line this refund can belong to; ambiguity stops the issue.
+        const cand = it.sku ? corrected.map((l, i) => ({ l, i })).filter(x => x.l.sku === it.sku) : [];
+        let pick = null;
+        if (cand.length === 1) pick = cand[0];
+        else if (cand.length > 1) {
+          const fits = cand.filter(x => cents(remaining[x.i].excl) >= cents(it.excl) && cents(remaining[x.i].vat) >= cents(it.vat));
+          if (fits.length === 1) pick = fits[0];
+          else throw new Error(`The refund names "${it.sku}", which is on ${cand.length} invoice lines, and the exact line cannot be determined. ` + MANUAL_FIX);
+        }
+        if (!pick) throw new Error('The returned items cannot be matched to the original invoice lines, so the exact credit cannot be computed. ' + MANUAL_FIX);
+        take(pick.l, it, remaining[pick.i]);
       }
       for (const x of it.extras ?? []) {
         if (Math.abs(x.excl) > 0.005 || Math.abs(x.vat) > 0.005) {
-          const line = corrected.find(l => l.description === EXTRA_LABEL[x.part]);
-          if (!line) throw new Error(`The refund includes "${EXTRA_LABEL[x.part] ?? x.part}", which is not on the original invoice. ` + MANUAL_FIX);
-          take(line, x);
+          const i = corrected.findIndex(l => l.description === EXTRA_LABEL[x.part]);
+          if (i < 0) throw new Error(`The refund includes "${EXTRA_LABEL[x.part] ?? x.part}", which is not on the original invoice. ` + MANUAL_FIX);
+          take(corrected[i], x, remaining[i]);
         }
       }
     }
-    // Cross-check against the refund total Amazon reported: the corrected invoice must equal
-    // original minus refund to the cent, otherwise something was matched wrong - stop, never issue.
+    // Cross-check against the refund total Amazon reported, in integer cents: the corrected invoice
+    // must equal original minus refund to the exact cent, otherwise stop - we never issue wrong money.
     const t = totalsOf(corrected);
-    if (Math.abs(r2(orig.totals.incl - sug.total) - t.incl) > 0.02 || Math.abs(r2(orig.totals.vat - sug.vat) - t.vat) > 0.02)
+    if (cents(orig.totals.incl) - cents(sug.total) !== cents(t.incl) || cents(orig.totals.vat) - cents(sug.vat) !== cents(t.vat))
       throw new Error('The returned amounts do not add up against the original invoice to the cent, so the exact credit cannot be computed. ' + MANUAL_FIX);
   }
   const { rect } = await issueRectificativa(db, seller, r.original_number,

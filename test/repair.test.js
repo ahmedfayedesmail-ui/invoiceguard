@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
-import { processReport } from '../src/pipeline.js';
+import { processReport, processCorrections } from '../src/pipeline.js';
 import { detectRepairs, listRepairs, decideRepair, approveRepair } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
@@ -119,3 +119,112 @@ test('a refund for an invoice we did not issue is skipped, not proposed', () => 
   assert.equal(r.proposed, 0);
   assert.equal(r.skipped.length, 1); assert.match(r.skipped[0].reason, /not issued by us/);
 });
+
+/** A RETURN-type row (item physically returned) - Amazon's third transaction type. */
+function returnTypeReport() {
+  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'RETURN'; ref[ix('transaction-id')] = 'ret-200-1';
+  ref[ix('invoice-status')] = 'CreditNotePending';
+  ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '-' + ref[ix(n)]; });
+  return [head, ref.join('\t')].join('\n');
+}
+
+test('a RETURN transaction (not only REFUND) becomes a repair proposal', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const r = detectRepairs(db, seller, returnTypeReport());
+  assert.equal(r.proposed, 1, 'RETURN rows must not be missed');
+  const [p] = listRepairs(db, seller.id);
+  assert.equal(p.suggestion.action, 'credit_note');
+});
+
+function partialOf(txId, excl, vat, incl, sku = 'SKU-A') {
+  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const ref = [...rows[0].split('\t')]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = txId; ref[ix('sku')] = sku;
+  ref[ix('item-vat-incl-amount')] = String(-incl); ref[ix('item-vat-amount')] = String(-vat); ref[ix('item-vat-excl-amount')] = String(-excl);
+  ['shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '0'; });
+  return [head, ref.join('\t')].join('\n');
+}
+
+test('two partial refunds that together exceed the line: the second is stopped, nothing issued', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  // fixture SKU-A line: 2 units at 24.20 incl each = 48.40 line; first refund 36.30 (1.5 units worth)
+  detectRepairs(db, seller, partialOf('r-1', 30, 6.3, 36.3));
+  const [p1] = listRepairs(db, seller.id);
+  await approveRepair(db, seller, p1.event_key, { api, validate: vies });
+  // second refund of another 36.30: cumulative 72.60 > what remains of the line
+  detectRepairs(db, seller, partialOf('r-2', 30, 6.3, 36.3));
+  const [p2] = listRepairs(db, seller.id);
+  const before = db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c;
+  await assert.rejects(() => approveRepair(db, seller, p2.event_key, { api, validate: vies }), /more than/);
+  assert.equal(db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c, before, 'no second credit note');
+});
+
+test('two partial refunds inside the invoice total both issue, each for its own amount', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, partialOf('r-1', 10, 2.1, 12.1));
+  const [p1] = listRepairs(db, seller.id);
+  const a = await approveRepair(db, seller, p1.event_key, { api, validate: vies });
+  detectRepairs(db, seller, partialOf('r-2', 10, 2.1, 12.1));
+  const [p2] = listRepairs(db, seller.id);
+  const b = await approveRepair(db, seller, p2.event_key, { api, validate: vies });
+  assert.notEqual(a.rectNumber, b.rectNumber);
+  const cnB = JSON.parse(db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, b.rectNumber).json);
+  assert.equal(cnB.totals.incl, -12.1, 'each credit note covers its own refund only');
+});
+
+test('a failed upload leaves one pending correction; re-approving retries the SAME document, never a second number', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, refundReport());
+  const [p] = listRepairs(db, seller.id);
+  const failing = { uploadInvoice: async () => { throw new Error('network down'); }, feedStatus: async () => ({ status: 'DONE' }) };
+  await assert.rejects(() => approveRepair(db, seller, p.event_key, { api: failing, validate: vies }), /network down/);
+  const pend = db.prepare("SELECT * FROM invoices WHERE seller_id=? AND kind='rectificativa'").all(seller.id);
+  assert.equal(pend.length, 1); assert.equal(pend[0].upload_status, 'pending');
+  // re-approve with a working API: same number, no new document
+  const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
+  assert.equal(res.rectNumber, pend[0].number, 'the pending correction is retried, not re-issued');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1);
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, pend[0].number).upload_status, 'submitted');
+  // and a third approval finds nothing open
+  await assert.rejects(() => approveRepair(db, seller, p.event_key, { api, validate: vies }), /No open repair/);
+});
+
+test('processCorrections retries a pending correction upload instead of skipping it forever', async () => {
+  const db = openDb();
+  const calls2 = [];
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const rep = correctionReport();
+  const flaky = { uploadInvoice: async (a) => { calls2.push(a); if (calls2.length === 1) throw new Error('upload boom'); return 'fx' + calls2.length; }, feedStatus: async () => ({ status: 'DONE' }) };
+  const r1 = await processCorrections(db, seller, rep, { api: flaky, validate: vies });
+  assert.equal(r1.errors.length, 1); assert.equal(r1.creditNotes, 0);
+  const nums1 = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND kind='rectificativa' ORDER BY number").all(seller.id);
+  assert.equal(nums1.length, 1); assert.equal(nums1[0].upload_status, 'pending');
+  const r2 = await processCorrections(db, seller, rep, { api: flaky, validate: vies });
+  assert.equal(r2.errors.length, 0, JSON.stringify(r2.errors));
+  const nums2 = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND kind='rectificativa' ORDER BY number").all(seller.id);
+  assert.equal(nums2.filter(x => x.number === nums1[0].number).length, 1, 'same correction document retried');
+  assert.equal(nums2.find(x => x.number === nums1[0].number).upload_status, 'submitted');
+});
+
+test('an off-by-one-cent refund is stopped, not issued (true per-cent matching)', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, partialOf('r-cent', 20, 4.19, 24.20)); // vat off by a cent vs incl-excl
+  const [p] = listRepairs(db, seller.id);
+  const before = db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c;
+  await assert.rejects(() => approveRepair(db, seller, p.event_key, { api, validate: vies }), /to the cent/);
+  assert.equal(db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c, before);
+});
+
+function correctionReport() {
+  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const row = rows[0].split('\t');
+  const rev = [...row]; rev[ix('transaction-type')] = 'REFUND'; rev[ix('transaction-id')] = 'CorrectionReversal:X:1';
+  ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { rev[ix(n)] = '-' + rev[ix(n)]; });
+  rev[ix('invoice-status')] = 'CreditNotePending';
+  return [head, rev.join('\t')].join('\n');
+}

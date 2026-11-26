@@ -159,6 +159,26 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   const row = db.prepare('SELECT json, shipment_key FROM invoices WHERE seller_id=? AND number=?').get(seller.id, originalNumber);
   if (!row) throw new Error(`Invoice ${originalNumber} not found`);
   const original = JSON.parse(row.json);
+  // Idempotency on the event key: one Amazon correction event yields exactly one correction document.
+  // A pending row means the upload failed after issuance - retry the SAME document's upload, never mint
+  // a second number. Any other state means the event is already handled - issuing again would duplicate
+  // a financial document.
+  if (opts.recordKey) {
+    const prev = db.prepare("SELECT number, upload_status, json, tx_id FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, opts.recordKey);
+    if (prev && prev.upload_status === 'pending') {
+      const rect = JSON.parse(prev.json);
+      const s0 = JSON.parse(db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key).raw);
+      const mp0 = marketplaceFor(s0.marketplace);
+      if (!mp0) throw new Error(`The original shipment's store code "${s0.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the pending correction ${prev.number} could not be retried.`);
+      const pdf0 = await renderPdf(rect);
+      const documentType0 = rect.totals.incl < 0 ? 'CreditNote' : 'Invoice';
+      const feedId0 = await api.uploadInvoice({ marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId });
+      db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId0, seller.id, prev.number);
+      logEvent(db, seller.id, 'rectificativa_upload_retried', { number: prev.number });
+      return { rect, feedId: feedId0, documentType: documentType0, pdf: pdf0, retried: true };
+    }
+    if (prev) throw new Error(`A correction (${prev.number}, ${prev.upload_status}) already exists for this event. No second document was issued.`);
+  }
   const country = seller.country ?? 'ES', rd = readiness(country, 'correct'); if (!rd.ok) throw new Error(rd.reason);
   if (!rd.methods.includes(opts.mode)) throw new Error(`The ${country} pack does not support the "${opts.mode}" method (${rd.rule}). Ask your adviser.`);
   if (opts.changes?.lines && !rd.amountChanges) throw new Error(`The ${country} pack (${rd.rule}) does not cover amount or tax changes. Ask your adviser; nothing was issued.`);
@@ -181,8 +201,8 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   if (!manual && !mp) throw new Error(`The original shipment's store code "${s.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the upload target was not guessed. The correction was not issued.`);
   // Local record FIRST, upload second: Amazon must never hold a document we have no record of, and the
   // R series stays gapless even when the upload fails (the issued correction waits as 'pending').
-  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-    .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), null, manual ? 'ready' : 'pending');
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), null, manual ? 'ready' : 'pending', opts.transactionId ?? null);
   appendAudit(db, seller.id, 'rectificativa', rect.number, rect);
   logEvent(db, seller.id, 'rectificativa', { number: rect.number, rectifies: originalNumber });
   let feedId = null;
@@ -203,7 +223,9 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
 export async function processCorrections(db, seller, reportText, { api, validate }) {
   const out = { creditNotes: 0, invoices: 0, skipped: [], errors: [] };
   const list = parseVidr(reportText).filter(s => s.isCorrectionReversal || s.isCorrectedTx);
-  const done = (key) => db.prepare('SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=?').get(seller.id, key);
+  // Only a row whose upload actually left the pending state counts as done: a pending row is an issued
+  // correction whose upload failed, and issueRectificativa retries that same document (never a second one).
+  const done = (key) => { const r = db.prepare("SELECT upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, key); return r && r.upload_status !== 'pending'; };
   const original = (s) => db.prepare("SELECT number, json FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, `SHIPMENT:${s.shippingId}`);
   const reasonOf = (s) => s.correctionDetails || 'Billing name or address corrected at the buyer\'s request via Amazon';
   const zeroTotal = (orig) => Math.abs(JSON.parse(orig.json).totals?.incl ?? 0) < 0.005;

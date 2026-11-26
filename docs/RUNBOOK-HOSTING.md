@@ -96,8 +96,12 @@ Fly.io only if Ahmed approves a card on file; Oracle is off-limits.
 - No accounts carrying his name, country or personal email.
 - The anonymity rule applies to the new host's account details too.
 
-## Backups and audit anchoring (added 2026-11-26)
+## Backups and audit anchoring (updated 2026-11-26, round 2)
 
-- `npm run backup` copies the SQLite database (with WAL files) into `backups/` with a timestamp and keeps the last 14. Run it from an external scheduler daily and keep one copy OFF the Railway volume. The copies contain personal data: never commit them.
-- `npm run audit-anchor` prints every seller's audit-chain head hash. The audit log lives in the same database it protects, so record the head hash somewhere outside the database (a dated note, an email) after each backup: a full rewrite of the chain then shows as a mismatch on the next anchor run.
-- Both were verified against a real database copy on 2026-11-26.
+What exists today, stated precisely:
+
+- **Automatic snapshots**: the app itself runs a backup on boot and every 6 hours (`src/backup.js`, disable with `BACKUPS_OFF=1`). Each snapshot first checkpoints the WAL into the main file, then copies that single crash-consistent file into `<db dir>/backups/`, keeping the newest 14. `npm run backup` runs the same code by hand.
+- **Restore test**: `npm run restore-check` restores the newest snapshot into a scratch file and verifies SQLite integrity, table counts and every audit chain. Run it after any deploy that touches data code. A backup that was never restored is a hope, not a backup.
+- **Audit anchoring**: `npm run audit-anchor` prints every seller's audit-chain head AND appends it to `backups/anchors.log`, a file outside the database, so a rewritten chain shows as a mismatch without trusting the database.
+- **What this is NOT yet**: the snapshots and the anchors log live on the same Railway volume as the database, so a volume loss takes both. There is no free off-host storage in this deployment; until there is, the operator downloads a snapshot off the host regularly (see the admin db-snapshot step above). That is the honest residual risk.
+- The snapshots contain personal data: never commit or publish them.

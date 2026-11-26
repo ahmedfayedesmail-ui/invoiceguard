@@ -45,7 +45,16 @@ export class SpApi {
     // all=true asks for every invoice status (InvoiceProcessing/Uploaded/Rejected, CreditNote*), not only
     // what is due; Amazon then wants a date window of at most 30 days (create-and-upload-invoices doc).
     const body = { reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', marketplaceIds };
-    if (all) { const to = new Date(), start = from ? new Date(from) : new Date(to.getTime() - 30 * 864e5); body.dataStartTime = start.toISOString(); body.dataEndTime = to.toISOString(); body.reportOptions = { all: 'true', reportPeriod: 'DAY' }; }
+    if (all) {
+      // Genuine SP-API doc (developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices): the option
+      // key is literally "ReportOption=All", the window maxes at 30 days, and dataStartTime/dataEndTime
+      // must sit on day boundaries of the report period. TODO(first live seller): confirm Amazon accepts
+      // this exact request shape - until then it is covered by mock tests only.
+      const to = new Date(), start = from ? new Date(from) : new Date(to.getTime() - 29 * 864e5);
+      start.setUTCHours(0, 0, 0, 0);
+      body.dataStartTime = start.toISOString(); body.dataEndTime = to.toISOString();
+      body.reportOptions = { 'ReportOption=All': 'true' };
+    }
     else if (pendingOnly) body.reportOptions = { 'ReportOption=pendingInvoices': 'true' };
     const r = await this.call('POST', '/reports/2021-06-30/reports', body);
     return r.reportId;

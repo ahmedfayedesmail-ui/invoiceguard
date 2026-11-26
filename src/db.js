@@ -26,6 +26,7 @@ export function openDb(file = ':memory:') {
   // One-time repair for the stage-2 limbo defect: corrections approved before the fix sit at
   // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
   db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
+  try { db.exec('ALTER TABLE invoices ADD COLUMN tx_id TEXT'); } catch { /* column exists */ }
   return db;
 }
 
