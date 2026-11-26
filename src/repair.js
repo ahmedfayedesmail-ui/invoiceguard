@@ -489,16 +489,27 @@ export function decideRepair(db, sellerId, eventKey, decision) {
   }
 }
 
-/** Round-21 (critic round-18 P2): take a manually uploaded report in. The STORE is the recovery
- * valve for a store_pending block, so a store failure must surface (it throws) - it is never
- * treated as "a report with no refund rows". Only proposal detection may legitimately find
- * nothing (non-VIDR formats), so only that step is allowed to fail quietly. */
-export function takeInManualReport(db, seller, text, { gen, seq, requestedAt, store = recordReportSnapshot }) {
-  // Mark BEFORE storing (mirrors the sync path): a failed store leaves store_pending=1, so the
-  // block the endpoint's error message promises really exists even with no prior block.
+/** Round-22 (critic round-19 P1): the protection must exist the moment a manual VIDR is
+ * ACCEPTED, before the first await of processing. begin: mark in-flight + store-pending, then
+ * store the report EARLY (approvals bind to the freshest data); in_flight stays up through
+ * processing. A failed store throws and leaves store_pending=1 (loud AND blocking). The caller
+ * lifts in_flight with clearReportInFlight when processing ends (success or failure: the new
+ * report is already stored, so approval revalidates against it). VIDR ONLY - an Order Report
+ * carries no refund evidence and must never touch the stored VIDR snapshot or release a block. */
+export function beginManualVidr(db, seller, text, { gen, seq, requestedAt, store = storeDownloadedReport }) {
   markReportInFlight(db, seller.id, requestedAt);
   markReportStorePending(db, seller.id);
   store(db, seller.id, { gen, seq, requestedAt, text });
-  try { return detectRepairs(db, seller, text, { reportAttemptSeq: seq, reportRequestedAt: requestedAt, reportGen: gen }).proposed; }
-  catch { return 0; } // non-VIDR formats carry no refund rows
+}
+/** Proposal detection after processing. Only an empty result is quiet; any database/execution
+ * error is loud (critic round-19 note). */
+export function finishManualVidr(db, seller, text, { gen, seq, requestedAt }) {
+  return detectRepairs(db, seller, text, { reportAttemptSeq: seq, reportRequestedAt: requestedAt, reportGen: gen }).proposed;
+}
+/** One-shot form (no processing window in between): begin, detect, lift. */
+export function takeInManualReport(db, seller, text, { gen, seq, requestedAt, store = storeDownloadedReport }) {
+  beginManualVidr(db, seller, text, { gen, seq, requestedAt, store });
+  const proposed = finishManualVidr(db, seller, text, { gen, seq, requestedAt });
+  clearReportInFlight(db, seller.id);
+  return proposed;
 }

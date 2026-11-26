@@ -20,7 +20,7 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, takeInManualReport } from './repair.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, ensureRepairTables, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, beginManualVidr, finishManualVidr } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -43,7 +43,7 @@ Check each total against the order in Seller Central before you upload. InvoiceG
 const apis = new Map(); // seller_id -> api instance (mock keeps state)
 
 export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'dev-secret-change-me', validate = cachedValidator(validateVat), env = process.env, oauthFetch = fetch } = {}) {
-  migrateAuth(db); migrateSecurity(db); migrateSecLog(db);
+  migrateAuth(db); migrateSecurity(db); migrateSecLog(db); ensureRepairTables(db); // round-22: the pack/mark/reject routes touch the repairs table directly, so it must exist from boot, not only after the first manual upload
   const MAX_INFLIGHT = Number(process.env.MAX_INFLIGHT ?? 400); let inflight = 0;
   const fails = new Map(); // login throttle: key -> { n, until }
   const FAIL_MAX = 8, FAIL_WINDOW = 15 * 60e3;
@@ -437,15 +437,19 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
           sample: plan.shipments.slice(0, 20).map(x => ({ orderId: x.orderId, buyer: x.buyerCompany, buyerVat: x.buyerVat, currency: x.currency, total: x.incl, vat: x.vat })) };
         if (p === '/api/manual/preview') return json(res, 200, view);
         if (body.attest !== true) return json(res, 400, { error: 'Please confirm the two checks first.' });
+        // Round-22 (critic round-19): for a VIDR the protection is recorded and the report stored the moment it is accepted, BEFORE the first await (processReport); in_flight stays up through processing. An Order Report carries no refund evidence: it never touches the stored VIDR snapshot or any block (P2).
+        const isVidr = plan.format === 'vidr', mText = String(body.text ?? '');
+        const stamp = { gen: isVidr ? nextReportGen(db, seller.id) : null, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString() };
+        if (isVidr) { try { beginManualVidr(db, seller, mText, stamp); } catch (e) { console.error('manual report store', e); return json(res, 500, { error: 'The report could not be stored, so nothing was issued and credit-note approvals stay blocked. Upload the report again.' }); } }
+        try {
         const prev = (key) => db.prepare('SELECT status, reason FROM shipments WHERE seller_id=? AND key=?').get(seller.id, key);
         for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; const pv = prev(st.key); const alreadyHeld = pv?.status === 'held' && pv?.reason === h.reason; if (!pv) logEvent(db, seller.id, 'detected', { key: st.key, orderId: st.orderId }); if (!alreadyHeld && !['ready', 'uploaded', 'submitted'].includes(pv?.status)) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
         const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
         logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
-        // Round-21 (critic round-18 P2): the manual path is the documented recovery valve, so a failed STORE answers loudly (never "no refund rows"); the issued invoices above are already recorded.
         let repairsProposed = 0;
-        try { repairsProposed = takeInManualReport(db, seller, String(body.text ?? ''), { gen: nextReportGen(db, seller.id), seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString() }); }
-        catch (e) { console.error('manual report store', e); return json(res, 500, { error: 'The invoices from this upload were recorded, but the report itself could not be stored, so credit-note approvals stay blocked. Upload the report again.', issued: out.uploaded }); }
-        return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
+        if (isVidr) repairsProposed = finishManualVidr(db, seller, mText, stamp); // loud on database errors; quiet only when the report has no refund rows
+          return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
+        } finally { if (isVidr) clearReportInFlight(db, seller.id); } // the report is already stored: success or failure, approval revalidates against it
       }
       if (p === '/api/repairs') { // review queue: proposed first, then the recent history
         const snap = latestReportSnapshot(db, seller.id); // round-16/17: the review shows each proposal's freshness, ordered by report generation
