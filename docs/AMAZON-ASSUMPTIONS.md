@@ -86,3 +86,10 @@ can never protect a retry's feed, while a verdict stamped DURING the call is res
 success handler lands the document in 'processing' (or keeps the state the verdict set) instead of
 regressing it to 'submitted'. feed_conflict events are deduplicated per document+feed+status -
 repeats only bump the event's count.
+
+C9. Report-request anchoring (round-13, critic round-11): a VIDR report's verdicts can only
+describe upload attempts that began BEFORE the report was requested. sync stamps the report's
+request time and reconcilers compare it with the document's sending_at (set by the atomic claim):
+a verdict from a report requested before the current attempt began is skipped entirely (logged as
+stale_report_verdict_skipped) - it never stamps vidr_processing_at and never moves the attempt's
+state, so a late-arriving OLD verdict cannot be resurrected over a new attempt.

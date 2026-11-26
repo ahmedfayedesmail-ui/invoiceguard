@@ -93,8 +93,9 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     // all-status report: one pass detects new work AND carries Amazon's verdict (InvoiceUploaded /
     // InvoiceRejected / CreditNote*) on what we already sent - that verdict, not the feed state,
     // is what marks a document uploaded (see pollFeeds).
+    const reportRequestedAt = new Date(); // round-13: verdicts in this report predate any upload attempt that starts after now
     const rid = await api.requestVidr(ids, { all: true }); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
-    const out = await processReport(db, seller, text, { api, validate }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
+    const out = await processReport(db, seller, text, { api, validate, reportRequestedAt }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
     const settled = await settleUnknownDocuments(db, seller, text, { api, validate }); if (settled.resubmitted.length) logEvent(db, seller.id, 'sync_settled_unknown', settled);
     let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text).proposed; } catch { /* a report without refund rows proposes nothing */ }
     const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };

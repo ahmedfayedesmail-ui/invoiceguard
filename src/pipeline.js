@@ -26,7 +26,12 @@ export function upsertShipment(db, sellerId, s, status, reason = null) {
 }
 
 /** One pass over a VIDR report text. Pure with respect to Amazon: upload goes through the `api` object. */
-export async function processReport(db, seller, reportText, { api, validate = validateVat, now = new Date(), dryRun = false, census = null, shipments = null } = {}) {
+export async function processReport(db, seller, reportText, { api, validate = validateVat, now = new Date(), dryRun = false, census = null, shipments = null, reportRequestedAt = null } = {}) {
+  // Round-13 (critic round-11): the instant this report was REQUESTED. A verdict in it can only
+  // describe attempts that began BEFORE that instant; reconcilers skip any document whose current
+  // attempt (sending_at, stamped by the atomic claim) is newer - a stale report must never
+  // resurrect a pre-attempt verdict over a new attempt.
+  const reportReqTs = reportRequestedAt ? +new Date(reportRequestedAt) : null;
   const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
   const list = shipments ?? parseVidr(reportText);
   // Friction fix: without this, N shipments meant N SEQUENTIAL VIES round-trips (the loop awaits each
@@ -37,8 +42,8 @@ export async function processReport(db, seller, reportText, { api, validate = va
   for (const s of list) {
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
-    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s); out.skipped++; continue; }
-    if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s); out.skipped++; continue; }
+    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs); out.skipped++; continue; }
+    if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs); out.skipped++; continue; }
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
@@ -160,14 +165,21 @@ export async function processReport(db, seller, reportText, { api, validate = va
 }
 
 /** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
-function reconcileInvoice(db, seller, s) {
+function reconcileInvoice(db, seller, s, reportReqTs = null) {
   const key = `SHIPMENT:${s.shippingId}`;
   // A Correction:: transaction's verdict belongs to the REPLACEMENT document (a rectificativa keyed
   // by the correction event), not to the original invoice. Billing-correction documents are under
   // the same reject/retry umbrella as every other document.
-  const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
-  const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
+  const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies, sending_at FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
+  const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies, sending_at FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
   if (!inv) return;
+  // Round-13 (critic round-11): the report was REQUESTED before this document's current upload
+  // attempt began, so its verdict cannot describe that attempt. Skip it: never stamp, never move
+  // the attempt's state. The next report (requested after the attempt) reconciles it for real.
+  if (reportReqTs != null && inv.sending_at && Date.parse(inv.sending_at) > reportReqTs) {
+    logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: inv.number, status: s.invoiceStatus, sendingAt: inv.sending_at, reportRequestedAt: new Date(reportReqTs).toISOString() });
+    return;
+  }
   const docKey = rect ? s.key : key;
   if (s.invoiceStatus === 'InvoiceUploaded' && inv.upload_status !== 'uploaded') {
     tx(db, () => {
@@ -214,9 +226,14 @@ function reconcileInvoice(db, seller, s) {
 }
 
 /** Reconcile Amazon's verdict on an uploaded credit note (CreditNote* statuses on the refund row). */
-function reconcileCreditNote(db, seller, s) {
-  const rect = db.prepare("SELECT number, upload_status, rectifies FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
+function reconcileCreditNote(db, seller, s, reportReqTs = null) {
+  const rect = db.prepare("SELECT number, upload_status, rectifies, sending_at FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
   if (!rect) return;
+  // Round-13 (critic round-11): same stale-report guard as reconcileInvoice.
+  if (reportReqTs != null && rect.sending_at && Date.parse(rect.sending_at) > reportReqTs) {
+    logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, status: s.invoiceStatus, sendingAt: rect.sending_at, reportRequestedAt: new Date(reportReqTs).toISOString() });
+    return;
+  }
   const hasRepairs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='repairs'").get();
   if (s.invoiceStatus === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
     tx(db, () => {
