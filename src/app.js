@@ -20,7 +20,7 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, clearAllInFlightReports, markReportStorePending, storeDownloadedReport } from './repair.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -539,7 +539,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // document was already created/submitted before the crash is held for human review instead of
   // blindly re-approvable (which would hit the idempotency guard and wedge the repair forever).
   try { recoverStuckRepairs(db); } catch { /* repairs table is created on first use */ }
-  try { clearAllInFlightReports(db); } catch { /* snapshots table is created on first use */ } // round-17: a crashed sync's approval block never sticks
+  reconcileReportMarksAtBoot(db); // round-20: a crashed run cannot prove no newer report arrived - leftover in-flight marks become store_pending and block approvals until a successful store; a failure here fails boot loudly rather than leaving a gap
   // Documents caught in the crash window between Amazon accepting an upload and the local write of
   // its result ('sending') become 'unknown' with a human-visible hold; the next report settles them.
   try { recoverUncertainUploads(db); } catch { /* invoices table is created on first use */ }

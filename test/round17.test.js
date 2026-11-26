@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, currentAttemptSeq, nextReportGen } from '../src/db.js';
 import { processReport } from '../src/pipeline.js';
-import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, clearAllInFlightReports } from '../src/repair.js';
+import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot, latestReportSnapshot, markReportInFlight, markReportStorePending, storeDownloadedReport, clearReportInFlight, reconcileReportMarksAtBoot } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'selR17', name: 'Test S.L.', nif: 'B1', address: 'x', country: 'ES' };
@@ -93,16 +93,19 @@ test('R15-4 (P1-B): a FAILED sync clears the in-flight mark explicitly and the a
   assert.ok(res.rectNumber, 'the credit note issued once the failed sync released the block');
 });
 
-test('R15-5 (P1-B): a CRASHED sync leaves a stale in-flight mark; boot clearing releases it', async () => {
+test('R15-5 (P1-B, superseded by round-20): a CRASHED sync leaves an in-flight mark; boot does NOT release it - only a successful store does', async () => {
   const db = openDb();
   const { p, g1 } = await seedProposal(db);
   recordReportSnapshot(db, seller.id, { gen: g1, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-25T10:00:00Z').toISOString(), text: refundReport() });
-  // The process crashed mid-sync: the mark is still set and nobody clears it until boot.
   markReportInFlight(db, seller.id, new Date('2026-11-26T10:00:00Z').toISOString());
-  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/);
-  // Boot: no sync can be running at startup, so every mark is stale.
-  clearAllInFlightReports(db);
-  assert.equal(latestReportSnapshot(db, seller.id).in_flight, 0, 'boot cleared the stale mark');
+  reconcileReportMarksAtBoot(db);
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'still blocked after boot');
+  // The next successful sync stores its report (matching amounts) and lifts the block.
+  const g2 = nextReportGen(db, seller.id);
+  markReportInFlight(db, seller.id, new Date('2026-11-27T10:00:00Z').toISOString());
+  markReportStorePending(db, seller.id);
+  storeDownloadedReport(db, seller.id, { gen: g2, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-27T10:00:00Z').toISOString(), text: refundReport() });
+  clearReportInFlight(db, seller.id);
   const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
-  assert.ok(res.rectNumber, 'the credit note issued after boot cleared the crashed sync mark');
+  assert.ok(res.rectNumber, 'issued after a successful store lifted the block');
 });

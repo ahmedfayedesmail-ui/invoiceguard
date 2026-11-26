@@ -73,7 +73,7 @@ export function latestReportSnapshot(db, sellerId) {
 }
 /** Round-17 (critic round-15 P1-B): mark that a newer report is being fetched/processed - credit-
  * note approvals hold until the report lands (recordReportSnapshot) or the sync fails
- * (clearReportInFlight). Boot clears stale marks (clearAllInFlightReports). */
+ * (clearReportInFlight). Boot never clears them: reconcileReportMarksAtBoot turns leftovers into store_pending. */
 export function markReportInFlight(db, sellerId, at) {
   ensureRepairTables(db);
   db.prepare(`INSERT INTO report_snapshots (seller_id, in_flight, in_flight_at) VALUES (?,1,?)
@@ -85,13 +85,16 @@ export function clearReportInFlight(db, sellerId) {
   // is NOT released by a later pre-download failure; only a successful store lifts it.
   db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE seller_id=? AND (store_pending IS NULL OR store_pending=0)').run(sellerId);
 }
-/** A crashed sync can leave the mark set; at boot no sync is running, so every mark is stale -
- * EXCEPT store_pending rows (round-18, critic round-16): a newer report was downloaded but never
- * stored, so the block survives boot until a later sync stores a report (safe direction, never
- * stuck: the next successful sync stores its report and lifts the block). */
-export function clearAllInFlightReports(db) {
+/** Round-20 (critic round-17): at boot no sync is running, but a leftover in-flight mark means a
+ * run died at an unknown point - possibly AFTER a newer report was downloaded and BEFORE it was
+ * stored. A crashed run cannot tell pre-download from post-download, so boot NEVER releases the
+ * block: every leftover in-flight mark is converted to store_pending (the persistent "cannot
+ * prove no newer report arrived" state). Only a successful store (recordReportSnapshot /
+ * storeDownloadedReport) lifts it. Safe direction, never stuck: the scheduler's next sync (or a
+ * manual report upload) stores a report. */
+export function reconcileReportMarksAtBoot(db) {
   ensureRepairTables(db);
-  db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE in_flight=1 AND (store_pending IS NULL OR store_pending=0)').run();
+  db.prepare('UPDATE report_snapshots SET store_pending=1 WHERE in_flight=1').run();
 }
 
 /**

@@ -131,4 +131,4 @@ lifts the block safely because approval revalidates against the newer stored rep
 itself fails, the store_pending flag keeps the block up across boots until a later sync stores a
 report - never stuck, never unsafe. (Edge documented: if the DB write path itself is broken, no
 marker can be persisted; the in-flight mark set before the request still holds the block until
-boot.)
+boot.) Round-20 (critic round-17): boot no longer releases ANY in-flight mark - a crashed run cannot tell pre-download from post-download, so reconcileReportMarksAtBoot converts leftovers to store_pending and approvals stay blocked until a successful store. The in-flight mark is written BEFORE the report request; if that write fails the sync fails loudly and no request is made.

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, currentAttemptSeq, nextReportGen } from '../src/db.js';
 import { processReport } from '../src/pipeline.js';
-import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, clearAllInFlightReports, markReportStorePending, storeDownloadedReport } from '../src/repair.js';
+import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'selR18', name: 'Test S.L.', nif: 'B1', address: 'x', country: 'ES' };
@@ -81,7 +81,7 @@ test('R16-2: the store ITSELF fails after download - the block stays up, survive
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'the approval stays blocked');
   assert.equal(rectCount(db), 0, 'nothing was issued');
   // A crash and restart must NOT release this block: the last stored snapshot is known-stale.
-  clearAllInFlightReports(db);
+  reconcileReportMarksAtBoot(db);
   assert.equal(latestReportSnapshot(db, seller.id).in_flight, 1, 'boot did not release a store-pending block');
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'still blocked after boot');
   // The next sync retries: the download stores successfully and processing completes.
@@ -142,4 +142,29 @@ test('R16-5 (reviewer HOLD on 43a15bb): store failure, then a PRE-DOWNLOAD failu
   assert.equal(latestReportSnapshot(db, seller.id).in_flight, 0, 'block lifted by the successful store');
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /different refund amounts/, 'stale proposal held');
   assert.equal(rectCount(db), 0, 'never issued');
+});
+
+test('R17-1 (critic round-17): crash BETWEEN downloadReport and markReportStorePending (in_flight=1, store_pending=0, old snapshot) - boot keeps approvals blocked', async () => {
+  const db = openDb();
+  const { p } = await seedProposal(db);
+  // Crash state: a newer report arrived but nothing about it was recorded beyond the pre-request mark.
+  db.prepare('UPDATE report_snapshots SET in_flight=1, in_flight_at=?, store_pending=0 WHERE seller_id=?').run('2026-11-26T10:00:00Z', seller.id);
+  reconcileReportMarksAtBoot(db); // boot after the crash
+  const s = latestReportSnapshot(db, seller.id);
+  assert.equal(s.in_flight, 1, 'boot did not clear the mark');
+  assert.equal(s.store_pending, 1, 'a crashed run cannot prove no newer report arrived');
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'approval blocked');
+  assert.equal(rectCount(db), 0, 'zero financial documents issued');
+  // A later live-process pre-download failure still cannot release it.
+  markReportInFlight(db, seller.id, new Date('2026-11-27T10:00:00Z').toISOString());
+  clearReportInFlight(db, seller.id);
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /sync is running/, 'still blocked');
+  // A successful sync stores the newer report (amounts halved): the block lifts and the stale proposal is held.
+  const g2 = nextReportGen(db, seller.id);
+  markReportInFlight(db, seller.id, new Date('2026-11-28T10:00:00Z').toISOString());
+  markReportStorePending(db, seller.id);
+  storeDownloadedReport(db, seller.id, { gen: g2, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-28T10:00:00Z').toISOString(), text: refundReport(0.5) });
+  clearReportInFlight(db, seller.id);
+  await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /different refund amounts/, 'stale proposal held by revalidation');
+  assert.equal(rectCount(db), 0, 'never issued from stale data');
 });
