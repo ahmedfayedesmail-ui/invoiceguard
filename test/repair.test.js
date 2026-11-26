@@ -1,0 +1,57 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { openDb } from '../src/db.js';
+import { processReport } from '../src/pipeline.js';
+import { detectRepairs, listRepairs, decideRepair } from '../src/repair.js';
+
+const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
+const seller = { id: 'selR', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
+const api = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }) };
+const vies = async (v) => ({ status: 'valid', vat: v });
+
+function refundReport() {
+  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const row = rows[0].split('\t');
+  const ref = [...row]; ref[ix('transaction-type')] = 'REFUND'; ref[ix('transaction-id')] = 'r-100-1';
+  ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { ref[ix(n)] = '-' + ref[ix(n)]; });
+  return [head, ref.join('\t')].join('\n');
+}
+
+test('a plain return after issuance becomes a review-first proposal, idempotent, no auto-issue', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const before = db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c;
+  const rep = refundReport();
+  const r = detectRepairs(db, seller, rep);
+  assert.equal(r.proposed, 1); assert.equal(r.skipped.length, 0);
+  const q = listRepairs(db, seller.id);
+  assert.equal(q.length, 1);
+  assert.equal(q[0].kind, 'return'); assert.equal(q[0].state, 'proposed');
+  assert.equal(q[0].suggestion.action, 'credit_note'); assert.ok(q[0].suggestion.total > 0);
+  assert.match(q[0].reason, /Return or refund/);
+  // nothing was issued: invoice count unchanged (proposal only, review-first)
+  assert.equal(db.prepare('SELECT count(*) c FROM invoices WHERE seller_id=?').get(seller.id).c, before);
+  // idempotent
+  const again = detectRepairs(db, seller, rep);
+  assert.equal(again.proposed, 0); assert.equal(listRepairs(db, seller.id).length, 1);
+});
+
+test('decisions move a proposal out of the queue, and only once', async () => {
+  const db = openDb();
+  await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  detectRepairs(db, seller, refundReport());
+  const [p] = listRepairs(db, seller.id);
+  decideRepair(db, seller.id, p.event_key, 'approved');
+  assert.equal(listRepairs(db, seller.id).length, 0);
+  assert.equal(listRepairs(db, seller.id, 'approved').length, 1);
+  assert.throws(() => decideRepair(db, seller.id, p.event_key, 'approved'), /No proposed repair/);
+  assert.throws(() => decideRepair(db, seller.id, 'nope', 'dismissed'), /No proposed repair/);
+});
+
+test('a refund for an invoice we did not issue is skipped, not proposed', () => {
+  const db = openDb();
+  const r = detectRepairs(db, seller, refundReport());
+  assert.equal(r.proposed, 0);
+  assert.equal(r.skipped.length, 1); assert.match(r.skipped[0].reason, /not issued by us/);
+});
