@@ -98,3 +98,15 @@ vidr_processing_at and never moves the attempt's state, so a late-arriving OLD v
 resurrected over a new attempt. Migration: attempts predating the column were backfilled to seq 1
 with each seller's counter starting at 1, so every claim from then on takes a fresh, higher
 number and no pre-migration verdict can outrank a post-migration claim.
+Round-15 (critic round-13) strengthens this twice. P1-A: the sequence allocation and the
+conditional claim are ONE BEGIN IMMEDIATE transaction on every claim path, so no report can
+observe the incremented counter before the attempt is recorded on the document; a lost claim burns
+a number (documented gap - ordering needs monotonicity, never gaplessness). P1-B: the snapshot
+guard covers EVERY report-row-driven decision, not only final-state verdicts: pending rows in
+processReport, CreditNotePending in settleUnknownDocuments, and CorrectionReversal/Correction::
+rows in processCorrections are all skipped (logged as stale_report_row_skipped) when the document
+has a newer attempt - a stale report must never cause a new financial upload.
+PILOT-VALIDATION ITEM: Amazon's docs do not explicitly guarantee that a report freezes each
+document's state at createReport time. Treating the request-time snapshot as a hard boundary is an
+assumption to be proven against a live seller account in the first real pilot; until then the
+skip events double as the audit trail for checking it.

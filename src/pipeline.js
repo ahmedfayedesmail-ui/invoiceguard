@@ -32,6 +32,8 @@ export async function processReport(db, seller, reportText, { api, validate = va
   // reconcilers skip any document whose current attempt_seq is newer - a stale report must never
   // resurrect a pre-attempt verdict over a new attempt. Ordering comes from the monotonic
   // sequence, never the clock; reportRequestedAt stays as secondary evidence in the skip event.
+  // NOTE: reportRequestedAt ALONE (without reportAttemptSeq) provides NO stale protection - the
+  // timestamp is evidence-only. Every caller that requests a fresh report must pass both.
   const reportReqTs = reportRequestedAt ? +new Date(reportRequestedAt) : null;
   const reportSeq = reportAttemptSeq ?? null;
   const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
@@ -46,6 +48,12 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
     if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
+    // Round-15 (critic round-13 P1-B): a STALE report row must never drive an upload decision.
+    // An old report saying "still pending" could otherwise pass the unknown-settle cross-check
+    // (the new feed may not be visible in Amazon's feed list yet) and trigger ANOTHER resend over
+    // an in-flight attempt - old information causing a new financial upload.
+    const staleDoc = staleDocForReport(db, seller, s, reportSeq);
+    if (staleDoc) { logStaleRow(db, seller, s, staleDoc, reportSeq); out.skipped++; continue; }
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
@@ -125,7 +133,11 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // Round-8: this write is also the ATOMIC CLAIM on the upload. Two overlapping executions (Sync
     // now + the hourly scheduler, or a retried request) can both pass every read above; only the one
     // whose claim flips a real state talks to Amazon. The loser changes 0 rows and skips.
-    const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, inv.number); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after; round-14: the claim takes the next attempt sequence
+    // Round-15 (critic round-13 P1-A): the sequence allocation and the conditional claim are ONE
+    // IMMEDIATE transaction - no report can observe the incremented counter before the attempt is
+    // recorded on the document. A lost claim burns a number (documented gap): ordering only needs
+    // monotonicity, never gaplessness.
+    const claim = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, inv.number)); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after; round-14: the claim takes the next attempt sequence
     if (!claim.changes) { out.skipped++; continue; }
     upsertShipment(db, seller.id, s, 'sending');
     try {
@@ -165,6 +177,22 @@ export async function processReport(db, seller, reportText, { api, validate = va
   }
   return out;
 }
+
+/** Round-15 (critic round-13 P1-B): a report ROW (pending or verdict) from a report requested
+ * before a document's current attempt cannot describe that attempt - it must neither change state
+ * NOR trigger a new financial upload. Returns the newer document, else null. Refund and correction
+ * rows resolve to their rectificativa (keyed by the row's record key), shipment rows to the
+ * shipment's invoice. */
+function staleDocForReport(db, seller, s, reportSeq) {
+  if (reportSeq == null) return null;
+  const isDocRow = s.isCorrectedTx || s.isCorrectionReversal || s.transactionType === 'REFUND';
+  const doc = isDocRow
+    ? db.prepare("SELECT number, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key)
+    : db.prepare("SELECT number, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, `SHIPMENT:${s.shippingId}`);
+  return (doc && doc.attempt_seq != null && doc.attempt_seq > reportSeq) ? doc : null;
+}
+const logStaleRow = (db, seller, s, doc, reportSeq) =>
+  logEvent(db, seller.id, 'stale_report_row_skipped', { number: doc.number, key: s.key, status: s.invoiceStatus || null, attemptSeq: doc.attempt_seq, reportAttemptSeq: reportSeq });
 
 /** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
 function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = null) {
@@ -408,7 +436,9 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       // blindly.
       // Round-8: atomic claim - a concurrent execution (settle path vs human-approved retry) must
       // never upload the same correction document twice.
-      const claim0 = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, prev.number); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
+      // Round-15 (critic round-13 P1-A): allocation + claim in ONE IMMEDIATE transaction (see the
+      // first-upload claim). A lost claim burns a number - a documented, harmless gap.
+      const claim0 = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, prev.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
       if (!claim0.changes) throw new Error(`Correction document ${prev.number} is already being uploaded by another run. Nothing was re-uploaded.`);
       let feedId0;
       try {
@@ -493,7 +523,9 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     // and when the attempt started. A crash in this window is recovered at boot by
     // recoverUncertainUploads, never blindly resent.
     // Round-8: atomic claim on the upload, same as the first-upload path.
-    const claimR = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, rect.number); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
+    // Round-15 (critic round-13 P1-A): allocation + claim in ONE IMMEDIATE transaction (see the
+    // first-upload claim). A lost claim burns a number - a documented, harmless gap.
+    const claimR = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, rect.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
     if (!claimR.changes) throw new Error(`Correction document ${rect.number} is already being uploaded by another run. Nothing was re-uploaded.`);
     try {
       feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
@@ -580,10 +612,14 @@ export async function unknownSettleCheck(db, seller, api, number) {
  * report alone can lag a feed that just entered processing. Anything not freshly due, or blocked by
  * the cross-check, keeps waiting (a verdict row settles through reconcileCreditNote/reconcileInvoice).
  * Plain invoices settle through processReport's normal path, under the same cross-check. */
-export async function settleUnknownDocuments(db, seller, reportText, { api, validate }) {
+export async function settleUnknownDocuments(db, seller, reportText, { api, validate, reportAttemptSeq = null }) {
+  const reportSeq = reportAttemptSeq ?? null;
   const out = { resubmitted: [], waiting: [] };
   const due = new Set(parseVidr(reportText).filter(s => s.invoiceStatus === 'CreditNotePending').map(s => s.key));
-  for (const inv of db.prepare("SELECT number, shipment_key, rectifies FROM invoices WHERE seller_id=? AND kind='rectificativa' AND upload_status='unknown'").all(seller.id)) {
+  for (const inv of db.prepare("SELECT number, shipment_key, rectifies, attempt_seq FROM invoices WHERE seller_id=? AND kind='rectificativa' AND upload_status='unknown'").all(seller.id)) {
+    // Round-15 (critic round-13 P1-B): a stale report's CreditNotePending is old information - it
+    // must never resubmit a document whose current attempt is newer than the report's snapshot.
+    if (reportSeq != null && inv.attempt_seq != null && inv.attempt_seq > reportSeq) { logEvent(db, seller.id, 'stale_report_row_skipped', { number: inv.number, key: inv.shipment_key, status: 'CreditNotePending', attemptSeq: inv.attempt_seq, reportAttemptSeq: reportSeq }); out.waiting.push(inv.number); continue; }
     if (!due.has(inv.shipment_key)) { out.waiting.push(inv.number); continue; }
     const block = await unknownSettleCheck(db, seller, api, inv.number);
     if (block) { logEvent(db, seller.id, 'unknown_resend_blocked', { number: inv.number, reason: block }); out.waiting.push(inv.number); continue; }
@@ -600,7 +636,8 @@ export async function settleUnknownDocuments(db, seller, reportText, { api, vali
  * a REFUND "CorrectionReversal:..." (seller must upload a credit note) and a SHIPMENT "Correction::..." (seller must upload a new invoice),
  * both with their transaction IDs. Amounts are unchanged. We issue both as rectificativas, automatically.
  */
-export async function processCorrections(db, seller, reportText, { api, validate }) {
+export async function processCorrections(db, seller, reportText, { api, validate, reportAttemptSeq = null }) {
+  const reportSeq = reportAttemptSeq ?? null; // round-15 (critic round-13 P1-B): stale rows drive nothing
   const out = { creditNotes: 0, invoices: 0, skipped: [], errors: [] };
   const list = parseVidr(reportText).filter(s => s.isCorrectionReversal || s.isCorrectedTx);
   // Only a row whose upload actually left the pending state counts as done: a pending row is an issued
@@ -624,6 +661,8 @@ export async function processCorrections(db, seller, reportText, { api, validate
   // would leave Amazon's books inconsistent.
   for (const s of list.filter(s => s.isCorrectionReversal)) {
     if (done(s.key)) continue;
+    const staleRev = staleDocForReport(db, seller, s, reportSeq);
+    if (staleRev) { logStaleRow(db, seller, s, staleRev, reportSeq); out.skipped.push({ key: s.key, reason: 'stale report row: the credit note has a newer attempt than this report - no upload is driven by old information' }); continue; }
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
     if (zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'zero-amount original: nothing to reverse' }); continue; }
     const block1 = await unknownBlock(s.key);
@@ -635,6 +674,8 @@ export async function processCorrections(db, seller, reportText, { api, validate
   }
   for (const s of list.filter(s => s.isCorrectedTx)) {
     if (done(s.key)) continue;
+    const staleTx = staleDocForReport(db, seller, s, reportSeq);
+    if (staleTx) { logStaleRow(db, seller, s, staleTx, reportSeq); out.skipped.push({ key: s.key, reason: 'stale report row: the replacement has a newer attempt than this report - no upload is driven by old information' }); continue; }
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
     const block2 = await unknownBlock(s.key);
     if (block2) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block2 }); out.skipped.push({ key: s.key, reason: block2 }); continue; }

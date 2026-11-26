@@ -99,8 +99,8 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     const reportRequestedAt = new Date();
     const reportAttemptSeq = currentAttemptSeq(db, seller.id);
     const rid = await api.requestVidr(ids, { all: true }); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
-    const out = await processReport(db, seller, text, { api, validate, reportRequestedAt, reportAttemptSeq }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
-    const settled = await settleUnknownDocuments(db, seller, text, { api, validate }); if (settled.resubmitted.length) logEvent(db, seller.id, 'sync_settled_unknown', settled);
+    const out = await processReport(db, seller, text, { api, validate, reportRequestedAt, reportAttemptSeq }); const corr = await processCorrections(db, seller, text, { api, validate, reportAttemptSeq }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
+    const settled = await settleUnknownDocuments(db, seller, text, { api, validate, reportAttemptSeq }); if (settled.resubmitted.length) logEvent(db, seller.id, 'sync_settled_unknown', settled);
     let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text).proposed; } catch { /* a report without refund rows proposes nothing */ }
     const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };
     db.prepare('UPDATE amazon_conn SET last_sync=?, last_sync_result=? WHERE seller_id=?').run(result.at, JSON.stringify({ detected: out.detected, uploaded: out.uploaded, held: out.held.length, deferred: out.deferred.length, errors: out.errors.length }), seller.id);
