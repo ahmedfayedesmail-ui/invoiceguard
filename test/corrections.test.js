@@ -24,9 +24,16 @@ test('Amazon billing-data correction: credit note + new invoice, both with trans
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const before = calls.length; const rep = correctionReport();
   const r = await processCorrections(db, seller, rep, { api, validate: vies });
-  assert.deepEqual([r.creditNotes, r.invoices, r.errors.length], [1, 1, 0], JSON.stringify(r));
-  const cn = calls[before], inv = calls[before + 1];
+  assert.deepEqual([r.creditNotes, r.invoices, r.errors.length], [1, 0, 0], JSON.stringify(r));
+  const cn = calls[before];
   assert.equal(cn.documentType, 'CreditNote'); assert.equal(cn.transactionId, 'CorrectionReversal:X:1'); assert.equal(cn.total, 54.45);
+  // the replacement invoice waits until Amazon CONFIRMS the credit note (VIDR CreditNoteUploaded) -
+  // a created feed is not acceptance, and a half pair would leave Amazon's books inconsistent
+  assert.ok(r.skipped.some(x => /not yet confirmed accepted/.test(x.reason)), 'pair kept together');
+  await processReport(db, seller, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api, validate: vies });
+  const r2 = await processCorrections(db, seller, rep, { api, validate: vies });
+  assert.deepEqual([r2.creditNotes, r2.invoices, r2.errors.length], [0, 1, 0], JSON.stringify(r2));
+  const inv = calls[before + 1];
   assert.equal(inv.documentType, 'Invoice'); assert.equal(inv.transactionId, 'Correction::X:2'); assert.equal(inv.total, 54.45);
   const again = await processCorrections(db, seller, rep, { api, validate: vies }); assert.equal(calls.length, before + 2, 'idempotent');
   // the correction rows must not be treated as new normal invoices

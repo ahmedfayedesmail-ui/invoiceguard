@@ -93,7 +93,12 @@ export async function approveRepair(db, seller, eventKey, { api, validate } = {}
   try {
     return await approveClaimed(db, seller, r, { api, validate });
   } catch (e) {
-    db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='issuing'").run(r.state === 'rejected' ? 'rejected' : 'proposed', seller.id, eventKey);
+    // An interrupted upload (unknown outcome) already marked the document 'unknown' and created its
+    // own UNKNOWN hold. Returning THIS repair to 'proposed' would show a doomed action next to that
+    // hold (approving it can only fail on the unknown-outcome guard), so it is held visibly instead -
+    // Amazon's verdict or the settling resend closes both (closeRepairsFor includes 'held').
+    const next = e.unknownOutcome ? 'held' : (r.state === 'rejected' ? 'rejected' : 'proposed');
+    db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='issuing'").run(next, seller.id, eventKey);
     throw e;
   }
 }
@@ -112,6 +117,11 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   const mp = marketplaceFor(s.marketplace);
   if (!mp) throw new Error(`The shipment's store code "${s.marketplace || 'none'}" cannot be mapped to an Amazon marketplace, so the upload target was not guessed. Nothing was re-uploaded.`);
   const pdf = await renderPdf(doc);
+  // Same discipline as the first upload: mark 'sending' BEFORE the call, so a crash in the window
+  // between Amazon accepting the retry and the local write is recovered at boot by
+  // recoverUncertainUploads ('unknown' + human hold) - never invisible, never blindly resent.
+  db.prepare("UPDATE invoices SET upload_status='sending' WHERE seller_id=? AND number=?").run(seller.id, number);
+  db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
   try {
     feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) });
@@ -123,7 +133,12 @@ async function retryRejectedUpload(db, seller, number, { api }) {
       db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
       logEvent(db, seller.id, 'upload_unknown_outcome', { number, error: e.message });
       proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${row.shipment_key}`, kind: 'unknown_outcome', number, shipmentKey: row.shipment_key, action: 'hold',
-        reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there means the next sync resubmits it safely, a verdict closes it.` });
+        reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there, cross-checked against Amazon's own feed list, lets the next sync resubmit it; a verdict closes it.` });
+    } else {
+      // A DEFINITE refusal (Amazon never accepted the retry): restore 'rejected' so the reviewed
+      // retry stays available. Only an unknown outcome holds.
+      db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, number);
+      db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
     }
     throw e;
   }
@@ -195,7 +210,7 @@ export function proposeRejectedRetry(db, seller, { eventKey, kind, number, origi
 export function closeRepairsFor(db, sellerId, eventKeys, state = 'uploaded') {
   ensureRepairTables(db);
   for (const k of eventKeys)
-    db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state IN ('proposed','issued','issuing','exported','rejected')").run(state, sellerId, k);
+    db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state IN ('proposed','issued','issuing','exported','rejected','held')").run(state, sellerId, k);
 }
 
 /** Boot recovery for repairs stranded in 'issuing' by a crash. Reads the DOCUMENT's actual state
@@ -211,12 +226,15 @@ export function recoverStuckRepairs(db) {
     // all come BACK to the review queue: a hold repair closed on an 'unknown' document would vanish
     // from review, and a 'rejected' document still needs its retry decision.
     const GONE_OUT = ['submitted', 'processing', 'uploaded', 'ready'];
+    // A retry repair recovered on an 'unknown' document is HELD, not re-proposed: approving it could
+    // only fail on the unknown-outcome guard (the UNKNOWN hold carries the review). The UNKNOWN hold
+    // repair itself (action 'hold') does come back to 'proposed' - it IS the visible review item.
     if (['retry_upload', 'retry_rect', 'hold'].includes(sug.action)) {
       docStatus = db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(r.seller_id, sug.number)?.upload_status ?? null;
-      next = GONE_OUT.includes(docStatus) ? 'issued' : 'proposed';
+      next = GONE_OUT.includes(docStatus) ? 'issued' : (docStatus === 'unknown' && sug.action !== 'hold' ? 'held' : 'proposed');
     } else {
       docStatus = db.prepare("SELECT upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(r.seller_id, r.event_key)?.upload_status ?? null;
-      next = GONE_OUT.includes(docStatus) ? 'issued' : 'proposed';
+      next = GONE_OUT.includes(docStatus) ? 'issued' : (docStatus === 'unknown' ? 'held' : 'proposed');
     }
     db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='issuing'").run(next, r.seller_id, r.event_key);
     logEvent(db, r.seller_id, 'repair_recovered', { key: r.event_key, to: next, document: docStatus });

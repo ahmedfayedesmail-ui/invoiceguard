@@ -201,9 +201,14 @@ async function part3(n) {
       const fixed = [...base]; fixed[ix('transaction-id')] = 'Correction::X:' + i; fixed[ix('billing-name')] = 'Nombre Corregido S.L.'; fixed[ix('buyer-company-name')] = 'Nombre Corregido S.L.';
       const rep = [HEAD, rev.join('\t'), fixed.join('\t')].join('\n') + '\n';
       const r = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
-      check(scn, r.creditNotes === 1 && r.invoices === 1 && r.errors.length === 0, `correction pair: ${JSON.stringify({ c: r.creditNotes, i: r.invoices, e: r.errors })}`);
-      const cn = calls[calls.length - 2], inv = calls[calls.length - 1];
+      check(scn, r.creditNotes === 1 && r.invoices === 0 && r.errors.length === 0, `correction pair staged (replacement waits): ${JSON.stringify({ c: r.creditNotes, i: r.invoices, e: r.errors })}`);
+      const cn = calls[calls.length - 1];
       check(scn, cn.documentType === 'CreditNote' && cn.transactionId === 'CorrectionReversal:X:' + i, 'credit note TransactionId');
+      // The replacement waits for Amazon's acceptance of the credit note; then the pair completes.
+      await processReport(db, SELLER, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api: mkApi(calls), validate: mkValidate() });
+      const rp = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
+      check(scn, rp.invoices === 1 && rp.errors.length === 0, `replacement after acceptance: ${JSON.stringify({ i: rp.invoices, e: rp.errors })}`);
+      const inv = calls[calls.length - 1];
       check(scn, inv.documentType === 'Invoice' && inv.transactionId === 'Correction::X:' + i, 'replacement TransactionId');
       const r2 = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
       check(scn, r2.creditNotes === 0 && r2.invoices === 0, 'correction idempotent');

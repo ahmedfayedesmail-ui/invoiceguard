@@ -26,7 +26,8 @@ export class MockApi {
       c[ix('invoice-status')] = this.creditDone.has('RT-DEMO-1') ? 'CreditNoteUploaded' : 'CreditNotePending'; out.push(c.join('\t')); }
     return [head, ...out].join('\n');
   }
-  async uploadInvoice({ shippingId, documentType, transactionId }) { const id = `mock-feed-${this.feeds.size + 1}`; this.feeds.set(id, shippingId); if (documentType === 'CreditNote' && transactionId) this.creditDone.add(transactionId); else this.uploaded.add(shippingId); return id; }
+  async uploadInvoice({ shippingId, documentType, transactionId }) { const id = `mock-feed-${this.feeds.size + 1}`; this.feeds.set(id, { shippingId, createdTime: new Date().toISOString(), status: 'DONE' }); if (documentType === 'CreditNote' && transactionId) this.creditDone.add(transactionId); else this.uploaded.add(shippingId); return id; }
+  async listFeeds({ createdSince } = {}) { return [...this.feeds.entries()].filter(([, f]) => !createdSince || f.createdTime >= createdSince).map(([feedId, f]) => ({ feedId, status: f.status, createdTime: f.createdTime })); }
   async feedStatus() { return { status: 'DONE', resultDocumentId: 'mock-result-doc' }; }
   async downloadFeedResult() { return 'record-status\tmessage\nsuccess\tsimulated processing report: no errors'; }
 }

@@ -397,7 +397,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (p === '/api/repairs') { // review queue: proposed first, then the recent history
         const proposed = listRepairs(db, seller.id, 'proposed');
-        const history = ['issued', 'exported', 'uploaded', 'rejected', 'approved', 'dismissed'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
+        const history = ['issued', 'exported', 'uploaded', 'rejected', 'approved', 'dismissed', 'held'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
         return json(res, 200, { proposed, history });
       }
       if (p === '/api/repairs/approve' || p === '/api/repairs/dismiss') {

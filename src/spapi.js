@@ -108,6 +108,15 @@ export class SpApi {
     return feed.feedId;
   }
   async feedStatus(feedId) { const r = await this.call('GET', `/feeds/2021-06-30/feeds/${feedId}`); return { status: r.processingStatus, resultDocumentId: r.resultFeedDocumentId }; }
+
+  // The feed list is the cross-check for interrupted uploads (unknownSettleCheck): a feed Amazon
+  // created that we never recorded is the orphan that blocks a blind resend. A GET - safe to retry.
+  async listFeeds({ createdSince, feedType = 'UPLOAD_VAT_INVOICE' } = {}) {
+    const q = new URLSearchParams({ feedTypes: feedType, pageSize: '100' });
+    if (createdSince) q.set('createdSince', createdSince);
+    const r = await this.call('GET', `/feeds/2021-06-30/feeds?${q.toString()}`);
+    return (r.feeds ?? []).map(f => ({ feedId: f.feedId, status: f.processingStatus, createdTime: f.createdTime }));
+  }
   // Feed result documents live under the FEEDS documents endpoint, not the reports one.
   async downloadFeedResult(documentId) {
     const d = await this.call('GET', `/feeds/2021-06-30/documents/${documentId}`);
