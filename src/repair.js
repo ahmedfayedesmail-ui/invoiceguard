@@ -18,6 +18,24 @@ export function ensureRepairTables(db) {
     reason TEXT, suggestion TEXT, state TEXT DEFAULT 'proposed', created_at TEXT,
     PRIMARY KEY (seller_id, event_key))`);
   try { db.exec('ALTER TABLE repairs ADD COLUMN rect_number TEXT'); } catch { /* exists */ }
+  // Round-16 (critic round-14): every proposal carries the attempt-sequence snapshot and request
+  // time of the report it was built from, so approval can re-validate amounts when a fresher
+  // report exists. The latest report per seller is stored for that re-validation.
+  try { db.exec('ALTER TABLE repairs ADD COLUMN report_seq INTEGER'); } catch { /* exists */ }
+  try { db.exec('ALTER TABLE repairs ADD COLUMN report_at TEXT'); } catch { /* exists */ }
+  db.exec('CREATE TABLE IF NOT EXISTS report_snapshots (seller_id TEXT PRIMARY KEY, seq INTEGER, requested_at TEXT, text TEXT)');
+}
+
+/** Round-16: store the seller's latest report (snapshot + request time + text) so approval-time
+ * re-validation can compare a proposal against fresher data. */
+export function recordReportSnapshot(db, sellerId, seq, requestedAt, text) {
+  ensureRepairTables(db);
+  db.prepare(`INSERT INTO report_snapshots (seller_id, seq, requested_at, text) VALUES (?,?,?,?)
+    ON CONFLICT(seller_id) DO UPDATE SET seq=excluded.seq, requested_at=excluded.requested_at, text=excluded.text`).run(sellerId, seq, requestedAt, text);
+}
+export function latestReportSnapshot(db, sellerId) {
+  ensureRepairTables(db);
+  return db.prepare('SELECT seq, requested_at, text FROM report_snapshots WHERE seller_id=?').get(sellerId) ?? null;
 }
 
 /**
@@ -25,7 +43,7 @@ export function ensureRepairTables(db) {
  * billing-data corrections) referencing an invoice we issued become proposals.
  * Idempotent: one proposal per (seller, event key).
  */
-export function detectRepairs(db, seller, reportText, { now = new Date() } = {}) {
+export function detectRepairs(db, seller, reportText, { now = new Date(), reportAttemptSeq = null, reportRequestedAt = null } = {}) {
   ensureRepairTables(db);
   const out = { proposed: 0, skipped: [], proposals: [] };
   const all = parseVidr(reportText);
@@ -35,9 +53,10 @@ export function detectRepairs(db, seller, reportText, { now = new Date() } = {})
   // Amazon's transaction-type vocabulary is SHIPMENT / RETURN / REFUND (create-and-upload-invoices doc):
   // both RETURNs and REFUNDs can put a credit note due (CreditNotePending). Missing either loses money.
   const refunds = all.filter(s => ['REFUND', 'RETURN'].includes(s.transactionType) && !s.isCorrectionReversal);
+  const reportAt = reportRequestedAt ? new Date(reportRequestedAt).toISOString() : null; // round-16: source freshness travels with the proposal
   const ins = db.prepare(`INSERT OR IGNORE INTO repairs
-    (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at)
-    VALUES (?,?,?,?,?,?,?, 'proposed', ?)`);
+    (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at, report_seq, report_at)
+    VALUES (?,?,?,?,?,?,?, 'proposed', ?, ?, ?)`);
   for (const s of refunds) {
     // Amazon's invoice-status column says what this refund needs: only CreditNotePending means the
     // seller must upload a credit note. CreditNoteUploaded / CreditNoteCreatedByAmazon /
@@ -58,9 +77,10 @@ export function detectRepairs(db, seller, reportText, { now = new Date() } = {})
     const full = Math.abs(Math.abs(s.incl) - Math.abs(orig.total)) < 0.005 && Math.abs(Math.abs(s.vat) - Math.abs(orig.vat)) < 0.005;
     const suggestion = JSON.stringify({ action: 'credit_note', rectifies: orig.number, total: Math.abs(s.incl), vat: Math.abs(s.vat), transactionId: s.transactionId, full,
       lines: s.items.map(it => ({ sku: it.sku ?? null, excl: Math.abs(it.exclTotal), vat: Math.abs(it.vatTotal), extras: (it.extras ?? []).map(x => ({ part: x.part, excl: Math.abs(x.excl), vat: Math.abs(x.vat) })) })) });
-    const r = ins.run(seller.id, s.key, 'return', orig.number, s.key, reason, suggestion, now.toISOString());
-    // Proposals made before exact amounts were recorded get upgraded in place on the next sync.
-    if (!r.changes) db.prepare("UPDATE repairs SET suggestion=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(suggestion, seller.id, s.key);
+    const r = ins.run(seller.id, s.key, 'return', orig.number, s.key, reason, suggestion, now.toISOString(), reportAttemptSeq, reportAt);
+    // Proposals made before exact amounts were recorded get upgraded in place on the next sync,
+    // and every still-open proposal is re-stamped with the fresher source report (round-16).
+    if (!r.changes) db.prepare("UPDATE repairs SET suggestion=?, report_seq=?, report_at=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(suggestion, reportAttemptSeq, reportAt, seller.id, s.key);
     if (r.changes) { out.proposed++; out.proposals.push({ key: s.key, original: orig.number, reason }); logEvent(db, seller.id, 'repair_proposed', { key: s.key, original: orig.number, reason }); }
   }
   return out;
@@ -265,6 +285,21 @@ export function recoverStuckRepairs(db) {
   return stuck.length;
 }
 
+/** Round-16 (critic round-14): compare a credit-note proposal against the same refund event in
+ * a FRESHER report. Returns null when the fresh data agrees, else the human-readable hold reason.
+ * A stale report may mint an APPROVABLE proposal; it must never ISSUE from stale amounts. */
+function staleProposalReason(fresh, sug) {
+  if (!fresh) return 'A newer Amazon report no longer lists this refund event, so the credit note may already be settled at Amazon. Press Sync now to rebuild this proposal, then review it again.';
+  if ((fresh.invoiceStatus || '') !== 'CreditNotePending') return `A newer Amazon report shows this refund as "${fresh.invoiceStatus || 'none'}" instead of CreditNotePending, so Amazon no longer asks the seller for a credit note here. Press Sync now to rebuild this proposal, then review it again.`;
+  const cents = (n) => Math.round(n * 100);
+  if (cents(Math.abs(fresh.incl)) !== cents(sug.total) || cents(Math.abs(fresh.vat)) !== cents(sug.vat))
+    return `A newer Amazon report shows different refund amounts (was ${sug.total} / ${sug.vat}, now ${Math.abs(fresh.incl)} / ${Math.abs(fresh.vat)}). Press Sync now to rebuild this proposal, then review it again.`;
+  const norm = (items, fromReport) => (items ?? []).map(it => ({ sku: it.sku ?? null, excl: cents(fromReport ? Math.abs(it.exclTotal) : it.excl), vat: cents(fromReport ? Math.abs(it.vatTotal) : it.vat), extras: (it.extras ?? []).map(x => ({ part: x.part, excl: cents(Math.abs(x.excl)), vat: cents(Math.abs(x.vat)) })).sort((a, b) => String(a.part).localeCompare(String(b.part))) })).sort((a, b) => String(a.sku).localeCompare(String(b.sku)));
+  if (JSON.stringify(norm(fresh.items, true)) !== JSON.stringify(norm(sug.lines, false)))
+    return 'A newer Amazon report lists different returned items or per-line amounts. Press Sync now to rebuild this proposal, then review it again.';
+  return null;
+}
+
 async function approveClaimed(db, seller, r, { api, validate } = {}) {
   const eventKey = r.event_key;
   const sug = JSON.parse(r.suggestion);
@@ -286,6 +321,21 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
   }
   if (sug.action !== 'credit_note') throw new Error(`Unsupported repair action ${sug.action}`);
   if (sug.full === undefined) throw new Error('This proposal was recorded before exact refund amounts were kept. Press Sync now so it is rebuilt, then review it again.');
+  // Round-16 (critic round-14): freshness re-validation. When a NEWER report exists than the one
+  // this proposal was built from, the refund event and its amounts are re-checked against it
+  // before any money document is issued. Divergence (or the event no longer being due) stops the
+  // approval with a clear reason; the hold is logged as stale_proposal_held.
+  if (r.report_seq != null) {
+    const snap = latestReportSnapshot(db, seller.id);
+    if (snap && snap.seq > r.report_seq) {
+      const fresh = parseVidr(snap.text).find(x => x.key === r.event_key);
+      const why = staleProposalReason(fresh, sug);
+      if (why) {
+        logEvent(db, seller.id, 'stale_proposal_held', { key: r.event_key, number: r.original_number, proposalSeq: r.report_seq, snapshotSeq: snap.seq, reason: why });
+        throw new Error(why + ' Nothing was issued.');
+      }
+    }
+  }
   const orig = JSON.parse(db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, r.original_number).json);
   const cents = (n) => Math.round(n * 100);
   // Cumulative guard: prior credit notes against this invoice count toward what may still be

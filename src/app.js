@@ -20,7 +20,7 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads } from './repair.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, recordReportSnapshot, latestReportSnapshot } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -101,7 +101,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     const rid = await api.requestVidr(ids, { all: true }); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
     const out = await processReport(db, seller, text, { api, validate, reportRequestedAt, reportAttemptSeq }); const corr = await processCorrections(db, seller, text, { api, validate, reportAttemptSeq }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
     const settled = await settleUnknownDocuments(db, seller, text, { api, validate, reportAttemptSeq }); if (settled.resubmitted.length) logEvent(db, seller.id, 'sync_settled_unknown', settled);
-    let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text).proposed; } catch { /* a report without refund rows proposes nothing */ }
+    let repairsProposed = 0; try { recordReportSnapshot(db, seller.id, reportAttemptSeq, reportRequestedAt.toISOString(), text); repairsProposed = detectRepairs(db, seller, text, { reportAttemptSeq, reportRequestedAt }).proposed; } catch { /* a report without refund rows proposes nothing */ } // round-16: proposals carry the source report's freshness
     const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };
     db.prepare('UPDATE amazon_conn SET last_sync=?, last_sync_result=? WHERE seller_id=?').run(result.at, JSON.stringify({ detected: out.detected, uploaded: out.uploaded, held: out.held.length, deferred: out.deferred.length, errors: out.errors.length }), seller.id);
     return result;
@@ -420,11 +420,12 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; const pv = prev(st.key); const alreadyHeld = pv?.status === 'held' && pv?.reason === h.reason; if (!pv) logEvent(db, seller.id, 'detected', { key: st.key, orderId: st.orderId }); if (!alreadyHeld && !['ready', 'uploaded', 'submitted'].includes(pv?.status)) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
         const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
         logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
-        let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, String(body.text ?? '')).proposed; } catch { /* non-VIDR formats carry no refund rows */ }
+        let repairsProposed = 0; try { const mSeq = currentAttemptSeq(db, seller.id), mAt = new Date().toISOString(), mText = String(body.text ?? ''); recordReportSnapshot(db, seller.id, mSeq, mAt, mText); repairsProposed = detectRepairs(db, seller, mText, { reportAttemptSeq: mSeq, reportRequestedAt: mAt }).proposed; } catch { /* non-VIDR formats carry no refund rows */ } // round-16: manual uploads get the same freshness stamping
         return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
       }
       if (p === '/api/repairs') { // review queue: proposed first, then the recent history
-        const proposed = listRepairs(db, seller.id, 'proposed');
+        const snap = latestReportSnapshot(db, seller.id); // round-16: the review shows each proposal's freshness
+        const proposed = listRepairs(db, seller.id, 'proposed').map(r => ({ ...r, fresher: snap != null && r.report_seq != null && snap.seq > r.report_seq }));
         const history = ['issued', 'exported', 'uploaded', 'rejected', 'approved', 'dismissed', 'held'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
         return json(res, 200, { proposed, history });
       }

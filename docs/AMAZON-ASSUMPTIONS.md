@@ -110,3 +110,11 @@ PILOT-VALIDATION ITEM: Amazon's docs do not explicitly guarantee that a report f
 document's state at createReport time. Treating the request-time snapshot as a hard boundary is an
 assumption to be proven against a live seller account in the first real pilot; until then the
 skip events double as the audit trail for checking it.
+
+C10. Proposal freshness (round-16, critic round-14): repair proposals carry the attempt-sequence
+snapshot and request time of the report they were built from; the review UI shows that source and
+whether a newer report exists; and approval re-validates the refund event and its amounts against
+the latest stored report whenever a fresher one exists - a divergence (or the event no longer
+being due) holds the issue with a clear reason and logs stale_proposal_held. A stale report may
+still mint an APPROVABLE proposal, but it can no longer issue a financial document from stale
+amounts.
