@@ -22,7 +22,13 @@ export function upsertShipment(db, sellerId, s, status, reason = null) {
 /** One pass over a VIDR report text. Pure with respect to Amazon: upload goes through the `api` object. */
 export async function processReport(db, seller, reportText, { api, validate = validateVat, now = new Date(), dryRun = false, census = null, shipments = null } = {}) {
   const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
-  for (const s of (shipments ?? parseVidr(reportText))) {
+  const list = shipments ?? parseVidr(reportText);
+  // Friction fix: without this, N shipments meant N SEQUENTIAL VIES round-trips (the loop awaits each
+  // check), so a big report could outlive the request timeout. Pre-warm the unique buyer VATs in
+  // parallel; the cached validator caps real parallelism and serves the loop below instantly.
+  const vats = [...new Set(list.filter(needsInvoice).map(s => s.buyerVat).filter(Boolean))];
+  await Promise.allSettled(vats.map(v => validate(v)));
+  for (const s of list) {
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
