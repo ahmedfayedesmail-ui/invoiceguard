@@ -447,7 +447,11 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
         logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
         let repairsProposed = 0;
-        if (isVidr) repairsProposed = finishManualVidr(db, seller, mText, stamp); // loud on database errors; quiet only when the report has no refund rows
+        if (isVidr) {
+          // Round-23 (critic round-20): by now the invoices are recorded and the report is stored; if proposal detection fails, say exactly that (never the generic "nothing was changed"). Approvals stay protected by the freshness check against the stored report.
+          try { repairsProposed = finishManualVidr(db, seller, mText, stamp); } // quiet only when the report has no refund rows; database errors are loud
+          catch (e) { console.error('manual repair detection', e); return json(res, 500, { error: 'The invoices from this upload were recorded and the report itself is stored, but the credit-note suggestions could not be checked this time. Nothing is lost: credit-note approvals stay protected by the freshness check. Upload the report again to refresh the suggestions.', issued: out.uploaded, reportStored: true, suggestionsFailed: true }); }
+        }
           return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
         } finally { if (isVidr) clearReportInFlight(db, seller.id); } // the report is already stored: success or failure, approval revalidates against it
       }

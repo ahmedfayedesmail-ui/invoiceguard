@@ -94,3 +94,25 @@ test('R19-3: a failed VIDR store answers 500 BEFORE issuing anything, and keeps 
   assert.equal(db.prepare('SELECT count(*) c FROM invoices').get().c, 0, 'no invoice was issued');
   server.closeAllConnections(); server.close();
 });
+
+test('R20-1 (critic round-20 P2): processReport succeeds, then proposal detection fails on a DB error - the response says the invoices WERE recorded and the report is stored; in_flight cleared; protection intact', async () => {
+  const env = await boot(async (v) => ({ status: 'valid', vat: v }));
+  const { db, server, call, seller } = env;
+  ensureRepairTables(db);
+  db.exec("CREATE TRIGGER fail_repairs BEFORE INSERT ON repairs BEGIN SELECT RAISE(ABORT, 'disk I/O error'); END");
+  const [head, ...rows] = vidrText.trim().split('\n');
+  const withRefund = [head, rows[0], refundReport().split('\n')[1]].join('\n'); // a shipment (issues an invoice) + a refund row (makes detectRepairs insert)
+  const r = await call('manual/issue', { text: withRefund, attest: true });
+  assert.equal(r.status, 500);
+  assert.match(r.body.error, /invoices from this upload were recorded/);
+  assert.match(r.body.error, /report itself is stored/);
+  assert.doesNotMatch(r.body.error, /Nothing was changed/);
+  assert.equal(r.body.suggestionsFailed, true); assert.ok(r.body.issued >= 1, 'the response reports the issued invoices');
+  assert.ok(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind != 'rectificativa'").get(seller.id).c >= 1, 'the invoice really was recorded');
+  const snap = latestReportSnapshot(db, seller.id);
+  assert.equal(snap.text, withRefund, 'the report is stored'); assert.equal(snap.in_flight, 0, 'in_flight was cleared'); assert.equal(snap.store_pending, 0);
+  // Protection intact: the stored report carries a generation, so any older proposal is revalidated against it at approval (the freshness gate proven in round17/18 tests).
+  assert.ok(snap.gen > 0, 'the stored report has a generation');
+  assert.equal(rectCount(db), 0, 'no credit note issued');
+  server.closeAllConnections(); server.close();
+});
