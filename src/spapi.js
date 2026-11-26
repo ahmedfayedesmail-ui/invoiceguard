@@ -85,7 +85,16 @@ export class SpApi {
     if (shippingId) opts['metadata:ShippingId'] = shippingId; else opts['metadata:OrderId'] = orderId;
     if (transactionId && (documentType === 'CreditNote' || String(transactionId).startsWith('Correction'))) opts['metadata:TransactionId'] = transactionId;
     for (const [k, v] of Object.entries(opts)) if (/[^A-Za-z0-9,\/\\ _;:#\-.]/.test(String(v).replace(/\./g, ''))) throw new Error(`Invalid character in feed option ${k}`);
-    const feed = await this.call('POST', '/feeds/2021-06-30/feeds', { feedType: 'UPLOAD_VAT_INVOICE', marketplaceIds: [marketplaceId], inputFeedDocumentId: doc.feedDocumentId, feedOptions: opts });
+    let feed;
+    try {
+      feed = await this.call('POST', '/feeds/2021-06-30/feeds', { feedType: 'UPLOAD_VAT_INVOICE', marketplaceIds: [marketplaceId], inputFeedDocumentId: doc.feedDocumentId, feedOptions: opts });
+    } catch (e) {
+      // A 4xx is a definite refusal (Amazon never accepted the feed). Anything else - network drop,
+      // timeout, or a 5xx after the last retry - leaves the outcome UNKNOWN: Amazon may hold the
+      // document. Callers must not blind-resend; they reconcile through the next VAT report first.
+      if (!/-> 4\d\d/.test(e.message)) e.unknownOutcome = true;
+      throw e;
+    }
     this.lastUpload = Date.now();
     return feed.feedId;
   }

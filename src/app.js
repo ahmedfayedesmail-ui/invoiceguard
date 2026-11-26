@@ -20,7 +20,7 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections } from './pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair } from './repair.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -484,7 +484,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   const purge = () => { try { db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now()); } catch (e) { console.error('session purge failed', e.message); } };
   db.exec('CREATE TABLE IF NOT EXISTS contact_messages (id TEXT PRIMARY KEY, ts TEXT, email TEXT, message TEXT)');
-  try { db.prepare("UPDATE repairs SET state='proposed' WHERE state='issuing'").run(); } catch { /* repairs table is created on first use */ }
+  // Crash recovery: only repairs provably not issued return to the review queue; a repair whose
+  // document was already created/submitted before the crash is held for human review instead of
+  // blindly re-approvable (which would hit the idempotency guard and wedge the repair forever).
+  try { recoverStuckRepairs(db); } catch { /* repairs table is created on first use */ }
   applyBootReset(db); rotateKeys(db, process.env.APP_SECRET ?? 'dev-secret-change-me', process.env.APP_SECRET_PREVIOUS); purgeSecLog(db); setInterval(() => { try { purgeSecLog(db); } catch (e) { console.error(e.message); } }, 24 * 3600e3).unref(); purge(); const piiPurge = () => { try { const n = purgeBuyerData(db); if (n) console.log(`buyer data removed from ${n} shipment record(s)`); } catch (e) { console.error('buyer-data purge failed', e.message); } }; piiPurge(); setInterval(piiPurge, 6 * 3600e3).unref(); setInterval(purge, 3600e3).unref();
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));

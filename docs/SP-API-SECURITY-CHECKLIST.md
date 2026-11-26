@@ -19,7 +19,7 @@ Status: DONE (in code, tested), PROCESS (a task for the operator, not code), OPE
 | Security logs kept 12 months minimum | DONE in the database, PARTLY | sign-in, failed sign-in, lockout, password and two-step events kept 13 months. They live in the same database as the data, so an attacker with database access could alter them. An off-site copy is OPEN |
 | Bi-weekly log review | PROCESS | calendar task for the operator |
 | Monthly vulnerability scan, anti-malware updates | PROCESS | needs a tool and an owner |
-| Quarterly access review, device inventory, backup restore test | PROCESS | backups: the host volume has none today. OPEN |
+| Quarterly access review, device inventory, backup restore test | PROCESS | same-host snapshots run on boot and every 6 hours; an off-host backup and a restore test are OPEN |
 | Annual key rotation (encryption key) | DONE, manual | set APP_SECRET_PREVIOUS to the old value and APP_SECRET to a new one, restart, then remove APP_SECRET_PREVIOUS. Boot log warns after 335 days. Amazon API key (client secret) rotation is done in Amazon's portal and then in our settings: OPEN to document |
 | Annual penetration test and third-party assessment | OPEN | costs money. Ask Amazon what a small provider needs |
 | Security training for approved users | PROCESS | |

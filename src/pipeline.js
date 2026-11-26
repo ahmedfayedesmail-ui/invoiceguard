@@ -7,7 +7,7 @@ import { gate, gateReason, missingFields, correctionWindowOk, readiness } from '
 import { renderPdf } from './pdf.js';
 import { logEvent, appendAudit } from './db.js';
 import { marketplaceFor } from './spapi.js';
-import { proposeRejectedRetry } from './repair.js';
+import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -88,7 +88,24 @@ export async function processReport(db, seller, reportText, { api, validate = va
       const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat });
       db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, inv.number);
       upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++;
-    } catch (e) { db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=?").run(seller.id, inv.number); upsertShipment(db, seller.id, s, 'error', explain(e.message)); out.errors.push({ key: s.key, error: e.message }); }
+    } catch (e) {
+      if (e.unknownOutcome) {
+        // The feed may or may not have reached Amazon (network drop / 5xx after submission).
+        // Blindly resending could double-submit the document, so it is NOT resent here: the next
+        // VAT report is the reconciliation. If that report still shows the shipment pending, Amazon
+        // provably has nothing and the normal upload path below resubmits; if it shows a verdict,
+        // reconcileInvoice closes this out. What we cannot guarantee: a feed Amazon received but
+        // never reflects in the report - that residue is surfaced to a human, never auto-resent.
+        db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
+        upsertShipment(db, seller.id, s, 'unknown', 'the upload outcome is unknown - Amazon may have received the document');
+        logEvent(db, seller.id, 'upload_unknown_outcome', { number: inv.number, error: e.message });
+        proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${s.key}`, kind: 'unknown_outcome', number: inv.number, shipmentKey: s.key, action: 'hold',
+          reason: `The upload of invoice ${inv.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report will confirm whether Amazon has it; if the shipment stays pending there, the next sync resubmits it safely.` });
+      } else {
+        db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=?").run(seller.id, inv.number); upsertShipment(db, seller.id, s, 'error', explain(e.message));
+      }
+      out.errors.push({ key: s.key, error: e.message });
+    }
   }
   return out;
 }
@@ -96,20 +113,33 @@ export async function processReport(db, seller, reportText, { api, validate = va
 /** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
 function reconcileInvoice(db, seller, s) {
   const key = `SHIPMENT:${s.shippingId}`;
-  const inv = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
+  // A Correction:: transaction's verdict belongs to the REPLACEMENT document (a rectificativa keyed
+  // by the correction event), not to the original invoice. Billing-correction documents are under
+  // the same reject/retry umbrella as every other document.
+  const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
+  const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
   if (!inv) return;
+  const docKey = rect ? s.key : key;
   if (s.invoiceStatus === 'InvoiceUploaded' && inv.upload_status !== 'uploaded') {
     db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, inv.number);
     db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=?").run(seller.id, key);
     logEvent(db, seller.id, 'confirmed_uploaded', { number: inv.number });
+    // Acceptance closes the document's retry/unknown repairs - the lifecycle ends visibly.
+    closeRepairsFor(db, seller.id, [`REJECTED:${docKey}`, `UNKNOWN:${docKey}`, docKey], 'uploaded');
   } else if (s.invoiceStatus === 'InvoiceRejected' && inv.upload_status !== 'rejected') {
     const reason = s.invoiceStatusDesc || 'Amazon rejected the invoice while processing it';
     db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
     db.prepare("UPDATE shipments SET status='rejected', reason=? WHERE seller_id=? AND key=?").run(reason, seller.id, key);
     logEvent(db, seller.id, 'confirmed_rejected', { number: inv.number, reason });
+    closeRepairsFor(db, seller.id, [`UNKNOWN:${docKey}`], 'rejected');
     // Amazon's doc: "Seller must upload the invoice for this shipment again." Surface a reviewed
-    // retry in the Repairs queue - the SAME document goes up again, never a new invoice number.
-    proposeRejectedRetry(db, seller, { eventKey: `REJECTED:${key}`, kind: 'rejected_invoice', number: inv.number, shipmentKey: key,
+    // retry in the Repairs queue - the SAME document goes up again, never a new number. Repeat
+    // rejections re-open the review (a fixed key with INSERT OR IGNORE would swallow them).
+    // Correction documents retry through issueRectificativa's record-key path (action retry_rect,
+    // event key = the correction event key); plain invoices re-upload the same document directly.
+    if (rect) proposeRejectedRetry(db, seller, { eventKey: s.key, kind: 'rejected_correction_invoice', number: inv.number, originalNumber: inv.rectifies, shipmentKey: s.key, rectNumber: inv.number, action: 'retry_rect',
+      reason: `Amazon rejected the replacement document ${inv.number}: ${reason}. Amazon expects the document for this transaction to be uploaded again - check the reason, then approve to re-upload the same document.` });
+    else proposeRejectedRetry(db, seller, { eventKey: `REJECTED:${docKey}`, kind: 'rejected_invoice', number: inv.number, originalNumber: inv.number, shipmentKey: docKey,
       reason: `Amazon rejected invoice ${inv.number}: ${reason}. Amazon expects the invoice for this shipment to be uploaded again - check the reason, then approve to re-upload the same document.` });
   } else if (s.invoiceStatus === 'InvoiceProcessing' && inv.upload_status === 'submitted') {
     db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
@@ -119,17 +149,20 @@ function reconcileInvoice(db, seller, s) {
 
 /** Reconcile Amazon's verdict on an uploaded credit note (CreditNote* statuses on the refund row). */
 function reconcileCreditNote(db, seller, s) {
-  const rect = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
+  const rect = db.prepare("SELECT number, upload_status, rectifies FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
   if (!rect) return;
   const hasRepairs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='repairs'").get();
   if (s.invoiceStatus === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
     db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, rect.number);
-    if (hasRepairs) db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, rect.number);
+    if (hasRepairs) db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported','proposed','issuing','rejected')").run(seller.id, rect.number);
     logEvent(db, seller.id, 'confirmed_uploaded', { number: rect.number });
   } else if (s.invoiceStatus === 'CreditNoteRejected' && rect.upload_status !== 'rejected') {
     db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
-    if (hasRepairs) db.prepare("UPDATE repairs SET state='rejected' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported','uploaded')").run(seller.id, rect.number);
     logEvent(db, seller.id, 'confirmed_rejected', { number: rect.number, reason: s.invoiceStatusDesc || null });
+    // Every rejected credit note gets a reviewed retry - including Amazon billing-correction credit
+    // notes, which have no repair row of their own yet. Repeat rejections re-open the review.
+    proposeRejectedRetry(db, seller, { eventKey: s.key, kind: 'rejected_credit_note', number: rect.number, originalNumber: rect.rectifies, shipmentKey: s.key, rectNumber: rect.number, action: 'retry_rect',
+      reason: `Amazon rejected credit note ${rect.number}: ${s.invoiceStatusDesc || 'no reason given'}. Amazon expects the same credit note to be uploaded again - check the reason, then approve to retry.` });
   }
 }
 
@@ -174,7 +207,10 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     const prev = db.prepare("SELECT number, upload_status, json, tx_id FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, opts.recordKey);
     // 'rejected' joins 'pending' here: Amazon's prescribed retry for a rejected credit note is the
     // SAME document uploaded again ("Seller must upload the Credit Note for this transaction again").
-    if (prev && ['pending', 'rejected'].includes(prev.upload_status)) {
+    // 'pending' and 'rejected' retry the same document; 'unknown' (Amazon may hold it) only retries
+    // when a FRESH report still lists the event as needing the document - Amazon's own statement of
+    // absence - which is exactly the situation processCorrections/detectRepairs are driven by.
+    if (prev && ['pending', 'rejected', 'unknown'].includes(prev.upload_status)) {
       const rect = JSON.parse(prev.json);
       const s0 = JSON.parse(db.prepare('SELECT raw FROM shipments WHERE seller_id=? AND key=?').get(seller.id, row.shipment_key).raw);
       const mp0 = marketplaceFor(s0.marketplace);
@@ -219,7 +255,13 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     try {
       feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
       db.prepare("UPDATE invoices SET feed_id=?, upload_status='submitted' WHERE seller_id=? AND number=?").run(feedId, seller.id, rect.number);
-    } catch (e) { logEvent(db, seller.id, 'upload_error', { number: rect.number, error: explain(e.message) }); throw e; }
+    } catch (e) {
+      // Unknown outcome: Amazon may hold the document. Mark it honestly; no blind resend - a fresh
+      // report that still asks for the document is the only retry trigger (see the record-key branch).
+      if (e.unknownOutcome) { db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, rect.number); logEvent(db, seller.id, 'upload_unknown_outcome', { number: rect.number, error: e.message }); }
+      else logEvent(db, seller.id, 'upload_error', { number: rect.number, error: explain(e.message) });
+      throw e;
+    }
   }
   return { rect, feedId, documentType, pdf };
 }

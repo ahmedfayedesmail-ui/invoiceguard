@@ -115,15 +115,58 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   return feedId;
 }
 
-/** Queue a human-reviewed retry when Amazon rejects an uploaded document (invoice or credit note). */
-export function proposeRejectedRetry(db, seller, { eventKey, kind, number, shipmentKey, reason, now = new Date() }) {
+/** A rejection reason about the document's CONTENT (totals, mandatory data) must not get a blind
+ * retry: resending the same bytes repeats the same verdict. Technical failures get the retry. */
+export const classifyRejection = (reason) =>
+  /totalamount|totalvatamount|mismatch|does not match|missing|mandatory|invalid/i.test(String(reason ?? '')) ? 'content' : 'technical';
+
+/** Queue (or re-open) a human-reviewed retry when Amazon rejects an uploaded document.
+ * Repeat rejections of the same document re-open the review: the document lifecycle
+ * reject -> retry -> reject again must surface a fresh proposal every time. */
+export function proposeRejectedRetry(db, seller, { eventKey, kind, number, originalNumber, shipmentKey, rectNumber = null, action, reason, now = new Date() }) {
   ensureRepairTables(db);
-  const r = db.prepare(`INSERT OR IGNORE INTO repairs
-    (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at)
-    VALUES (?,?,?,?,?,?,?, 'proposed', ?)`)
-    .run(seller.id, eventKey, kind, number, shipmentKey, reason, JSON.stringify({ action: 'retry_upload', number }), now.toISOString());
-  if (r.changes) logEvent(db, seller.id, 'repair_proposed', { key: eventKey, original: number, reason });
-  return r.changes > 0;
+  const act = action ?? (classifyRejection(reason) === 'content' ? 'hold' : 'retry_upload');
+  const text = act === 'hold' ? reason + ' Amazon rejected the CONTENT of this document, so re-uploading it unchanged would likely repeat the rejection - the data needs a real correction first. Nothing was re-uploaded.' : reason;
+  const sug = JSON.stringify({ action: act, number });
+  const prev = db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, eventKey);
+  if (prev && ['proposed', 'issuing'].includes(prev.state)) return false; // already awaiting review or in flight
+  if (prev) {
+    db.prepare("UPDATE repairs SET state='proposed', reason=?, suggestion=?, created_at=? WHERE seller_id=? AND event_key=?").run(text, sug, now.toISOString(), seller.id, eventKey);
+  } else {
+    db.prepare(`INSERT INTO repairs (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at, rect_number)
+      VALUES (?,?,?,?,?,?,?, 'proposed', ?, ?)`).run(seller.id, eventKey, kind, originalNumber ?? number, shipmentKey, text, sug, now.toISOString(), rectNumber);
+  }
+  logEvent(db, seller.id, 'repair_proposed', { key: eventKey, original: number, reason: text });
+  return true;
+}
+
+/** Close open retry/unknown repairs for a document once Amazon's verdict is in. */
+export function closeRepairsFor(db, sellerId, eventKeys, state = 'uploaded') {
+  ensureRepairTables(db);
+  for (const k of eventKeys)
+    db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state IN ('proposed','issued','issuing','exported','rejected')").run(state, sellerId, k);
+}
+
+/** Boot recovery for repairs stranded in 'issuing' by a crash. Reads the DOCUMENT's actual state
+ * instead of blindly reverting: a document that already left pending means the work landed, so the
+ * repair is closed as issued; missing/pending/rejected means it is safe to review again. */
+export function recoverStuckRepairs(db) {
+  ensureRepairTables(db);
+  const stuck = db.prepare("SELECT * FROM repairs WHERE state='issuing'").all();
+  for (const r of stuck) {
+    const sug = JSON.parse(r.suggestion);
+    let docStatus = null, next;
+    if (['retry_upload', 'retry_rect', 'hold'].includes(sug.action)) {
+      docStatus = db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(r.seller_id, sug.number)?.upload_status ?? null;
+      next = (docStatus && docStatus !== 'rejected') ? 'issued' : 'proposed';
+    } else {
+      docStatus = db.prepare("SELECT upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(r.seller_id, r.event_key)?.upload_status ?? null;
+      next = (docStatus && docStatus !== 'pending') ? 'issued' : 'proposed';
+    }
+    db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='issuing'").run(next, r.seller_id, r.event_key);
+    logEvent(db, r.seller_id, 'repair_recovered', { key: r.event_key, to: next, document: docStatus });
+  }
+  return stuck.length;
 }
 
 async function approveClaimed(db, seller, r, { api, validate } = {}) {
@@ -135,9 +178,12 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
     db.prepare("UPDATE repairs SET state='issued', rect_number=? WHERE seller_id=? AND event_key=?").run(sug.number, seller.id, eventKey);
     return { retried: sug.number, feedId };
   }
-  // A rejected credit note is retried through issueRectificativa, which re-uploads the SAME document.
-  if (r.state === 'rejected') {
-    if (!r.rect_number) throw new Error('This rejected repair has no issued document to retry.');
+  // A content rejection is held for a real data correction; re-uploading is refused explicitly.
+  if (sug.action === 'hold') throw new Error(`Nothing was re-uploaded. ${r.reason}`);
+  // A rejected (or retry_rect) correction document is retried through issueRectificativa, which
+  // re-uploads the SAME document (same number, same Amazon TransactionId).
+  if (sug.action === 'retry_rect' || r.state === 'rejected') {
+    if (!r.rect_number && !sug.number) throw new Error('This rejected repair has no issued document to retry.');
     const { rect } = await issueRectificativa(db, seller, r.original_number, { recordKey: r.event_key }, { api, validate });
     db.prepare("UPDATE repairs SET state='issued', rect_number=? WHERE seller_id=? AND event_key=?").run(rect.number, seller.id, eventKey);
     return { rectNumber: rect.number, original: r.original_number, retried: true };

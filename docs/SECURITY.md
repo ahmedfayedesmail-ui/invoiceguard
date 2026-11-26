@@ -14,7 +14,7 @@ What is in place
 Known gaps (honest)
 - CSP allows inline script because the UI is a single file.
 - No email verification or password reset (needs an email channel; open decision).
-- Single SQLite file, one box. No backups configured here.
+- Single SQLite file, one box. Automatic same-host snapshots run on boot and every 6 hours; an off-host copy is still open.
 - Per-account throttle test does not isolate the per-account counter.
 - Hosted demo is a browser simulation and does not run this server.
 Not tax or legal advice. Test-environment checks (KSeF TEST) are not production verification.

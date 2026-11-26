@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
 import { processReport, processCorrections } from '../src/pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair } from '../src/repair.js';
+import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'selR', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
@@ -303,9 +303,7 @@ test('a rejected invoice gets a reviewed retry that re-uploads the SAME document
   await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
   const invCount = db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c;
-  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
-  const rej = [...rows[0].split('\t')]; rej[ix('invoice-status')] = 'InvoiceRejected'; rej[ix('invoice-status-description')] = 'TotalAmount mismatch';
-  await processReport(db, seller, [head, rej.join('\t')].join('\n'), { api: api2, validate: vies });
+  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'rejected');
   const q = listRepairs(db, seller.id);
   assert.equal(q.length, 1); assert.equal(q[0].kind, 'rejected_invoice'); assert.equal(q[0].suggestion.action, 'retry_upload');
@@ -330,9 +328,162 @@ test('a rejected credit note retries the SAME document through the repair queue'
   const rej = [...rows[0].split('\t')]; rej[ix('invoice-status')] = 'CreditNoteRejected';
   await processReport(db, seller, [head, rej.join('\t')].join('\n'), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, rect.number).upload_status, 'rejected');
-  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key).state, 'rejected');
+  const reopened = db.prepare('SELECT state, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key);
+  assert.equal(reopened.state, 'proposed', 'a rejection re-opens the review instead of leaving dead history');
+  assert.equal(JSON.parse(reopened.suggestion).action, 'retry_rect');
   const res = await approveRepair(db, seller, p.event_key, { api: api2, validate: vies });
   assert.equal(res.rectNumber, rect.number, 'the SAME credit note number was retried');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, rect.number).upload_status, 'submitted');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1, 'no second credit note exists');
+});
+
+function correctionPair() {
+  const [head, ...rows] = text.trim().split('\n'); const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const row = rows[0].split('\t');
+  const rev = [...row]; rev[ix('transaction-type')] = 'REFUND'; rev[ix('transaction-id')] = 'CorrectionReversal:X:1';
+  ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { rev[ix(n)] = '-' + rev[ix(n)]; });
+  rev[ix('invoice-status')] = 'CreditNotePending';
+  const fixed = [...row]; fixed[ix('transaction-id')] = 'Correction::X:2'; fixed[ix('billing-name')] = 'Mediterranea Logistica Norte S.L.'; fixed[ix('is-invoice-corrected')] = undefined;
+  return [head, rev.join('\t'), fixed.join('\t')].join('\n');
+}
+
+// The fixture predates the invoice-status-description column, so verdict tests append it.
+const withDesc = (head, row, status, desc) => {
+  const c = head.split('\t'); const ix = (n) => c.indexOf(n);
+  const r = [...row];
+  if (status) r[ix('invoice-status')] = status;
+  r.push(desc ?? '');
+  return [head + '\tinvoice-status-description', r.join('\t')].join('\n');
+};
+const singleRow = (status, desc) => {
+  const [head, ...rows] = text.trim().split('\n');
+  return withDesc(head, rows[0].split('\t'), status, desc);
+};
+
+test('repeat rejections re-open the retry review, and Amazon acceptance closes the repair for good', async () => {
+  const db = openDb();
+  const calls = [];
+  const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
+  await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  let [q] = listRepairs(db, seller.id);
+  assert.equal(q.suggestion.action, 'retry_upload');
+  await approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
+  // Amazon rejects the SAME document again: a fresh review must appear (the old fixed key swallowed it)
+  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  const q2 = listRepairs(db, seller.id);
+  assert.equal(q2.length, 1, 'the repeated rejection produced a fresh proposal');
+  assert.equal(q2[0].state, 'proposed');
+  await approveRepair(db, seller, q2[0].event_key, { api: api2, validate: vies });
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'still one invoice number, never a second');
+  // Amazon's acceptance then closes the repair for good
+  await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'uploaded');
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, q2[0].event_key).state, 'uploaded');
+});
+
+test('a rejected Amazon billing-correction credit note gets a reviewed retry of the SAME document', async () => {
+  const db = openDb();
+  const calls = [];
+  const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
+  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const corr = correctionPair();
+  const r = await processCorrections(db, seller, corr, { api: api2, validate: vies });
+  assert.deepEqual([r.creditNotes, r.invoices, r.errors.length], [1, 1, 0]);
+  const cn = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
+  assert.ok(cn, 'the correction credit note exists');
+  const [head, ...rows] = corr.trim().split('\n');
+  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'Internal processing error'), { api: api2, validate: vies });
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, cn.number).upload_status, 'rejected');
+  const q = listRepairs(db, seller.id).find(x => x.kind === 'rejected_credit_note');
+  assert.ok(q, 'a reviewed retry was proposed for the correction credit note');
+  assert.equal(q.suggestion.action, 'retry_rect');
+  const res = await approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
+  assert.equal(res.rectNumber, cn.number, 'the SAME credit note number was retried');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 2, 'no second document beyond credit note + replacement invoice');
+});
+
+test('a rejected correction replacement invoice retries the SAME document, and the verdict never lands on the original', async () => {
+  const db = openDb();
+  const calls = [];
+  const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
+  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const corr = correctionPair();
+  await processCorrections(db, seller, corr, { api: api2, validate: vies });
+  const repl = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='SHIPMENT:Correction::X:2'").get(seller.id);
+  const orig = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  assert.ok(repl, 'the replacement document exists');
+  const [head, ...rows] = corr.trim().split('\n');
+  await processReport(db, seller, withDesc(head, rows[1].split('\t'), 'InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, repl.number).upload_status, 'rejected');
+  assert.notEqual(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, orig.number).upload_status, 'rejected', 'the original invoice is untouched');
+  const q = listRepairs(db, seller.id).find(x => x.kind === 'rejected_correction_invoice');
+  assert.ok(q, 'a reviewed retry was proposed for the replacement document');
+  assert.equal(q.suggestion.action, 'retry_rect');
+  const res = await approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
+  assert.equal(res.rectNumber, repl.number, 'the SAME replacement document was retried');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 2, 'no second replacement was minted');
+});
+
+test('boot recovery reads the document state instead of blindly resetting stuck repairs', async () => {
+  const db = openDb();
+  const api2 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }) };
+  await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  const [p] = listRepairs(db, seller.id);
+  // crash mid-approval, document never retried: the review safely comes back
+  db.prepare("UPDATE repairs SET state='issuing' WHERE seller_id=? AND event_key=?").run(seller.id, p.event_key);
+  assert.equal(recoverStuckRepairs(db), 1);
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key).state, 'proposed');
+  // crash AFTER the document went out: reverting to proposed would wedge it against the idempotency guard
+  db.prepare("UPDATE repairs SET state='issuing' WHERE seller_id=? AND event_key=?").run(seller.id, p.event_key);
+  db.prepare("UPDATE invoices SET upload_status='submitted' WHERE seller_id=? AND number=?").run(seller.id, inv.number);
+  assert.equal(recoverStuckRepairs(db), 1);
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key).state, 'issued');
+  // a credit-note repair with no document at all also comes back to the queue
+  detectRepairs(db, seller, refundReport());
+  const cn = listRepairs(db, seller.id).find(r => r.kind === 'return');
+  db.prepare("UPDATE repairs SET state='issuing' WHERE seller_id=? AND event_key=?").run(seller.id, cn.event_key);
+  recoverStuckRepairs(db);
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, cn.event_key).state, 'proposed');
+});
+
+test('an interrupted upload is never blindly resent: unknown state, a hold for a human, and the fresh report settles it', async () => {
+  const db = openDb();
+  let calls = 0, fail = true;
+  const api3 = { uploadInvoice: async () => { calls++; if (fail) { const e = new Error('socket hang up'); e.unknownOutcome = true; throw e; } return 'f9'; }, feedStatus: async () => ({ status: 'DONE' }) };
+  const out = await processReport(db, seller, singleRow(null), { api: api3, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  assert.equal(out.errors.length, 1);
+  const inv = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
+  assert.equal(inv.upload_status, 'unknown');
+  const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
+  assert.ok(hold, 'a human-visible hold exists');
+  assert.equal(hold.suggestion.action, 'hold');
+  await assert.rejects(() => approveRepair(db, seller, hold.event_key, { api: api3, validate: vies }), /Nothing was re-uploaded/);
+  // the next sync sees a FRESH report still listing the shipment as pending - Amazon's own statement
+  // that it has nothing - so resending the same document is safe and automatic
+  fail = false;
+  await processReport(db, seller, singleRow(null), { api: api3, validate: vies });
+  assert.equal(calls, 2, 'exactly one resend happened');
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'no second invoice was burned');
+  // Amazon's verdict then closes the hold
+  await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api3, validate: vies });
+  assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'uploaded');
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'uploaded');
+});
+
+test('a content rejection is held for a real fix, never blindly re-uploaded', async () => {
+  const db = openDb();
+  const calls = [];
+  const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
+  await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  await processReport(db, seller, singleRow('InvoiceRejected', 'TotalAmount does not match'), { api: api2, validate: vies });
+  const [q] = listRepairs(db, seller.id);
+  assert.equal(q.suggestion.action, 'hold', 'content rejections are held, not retried');
+  const upBefore = calls.length;
+  await assert.rejects(() => approveRepair(db, seller, q.event_key, { api: api2, validate: vies }), /Nothing was re-uploaded/);
+  assert.equal(calls.length, upBefore, 'no re-upload happened');
 });
