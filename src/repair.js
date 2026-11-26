@@ -7,7 +7,7 @@ import { issueRectificativa } from './pipeline.js';
 import { renderPdf } from './pdf.js';
 import { marketplaceFor } from './spapi.js';
 import { EXTRA_LABEL, totalsOf } from './invoice.js';
-import { logEvent, tx } from './db.js';
+import { logEvent, tx, nextAttemptSeq } from './db.js';
 
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const MANUAL_FIX = 'Correct the invoice yourself in Documents > Invoices - nothing was issued.';
@@ -122,7 +122,7 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   // recoverUncertainUploads ('unknown' + human hold) - never invisible, never blindly resent.
   // Round-8: this write is the ATOMIC CLAIM - a concurrent settle path or a double-submitted
   // approval must never upload the same document twice. The loser changes 0 rows and stops.
-  const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), seller.id, number); // round-12: stale verdict dies at the claim, before the call
+  const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, number); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
   if (!claim.changes) throw new Error(`Document ${number} is already being retried by another run. Nothing was re-uploaded.`);
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;

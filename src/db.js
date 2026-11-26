@@ -61,6 +61,18 @@ export function openDb(file = ':memory:') {
   // boot time, which can be hours later.
   try { db.exec('ALTER TABLE invoices ADD COLUMN sending_at TEXT'); } catch { /* column exists */ }
   try { db.exec('ALTER TABLE invoices ADD COLUMN vidr_processing_at TEXT'); } catch { /* column exists */ } // round-11: when Amazon's report last stated document-level processing
+  // Round-14 (critic round-12): monotonic PER-SELLER upload-attempt sequence. Millisecond clocks
+  // cannot order a report request against an attempt claimed in the same ms; a sequence can. Every
+  // atomic claim takes the next number; every VIDR report snapshots the current number at request
+  // time; a verdict whose snapshot is older than the document's current attempt is stale.
+  try { db.exec('ALTER TABLE invoices ADD COLUMN attempt_seq INTEGER'); } catch { /* column exists */ }
+  db.exec('CREATE TABLE IF NOT EXISTS seq_counters (seller_id TEXT PRIMARY KEY, n INTEGER)');
+  // Backfill: attempts that predate this column are all OLDER than any report requested from now
+  // on, so they share seq 1 and each affected seller's counter starts at 1 (next claim = 2+). A
+  // report requested after this migration can therefore never resurrect a verdict over a claim
+  // that happens after it - every new claim takes a fresh, higher number.
+  db.prepare('UPDATE invoices SET attempt_seq=1 WHERE attempt_seq IS NULL AND sending_at IS NOT NULL').run();
+  db.prepare('INSERT INTO seq_counters (seller_id, n) SELECT seller_id, 1 FROM invoices WHERE attempt_seq IS NOT NULL GROUP BY seller_id ON CONFLICT(seller_id) DO UPDATE SET n=MAX(n, excluded.n)').run();
   return db;
 }
 
@@ -94,6 +106,19 @@ export function tx(db, fn) {
 export function txImm(db, fn) {
   db.exec('BEGIN IMMEDIATE');
   try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { try { db.exec('ROLLBACK'); } catch { /* already rolled back */ } throw e; }
+}
+
+/** Round-14 (critic round-12): the next upload-attempt sequence for a seller. Monotonic per
+ * seller, assigned ONLY at the atomic claim, so a VIDR report snapshot orders itself against
+ * attempts with zero reliance on the system clock. Two synchronous statements, never awaited
+ * between; the claim UPDATE that consumes the number follows synchronously in the same tick. */
+export function nextAttemptSeq(db, sellerId) {
+  db.prepare('INSERT INTO seq_counters (seller_id, n) VALUES (?,1) ON CONFLICT(seller_id) DO UPDATE SET n=n+1').run(sellerId);
+  return db.prepare('SELECT n FROM seq_counters WHERE seller_id=?').get(sellerId).n;
+}
+/** The current attempt sequence: the snapshot a VIDR report request records (0 = none yet). */
+export function currentAttemptSeq(db, sellerId) {
+  return db.prepare('SELECT n FROM seq_counters WHERE seller_id=?').get(sellerId)?.n ?? 0;
 }
 
 export const logEvent = (db, sellerId, type, detail) =>

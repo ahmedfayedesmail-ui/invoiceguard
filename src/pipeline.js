@@ -5,7 +5,7 @@ import { verifyBuyer, hasOverride } from './verify.js';
 import { buyerCountryCheck } from './features.js';
 import { gate, gateReason, missingFields, correctionWindowOk, readiness } from './rules.js';
 import { renderPdf } from './pdf.js';
-import { logEvent, appendAudit, tx, txImm, allocateNumber } from './db.js';
+import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from './db.js';
 import { createHash } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
@@ -26,12 +26,14 @@ export function upsertShipment(db, sellerId, s, status, reason = null) {
 }
 
 /** One pass over a VIDR report text. Pure with respect to Amazon: upload goes through the `api` object. */
-export async function processReport(db, seller, reportText, { api, validate = validateVat, now = new Date(), dryRun = false, census = null, shipments = null, reportRequestedAt = null } = {}) {
-  // Round-13 (critic round-11): the instant this report was REQUESTED. A verdict in it can only
-  // describe attempts that began BEFORE that instant; reconcilers skip any document whose current
-  // attempt (sending_at, stamped by the atomic claim) is newer - a stale report must never
-  // resurrect a pre-attempt verdict over a new attempt.
+export async function processReport(db, seller, reportText, { api, validate = validateVat, now = new Date(), dryRun = false, census = null, shipments = null, reportRequestedAt = null, reportAttemptSeq = null } = {}) {
+  // Round-14 (critic round-12): the seller's attempt-sequence snapshot at the instant this report
+  // was REQUESTED. A verdict in it can only describe attempts claimed BEFORE that snapshot;
+  // reconcilers skip any document whose current attempt_seq is newer - a stale report must never
+  // resurrect a pre-attempt verdict over a new attempt. Ordering comes from the monotonic
+  // sequence, never the clock; reportRequestedAt stays as secondary evidence in the skip event.
   const reportReqTs = reportRequestedAt ? +new Date(reportRequestedAt) : null;
+  const reportSeq = reportAttemptSeq ?? null;
   const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
   const list = shipments ?? parseVidr(reportText);
   // Friction fix: without this, N shipments meant N SEQUENTIAL VIES round-trips (the loop awaits each
@@ -42,8 +44,8 @@ export async function processReport(db, seller, reportText, { api, validate = va
   for (const s of list) {
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
-    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs); out.skipped++; continue; }
-    if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs); out.skipped++; continue; }
+    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
+    if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
@@ -123,7 +125,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // Round-8: this write is also the ATOMIC CLAIM on the upload. Two overlapping executions (Sync
     // now + the hourly scheduler, or a retried request) can both pass every read above; only the one
     // whose claim flips a real state talks to Amazon. The loser changes 0 rows and skips.
-    const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), seller.id, inv.number); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after
+    const claim = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, inv.number); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after; round-14: the claim takes the next attempt sequence
     if (!claim.changes) { out.skipped++; continue; }
     upsertShipment(db, seller.id, s, 'sending');
     try {
@@ -165,19 +167,21 @@ export async function processReport(db, seller, reportText, { api, validate = va
 }
 
 /** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
-function reconcileInvoice(db, seller, s, reportReqTs = null) {
+function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = null) {
   const key = `SHIPMENT:${s.shippingId}`;
   // A Correction:: transaction's verdict belongs to the REPLACEMENT document (a rectificativa keyed
   // by the correction event), not to the original invoice. Billing-correction documents are under
   // the same reject/retry umbrella as every other document.
-  const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies, sending_at FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
-  const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies, sending_at FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
+  const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
+  const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
   if (!inv) return;
-  // Round-13 (critic round-11): the report was REQUESTED before this document's current upload
-  // attempt began, so its verdict cannot describe that attempt. Skip it: never stamp, never move
-  // the attempt's state. The next report (requested after the attempt) reconciles it for real.
-  if (reportReqTs != null && inv.sending_at && Date.parse(inv.sending_at) > reportReqTs) {
-    logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: inv.number, status: s.invoiceStatus, sendingAt: inv.sending_at, reportRequestedAt: new Date(reportReqTs).toISOString() });
+  // Round-14 (critic round-12): ordering comes from the monotonic attempt sequence, never the
+  // clock (a claim and a report request in the same millisecond are indistinguishable by
+  // timestamp). The report snapshotted the seller's attempt sequence at request time; a document
+  // whose current attempt is NEWER cannot be described by this report. Skip the verdict: never
+  // stamp, never move the attempt's state. The next report (requested after) reconciles it.
+  if (reportSeq != null && inv.attempt_seq != null && inv.attempt_seq > reportSeq) {
+    logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: inv.number, status: s.invoiceStatus, attemptSeq: inv.attempt_seq, reportAttemptSeq: reportSeq, sendingAt: inv.sending_at, reportRequestedAt: reportReqTs != null ? new Date(reportReqTs).toISOString() : null });
     return;
   }
   const docKey = rect ? s.key : key;
@@ -226,12 +230,12 @@ function reconcileInvoice(db, seller, s, reportReqTs = null) {
 }
 
 /** Reconcile Amazon's verdict on an uploaded credit note (CreditNote* statuses on the refund row). */
-function reconcileCreditNote(db, seller, s, reportReqTs = null) {
-  const rect = db.prepare("SELECT number, upload_status, rectifies, sending_at FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
+function reconcileCreditNote(db, seller, s, reportReqTs = null, reportSeq = null) {
+  const rect = db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
   if (!rect) return;
-  // Round-13 (critic round-11): same stale-report guard as reconcileInvoice.
-  if (reportReqTs != null && rect.sending_at && Date.parse(rect.sending_at) > reportReqTs) {
-    logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, status: s.invoiceStatus, sendingAt: rect.sending_at, reportRequestedAt: new Date(reportReqTs).toISOString() });
+  // Round-14 (critic round-12): same sequence-ordered stale-report guard as reconcileInvoice.
+  if (reportSeq != null && rect.attempt_seq != null && rect.attempt_seq > reportSeq) {
+    logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, status: s.invoiceStatus, attemptSeq: rect.attempt_seq, reportAttemptSeq: reportSeq, sendingAt: rect.sending_at, reportRequestedAt: reportReqTs != null ? new Date(reportReqTs).toISOString() : null });
     return;
   }
   const hasRepairs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='repairs'").get();
@@ -404,7 +408,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       // blindly.
       // Round-8: atomic claim - a concurrent execution (settle path vs human-approved retry) must
       // never upload the same correction document twice.
-      const claim0 = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), seller.id, prev.number); // round-12: stale verdict dies at the claim, before the call
+      const claim0 = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, prev.number); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
       if (!claim0.changes) throw new Error(`Correction document ${prev.number} is already being uploaded by another run. Nothing was re-uploaded.`);
       let feedId0;
       try {
@@ -489,7 +493,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     // and when the attempt started. A crash in this window is recovered at boot by
     // recoverUncertainUploads, never blindly resent.
     // Round-8: atomic claim on the upload, same as the first-upload path.
-    const claimR = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), seller.id, rect.number); // round-12: stale verdict dies at the claim, before the call
+    const claimR = db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, rect.number); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
     if (!claimR.changes) throw new Error(`Correction document ${rect.number} is already being uploaded by another run. Nothing was re-uploaded.`);
     try {
       feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });

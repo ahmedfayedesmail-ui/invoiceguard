@@ -87,9 +87,14 @@ success handler lands the document in 'processing' (or keeps the state the verdi
 regressing it to 'submitted'. feed_conflict events are deduplicated per document+feed+status -
 repeats only bump the event's count.
 
-C9. Report-request anchoring (round-13, critic round-11): a VIDR report's verdicts can only
-describe upload attempts that began BEFORE the report was requested. sync stamps the report's
-request time and reconcilers compare it with the document's sending_at (set by the atomic claim):
-a verdict from a report requested before the current attempt began is skipped entirely (logged as
-stale_report_verdict_skipped) - it never stamps vidr_processing_at and never moves the attempt's
-state, so a late-arriving OLD verdict cannot be resurrected over a new attempt.
+C9. Report-request anchoring (rounds 13-14, critic rounds 11-12): a VIDR report's verdicts can
+only describe upload attempts that began BEFORE the report was requested. Ordering comes from a
+monotonic per-seller attempt sequence, never the clock (a claim and a report request in the same
+millisecond are indistinguishable by timestamp): every atomic claim takes the next attempt_seq,
+every report request snapshots the seller's current sequence, and reconcilers skip any document
+whose current attempt_seq is NEWER than the report's snapshot (logged as
+stale_report_verdict_skipped, with the request timestamp as secondary evidence) - it never stamps
+vidr_processing_at and never moves the attempt's state, so a late-arriving OLD verdict cannot be
+resurrected over a new attempt. Migration: attempts predating the column were backfilled to seq 1
+with each seller's counter starting at 1, so every claim from then on takes a fresh, higher
+number and no pre-migration verdict can outrank a post-migration claim.

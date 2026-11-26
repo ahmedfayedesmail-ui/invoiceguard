@@ -12,7 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { openDb, migrateAuth } from '../src/db.js';
+import { openDb, migrateAuth, currentAttemptSeq } from '../src/db.js';
 import { processReport, pollFeeds } from '../src/pipeline.js';
 import { listRepairs, approveRepair } from '../src/repair.js';
 
@@ -57,13 +57,14 @@ test('R11-1 (his test 1): a STALE InvoiceProcessing report must NOT protect the 
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   // The sync's report was requested BEFORE the retry's claim.
   const staleRequestedAt = new Date();
+  const staleSeq = currentAttemptSeq(db, seller.id);
   let release; const gate = new Promise(r => release = r);
   const api2 = { uploadInvoice: () => gate.then(() => 'feed-NEW'), feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
   const retry = approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
   await untilSending(db, inv.number);
   assert.equal(statusOf(db, inv.number), 'sending');
   // The pre-attempt report is processed while the new attempt is in flight: its verdict is stale.
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies, reportRequestedAt: staleRequestedAt });
+  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies, reportRequestedAt: staleRequestedAt, reportAttemptSeq: staleSeq });
   assert.equal(vidrAt(db, inv.number), null, 'the stale verdict must NOT stamp the document');
   assert.equal(statusOf(db, inv.number), 'sending', 'the stale verdict must NOT move the attempt');
   assert.equal(skips(db, inv.number).length, 1, 'the skip is logged as evidence');
@@ -81,12 +82,13 @@ test('R11-2 (his test 2): a STALE InvoiceRejected arriving during a resend must 
   const { api, inv, head, rows } = await seedRejected(db);
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   const staleRequestedAt = new Date();
+  const staleSeq = currentAttemptSeq(db, seller.id);
   let release; const gate = new Promise(r => release = r);
   const api2 = { uploadInvoice: () => gate.then(() => 'feed-NEW'), feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
   const retry = approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
   await untilSending(db, inv.number);
   // The pre-attempt report carries the OLD rejection again: it must not resurrect it.
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies, reportRequestedAt: staleRequestedAt });
+  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies, reportRequestedAt: staleRequestedAt, reportAttemptSeq: staleSeq });
   assert.equal(statusOf(db, inv.number), 'sending', 'the stale rejection must NOT move the attempt');
   assert.equal(skips(db, inv.number).length, 1, 'the skip is logged');
   release(); await retry;
@@ -103,7 +105,8 @@ test('R11-3: a FRESH report (requested after the claim) mid-flight still applies
   const retry = approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
   await untilSending(db, inv.number);
   const freshRequestedAt = new Date(); // requested AFTER the claim
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies, reportRequestedAt: freshRequestedAt });
+  const freshSeq = currentAttemptSeq(db, seller.id); // the snapshot INCLUDES the in-flight claim
+  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies, reportRequestedAt: freshRequestedAt, reportAttemptSeq: freshSeq });
   assert.ok(vidrAt(db, inv.number), 'the fresh verdict stamps the document');
   assert.equal(skips(db, inv.number).length, 0, 'nothing was skipped');
   release(); await retry;
@@ -120,7 +123,7 @@ test('R11-4: verdicts apply normally once a report is requested after the attemp
   await approveRepair(db, seller, q.event_key, { api: { ...api, uploadInvoice: async () => 'feed-NEW' }, validate: vies });
   assert.equal(statusOf(db, inv.number), 'submitted');
   // The NEXT sync's report (requested after the attempt) says processing: applies as always.
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies, reportRequestedAt: new Date() });
+  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies, reportRequestedAt: new Date(), reportAttemptSeq: currentAttemptSeq(db, seller.id) });
   assert.equal(statusOf(db, inv.number), 'processing');
   assert.ok(vidrAt(db, inv.number));
 });

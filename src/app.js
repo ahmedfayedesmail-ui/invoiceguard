@@ -3,7 +3,7 @@ import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { randomUUID, timingSafeEqual, createHash } from 'node:crypto';
 import { applyEdits } from './invoice.js';
-import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode } from './db.js';
+import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode, currentAttemptSeq } from './db.js';
 import { landing, privacy, contact, sample, faq, notFound, countryFromLang } from './site.js';
 import { landingLocalized } from './landing-i18n.js';
 import { ARTICLES, articlesIndex, articlePage } from './articles.js';
@@ -93,9 +93,13 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     // all-status report: one pass detects new work AND carries Amazon's verdict (InvoiceUploaded /
     // InvoiceRejected / CreditNote*) on what we already sent - that verdict, not the feed state,
     // is what marks a document uploaded (see pollFeeds).
-    const reportRequestedAt = new Date(); // round-13: verdicts in this report predate any upload attempt that starts after now
+    // Round-14 (critic round-12): the report snapshots the seller's attempt sequence at request
+    // time; its verdicts predate any attempt claimed after this snapshot. Ordering comes from the
+    // monotonic sequence, never the clock (reportRequestedAt stays as secondary evidence).
+    const reportRequestedAt = new Date();
+    const reportAttemptSeq = currentAttemptSeq(db, seller.id);
     const rid = await api.requestVidr(ids, { all: true }); const doc = await api.waitReport(rid); const text = await api.downloadReport(doc);
-    const out = await processReport(db, seller, text, { api, validate, reportRequestedAt }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
+    const out = await processReport(db, seller, text, { api, validate, reportRequestedAt, reportAttemptSeq }); const corr = await processCorrections(db, seller, text, { api, validate }); const polled = await pollFeeds(db, seller, api); const alerts = F.radarAlerts(db, seller);
     const settled = await settleUnknownDocuments(db, seller, text, { api, validate }); if (settled.resubmitted.length) logEvent(db, seller.id, 'sync_settled_unknown', settled);
     let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, text).proposed; } catch { /* a report without refund rows proposes nothing */ }
     const result = { ...out, corrections: corr, polled, newAlerts: alerts.length, repairsProposed, at: new Date().toISOString() };
