@@ -94,7 +94,7 @@ test('counters + landing A/B: page views, CTA clicks, signups counted; admin end
   const { server } = createApp({ secret: 'test' }); await new Promise(r => server.listen(0, r)); const u = 'http://localhost:' + server.address().port;
   const h = await (await fetch(u + '/')).text();
   assert.ok(/without the hand-made part|one-business-day invoice deadline/.test(h), 'H1 is variant A or B');
-  const v = h.includes('one-business-day') ? 'b' : 'a';
+  const v = h.includes('Your first Amazon Business order comes with') ? 'b' : 'a'; // detect by the H1: 'one-business-day' also appears in the ES market line in both variants
   assert.ok(h.includes('/go/sample?v=' + v), 'CTA carries the variant');
   const go = await fetch(u + '/go/sample?v=' + v, { redirect: 'manual' }); assert.equal(go.status, 302); assert.equal(go.headers.get('location'), '/sample');
   await fetch(u + '/faq'); await fetch(u + '/articles');
