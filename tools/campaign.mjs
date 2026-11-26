@@ -406,6 +406,7 @@ async function part6() {
   for (const p of ['/faq', '/contact', '/privacy', '/articles', '/sample', '/app'])
     await live('L:page' + p, async () => { const r = await get(p); check('L:page' + p, r.status === 200, `${p} -> ${r.status}`); });
   await live('L:sample-run', async () => { const r = await fetch(LIVE_BASE + '/api/sample/run'); const j = await r.json(); check('L:sample-run', r.status === 200 && (j.invoices?.length ?? j.count ?? 1) !== undefined, 'sample run'); });
+  await live('L:sample-repair', async () => { const r = await fetch(LIVE_BASE + '/api/sample/repair'); const j = await r.json(); check('L:sample-repair', r.status === 200 && (j.ok !== undefined), 'sample repair act'); });
   await live('L:404', async () => { const r = await get('/no-such-page-xyz'); check('L:404', r.status === 404, `404 -> ${r.status}`); });
   await live('L:admin-shut', async () => { const r = await get('/admin/counters'); check('L:admin-shut', [401, 403, 404].includes(r.status), 'admin closed'); }); // 404 = route hidden by design
 

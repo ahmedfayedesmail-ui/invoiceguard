@@ -7,7 +7,7 @@ import { openDb, migrateAuth, logEvent, verifyAudit, newRefCode } from './db.js'
 import { landing, privacy, contact, sample, faq, notFound, countryFromLang } from './site.js';
 import { landingLocalized } from './landing-i18n.js';
 import { ARTICLES, articlesIndex, articlePage } from './articles.js';
-import { sampleRun, samplePdf } from './sample.js';
+import { sampleRun, samplePdf, sampleRepair } from './sample.js';
 import { applyBootReset } from './reset.js';
 import { planUpload } from './manual.js';
 import { makeZip } from './zip.js';
@@ -113,6 +113,14 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         noteFail(sk); noteFail('sample|all');
         try { const run = await sampleRun(validate); bump('sample:run'); return json(res, 200, { seller: run.seller.name + ' (sample)', shipments: run.shipments, invoices: run.invoices }); }
         catch (e) { console.error('sample run', e); return json(res, 500, { error: 'The sample could not run right now. Try again in a minute.' }); }
+      }
+      if (req.method === 'GET' && p === '/api/sample/repair') {
+        const xf = String(req.headers['x-forwarded-for'] ?? '').split(',').map(s => s.trim()).filter(Boolean), ip = xf.length ? xf[xf.length - 1] : req.socket.remoteAddress, sk = 'sample|' + ip;
+        const wait = Math.max(throttled(sk, 10), throttled('sample|all', 100));
+        if (wait) return json(res, 429, { error: 'Too many sample runs from this network. Try again in a few minutes.' }, { 'retry-after': String(wait) });
+        noteFail(sk); noteFail('sample|all');
+        try { const rep = await sampleRepair(validate); if (rep.ok) bump('sample:repair'); return json(res, 200, rep); }
+        catch (e) { console.error('sample repair', e); return json(res, 500, { error: 'The sample could not run right now. Try again in a minute.' }); }
       }
       const smp = p.match(/^\/api\/sample\/pdf\/([A-Z0-9-]+)$/);
       if (smp && req.method === 'GET') {

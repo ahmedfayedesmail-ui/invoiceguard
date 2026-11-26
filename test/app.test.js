@@ -182,5 +182,12 @@ test('public sample: run, pdf, page, no auth needed', async () => {
     assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
     assert.equal(Buffer.from(await pdf.arrayBuffer()).subarray(0, 4).toString(), '%PDF');
     assert.equal((await fetch(base + '/api/sample/pdf/NOPE-1')).status, 404);
+    const rep = await fetch(base + '/api/sample/repair'); assert.equal(rep.status, 200);
+    const rp = await rep.json();
+    assert.equal(rp.ok, true); assert.match(rp.credit, /^R-/); assert.ok(rp.steps.length >= 4);
+    assert.ok(rp.steps.some(s => /Credit note R-/.test(s.label)));
+    const cpdf = await fetch(base + '/api/sample/pdf/' + encodeURIComponent(rp.credit));
+    assert.equal(cpdf.status, 200);
+    assert.equal(Buffer.from(await cpdf.arrayBuffer()).subarray(0, 4).toString(), '%PDF');
   } finally { delete process.env.OPERATOR_NAME; server.close(); }
 });
