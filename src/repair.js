@@ -24,18 +24,46 @@ export function ensureRepairTables(db) {
   try { db.exec('ALTER TABLE repairs ADD COLUMN report_seq INTEGER'); } catch { /* exists */ }
   try { db.exec('ALTER TABLE repairs ADD COLUMN report_at TEXT'); } catch { /* exists */ }
   db.exec('CREATE TABLE IF NOT EXISTS report_snapshots (seller_id TEXT PRIMARY KEY, seq INTEGER, requested_at TEXT, text TEXT)');
+  // Round-17 (critic round-15): freshness is ordered by REPORT GENERATION (one per report),
+  // never by attempt_seq. report_seq on old proposals held attempt-seq values and is no longer
+  // read; old snapshots stored with attempt-seq semantics are incomparable and dropped.
+  try { db.exec('ALTER TABLE repairs ADD COLUMN report_gen INTEGER'); } catch { /* exists */ }
+  try { db.exec('ALTER TABLE report_snapshots ADD COLUMN gen INTEGER'); } catch { /* exists */ }
+  // Round-17 (critic round-15 P1-B): a newer report being fetched/processed right now blocks
+  // credit-note approvals; the mark lives in the DB so it survives an approval on another path.
+  try { db.exec("ALTER TABLE report_snapshots ADD COLUMN in_flight INTEGER DEFAULT 0"); } catch { /* exists */ }
+  try { db.exec('ALTER TABLE report_snapshots ADD COLUMN in_flight_at TEXT'); } catch { /* exists */ }
+  db.exec('DELETE FROM report_snapshots WHERE gen IS NULL AND text IS NOT NULL'); // old rows always carry report text; an in-flight placeholder (round-17 P1-B) does not and must survive
 }
 
 /** Round-16: store the seller's latest report (snapshot + request time + text) so approval-time
  * re-validation can compare a proposal against fresher data. */
-export function recordReportSnapshot(db, sellerId, seq, requestedAt, text) {
+export function recordReportSnapshot(db, sellerId, { gen, seq, requestedAt, text }) {
   ensureRepairTables(db);
-  db.prepare(`INSERT INTO report_snapshots (seller_id, seq, requested_at, text) VALUES (?,?,?,?)
-    ON CONFLICT(seller_id) DO UPDATE SET seq=excluded.seq, requested_at=excluded.requested_at, text=excluded.text`).run(sellerId, seq, requestedAt, text);
+  // Storing the report also lifts the in-flight approval block (round-17 P1-B, success path).
+  db.prepare(`INSERT INTO report_snapshots (seller_id, gen, seq, requested_at, text, in_flight, in_flight_at) VALUES (?,?,?,?,?,0,NULL)
+    ON CONFLICT(seller_id) DO UPDATE SET gen=excluded.gen, seq=excluded.seq, requested_at=excluded.requested_at, text=excluded.text, in_flight=0, in_flight_at=NULL`).run(sellerId, gen, seq, requestedAt, text);
 }
 export function latestReportSnapshot(db, sellerId) {
   ensureRepairTables(db);
-  return db.prepare('SELECT seq, requested_at, text FROM report_snapshots WHERE seller_id=?').get(sellerId) ?? null;
+  return db.prepare('SELECT gen, seq, requested_at, text, in_flight FROM report_snapshots WHERE seller_id=?').get(sellerId) ?? null;
+}
+/** Round-17 (critic round-15 P1-B): mark that a newer report is being fetched/processed - credit-
+ * note approvals hold until the report lands (recordReportSnapshot) or the sync fails
+ * (clearReportInFlight). Boot clears stale marks (clearAllInFlightReports). */
+export function markReportInFlight(db, sellerId, at) {
+  ensureRepairTables(db);
+  db.prepare(`INSERT INTO report_snapshots (seller_id, in_flight, in_flight_at) VALUES (?,1,?)
+    ON CONFLICT(seller_id) DO UPDATE SET in_flight=1, in_flight_at=excluded.in_flight_at`).run(sellerId, at);
+}
+export function clearReportInFlight(db, sellerId) {
+  ensureRepairTables(db);
+  db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE seller_id=?').run(sellerId);
+}
+/** A crashed sync can leave the mark set; at boot no sync is running, so every mark is stale. */
+export function clearAllInFlightReports(db) {
+  ensureRepairTables(db);
+  db.prepare('UPDATE report_snapshots SET in_flight=0, in_flight_at=NULL WHERE in_flight=1').run();
 }
 
 /**
@@ -43,7 +71,7 @@ export function latestReportSnapshot(db, sellerId) {
  * billing-data corrections) referencing an invoice we issued become proposals.
  * Idempotent: one proposal per (seller, event key).
  */
-export function detectRepairs(db, seller, reportText, { now = new Date(), reportAttemptSeq = null, reportRequestedAt = null } = {}) {
+export function detectRepairs(db, seller, reportText, { now = new Date(), reportAttemptSeq = null, reportRequestedAt = null, reportGen = null } = {}) {
   ensureRepairTables(db);
   const out = { proposed: 0, skipped: [], proposals: [] };
   const all = parseVidr(reportText);
@@ -53,9 +81,9 @@ export function detectRepairs(db, seller, reportText, { now = new Date(), report
   // Amazon's transaction-type vocabulary is SHIPMENT / RETURN / REFUND (create-and-upload-invoices doc):
   // both RETURNs and REFUNDs can put a credit note due (CreditNotePending). Missing either loses money.
   const refunds = all.filter(s => ['REFUND', 'RETURN'].includes(s.transactionType) && !s.isCorrectionReversal);
-  const reportAt = reportRequestedAt ? new Date(reportRequestedAt).toISOString() : null; // round-16: source freshness travels with the proposal
+  const reportAt = reportRequestedAt ? new Date(reportRequestedAt).toISOString() : null; // round-16/17: source freshness travels with the proposal (ordered by report GENERATION)
   const ins = db.prepare(`INSERT OR IGNORE INTO repairs
-    (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at, report_seq, report_at)
+    (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at, report_gen, report_at)
     VALUES (?,?,?,?,?,?,?, 'proposed', ?, ?, ?)`);
   for (const s of refunds) {
     // Amazon's invoice-status column says what this refund needs: only CreditNotePending means the
@@ -77,10 +105,10 @@ export function detectRepairs(db, seller, reportText, { now = new Date(), report
     const full = Math.abs(Math.abs(s.incl) - Math.abs(orig.total)) < 0.005 && Math.abs(Math.abs(s.vat) - Math.abs(orig.vat)) < 0.005;
     const suggestion = JSON.stringify({ action: 'credit_note', rectifies: orig.number, total: Math.abs(s.incl), vat: Math.abs(s.vat), transactionId: s.transactionId, full,
       lines: s.items.map(it => ({ sku: it.sku ?? null, excl: Math.abs(it.exclTotal), vat: Math.abs(it.vatTotal), extras: (it.extras ?? []).map(x => ({ part: x.part, excl: Math.abs(x.excl), vat: Math.abs(x.vat) })) })) });
-    const r = ins.run(seller.id, s.key, 'return', orig.number, s.key, reason, suggestion, now.toISOString(), reportAttemptSeq, reportAt);
+    const r = ins.run(seller.id, s.key, 'return', orig.number, s.key, reason, suggestion, now.toISOString(), reportGen, reportAt);
     // Proposals made before exact amounts were recorded get upgraded in place on the next sync,
     // and every still-open proposal is re-stamped with the fresher source report (round-16).
-    if (!r.changes) db.prepare("UPDATE repairs SET suggestion=?, report_seq=?, report_at=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(suggestion, reportAttemptSeq, reportAt, seller.id, s.key);
+    if (!r.changes) db.prepare("UPDATE repairs SET suggestion=?, report_gen=?, report_at=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(suggestion, reportGen, reportAt, seller.id, s.key);
     if (r.changes) { out.proposed++; out.proposals.push({ key: s.key, original: orig.number, reason }); logEvent(db, seller.id, 'repair_proposed', { key: s.key, original: orig.number, reason }); }
   }
   return out;
@@ -325,15 +353,20 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
   // this proposal was built from, the refund event and its amounts are re-checked against it
   // before any money document is issued. Divergence (or the event no longer being due) stops the
   // approval with a clear reason; the hold is logged as stale_proposal_held.
-  // A NULL stamp (a proposal recorded before freshness tracking) is older than ANY stored
-  // snapshot, so it is re-validated too; with no snapshot at all there is nothing to compare
-  // against and the proposal issues as before (reviewer re-check, round-16b).
   const snap = latestReportSnapshot(db, seller.id);
-  if (snap && snap.seq > (r.report_seq ?? -1)) {
+  // Round-17 (critic round-15 P1-B): a newer report being fetched/processed RIGHT NOW blocks the
+  // approval - issuing would race information that is already on its way in. The block lifts on
+  // sync success (snapshot stored) or failure (mark cleared), never stuck.
+  if (snap?.in_flight) throw new Error('A sync is running right now and a newer Amazon report is being processed, so this credit note is not issued yet. Review it again when the sync finishes. Nothing was issued.');
+  // Round-17 (critic round-15 P1-A): freshness is ordered by report GENERATION (one per report),
+  // never by attempt_seq. A NULL stamp (a proposal recorded before freshness tracking) is older
+  // than ANY stored snapshot, so it is re-validated too; with no snapshot at all there is nothing
+  // to compare against and the proposal issues as before (reviewer re-check, round-16b).
+  if (snap && snap.gen != null && snap.gen > (r.report_gen ?? -1)) {
     const fresh = parseVidr(snap.text).find(x => x.key === r.event_key);
     const why = staleProposalReason(fresh, sug);
     if (why) {
-      logEvent(db, seller.id, 'stale_proposal_held', { key: r.event_key, number: r.original_number, proposalSeq: r.report_seq, snapshotSeq: snap.seq, reason: why });
+      logEvent(db, seller.id, 'stale_proposal_held', { key: r.event_key, number: r.original_number, proposalGen: r.report_gen, snapshotGen: snap.gen, reason: why });
       throw new Error(why + ' Nothing was issued.');
     }
   }

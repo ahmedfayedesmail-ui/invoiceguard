@@ -9,7 +9,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { openDb, migrateAuth, currentAttemptSeq } from '../src/db.js';
+import { openDb, migrateAuth, currentAttemptSeq, nextReportGen } from '../src/db.js';
 import { processReport, processCorrections } from '../src/pipeline.js';
 import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot } from '../src/repair.js';
 
@@ -76,28 +76,28 @@ test('R14-1: a STALE Correction:: row must NOT resubmit the replacement (process
   assert.equal(statusOf(db, repl.number), 'unknown');
 });
 
-test('R14-2: proposals carry the source report snapshot + request time, re-stamped in place on a fresher report', async () => {
+test('R14-2: proposals carry the source report generation + request time, re-stamped in place on a fresher report', async () => {
   const db = openDb();
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  const seq0 = currentAttemptSeq(db, seller.id), at0 = new Date('2026-11-25T10:00:00Z');
-  detectRepairs(db, seller, refundReport(), { reportAttemptSeq: seq0, reportRequestedAt: at0 });
-  const row = db.prepare('SELECT report_seq, report_at FROM repairs WHERE seller_id=?').get(seller.id);
-  assert.equal(row.report_seq, seq0, 'the proposal is stamped with the source snapshot');
+  const g0 = nextReportGen(db, seller.id), at0 = new Date('2026-11-25T10:00:00Z');
+  detectRepairs(db, seller, refundReport(), { reportGen: g0, reportRequestedAt: at0 });
+  const row = db.prepare('SELECT report_gen, report_at FROM repairs WHERE seller_id=?').get(seller.id);
+  assert.equal(row.report_gen, g0, 'the proposal is stamped with the source report generation (round-17: generation, not attempt_seq)');
   assert.equal(row.report_at, at0.toISOString(), 'and the request time');
-  const at1 = new Date('2026-11-26T10:00:00Z');
-  detectRepairs(db, seller, refundReport(), { reportAttemptSeq: seq0 + 1, reportRequestedAt: at1 });
-  const row2 = db.prepare('SELECT report_seq, report_at FROM repairs WHERE seller_id=?').get(seller.id);
-  assert.equal(row2.report_seq, seq0 + 1, 'the open proposal is re-stamped by the fresher report');
+  const g1 = nextReportGen(db, seller.id), at1 = new Date('2026-11-26T10:00:00Z');
+  detectRepairs(db, seller, refundReport(), { reportGen: g1, reportRequestedAt: at1 });
+  const row2 = db.prepare('SELECT report_gen, report_at FROM repairs WHERE seller_id=?').get(seller.id);
+  assert.equal(row2.report_gen, g1, 'the open proposal is re-stamped by the fresher report');
   assert.equal(row2.report_at, at1.toISOString());
 });
 
 test('R14-3: a fresher report with DIFFERENT amounts holds the approval - nothing issues from stale amounts', async () => {
   const db = openDb();
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  const seq0 = currentAttemptSeq(db, seller.id);
-  detectRepairs(db, seller, refundReport(), { reportAttemptSeq: seq0, reportRequestedAt: new Date('2026-11-25T10:00:00Z') });
+  const g0 = nextReportGen(db, seller.id);
+  detectRepairs(db, seller, refundReport(), { reportGen: g0, reportRequestedAt: new Date('2026-11-25T10:00:00Z') });
   const [p] = listRepairs(db, seller.id);
-  recordReportSnapshot(db, seller.id, seq0 + 1, new Date('2026-11-26T10:00:00Z').toISOString(), refundReport(0.5));
+  recordReportSnapshot(db, seller.id, { gen: g0 + 1, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-26T10:00:00Z').toISOString(), text: refundReport(0.5) });
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /different refund amounts/);
   assert.equal(listRepairs(db, seller.id).length, 1, 'the proposal stays in the queue');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 0, 'nothing was issued');
@@ -107,10 +107,10 @@ test('R14-3: a fresher report with DIFFERENT amounts holds the approval - nothin
 test('R14-4: a fresher report with MATCHING amounts lets the approval issue normally', async () => {
   const db = openDb();
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  const seq0 = currentAttemptSeq(db, seller.id);
-  detectRepairs(db, seller, refundReport(), { reportAttemptSeq: seq0, reportRequestedAt: new Date('2026-11-25T10:00:00Z') });
+  const g0 = nextReportGen(db, seller.id);
+  detectRepairs(db, seller, refundReport(), { reportGen: g0, reportRequestedAt: new Date('2026-11-25T10:00:00Z') });
   const [p] = listRepairs(db, seller.id);
-  recordReportSnapshot(db, seller.id, seq0 + 1, new Date('2026-11-26T10:00:00Z').toISOString(), refundReport());
+  recordReportSnapshot(db, seller.id, { gen: g0 + 1, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-26T10:00:00Z').toISOString(), text: refundReport() });
   const res = await approveRepair(db, seller, p.event_key, { api, validate: vies });
   assert.ok(res.rectNumber, 'the credit note was issued from re-validated fresh data');
   assert.equal(db.prepare("SELECT count(*) c FROM events WHERE seller_id=? AND type='stale_proposal_held'").get(seller.id).c, 0, 'no hold was logged');
@@ -119,10 +119,10 @@ test('R14-4: a fresher report with MATCHING amounts lets the approval issue norm
 test('R14-5: a fresher report that NO LONGER lists the refund event holds the approval', async () => {
   const db = openDb();
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  const seq0 = currentAttemptSeq(db, seller.id);
-  detectRepairs(db, seller, refundReport(), { reportAttemptSeq: seq0, reportRequestedAt: new Date('2026-11-25T10:00:00Z') });
+  const g0 = nextReportGen(db, seller.id);
+  detectRepairs(db, seller, refundReport(), { reportGen: g0, reportRequestedAt: new Date('2026-11-25T10:00:00Z') });
   const [p] = listRepairs(db, seller.id);
-  recordReportSnapshot(db, seller.id, seq0 + 1, new Date('2026-11-26T10:00:00Z').toISOString(), text); // the event is gone
+  recordReportSnapshot(db, seller.id, { gen: g0 + 1, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-26T10:00:00Z').toISOString(), text }); // the event is gone
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /no longer lists this refund event/);
   assert.equal(listRepairs(db, seller.id).length, 1, 'the proposal stays in the queue');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 0, 'nothing was issued');
@@ -131,10 +131,10 @@ test('R14-5: a fresher report that NO LONGER lists the refund event holds the ap
 test('R14-6 (reviewer re-check): a LEGACY un-stamped proposal + divergent fresher snapshot is held, not issued', async () => {
   const db = openDb();
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  detectRepairs(db, seller, refundReport()); // pre-freshness: no stamp options -> report_seq NULL
+  detectRepairs(db, seller, refundReport()); // pre-freshness: no stamp options -> report_gen NULL
   const [p] = listRepairs(db, seller.id);
-  assert.equal(p.report_seq ?? null, null, 'this proposal predates freshness tracking');
-  recordReportSnapshot(db, seller.id, currentAttemptSeq(db, seller.id), new Date('2026-11-26T10:00:00Z').toISOString(), refundReport(0.5));
+  assert.equal(p.report_gen ?? null, null, 'this proposal predates freshness tracking');
+  recordReportSnapshot(db, seller.id, { gen: 1, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-26T10:00:00Z').toISOString(), text: refundReport(0.5) });
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /different refund amounts/);
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 0, 'nothing was issued from the stale legacy proposal');
   assert.equal(db.prepare("SELECT count(*) c FROM events WHERE seller_id=? AND type='stale_proposal_held'").get(seller.id).c, 1, 'the hold is logged');
@@ -145,7 +145,7 @@ test('R14-7 (reviewer re-check): a LEGACY un-stamped proposal + fresher snapshot
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   detectRepairs(db, seller, refundReport());
   const [p] = listRepairs(db, seller.id);
-  recordReportSnapshot(db, seller.id, currentAttemptSeq(db, seller.id), new Date('2026-11-26T10:00:00Z').toISOString(), text); // event gone
+  recordReportSnapshot(db, seller.id, { gen: 1, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date('2026-11-26T10:00:00Z').toISOString(), text }); // event gone
   await assert.rejects(approveRepair(db, seller, p.event_key, { api, validate: vies }), /no longer lists this refund event/);
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 0, 'nothing was issued');
 });

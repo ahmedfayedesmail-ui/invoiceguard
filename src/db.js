@@ -67,6 +67,7 @@ export function openDb(file = ':memory:') {
   // time; a verdict whose snapshot is older than the document's current attempt is stale.
   try { db.exec('ALTER TABLE invoices ADD COLUMN attempt_seq INTEGER'); } catch { /* column exists */ }
   db.exec('CREATE TABLE IF NOT EXISTS seq_counters (seller_id TEXT PRIMARY KEY, n INTEGER)');
+  db.exec('CREATE TABLE IF NOT EXISTS report_gens (seller_id TEXT PRIMARY KEY, n INTEGER)'); // round-17: one generation per report, independent of attempts
   // Backfill: attempts that predate this column are all OLDER than any report requested from now
   // on, so they share seq 1 and each affected seller's counter starts at 1 (next claim = 2+). A
   // report requested after this migration can therefore never resurrect a verdict over a claim
@@ -119,6 +120,19 @@ export function nextAttemptSeq(db, sellerId) {
 /** The current attempt sequence: the snapshot a VIDR report request records (0 = none yet). */
 export function currentAttemptSeq(db, sellerId) {
   return db.prepare('SELECT n FROM seq_counters WHERE seller_id=?').get(sellerId)?.n ?? 0;
+}
+
+/** Round-17 (critic round-15 P1-A): REPORT GENERATION - a monotonic counter per seller that
+ * increments once per report taken in, INDEPENDENT of upload attempts. attempt_seq orders upload
+ * attempts (stale-report protection); report_generation orders reports themselves (proposal
+ * freshness) - two consecutive reports with no upload between them share an attempt_seq and must
+ * still order. */
+export function nextReportGen(db, sellerId) {
+  db.prepare('INSERT INTO report_gens (seller_id, n) VALUES (?,1) ON CONFLICT(seller_id) DO UPDATE SET n=n+1').run(sellerId);
+  return db.prepare('SELECT n FROM report_gens WHERE seller_id=?').get(sellerId).n;
+}
+export function currentReportGen(db, sellerId) {
+  return db.prepare('SELECT n FROM report_gens WHERE seller_id=?').get(sellerId)?.n ?? 0;
 }
 
 export const logEvent = (db, sellerId, type, detail) =>

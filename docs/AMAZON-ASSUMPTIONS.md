@@ -111,10 +111,15 @@ document's state at createReport time. Treating the request-time snapshot as a h
 assumption to be proven against a live seller account in the first real pilot; until then the
 skip events double as the audit trail for checking it.
 
-C10. Proposal freshness (round-16, critic round-14): repair proposals carry the attempt-sequence
-snapshot and request time of the report they were built from; the review UI shows that source and
-whether a newer report exists; and approval re-validates the refund event and its amounts against
-the latest stored report whenever a fresher one exists - a divergence (or the event no longer
-being due) holds the issue with a clear reason and logs stale_proposal_held. A stale report may
-still mint an APPROVABLE proposal, but it can no longer issue a financial document from stale
-amounts.
+C10. Proposal freshness (rounds 16-17, critic rounds 14-15): repair proposals carry the report
+generation and request time of the report they were built from; the review UI shows that source
+and whether a newer report exists; and approval re-validates the refund event and its amounts
+against the latest stored report whenever a fresher one exists - a divergence (or the event no
+longer being due) holds the issue with a clear reason and logs stale_proposal_held. A stale report
+may still mint an APPROVABLE proposal, but it can no longer issue a financial document from stale
+amounts. Freshness is ordered by report_generation - a monotonic counter per seller that
+increments once per report taken in, INDEPENDENT of attempt_seq (which only orders upload
+attempts): two consecutive reports with no upload between them still order (critic round-15 P1-A).
+While a newer report is being fetched/processed, credit-note approvals are blocked by an in-flight
+mark in the database; sync success stores the report and lifts the block, sync failure clears it
+explicitly, and boot clears any mark a crash left behind (critic round-15 P1-B).
