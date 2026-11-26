@@ -33,6 +33,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
     if (existing && ['submitted', 'uploaded', 'ready'].includes(existing.status)) { out.skipped++; continue; }
+    if (!existing) logEvent(db, seller.id, 'detected', { key: s.key, orderId: s.orderId }); // evidence trail starts here
     if (s.buyerVat && hasOverride(db, seller.id, s.key, 'b2c')) { s.buyerVat = null; s.buyerCompany = s.billing?.name || ''; }
     if (s.buyerVat) {
       const v = await validate(s.buyerVat); s.__vies = v;

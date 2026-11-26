@@ -344,6 +344,17 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (p === '/api/radar') return json(res, 200, { ...F.radar(db, seller, new Date(), 500), alerts: F.listAlerts(db, seller) });
       if (p === '/api/wizard') return json(res, 200, F.wizard(db, { country: seller.country ?? 'ES', ...body, marketplaces: body.marketplaces ?? JSON.parse(seller.marketplace_ids || '[]') }));
+      const mt = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/trail$/);
+      if (mt) { // per-order evidence trail: every recorded step for this invoice and its order, oldest first
+        const num = mt[1], inv = db.prepare('SELECT shipment_key, number, rectifies, issued_at, uploaded_at FROM invoices WHERE seller_id=? AND number=?').get(seller.id, num);
+        if (!inv) return json(res, 404, { error: 'not found' });
+        const ship = inv.shipment_key ? db.prepare('SELECT order_id, due_at, shipment_date FROM shipments WHERE seller_id=? AND key=?').get(seller.id, inv.shipment_key) : null;
+        const match = (d) => d && (d.key === inv.shipment_key || d.number === num || d.rect === num || d.rectifies === num || d.original === num);
+        const events = db.prepare('SELECT ts, type, detail FROM events WHERE seller_id=? ORDER BY ts').all(seller.id)
+          .filter(e => { try { return match(JSON.parse(e.detail)); } catch { return false; } })
+          .map(e => ({ ts: e.ts, type: e.type, detail: JSON.parse(e.detail) }));
+        return json(res, 200, { number: num, orderId: ship?.orderId ?? null, shipmentDate: ship?.shipment_date ?? null, dueAt: ship?.due_at ?? null, issuedAt: inv.issued_at, uploadedAt: inv.uploaded_at, events });
+      }
       const mc = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/checks$/);
       if (mc) { const r = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, mc[1]); return r ? json(res, 200, { warnings: F.buyerCountryCheck(JSON.parse(r.json), seller.country ?? 'ES') }) : json(res, 404, { error: 'not found' }); }
       if (p === '/api/export.zip') { try { const x = await F.buildExport(db, seller, body.from, body.to); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoices-${body.from}-to-${body.to}.zip"`, 'x-count': String(x.count) }); return res.end(x.zip); } catch (e) { return json(res, 400, { error: e.message }); } }
@@ -370,7 +381,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         if (p === '/api/manual/preview') return json(res, 200, view);
         if (body.attest !== true) return json(res, 400, { error: 'Please confirm the two checks first.' });
         const prev = (key) => db.prepare('SELECT status, reason FROM shipments WHERE seller_id=? AND key=?').get(seller.id, key);
-        for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; const pv = prev(st.key); const alreadyHeld = pv?.status === 'held' && pv?.reason === h.reason; if (!alreadyHeld && !['ready', 'uploaded', 'submitted'].includes(pv?.status)) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
+        for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; const pv = prev(st.key); const alreadyHeld = pv?.status === 'held' && pv?.reason === h.reason; if (!pv) logEvent(db, seller.id, 'detected', { key: st.key, orderId: st.orderId }); if (!alreadyHeld && !['ready', 'uploaded', 'submitted'].includes(pv?.status)) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
         const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
         logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
         let repairsProposed = 0; try { repairsProposed = detectRepairs(db, seller, String(body.text ?? '')).proposed; } catch { /* non-VIDR formats carry no refund rows */ }
@@ -393,7 +404,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/invoices/mark') {
         const nums = body.all === true ? db.prepare("SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready'").all(seller.id).map(r => r.number) : (Array.isArray(body.numbers) ? body.numbers.map(String).slice(0, 5000) : []);
         let n = 0; const now = new Date().toISOString();
-        for (const num of nums) { const r = db.prepare("SELECT shipment_key FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, num); n++; }
+        for (const num of nums) { const r = db.prepare("SELECT shipment_key FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, num); logEvent(db, seller.id, 'uploaded', { number: num }); n++; }
         if (n) logEvent(db, seller.id, 'marked_uploaded', { count: n }); return json(res, 200, { ok: true, marked: n });
       }
       if (p === '/api/invoices/reject') { // manual product: Amazon refused an upload; keep the error, close nothing, offer the fix path
@@ -413,6 +424,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         if (!rows.length) return json(res, 404, { error: 'No invoices are waiting. Upload an order report first.' });
         // Closure trail: every issued correction travelling in this pack moves to 'exported'.
         db.prepare("UPDATE repairs SET state='exported' WHERE seller_id=? AND state='issued' AND rect_number IN (SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready')").run(seller.id, seller.id);
+        for (const r of rows) logEvent(db, seller.id, 'exported', { number: r.number }); // per-order evidence: the pack left us
         const safe = (x) => String(x ?? '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60), cell = (v) => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
         const files = [], man = ['invoice_number,order_id,buyer,buyer_vat,issue_date,currency,total_incl_vat,vat,file'];
         for (const r of rows) { const inv = JSON.parse(r.json), name = `${safe(inv.orderId)}_${safe(r.number)}.pdf`; files.push({ name, data: await renderPdf(inv) }); man.push([r.number, inv.orderId, inv.buyer?.name, inv.buyer?.vat, String(inv.issueDate ?? '').slice(0, 10), inv.currency, r.total, r.vat, name].map(cell).join(',')); }

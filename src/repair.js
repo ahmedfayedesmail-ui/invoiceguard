@@ -38,7 +38,7 @@ export function detectRepairs(db, seller, reportText, { now = new Date() } = {})
     const reason = `Return or refund received for order ${s.orderId} after invoice ${orig.number} was issued`;
     const suggestion = JSON.stringify({ action: 'credit_note', rectifies: orig.number, total: Math.abs(s.incl), vat: Math.abs(s.vat), transactionId: s.transactionId });
     const r = ins.run(seller.id, s.key, 'return', orig.number, s.key, reason, suggestion, now.toISOString());
-    if (r.changes) { out.proposed++; out.proposals.push({ key: s.key, original: orig.number, reason }); }
+    if (r.changes) { out.proposed++; out.proposals.push({ key: s.key, original: orig.number, reason }); logEvent(db, seller.id, 'repair_proposed', { key: s.key, original: orig.number, reason }); }
   }
   return out;
 }
