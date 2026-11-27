@@ -11,8 +11,8 @@ const stubDb = { prepare: () => stmt, exec: () => {} };
 const sellerFor = (s, country) => ({ id: 'local', name: 'SAMPLE SELLER (not a real invoice)', nif: s.sellerVat || '', address: 'Sample address', country, invoice_lang: 'auto', profile: '{}' });
 
 /** @returns plain, JSON-safe summary: what would be invoiced, what is held (with the reason) and what is skipped. */
-export async function analyze(text, { country = 'ES', useDeliveryAddress = false, sellerDeclaration = {} } = {}) {
-  const plan = planUpload(String(text ?? ''), { useDeliveryAddress, sellerDeclaration });
+export async function analyze(text, { country = 'ES', useDeliveryAddress = false } = {}) {
+  const plan = planUpload(String(text ?? ''), { useDeliveryAddress });
   if (!plan.ok) return { ok: false, error: plan.error, format: plan.format ?? null };
   const rd = readiness(country, 'issue');
   const ready = [], held = plan.held.map(h => ({ orderId: h.orderId, reason: h.reason }));

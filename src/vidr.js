@@ -66,8 +66,8 @@ export const needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness === true &
 
 /** Which of the two flags a shipment leaves UNKNOWN (blank, unreadable, or rows that disagree). */
 export const unknownFlags = (s) => [s.isBusiness == null && 'is-business-order', s.isAmazonInvoiced == null && 'is-amazon-invoiced'].filter(Boolean);
-/** True when a flag is unknown AND the shipment would need a seller invoice if it were known the way an invoice needs it. Such a shipment is HELD: it is neither issued nor skipped as consumer or as Amazon-created. */
-export const heldForUnknownFlags = (s) => !s.unknownTxFormat && unknownFlags(s).length > 0 && needsInvoice({ ...s, isBusiness: s.isBusiness ?? true, isAmazonInvoiced: s.isAmazonInvoiced ?? false });
+/** True when a flag is unknown and the shipment could still need a seller invoice: a shipment (not a correction) that is not known to be consumer (is-business-order FALSE) or Amazon-invoiced (is-amazon-invoiced TRUE). The invoice-status plays no part: a blank flag is held in every status. Such a shipment is neither issued nor skipped. */
+export const heldForUnknownFlags = (s) => !s.unknownTxFormat && unknownFlags(s).length > 0 && s.transactionType === 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrection && s.isBusiness !== false && s.isAmazonInvoiced !== true;
 /** The seller's words for a held shipment: which column, that nothing was guessed or issued, and what would resolve it. kind ABSENT = the report type has no such column. */
 export const unknownFlagsReason = (fields, kind = 'BLANK') => {
   const cols = fields.join(' and '), shows = fields.length === 2 ? 'whether this is a business order or who issues the invoice' : fields[0] === 'is-business-order' ? 'whether this is a business order' : 'who issues the invoice';

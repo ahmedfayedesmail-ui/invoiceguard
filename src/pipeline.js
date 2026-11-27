@@ -46,7 +46,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
   for (const s of list) {
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
-    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
+    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); } else out.skipped++; continue; }
     if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     // Round-15 (critic round-13 P1-B): a STALE report row must never drive an upload decision.
     // An old report saying "still pending" could otherwise pass the unknown-settle cross-check

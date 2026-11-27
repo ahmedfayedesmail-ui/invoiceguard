@@ -85,19 +85,13 @@ test('order report: company name and tax id are buyer data, not proof of the bus
   const p = planUpload(order({ 'buyer-company-name': 'Acme SL', 'buyer-tax-registration-id': '12345674' }), { useDeliveryAddress: true });
   assert.equal(p.shipments.length, 0);
 });
-test('order report: a seller declaration makes it ready and is recorded as a SELLER DECLARATION, never as a fact from Amazon', () => {
-  const p = planUpload(order(), { useDeliveryAddress: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } });
-  assert.equal(p.shipments.length, 1); const s = p.shipments[0];
-  assert.equal(s.isBusiness, true); assert.equal(s.isAmazonInvoiced, false);
-  assert.deepEqual(s.flagSource, { isBusiness: 'SELLER_DECLARATION', isAmazonInvoiced: 'SELLER_DECLARATION' });
+test('order report: a seller declaration option, complete or partial, is ignored: it is not a route to an invoice (decision: issuing needs a VAT Invoice Data Report)', () => {
+  for (const d of [{ isBusiness: true, isAmazonInvoiced: false }, { isBusiness: true }]) { const p = planUpload(order(), { useDeliveryAddress: true, sellerDeclaration: d });
+    assert.equal(p.shipments.length, 0); assert.equal(p.held.length, 1); assert.match(p.held[0].reason, /VAT Invoice Data Report/); }
 });
-test('order report: a partial seller declaration is not enough; the missing field stays unknown and the order is held', () => {
-  const p = planUpload(order(), { useDeliveryAddress: true, sellerDeclaration: { isBusiness: true } });
-  assert.equal(p.shipments.length, 0); assert.equal(p.held.length, 1); assert.match(p.held[0].reason, /is-amazon-invoiced/);
-});
-test('order report: flag columns, when the file does carry them, are read as written and recorded as coming from the report', () => {
+test('order report: flag columns, when the file does carry them, are read as written for skipping, but the Order Report never issues', () => {
   const ok = planUpload(order({ 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'FALSE' }), { useDeliveryAddress: true });
-  assert.equal(ok.shipments.length, 1); assert.deepEqual(ok.shipments[0].flagSource, { isBusiness: 'REPORT', isAmazonInvoiced: 'REPORT' });
+  assert.equal(ok.shipments.length, 0); assert.equal(ok.held.length, 1); assert.match(ok.held[0].reason, /preview only/);
   assert.equal(planUpload(order({ 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'TRUE' }), { useDeliveryAddress: true }).skipped.length, 1, 'TRUE: Amazon creates it (characterization)');
   assert.equal(planUpload(order({ 'is-business-order': 'TRUE', 'is-amazon-invoiced': '' }), { useDeliveryAddress: true }).held.length, 1, 'blank column: unknown, held');
   assert.equal(planUpload(order({ 'is-business-order': 'FALSE', 'is-amazon-invoiced': 'FALSE' }), { useDeliveryAddress: true }).skipped.length, 1, 'explicit FALSE business: consumer, as written');

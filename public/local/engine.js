@@ -3027,7 +3027,7 @@ var require_pdfkit_standalone = __commonJS({
               }
             }
             class PDFRadialGradient extends PDFGradient {
-              constructor(doc, x1, y1, r1, x2, y2, r24) {
+              constructor(doc, x1, y1, r1, x2, y2, r23) {
                 super(doc);
                 this.doc = doc;
                 this.x1 = x1;
@@ -3035,7 +3035,7 @@ var require_pdfkit_standalone = __commonJS({
                 this.r1 = r1;
                 this.x2 = x2;
                 this.y2 = y2;
-                this.r2 = r24;
+                this.r2 = r23;
               }
               shader(fn) {
                 return this.doc.ref({
@@ -3252,8 +3252,8 @@ var require_pdfkit_standalone = __commonJS({
               linearGradient(x1, y1, x2, y2) {
                 return new PDFLinearGradient$1(this, x1, y1, x2, y2);
               },
-              radialGradient(x1, y1, r1, x2, y2, r24) {
-                return new PDFRadialGradient$1(this, x1, y1, r1, x2, y2, r24);
+              radialGradient(x1, y1, r1, x2, y2, r23) {
+                return new PDFRadialGradient$1(this, x1, y1, r1, x2, y2, r23);
               },
               pattern(bbox, xStep, yStep, stream2) {
                 return new PDFTilingPattern$1(this, bbox, xStep, yStep, stream2);
@@ -3837,18 +3837,18 @@ var require_pdfkit_standalone = __commonJS({
                 this.bezierCurveTo(x, y + c, x + c, y, x + r, y);
                 return this.closePath();
               },
-              ellipse(x, y, r1, r24) {
-                if (r24 == null) {
-                  r24 = r1;
+              ellipse(x, y, r1, r23) {
+                if (r23 == null) {
+                  r23 = r1;
                 }
                 x -= r1;
-                y -= r24;
+                y -= r23;
                 const ox = r1 * KAPPA;
-                const oy = r24 * KAPPA;
+                const oy = r23 * KAPPA;
                 const xe = x + r1 * 2;
-                const ye = y + r24 * 2;
+                const ye = y + r23 * 2;
                 const xm = x + r1;
-                const ym = y + r24;
+                const ym = y + r23;
                 this.moveTo(x, ym);
                 this.bezierCurveTo(x, ym - oy, xm - ox, y, xm, y);
                 this.bezierCurveTo(xm + ox, y, xe, ym - oy, xe, ym);
@@ -48949,7 +48949,7 @@ function parseVidr(text) {
 }
 var needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness === true && s.isAmazonInvoiced === false && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
 var unknownFlags = (s) => [s.isBusiness == null && "is-business-order", s.isAmazonInvoiced == null && "is-amazon-invoiced"].filter(Boolean);
-var heldForUnknownFlags = (s) => !s.unknownTxFormat && unknownFlags(s).length > 0 && needsInvoice({ ...s, isBusiness: s.isBusiness ?? true, isAmazonInvoiced: s.isAmazonInvoiced ?? false });
+var heldForUnknownFlags = (s) => !s.unknownTxFormat && unknownFlags(s).length > 0 && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && s.isBusiness !== false && s.isAmazonInvoiced !== true;
 var unknownFlagsReason = (fields, kind = "BLANK") => {
   const cols = fields.join(" and "), shows = fields.length === 2 ? "whether this is a business order or who issues the invoice" : fields[0] === "is-business-order" ? "whether this is a business order" : "who issues the invoice";
   const head = kind === "ABSENT" ? `The Order Report does not carry ${cols}, so it cannot show ${shows} for this order.` : `${cols} ${fields.length > 1 ? "are" : "is"} blank, unreadable or disagree between the rows of this order in the report, so the report does not show ${shows}.`;
@@ -48963,7 +48963,6 @@ var FORMATS = {
   order: "Order Report (with buyer VAT columns)",
   allorders: "All Orders Report"
 };
-var r22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 var MAX_ROWS = 2e4;
 function parseTable(text) {
   text = String(text ?? "").replace(/^\uFEFF/, "");
@@ -48993,26 +48992,14 @@ function detectFormat(head) {
   if (has("order-id", "item-price", "item-tax", "quantity-purchased", "currency") && (head.includes("buyer-name") || head.includes("recipient-name") || head.includes("buyer-company-name"))) return "order";
   return null;
 }
-var money = (v) => {
-  v = String(v ?? "").trim();
-  if (v === "") return 0;
-  if (!/^-?\d+([.,]\d{1,2})?$/.test(v)) return NaN;
-  return parseFloat(v.replace(",", "."));
-};
-var COUNTRY_BY_DOMAIN = { "amazon.es": "ES", "amazon.fr": "FR", "amazon.de": "DE", "amazon.it": "IT", "amazon.nl": "NL", "amazon.pl": "PL", "amazon.se": "SE", "amazon.com.be": "BE", "amazon.ie": "IE", "amazon.co.uk": "GB" };
-var rateOf = (excl, vat) => {
-  if (vat === 0) return 0;
-  if (!(excl > 0) || vat < 0) return null;
-  const raw = vat / excl * 100, near = Math.round(raw * 2) / 2, tol = excl >= 10 ? 0.2 : excl >= 3 ? 0.6 : 1.5;
-  return Math.abs(raw - near) <= tol && near > 0 && near <= 30 ? near : null;
-};
 var orderFlag = (lines, col) => {
   if (!lines.some((l) => col in l)) return { state: "ABSENT", value: null };
   const vals = lines.map((l) => l[col]), v = readFlag(vals);
   if (v !== null) return { state: "VALUE", value: v };
   return { state: vals.every((x) => String(x ?? "").trim() === "") ? "BLANK" : "UNKNOWN", value: null };
 };
-function parseOrderReport(rows, { useDeliveryAddress = false, sellerDeclaration = {} } = {}) {
+var ORDER_REPORT_PREVIEW_ONLY = "Issuing needs a VAT Invoice Data Report. The Order Report is a preview only: it shows what we can read, and it never allows an invoice to be issued. To resolve it, load the VAT Invoice Data Report for these orders.";
+function parseOrderReport(rows) {
   const byOrder = /* @__PURE__ */ new Map(), out = { shipments: [], held: [], skipped: [], problems: [] };
   for (const r of rows) {
     const id = r["order-id"];
@@ -49021,134 +49008,23 @@ function parseOrderReport(rows, { useDeliveryAddress = false, sellerDeclaration 
     byOrder.get(id).push(r);
   }
   for (const [orderId, lines] of byOrder) {
-    const f = lines[0], holdWith = (reason, s2 = null) => out.held.push({ orderId, reason, s: s2 });
-    const bf = orderFlag(lines, "is-business-order"), af = orderFlag(lines, "is-amazon-invoiced"), flagSource = {};
-    const resolve = (f2, key, decl) => {
-      if (f2.state === "VALUE") {
-        flagSource[key] = "REPORT";
-        return f2.value;
-      }
-      if ((f2.state === "ABSENT" || f2.state === "BLANK") && typeof decl === "boolean") {
-        flagSource[key] = "SELLER_DECLARATION";
-        return decl;
-      }
-      return null;
-    };
-    const isBusiness = resolve(bf, "isBusiness", sellerDeclaration.isBusiness), isAmazonInvoiced = resolve(af, "isAmazonInvoiced", sellerDeclaration.isAmazonInvoiced);
+    const f = lines[0], holdWith = (reason, s = null) => out.held.push({ orderId, reason, s });
+    const bf = orderFlag(lines, "is-business-order"), af = orderFlag(lines, "is-amazon-invoiced");
+    const isBusiness = bf.state === "VALUE" ? bf.value : null, isAmazonInvoiced = af.state === "VALUE" ? af.value : null;
     if (isAmazonInvoiced === true) {
       out.skipped.push({ orderId, why: "Amazon creates this invoice" });
       continue;
     }
     if (isBusiness === false) {
-      out.skipped.push({ orderId, why: "Not a business order: " + (flagSource.isBusiness === "REPORT" ? "the report says is-business-order FALSE" : "you declared it") });
+      out.skipped.push({ orderId, why: "Not a business order: the report says is-business-order FALSE" });
       continue;
     }
     const unknown = [isBusiness === null && "is-business-order", isAmazonInvoiced === null && "is-amazon-invoiced"].filter(Boolean);
     if (unknown.length) {
-      holdWith(unknownFlagsReason(unknown, unknown.every((k) => (k === "is-business-order" ? bf : af).state === "ABSENT") ? "ABSENT" : "BLANK"), null);
+      holdWith(unknownFlagsReason(unknown, unknown.every((k) => (k === "is-business-order" ? bf : af).state === "ABSENT") ? "ABSENT" : "BLANK") + " Issuing needs a VAT Invoice Data Report: the Order Report is a preview only.", null);
       continue;
     }
-    const company = f["buyer-company-name"] || "", taxIdRaw = (f["buyer-tax-registration-id"] || "").replace(/\s+/g, "").toUpperCase();
-    if (!company && !taxIdRaw) {
-      holdWith("This is a business order but the report has no company name or VAT number for the buyer, so we did not guess.");
-      continue;
-    }
-    const differs = (k) => lines.some((l) => (l[k] ?? "") !== (f[k] ?? ""));
-    if (["buyer-name", "buyer-company-name", "buyer-tax-registration-id", "currency", "ship-country"].some(differs)) {
-      holdWith("The rows of this order disagree on buyer or currency, so we did not guess which is right.");
-      continue;
-    }
-    let buyerVat = null;
-    if (taxIdRaw) {
-      const cc = (f["buyer-tax-registration-country"] || "").toUpperCase();
-      buyerVat = /^[A-Z]{2}/.test(taxIdRaw) ? taxIdRaw : /^[A-Z]{2}$/.test(cc) ? cc + taxIdRaw : null;
-      if (!buyerVat) {
-        holdWith("The buyer VAT number has no country prefix and the report gives no country for it.");
-        continue;
-      }
-    }
-    const hasBill = !!(f["bill-name"] || f["bill-address-1"]);
-    let billing;
-    if (hasBill) billing = { name: f["bill-name"] || company, lines: [f["bill-address-1"], f["bill-address-2"], f["bill-address-3"]].filter(Boolean), city: f["bill-city"] || "", postal: f["bill-postal-code"] || "", country: (f["bill-country"] || "").toUpperCase() };
-    else if (useDeliveryAddress) billing = { name: company || f["recipient-name"] || f["buyer-name"], lines: [f["ship-address-1"], f["ship-address-2"], f["ship-address-3"]].filter(Boolean), city: f["ship-city"] || "", postal: f["ship-postal-code"] || "", country: (f["ship-country"] || "").toUpperCase() };
-    const items = [];
-    let bad = null, incl = 0, vat = 0;
-    for (const l of lines) {
-      const q = parseInt(l["quantity-purchased"], 10), price = money(l["item-price"]), tax = money(l["item-tax"]), sp = money(l["shipping-price"]), st = money(l["shipping-tax"]);
-      if ([price, tax, sp, st].some(Number.isNaN) || !(q > 0)) {
-        bad = "An amount or quantity in this order is not a plain number, so we did not guess.";
-        break;
-      }
-      if (money(l["item-promotion-discount"]) || money(l["ship-promotion-discount"])) {
-        bad = "This order has a promotion discount. The report does not say how its VAT is split, so we did not guess.";
-        break;
-      }
-      const excl = r22(price - tax), rate = rateOf(excl, r22(tax)), sEx = r22(sp - st), sRate = sp ? rateOf(sEx, r22(st)) : 0;
-      if (price < 0 || tax < 0 || rate === null || sRate === null) {
-        bad = "The VAT rate cannot be read safely from the report amounts (price and tax). Check this order in Seller Central.";
-        break;
-      }
-      items.push({
-        sku: l.sku,
-        asin: l.asin,
-        name: l["product-name"],
-        qty: q,
-        unitExcl: r22(excl / q),
-        vatRate: rate,
-        exclTotal: excl,
-        vatTotal: r22(tax),
-        extras: sp ? [{ part: "shipping", excl: sEx, vat: r22(st), rate: sRate }] : []
-      });
-      incl += price + sp;
-      vat += tax + st;
-    }
-    const s = {
-      key: `ORDER:${orderId}`,
-      orderId,
-      shippingId: orderId,
-      transactionId: orderId,
-      transactionType: "SHIPMENT",
-      marketplace: COUNTRY_BY_DOMAIN[String(f["sales-channel"] ?? "").toLowerCase().replace(/^www\./, "")] ?? null,
-      orderDate: f["purchase-date"] || null,
-      shipmentDate: null,
-      currency: f.currency || "EUR",
-      isBusiness,
-      isAmazonInvoiced,
-      flagSource,
-      invoiceStatus: "",
-      sellerVat: null,
-      buyerVat,
-      buyerTaxType: f["buyer-tax-registration-type"] || null,
-      buyerCompany: company || f["buyer-name"] || f["recipient-name"],
-      poNumber: null,
-      billing: billing ?? { name: "", lines: [], city: "", postal: "", country: "" },
-      shipCountry: (f["ship-country"] || "").toUpperCase(),
-      shipFromCountry: null,
-      isCorrection: false,
-      isCorrectionReversal: false,
-      isCorrectedTx: false,
-      originalInvoiceNumber: null,
-      correctionDetails: null,
-      citation: null,
-      items,
-      incl: r22(incl),
-      vat: r22(vat),
-      excl: r22(incl - vat),
-      manual: true
-    };
-    if (bad) {
-      holdWith(bad, s);
-      continue;
-    }
-    if (!billing) {
-      holdWith('The report has no billing address. Tick "use the delivery address" if that is the address on your invoices, or add the billing columns.', s);
-      continue;
-    }
-    if (!billing.country) {
-      holdWith("The address has no country, so we did not guess.", s);
-      continue;
-    }
-    out.shipments.push(s);
+    holdWith(ORDER_REPORT_PREVIEW_ONLY);
   }
   return out;
 }
@@ -49173,7 +49049,7 @@ function planUpload(text, opts = {}) {
     }
     return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, truncated: !!t.truncated };
   }
-  const p = parseOrderReport(t.rows, opts);
+  const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };
 }
 
@@ -50388,8 +50264,8 @@ var nextNumber = () => {
 };
 
 // src/invoice.js
-var r23 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-var sum = (a) => r23(a.reduce((x, y) => x + y, 0));
+var r22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+var sum = (a) => r22(a.reduce((x, y) => x + y, 0));
 var EXTRA_LABEL = { shipping: "Gastos de env\xEDo", "gift-wrap": "Envoltorio de regalo", "item-promo": "Promoci\xF3n", "shipping-promo": "Promoci\xF3n de env\xEDo", "gift-promo": "Promoci\xF3n de regalo" };
 var COUNTRY_AUTONYM = { ES: "Espa\xF1a", DE: "Deutschland", FR: "France", IT: "Italia", NL: "Nederland", BE: "Belgique / Belgi\xEB", PL: "Polska", SE: "Sverige", IE: "Ireland", AT: "\xD6sterreich", PT: "Portugal", GB: "United Kingdom" };
 var countryLine = (code) => COUNTRY_AUTONYM[code] ?? code;
@@ -50403,7 +50279,7 @@ function linesFromShipment(s) {
 }
 var totalsOf = (lines) => {
   const excl = sum(lines.map((l) => l.excl)), vat = sum(lines.map((l) => l.vat));
-  return { excl, vat, incl: r23(excl + vat) };
+  return { excl, vat, incl: r22(excl + vat) };
 };
 var INTRA_EU_NOTE = { DE: "Innergemeinschaftliche steuerfreie Lieferung (Reverse Charge).", FR: "Livraison intracommunautaire exon\xE9r\xE9e de TVA (autoliquidation).", IT: "Cessione intracomunitaria esente IVA (inversione contabile).", NL: "Intracommunautaire levering, vrijgesteld van btw (verlegd).", PL: "Wewn\u0105trzwsp\xF3lnotowa dostawa towar\xF3w zwolniona z VAT (odwrotne obci\u0105\u017Cenie).", SE: "Gemenskapsintern f\xF6rs\xE4ljning, momsfri (omv\xE4nd skattskyldighet).", IE: "Intra-Community supply, zero-rated (reverse charge).", BE: "Intracommunautaire levering, vrijgesteld van btw (verlegd).", PT: "Entrega intracomunit\xE1ria isenta de IVA (autoliquida\xE7\xE3o)." };
 function vatNote(s, country = "ES") {
@@ -50541,8 +50417,8 @@ var stmt = { get: () => void 0, all: () => [], run: () => ({}) };
 var stubDb = { prepare: () => stmt, exec: () => {
 } };
 var sellerFor = (s, country) => ({ id: "local", name: "SAMPLE SELLER (not a real invoice)", nif: s.sellerVat || "", address: "Sample address", country, invoice_lang: "auto", profile: "{}" });
-async function analyze(text, { country = "ES", useDeliveryAddress = false, sellerDeclaration = {} } = {}) {
-  const plan = planUpload(String(text ?? ""), { useDeliveryAddress, sellerDeclaration });
+async function analyze(text, { country = "ES", useDeliveryAddress = false } = {}) {
+  const plan = planUpload(String(text ?? ""), { useDeliveryAddress });
   if (!plan.ok) return { ok: false, error: plan.error, format: plan.format ?? null };
   const rd = readiness(country, "issue");
   const ready = [], held = plan.held.map((h) => ({ orderId: h.orderId, reason: h.reason }));

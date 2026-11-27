@@ -26,7 +26,7 @@ test('loop: both flags BLANK is one undetermined transaction counted once, in no
   assert.equal(r.coverage.undetermined.count, 1); assert.equal(r.coverage.scope.count, 0); assert.equal(r.coverage.outsideScope.byReason.AMAZON_INVOICED, 0);
   assert.equal(r.coverage.transactionsTotal, r.coverage.scope.count + r.coverage.undetermined.count + r.coverage.outsideScope.count);
 });
-test('app route: a seller declaration that is not a real boolean (the strings "true"/"false") is ignored, so the Order Report stays held', async () => {
+test('app route: a seller declaration sent to the route is ignored, real booleans or not: the Order Report stays held and nothing can be issued from it', async () => {
   const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test', env: { ALLOW_MANUAL_UPLOAD: '1' } }); await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`; let sid = '';
   const call = async (path, body) => { const r = await fetch(base + '/api/' + path, { method: 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: JSON.stringify(body) }); const c = r.headers.get('set-cookie'); if (c) sid = c.split(';')[0]; return { status: r.status, body: await r.json() }; };
@@ -35,6 +35,6 @@ test('app route: a seller declaration that is not a real boolean (the strings "t
   const v = ['M1', '1', '2026-11-20T10:00:00+00:00', 'Ann', 'S1', 'W', '2', 'EUR', '121.00', '21.00', 'Ann', 'Calle 1', 'Madrid', '28001', 'ES', 'Amazon.es', 'Acme SL', '12345674', 'ES'];
   const text = H.join('\t') + '\n' + v.join('\t');
   const bad = (await call('manual/preview', { text, useDeliveryAddress: true, sellerDeclaration: { isBusiness: 'true', isAmazonInvoiced: 'false' } })).body; assert.equal(bad.willIssue, 0); assert.equal(bad.heldCount, 1);
-  const good = (await call('manual/preview', { text, useDeliveryAddress: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } })).body; assert.equal(good.willIssue, 1);
+  const good = (await call('manual/preview', { text, useDeliveryAddress: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } })).body; assert.equal(good.willIssue, 0); assert.equal(good.heldCount, 1);
   server.close();
 });

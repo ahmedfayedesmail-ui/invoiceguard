@@ -1,5 +1,5 @@
 // (1) The committed browser bundles (public/local/*.js) must equal what their sources build. A hand-rebuilt bundle can no longer be shipped stale: this fails loudly and names the file.
-// (2) The seller-declaration option reaches the engine through the web entry AND through the committed bundle, not only through the API. Synthetic data only.
+// (2) The web entry and the committed bundle never turn an Order Report into a ready invoice, whatever option is passed. Synthetic data only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -19,11 +19,11 @@ for (const [label, path] of [['web/engine-entry.js (source)', '../web/engine-ent
     assert.equal(r.ok, true); assert.equal((r.ready ?? []).length, 0); assert.equal(r.held.length, 1);
     assert.match(r.held[0].reason, /does not carry/); assert.match(r.held[0].reason, /load the VAT Invoice Data Report/i);
   });
-  test(`${label}: the seller declaration option reaches the engine: the same order becomes ready, with no hold`, async () => {
+  test(`${label}: a seller declaration passed to analyze() is not a route to a ready invoice: the order stays held`, async () => {
     const r = await (await load()).analyze(orderReport, { useDeliveryAddress: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } });
-    assert.equal(r.held.length, 0, JSON.stringify(r.held)); assert.equal(r.ready.length, 1);
+    assert.equal(r.ready.length, 0); assert.equal(r.held.length, 1); assert.match(r.held[0].reason, /VAT Invoice Data Report/);
   });
-  test(`${label}: a partial declaration still holds the order and names the missing column`, async () => {
+  test(`${label}: a partial declaration still holds the order`, async () => {
     const r = await (await load()).analyze(orderReport, { useDeliveryAddress: true, sellerDeclaration: { isBusiness: true } });
     assert.equal(r.ready.length, 0); assert.match(r.held[0].reason, /is-amazon-invoiced/);
   });
