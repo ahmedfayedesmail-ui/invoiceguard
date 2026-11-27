@@ -7,11 +7,15 @@ export const gateReason = (findings) => 'Not issued: ' + findings.map(f => f.exp
 
 /** Ledger write and decision lookup. Returns null when nothing blocks, or { reason, findings } when the shipment must be held. Idempotent. INFO findings (rounding differences, split shipments) are saved as NOTED: they never hold, and they stay visible. */
 export function integrityGate(db, seller, s) {
+  // the whole ledger write of one evaluation is one transaction (unless the caller already holds one): an interruption leaves no record without history and no history without a record
+  return db.isTransaction ? gateWrite(db, seller, s) : txImm(db, () => gateWrite(db, seller, s));
+}
+function gateWrite(db, seller, s) {
   let a;
   try { a = assessShipment(s); } catch { return { reason: 'Not issued: the numbers of this shipment could not be checked, so nothing was issued.', findings: [] }; }
   const now = new Date().toISOString(), key = s.key, sid = seller.id;
   const rows = new Map(db.prepare('SELECT * FROM integrity_findings WHERE seller_id=? AND shipment_key=?').all(sid, key).map(r => [r.code + '|' + r.field, r]));
-  const hist = (f, event) => db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sid, key, f.code, f.evidence.field, event, f.fingerprint, now);
+  const hist = (f, event) => db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at,evidence) VALUES (?,?,?,?,?,?,?,?)').run(sid, key, f.code, f.evidence.field, event, f.fingerprint, now, event === 'RECHECKED_SAME' ? null : JSON.stringify(f.evidence));
   let changed = false; const blocking = [];
   for (const f of a.findings) {
     const info = f.severity === 'INFO', target = info ? 'NOTED' : 'OPEN', k = f.code + '|' + f.evidence.field, row = rows.get(k); rows.delete(k);

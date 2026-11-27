@@ -1,0 +1,76 @@
+✖ WP3: a fresh database has every trigger; reopening a file database keeps them and the data; an old database without them gets them on open (5.369239ms)
+✖ WP3: the database itself refuses a decision that is not a valid one: blank user, a short reason, a BLOCK finding, a finding that needs new evidence, a wrong fingerprint, or no finding at all (7.673187ms)
+✖ WP3: evidence never disappears: when a finding changes, the earlier evidence stays in the history (3.772902ms)
+✔ WP3: a decision is atomic: if the last step fails, no decision is recorded and the finding stays open (3.444369ms)
+✖ WP3: the ledger write of one evaluation is atomic: an interruption in the middle leaves neither a record without history nor history without a record (2.991176ms)
+✔ WP3: two connections to one database file evaluating the same report at the same time create one invoice per shipment and one ledger record per finding (57.580523ms)
+✔ WP3: fingerprints are stable across fresh databases and processes (same evidence, same value) (4.656669ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 3
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 295.698843
+
+✖ failing tests:
+
+test at test/db-governance.test.js:28:1
+✖ WP3: a fresh database has every trigger; reopening a file database keeps them and the data; an old database without them gets them on open (5.369239ms)
+  AssertionError [ERR_ASSERTION]: fresh: integrity_decision_must_be_valid
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/db-governance.test.js:30:62)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.start (node:internal/test_runner/test:944:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/db-governance.test.js:36:1
+✖ WP3: the database itself refuses a decision that is not a valid one: blank user, a short reason, a BLOCK finding, a finding that needs new evidence, a wrong fingerprint, or no finding at all (7.673187ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/db-governance.test.js:38:10)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /decision/i,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/db-governance.test.js:45:1
+✖ WP3: evidence never disappears: when a finding changes, the earlier evidence stays in the history (3.772902ms)
+  Error: no such column: evidence
+      at db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/db-governance.test.js:47:18)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    code: 'ERR_SQLITE_ERROR',
+    errcode: 1,
+    errstr: 'SQL logic error'
+  }
+
+test at test/db-governance.test.js:57:1
+✖ WP3: the ledger write of one evaluation is atomic: an interruption in the middle leaves neither a record without history nor history without a record (2.991176ms)
+  AssertionError [ERR_ASSERTION]: records 2 and OPENED history 1 agree
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/db-governance.test.js:60:180)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

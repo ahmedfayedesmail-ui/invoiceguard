@@ -30,6 +30,9 @@ export function openDb(file = ':memory:') {
   CREATE TRIGGER IF NOT EXISTS integrity_decisions_no_delete BEFORE DELETE ON integrity_decisions BEGIN SELECT RAISE(ABORT,'integrity_decisions is append-only'); END;
   CREATE TRIGGER IF NOT EXISTS integrity_history_no_update BEFORE UPDATE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
   CREATE TRIGGER IF NOT EXISTS integrity_history_no_delete BEFORE DELETE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_decision_must_be_valid BEFORE INSERT ON integrity_decisions
+    WHEN trim(coalesce(NEW.decided_by,''))='' OR length(trim(coalesce(NEW.reason,'')))<10 OR NOT EXISTS (SELECT 1 FROM integrity_findings f WHERE f.seller_id=NEW.seller_id AND f.shipment_key=NEW.shipment_key AND f.code=NEW.code AND f.field=NEW.field AND f.fingerprint=NEW.fingerprint AND f.status='OPEN' AND f.resolution='HUMAN_DECISION' AND f.severity<>'BLOCK')
+    BEGIN SELECT RAISE(ABORT,'not a valid decision: it needs a user, a reason of 10 characters and an open HUMAN_DECISION finding with this fingerprint'); END;
   CREATE INDEX IF NOT EXISTS idx_events_seller ON events (seller_id, ts);
   CREATE INDEX IF NOT EXISTS idx_ship_status ON shipments (seller_id, status);
   CREATE INDEX IF NOT EXISTS idx_ship_date ON shipments (seller_id, shipment_date);
@@ -60,6 +63,7 @@ export function openDb(file = ':memory:') {
   // One-time repair for the stage-2 limbo defect: corrections approved before the fix sit at
   // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
   db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
+  try { db.exec('ALTER TABLE integrity_history ADD COLUMN evidence TEXT'); } catch { /* column exists */ } // night WP3: the evidence of every OPENED / CHANGED / REOPENED event, so an earlier version is never lost
   try { db.exec('ALTER TABLE invoices ADD COLUMN tx_id TEXT'); } catch { /* column exists */ }
   // Round-9 (N1): fingerprint of a recordKey-less correction (original + mode + reason + changes),
   // so a double-submitted identical correction is recognized as the same document.
