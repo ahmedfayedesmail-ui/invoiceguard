@@ -21,3 +21,10 @@ Metric definitions (denominators are always stated)
 Limits
 - Expected results are my reading of the engine contract, built by construction. They can hide errors where reading and engine agree but a real Amazon file differs.
 - The harness asks the engine's reader once to learn whether localized document-type words are rejected, then models a seller who sets the document type by hand.
+
+## v2 corrections (after review)
+- The Amazon scenario was contradictory (is-amazon-invoiced TRUE with invoice-status InvoiceUploaded). It is now TRUE with InvoiceCreatedByAmazon. A separate scenario `amazon_flag_status_conflict` has the two fields disagree; no confident finding may be raised there.
+- The 83 duplicates came from identical rows declared DOCUMENT. Multi-line documents now have a different amount on each line, and three scenarios declare LINE, DOCUMENT and UNKNOWN. Findings that depend on the seller declaration are counted separately ("declaration-dependent"), never as true or false.
+- The v1 aggregate's 85 of 926 mixed commercial findings with SOURCE_INCOMPLETE. 85 = 59 (Amazon-issued scenario) + 11 ambiguous-dates (harness defect: order dates outside the declared range, fixed) + 11 long-period + 4 malformed (SOURCE_INCOMPLETE source-state notices). The "93.6%" divided the commercial 59 by a denominator that included source notices. Now each confident finding is in exactly one bucket and every ratio prints its numerator, denominator and formula.
+- v1 files are kept: sim/out/results-v1.jsonl, aggregate-v1.txt, aggregate-v1.py. Same seed (0), same 500 sellers.
+- Stale-report round 2 is inconclusive by design and is not part of the closed-wrong headline.

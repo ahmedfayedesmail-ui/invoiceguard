@@ -38,6 +38,18 @@ function buildProfile(s, o, text) {
   return { ok: true, profile: p, manual, wrong, why, auto: manual === 0 && wrong === 0 };
 }
 
+/** Every confident (ACTION_REQUIRED) issue goes into exactly one bucket, so the precision denominator is always the sum of the buckets. */
+function classifyConfident(s, proj, defects, expectedSource) {
+  const c = { commercial: { total: 0, true: 0, false: 0, declarationDependent: 0, conflictingEvidence: 0, unscoredNonB2B: 0 }, source: { total: 0, expected: 0, unexpected: 0 } };
+  for (const i of proj.issues) { if (i.state !== 'ACTION_REQUIRED') continue;
+    if (i.family === 'SOURCE_INCOMPLETE') { c.source.total++; c.source[expectedSource ? 'expected' : 'unexpected']++; continue; }
+    c.commercial.total++;
+    if (s.notes.conflictingEvidence) { c.commercial.conflictingEvidence++; continue; }
+    if (s.notes.declarationDependent && i.family === 'DUPLICATE_DOCUMENT') { c.commercial.declarationDependent++; continue; }
+    const m = defects.filter(d => d.order === i.subject?.orderId || d.num === i.subject?.number);
+    if (m.some(d => !d.optional && d.fams.includes(i.family))) c.commercial.true++; else if (m.some(d => d.optional)) c.commercial.unscoredNonB2B++; else c.commercial.false++; }
+  return c;
+}
 function evaluate(s, proj, defects, { skipStaleCheck = false } = {}) {
   const issues = proj.issues, byOrder = new Map(), byNum = new Map();
   for (const i of issues) { for (const k of [i.subject?.orderId, i.subject?.orderRef]) if (k) (byOrder.get(k) ?? byOrder.set(k, []).get(k)).push(i); if (i.subject?.number) (byNum.get(i.subject.number) ?? byNum.set(i.subject.number, []).get(i.subject.number)).push(i); }
@@ -85,7 +97,7 @@ async function runSeller(i, sc) {
   try { const t = performance.now(); const proj = await store.project(); res.projectMs = ms(t); res.issueCount = proj.issues.length; res.buckets = proj.buckets; res.stats = proj.stats;
     const ledgerRead = readLedger(lText, pr.profile, { amazonScope: ld0.amazonScope }); res.ledgerRead = { docs: ledgerRead.documents?.length, rejected: ledgerRead.rejected?.length, truncated: ledgerRead.truncated };
     res.byFamily = {}; for (const x of proj.issues) { const k = x.family + '/' + x.subtype + '/' + x.state; res.byFamily[k] = (res.byFamily[k] ?? 0) + 1; }
-    res.eval = evaluate(s, proj, s.defects); res.nonB2bFlagged = s.dropped.filter(d => proj.issues.some(x => (x.subject?.orderId === d.order || x.subject?.number === d.num) && x.state === 'ACTION_REQUIRED')).length; res.nonB2bDropped = s.dropped.length; res.covNotes = (proj.coverageNotes ?? []).map(n => ({ reason: String(n.reason).slice(0, 220), count: n.count })); { const sd = proj.issues.find(x => x.subtype === 'DEFECTS'); if (sd) res.defectsText = String(JSON.stringify(sd)).replace(/^.*?"defects"/, '"defects"').slice(0, 600); }
+    res.eval = evaluate(s, proj, s.defects); res.conf = classifyConfident(s, proj, s.defects, !!(s.notes.pilotLimit || s.notes.malformedVariant !== undefined)); res.nonB2bFlagged = s.dropped.filter(d => proj.issues.some(x => (x.subject?.orderId === d.order || x.subject?.number === d.num) && x.state === 'ACTION_REQUIRED')).length; res.nonB2bDropped = s.dropped.length; res.covNotes = (proj.coverageNotes ?? []).map(n => ({ reason: String(n.reason).slice(0, 220), count: n.count })); { const sd = proj.issues.find(x => x.subtype === 'DEFECTS'); if (sd) res.defectsText = String(JSON.stringify(sd)).replace(/^.*?"defects"/, '"defects"').slice(0, 600); }
     if (res.eval.missed.length) { const got = new Set(proj.issues.flatMap(x => [x.subject?.orderId, x.subject?.number])); res.missedDetail = s.defects.filter(d => !got.has(d.order) && !got.has(d.num)).map(d => { const t = s.txs.find(x => x.order === d.order) ?? {}; return { type: d.type, order: d.order, num: d.num, bnum: t.bnum, bOrder: t.bOrder, books: t.books, hide: !!t.hideAmazon, status: t.status, chan: t.bchan }; }); }
     res.silentLoss = (mv === 4 || mv === 6 || mv === 7) ? { expectedRows: s.txs.length, readDocs: ledgerRead.documents?.length ?? 0, anyDefectShown: !!(proj.coverageNotes?.length) } : undefined;
     // ---- round 2
