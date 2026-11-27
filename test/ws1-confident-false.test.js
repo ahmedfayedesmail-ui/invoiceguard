@@ -58,3 +58,53 @@ test('ws1: an unreadable flag value (not TRUE or FALSE) is not treated as FALSE:
   assert.deepEqual(confident(r).map(i => i.family), []);
   assert.ok(r.coverageNotes.some(n => /invoice flag could not be read \(UNREADABLE\)/.test(n.reason)));
 });
+
+// ---- adversarial and boundary cases ----
+const vrows = (rows) => F.vidr(rows);
+const withCols = (text, edits) => { const hdr = text.split('\n')[0].split('\t'); return text.split('\n').map((l, i) => { if (i === 0 || !l) return l; const c = l.split('\t'); const e = edits[i - 1]; if (e) for (const [k, v] of Object.entries(e)) c[hdr.indexOf(k)] = v; return c.join('\t'); }).join('\n'); };
+test('ws1 adversarial: a conflict on one shipment does not change the verdict on a clean shipment in the same file', () => {
+  const text = withCols(vrows([{ n: 1, status: 'InvoiceUploaded', num: 'AMZ-1' }, { n: 2, status: 'InvoiceUploaded', num: 'AMZ-2' }]), [{ 'is-amazon-invoiced': 'TRUE' }, {}]);
+  const r = run(text);
+  const gaps = r.issues.filter(i => i.family === 'BOOKS_GAP' && i.state === 'ACTION_REQUIRED');
+  assert.equal(gaps.length, 1, 'only the clean shipment is a confident gap');
+  assert.match(gaps[0].subject.orderId, /0*2$|2000002/);
+  assert.equal(r.stats.amazonFlagUndetermined, 1);
+});
+test('ws1 adversarial: a conflicting shipment is never closed or reported as a seller gap even when the books hold its number', () => {
+  const b = F.ledger([lrow('AMZ-1', F.O(1))]);
+  const r = project({ imports: [V(setFlag(base(), 'TRUE')), L(b)], events: [] });
+  assert.deepEqual(confident(r).map(i => i.family), []);
+});
+test('ws1 adversarial: three rows of one shipment, one dissenting row, is a conflict', () => {
+  const lines = base().trimEnd().split('\n'), mk = (id, f) => { const c = lines[1].split('\t'); c[2] = String(id); c[9] = f; return c.join('\t'); };
+  for (const flags of [['FALSE', 'FALSE', 'TRUE'], ['TRUE', 'FALSE', 'FALSE'], ['TRUE', '', 'TRUE']]) {
+    const text = [lines[0], ...flags.map((f, j) => mk(101 + j, f))].join('\n') + '\n';
+    const r = run(text);
+    assert.deepEqual(confident(r).map(i => i.family), [], flags.join());
+    assert.equal(r.stats.amazonFlagUndetermined, 1, flags.join());
+  }
+});
+test('ws1 adversarial: odd flag spellings are unreadable, never read as FALSE', () => {
+  for (const v of ['1', '0', 'yes', 'no', 'T', 'F', 'TRUE;', 'N/A']) {
+    const r = run(setFlag(base(), v));
+    assert.deepEqual(confident(r).map(i => i.family), [], v);
+    assert.equal(r.stats.amazonFlagUndetermined, 1, v);
+  }
+});
+test('ws1 adversarial: pending and rejected statuses with a TRUE flag are conflicts, not seller obligations', () => {
+  for (const st of ['InvoicePending', 'InvoiceRejected', 'InvoiceProcessing']) {
+    const r = run(setFlag(F.vidr([{ n: 1, status: st, num: st === 'InvoicePending' ? '' : 'AMZ-1' }]), 'TRUE'));
+    assert.deepEqual(confident(r).map(i => i.family), [], st);
+    assert.equal(r.stats.amazonFlagUndetermined, 1, st);
+  }
+});
+test('ws1 adversarial: the conflict is shown as a coverage note naming both values, and as no seller action', () => {
+  const r = run(setFlag(base(), 'TRUE'));
+  assert.equal(r.issues.some(x => x.family === 'INVOICE_AMAZON_STATE' && x.state === 'ACTION_REQUIRED'), false);
+  assert.ok(r.coverageNotes.some(n => /is-amazon-invoiced column \(TRUE\) and invoice-status \(InvoiceUploaded\) disagree/.test(n.reason)), JSON.stringify(r.coverageNotes));
+});
+test('ws1 regression: a correct Amazon-issued shipment (TRUE + InvoiceCreatedByAmazon) is not counted as undetermined and is not a gap, with books holding anything', () => {
+  const r = run(setFlag(amz(), 'TRUE'));
+  assert.equal(r.stats.amazonFlagUndetermined, 0);
+  assert.deepEqual(r.issues.filter(i => i.family !== 'UNMATCHED_DOCUMENT').map(i => i.family), []);
+});
