@@ -126,3 +126,15 @@ test('proposal R11: a negative item, shipping or gift-wrap amount on a shipment 
   const { out } = await run(file(rowOf(0, { 'item-vat-incl-amount': '-40.00', 'item-vat-amount': '-6.94', 'item-vat-excl-amount': '-33.06', 'shipping-vat-incl-amount': '100.00', 'shipping-vat-amount': '17.36', 'shipping-vat-excl-amount': '82.64' })));
   assert.equal(out.uploaded, 0);
 });
+
+// ---- found by the lab: a header that repeats a column name made the LAST column win silently (buyer name, currency, date). That is a guess about a contradiction. ----
+const dupText = (col, other) => { const c = FX[1].split('\t'); return [[...H, col].join('\t'), [...c, other].join('\t')].join('\n') + '\n'; };
+test('a repeated column name with different values is an invalid row, never "the last one wins" (billing-name, currency, shipment-date, buyer-vat-number)', async () => {
+  for (const [col, other] of [['billing-name', 'Someone Else'], ['currency', 'GBP'], ['shipment-date', '2020-01-01'], ['buyer-vat-number', 'DE999999999'], ['item-vat-incl-amount', '999.99']]) {
+    const text = dupText(col, other); const p = parseVidr(text); assert.equal(p.length, 0, col + ': no shipment is built from it'); assert.ok((p.invalidRows ?? []).some(r => /repeats the column/.test(r.reason)), col);
+    const { out, api } = await run(text); assert.equal(api.calls.length, 0, col); assert.equal(out.uploaded, 0);
+  }
+});
+test('guard: a repeated column name whose values AGREE is still read normally', async () => {
+  const c = FX[1].split('\t'); const text = dupText('billing-name', c[ix('billing-name')]); assert.equal(parseVidr(text).length, 1); const { api } = await run(text); assert.equal(api.calls.length, 1);
+});

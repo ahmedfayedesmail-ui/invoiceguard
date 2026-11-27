@@ -49107,6 +49107,7 @@ function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l, i2) => [l, i2 + 1]).filter(([l]) => l.trim());
   if (!lines.length) return { rows: [], rowLines: [], invalid: [], head: [] };
   const head = lines[0][0].split("	").map((h) => h.trim().toLowerCase());
+  const dupNames = [...new Set(head.filter((h, i2) => h && head.indexOf(h) !== i2))];
   const missingOf = (n) => n < head.length ? head.slice(n).filter((h) => !OPTIONAL_TRAILING.has(h)) : [];
   const items = [], invalid = [];
   let prev = null;
@@ -49119,6 +49120,12 @@ function checkTsv(text) {
         prev.item.drop = true;
         invalid.push({ line: prev.no, cells: prev.cells, expected: head.length, missing: [], reason: "this row and the unreadable line after it look like one row split by a newline inside a cell (the line after it cannot start a row), so neither is used" });
       }
+      prev = null;
+      continue;
+    }
+    const clash = dupNames.find((n) => new Set(head.flatMap((h, i2) => h === n ? [(c[i2] ?? "").trim()] : [])).size > 1);
+    if (clash) {
+      invalid.push({ line: no, cells: c.length, expected: head.length, missing: [], reason: `the header repeats the column ${clash} and the repeated cells disagree, so its value is not known` });
       prev = null;
       continue;
     }

@@ -24,6 +24,7 @@ export function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => [l, i + 1]).filter(([l]) => l.trim());
   if (!lines.length) return { rows: [], rowLines: [], invalid: [], head: [] };
   const head = lines[0][0].split('\t').map(h => h.trim().toLowerCase());
+  const dupNames = [...new Set(head.filter((h, i) => h && head.indexOf(h) !== i))];
   const missingOf = (n) => n < head.length ? head.slice(n).filter(h => !OPTIONAL_TRAILING.has(h)) : [];
   const items = [], invalid = []; let prev = null; // prev = the accepted row on the physical line directly before, if any
   for (const [l, no] of lines.slice(1)) {
@@ -36,6 +37,9 @@ export function checkTsv(text) {
       }
       prev = null; continue;
     }
+    // A header that repeats a column name makes the value of that column ambiguous: when the repeated cells disagree, "the last one wins" would be a guess. The row is quarantined, never repaired.
+    const clash = dupNames.find(n => new Set(head.flatMap((h, i) => h === n ? [(c[i] ?? '').trim()] : [])).size > 1);
+    if (clash) { invalid.push({ line: no, cells: c.length, expected: head.length, missing: [], reason: `the header repeats the column ${clash} and the repeated cells disagree, so its value is not known` }); prev = null; continue; }
     const item = { row: Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim()])), line: no }; items.push(item); prev = { item, no, cells: c.length };
   }
   return { rows: items.filter(i => !i.drop).map(i => i.row), rowLines: items.filter(i => !i.drop).map(i => i.line), invalid: invalid.sort((x, y) => x.line - y.line), head };
