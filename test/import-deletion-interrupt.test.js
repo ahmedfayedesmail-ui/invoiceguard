@@ -55,14 +55,46 @@ test('retry after interruption 1: one record, committed, no duplicate; after int
   const s2 = b.reopen(); await s2.recoverDeletions(); await s2.recoverDeletions(); await assert.rejects(() => s2.deleteImport(b.ids.books2, { confirmed: true }), /not stored/);
   const r2 = await s2.deletions(); assert.equal(r2.length, 1); assert.equal(r2[0].status, 'COMMITTED'); assert.equal(r2[0].import.fileName, 'books2.csv');
 });
-test('a pending record whose file is still present is discarded after the grace period, never kept forever and never discarded while a deletion may be running', async () => {
+test('RACE (found by Ahmed): a stalled tab one, a recovering tab two, then tab one deletes the file and dies before COMMITTED: the record of the deletion must survive', async () => {
+  const { base, clock, ids, reopen } = await setup();
+  let release; const gate = new Promise(r => { release = r; }), stalled = { on: true };
+  const tab1ad = { async get(k) { return base.get(k); }, async list() { return base.list(); }, async clear() { return base.clear(); },
+    async put(k, v) { if (v?.status === 'COMMITTED') throw new Error('process died'); return base.put(k, v); },
+    async del(k) { if (stalled.on && k.startsWith('loop:import:')) await gate; return base.del(k); } };
+  const tab1 = reopen(tab1ad), run1 = tab1.deleteImport(ids.books2, { confirmed: true }).catch(e => e);
+  for (let i = 0; i < 50 && !(await reopen().deletions()).length; i++) await new Promise(r => setTimeout(r, 2)); // step 1: PENDING is written, tab one stalls with the file present
+  assert.deepEqual(await statuses(reopen()), ['PENDING']);
+  clock.advance(10 * 60 * 1000); const tab2 = reopen(); await tab2.recoverDeletions(); await tab2.project(); // step 2: more than five minutes later tab two runs recovery with the file present
+  assert.deepEqual(await statuses(tab2), ['PENDING'], 'an old PENDING record is never discarded while its file is present');
+  stalled.on = false; release(); assert.match((await run1).message, /process died/); // step 3: tab one resumes, deletes the file, dies before COMMITTED
+  const tab3 = reopen(); assert.equal((await tab3.imports()).length, 2, 'the file is gone');
+  assert.equal(gap(await tab3.project()).historyIncomplete, true, 'the deletion is still on record and the history is declared incomplete');
+  const recs = await tab3.deletions(); assert.equal(recs.length, 1); assert.equal(recs[0].status, 'COMMITTED'); assert.equal(recs[0].import.fileName, 'books2.csv');
+});
+test('a PENDING record with its file present is kept however old, is invisible to project(), and is reused by a retry under the same id', async () => {
   const { base, clock, ids, reopen, before } = await setup();
   const dying = reopen(crashing(base, ({ op, k }) => op === 'del' && k.startsWith('loop:import:')));
   await assert.rejects(() => dying.deleteImport(ids.books2, { confirmed: true }), /process died/);
-  const s2 = reopen(); await s2.recoverDeletions(); assert.deepEqual(await statuses(s2), ['PENDING'], 'young: a deletion may still be running in another tab, so it is left alone');
-  clock.advance(6 * 60 * 1000); const out = await s2.recoverDeletions(); assert.deepEqual(await statuses(s2), []); assert.equal(out.discarded.length, 1);
-  assert.equal((await s2.imports()).length, 3); assert.deepEqual(JSON.stringify(await s2.project()), JSON.stringify(before), 'the data is untouched');
-  await s2.recoverDeletions(); assert.deepEqual(await statuses(s2), [], 'safe to retry');
+  clock.advance(400 * 24 * 3600 * 1000); const s2 = reopen(); const out = await s2.recoverDeletions();
+  assert.deepEqual(await statuses(s2), ['PENDING'], 'kept after more than a year'); assert.equal(out.pending.length, 1);
+  assert.deepEqual(JSON.stringify(await s2.project()), JSON.stringify(before), 'no claim comes from it');
+  const id = (await s2.deletions())[0].id; await s2.deleteImport(ids.books2, { confirmed: true }); const r = await s2.deletions(); assert.equal(r.length, 1); assert.equal(r[0].id, id); assert.equal(r[0].status, 'COMMITTED');
+});
+test('a failed own delete leaves its PENDING record in place (no discard): nothing is lost if the file went after all', async () => {
+  const { base, ids, reopen } = await setup();
+  const flaky = reopen({ get: async k => base.get(k), list: async () => base.list(), clear: async () => base.clear(), put: async (k, v) => base.put(k, v), del: async k => { if (k.startsWith('loop:import:')) { await base.del(k); throw new Error('adapter error after the delete'); } return base.del(k); } });
+  await assert.rejects(() => flaky.deleteImport(ids.books2, { confirmed: true }), /adapter error/);
+  const s2 = reopen(); assert.equal(gap(await s2.project()).historyIncomplete, true); assert.deepEqual(await statuses(s2), ['COMMITTED']);
+});
+test('presence is checked by import id, never by file name or hash: delete, then re-upload identical bytes under the same name, and the record still commits', async () => {
+  const { base, ids, reopen } = await setup();
+  const dying = reopen(crashing(base, ({ op, v }) => op === 'put' && v?.status === 'COMMITTED'));
+  await assert.rejects(() => dying.deleteImport(ids.books2, { confirmed: true }), /process died/);
+  const s2 = reopen(), text = F.ledger([lrow('AMZ-1', F.O(1)), lrow('AMZ-2', F.O(2))]);
+  const again = await s2.addLedger({ text, profile: F.PROFILE, declared: F.LDECL({ exportedAt: '2026-11-22T11:00:00Z' }), fileName: 'books2.csv' });
+  assert.notEqual(again, ids.books2, 'a re-upload is a new import with a new id');
+  await s2.recoverDeletions(); const recs = await s2.deletions(); assert.equal(recs.length, 1); assert.equal(recs[0].status, 'COMMITTED', 'the old import id is gone, so the deletion happened');
+  assert.equal((await s2.imports()).some(i => i.id === again), true, 'the re-uploaded file is untouched');
 });
 test('project() itself ignores a pending record', async () => {
   const { reopen, ids } = await setup(); const s = reopen(), imports = await s.imports(), events = await s.events();
