@@ -38,3 +38,21 @@ test('WP1: a consistent correction still issues exactly one replacement (guard: 
   const { api, r2 } = await flow(['Name One SL']);
   assert.equal(r2.invoices, 1); assert.equal(api.calls.filter(c => c.transactionId === 'Correction::X:2').length, 1);
 });
+
+// ---- WP1 continued: paths that change a status must not become a way around the gate ----
+const bad = () => { const [h, ...r] = text.trim().split('\n'); const c = h.split('\t'); const row = r[0].split('\t'); row[c.indexOf('item-vat-incl-amount')] = '1,234'; return [h, row.join('\t')].join('\n'); };
+test('WP1: /api/retry and /api/release only reset the status; the next evaluation holds an integrity-held shipment again and nothing is issued', async () => {
+  const api = mkApi(), db = openDb(), rep = bad(); const o1 = await processReport(db, seller, rep, { api, validate: vies });
+  assert.equal(o1.held.length, 1); const key = o1.held[0].key;
+  db.prepare("UPDATE shipments SET status='detected', reason=NULL WHERE seller_id=? AND key=?").run(seller.id, key); // exactly what /api/retry and /api/release do
+  const o2 = await processReport(db, seller, rep, { api, validate: vies }); assert.equal(o2.held.length, 1); assert.equal(api.calls.length, 0, 'nothing uploaded');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices").get().c, 0, 'no invoice number was used');
+  assert.equal(db.prepare("SELECT count(*) c FROM integrity_findings WHERE code='AMOUNT_UNREADABLE' OR code LIKE 'AMOUNT_%'").get().c >= 1, true);
+});
+test('WP1: two evaluations of the same good report running at the same time create exactly what one evaluation creates', async () => {
+  const api = mkApi(); let release; const gateOpen = new Promise(r => { release = r; }); const slow = { ...api, uploadInvoice: async (a) => { api.calls.push(a); await gateOpen; return 'f' + api.calls.length; } };
+  const baseApi = mkApi(), baseDb = openDb(); await processReport(baseDb, seller, text, { api: baseApi, validate: vies }); const N = baseApi.calls.length; assert.ok(N >= 1);
+  const db = openDb(); const p1 = processReport(db, seller, text, { api: slow, validate: vies }), p2 = processReport(db, seller, text, { api: slow, validate: vies });
+  await new Promise(r => setTimeout(r, 50)); release(); await Promise.all([p1, p2]);
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE kind='invoice'").get().c, N, 'same invoices as one evaluation'); assert.equal(api.calls.length, N, 'same uploads as one evaluation');
+});
