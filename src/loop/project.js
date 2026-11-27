@@ -323,7 +323,7 @@ export function project({ imports, events = [], sellerProfileId = 'local', delet
   const byKey = new Map();
   for (const d of [...deletions].sort((a, b) => String(a.deletedAt).localeCompare(String(b.deletedAt)) || String(a.id).localeCompare(String(b.id)))) for (const a of d.affected ?? []) { if (!byKey.has(a.key)) byKey.set(a.key, []); byKey.get(a.key).push({ d, a }); }
   for (const [key, list] of byKey) {
-    const first = list[0].a, deletedImports = list.map(({ d }) => ({ deletionId: d.id, importId: d.import.id, fileName: d.import.fileName ?? null, kind: d.import.kind, deletedAt: d.deletedAt, reason: d.reason }));
+    const first = list[0].a, deletedImports = list.map(({ d }) => ({ deletionId: d.id, importId: d.import.id, fileName: d.import.fileName ?? null, kind: d.import.kind, deletedAt: d.deletedAt, utcOffsetMinutes: d.utcOffsetMinutes ?? null, reason: d.reason }));
     const recorded = { state: first.recordedState, episodes: first.recordedEpisodes ?? [], history: first.recordedHistory ?? [] }, wasClosed = list.some(({ a }) => a.recordedState === 'VERIFIED_CLOSED');
     let issue = issues.find(i => i.key === key);
     if (!issue) {
@@ -333,7 +333,6 @@ export function project({ imports, events = [], sellerProfileId = 'local', delet
     Object.assign(issue, { historyIncomplete: true, deletedImports, priorRecordedState: first.recordedState, recordedBeforeDeletion: recorded });
     if (wasClosed && issue.state !== 'VERIFIED_CLOSED') { issue.priorRecordedState = 'VERIFIED_CLOSED'; issue.state = 'HISTORY_INCOMPLETE'; issue.outcome = null; issue.awaiting = null; }
     issue.card = buildCard(issue);
-    issue.card.stateNote = `History incomplete: ${deletedImports.map(x => `${x.fileName ?? x.importId} was deleted on ${x.deletedAt} (${x.reason})`).join('; ')}. Before the deletion this problem was recorded as ${first.recordedState}${recorded.history.length ? ' with history ' + recorded.history.map(h => `${h.status}@${h.file ?? h.import}`).join(', ') : ''}. What the file showed is no longer available, so the earlier state cannot be re-checked.` + (issue.card.stateNote ? ' ' + issue.card.stateNote : '');
   }
   issues.sort((a, b) => a.key.localeCompare(b.key));
   const count = (s) => issues.filter(i => i.state === s).length;

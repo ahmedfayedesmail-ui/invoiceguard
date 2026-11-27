@@ -104,7 +104,7 @@ test('vault page: delete one import (with impact shown), encrypted backup, delet
     // delete the ledger import: confirm text shows what is removed
     let dialogText = ''; page.removeAllListeners('dialog'); page.on('dialog', async d => { dialogText = d.message(); await d.accept('x'); });
     await page.evaluate(() => document.querySelectorAll('[data-del]')[1].click()); await page.waitForFunction("document.querySelector('#results').innerText.includes('Loaded files (1)')");
-    assert.match(dialogText, /This removes:/); assert.match(dialogText, /This keeps:/); assert.match(dialogText, /cannot be undone/);
+    assert.match(dialogText, /This removes the file's contents/); assert.match(dialogText, /We keep a record that it existed/); assert.match(dialogText, /cannot be undone/);
     const db = await idb(page); assert.ok(!JSON.stringify(db).includes('A-2001')); const keysAfterDelete = db.keys.filter(k => k.startsWith('e1:loop:import:')).length; assert.equal(keysAfterDelete, 1);
     // whole workspace deletion: nothing usable remains
     await click(page, 'Delete everything stored here'); await page.waitForFunction("window.__gateReady && document.querySelector('#g-pw2')"); const empty = await idb(page); assert.deepEqual(empty.keys, [], 'whole-workspace deletion leaves no key, no vault');

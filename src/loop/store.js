@@ -37,7 +37,7 @@ function orphanedEvents(events, after, imports, pid, deletions = []) {
   const keys = new Set(after.issues.map(i => i.key)), base = sig(after);
   return events.filter(e => e.type === 'LINK_DECISION' ? sig(project({ imports, events: events.filter(x => x !== e), sellerProfileId: pid, deletions })) === base : !keys.has(e.issueKey));
 }
-export function createLoopStore(adapter, { now = () => new Date().toISOString() } = {}) {
+export function createLoopStore(adapter, { now = () => new Date().toISOString(), offsetMinutes = () => -new Date().getTimezoneOffset() } = {}) {
   const key = (k, id) => `loop:${k}:${id}`;
   const list = async (k) => { const out = []; for (const x of (await adapter.list()).filter(x => String(x).startsWith(`loop:${k}:`)).sort()) out.push(await adapter.get(x)); return out; };
   let seq = 0;
@@ -114,7 +114,7 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
     async deleteImport(importId, { confirmed = false, reason = 'SELLER_DELETED' } = {}) {
       if (confirmed !== true) throw new Refused(['Deleting needs your confirmation after you have seen what it removes.']); if (!adapter.del) throw new Refused(['This storage cannot delete single records.']);
       if (typeof reason !== 'string' || !reason.trim() || reason.length > 200) throw new Refused(['The reason for a deletion is a short text of at most 200 characters.']);
-      const impact = await this.deletionImpact(importId), at = now(), rec = { id: `del-${at.replace(/\D/g, '').slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, deletedAt: at, reason: reason.trim(), ...impact.record };
+      const impact = await this.deletionImpact(importId), at = now(), rec = { id: `del-${at.replace(/\D/g, '').slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, deletedAt: at, utcOffsetMinutes: offsetMinutes(), reason: reason.trim(), ...impact.record };
       await adapter.put(key('deletion', rec.id), rec); await adapter.del(key('import', importId));
       const imports = await this.imports(), events = await this.events(), pid = await this.profileId(), deletions = await this.deletions(), after = project({ imports, events, sellerProfileId: pid, deletions });
       let removed = 0; for (const e of orphanedEvents(events, after, imports, pid, deletions)) { await adapter.del(key('event', e.id)); removed++; }

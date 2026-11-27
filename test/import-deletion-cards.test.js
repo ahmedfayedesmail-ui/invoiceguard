@@ -13,7 +13,7 @@ async function run(which, opts = {}) {
     books1: await s.addLedger({ text: F.ledger([lrow('AMZ-1', F.O(1))]), profile: F.PROFILE, declared: F.LDECL({ exportedAt: '2026-11-20T11:00:00Z' }), fileName: 'books-nov-1.csv' }),
     books2: await s.addLedger({ text: F.ledger([lrow('AMZ-1', F.O(1)), lrow('AMZ-2', F.O(2))]), profile: F.PROFILE, declared: F.LDECL({ exportedAt: '2026-11-22T11:00:00Z' }), fileName: 'books-nov-2.csv' }) };
   await s.deleteImport(ids[which], { confirmed: true, ...opts });
-  const g = (await s.project()).issues.find(i => i.family === 'BOOKS_GAP'); return { g, text: JSON.stringify(g.card), card: g.card, s };
+  const g = (await s.project()).issues.find(i => i.family === 'BOOKS_GAP'); return { g, text: [g.card.title, g.card.what, g.card.why, g.card.stateLabel, g.card.stateNote ?? '', g.card.action, g.card.closesWhen].join(' | '), card: g.card, s };
 }
 for (const [which, file] of [['books2', 'books-nov-2.csv'], ['books1', 'books-nov-1.csv'], ['report', 'amazon-report.tsv']]) {
   test(`card after deleting ${which}: plain words, the seller's own clock, identifiers kept, no old claim, no action`, async () => {
@@ -33,7 +33,7 @@ test('card wording per case: what the deleted file was, and what was recorded be
   assert.match((await run('books1')).card.what, /where this problem was first seen/);
   const r = (await run('report')).card.what; assert.match(r, /Amazon report/); assert.match(r, /checks that used it can no longer be repeated/);
 });
-test('reason in words: retention and a custom reason, and a record without an offset is shown as UTC, never as a local time', async () => {
+test('reason in words: retention and a custom reason, and the record carries the clock offset it was written on', async () => {
   const a = await run('books2', { reason: 'RETENTION_POLICY' }); assert.match(a.card.what, /Your retention setting deleted books-nov-2\.csv/); assert.ok(!/RETENTION_POLICY/.test(a.text));
   const b = await run('books2', { reason: 'wrong month' }); assert.match(b.card.what, /You deleted books-nov-2\.csv/); assert.match(b.card.what, /wrong month/);
   const d = await b.s.deletions(); assert.equal(d[0].utcOffsetMinutes, 120);

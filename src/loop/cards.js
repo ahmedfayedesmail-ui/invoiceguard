@@ -1,7 +1,7 @@
 // Action cards. Every sentence is built from a template and values taken from the evidence. No wording states the legal position of a document or of the seller.
-const STATE_LABEL = { HISTORY_INCOMPLETE: 'History incomplete (a file was deleted)', OPEN: 'Needs a human reading', ACTION_REQUIRED: 'Action required', AWAITING_NEW_EVIDENCE: 'Waiting for new evidence', VERIFIED_CLOSED: 'Closed, with evidence', MANUALLY_REPORTED_RESOLUTION: 'Reported resolved by you, not confirmed by the files' };
+const STATE_LABEL = { HISTORY_INCOMPLETE: 'History incomplete: a file you deleted was part of this', OPEN: 'Needs a human reading', ACTION_REQUIRED: 'Action required', AWAITING_NEW_EVIDENCE: 'Waiting for new evidence', VERIFIED_CLOSED: 'Closed, with evidence', MANUALLY_REPORTED_RESOLUTION: 'Reported resolved by you, not confirmed by the files' };
 const mkt = (s) => s?.marketplace ?? 'the declared marketplace';
-export function buildCard(i) {
+function baseCard(i) {
   const s = i.subject ?? {}, e = i.finding?.evidence ?? {}, t = i.subtype;
   const c = { title: '', what: '', why: '', proof: [], action: '', closesWhen: '', stateLabel: STATE_LABEL[i.state] ?? i.state, stateNote: null, history: i.history };
   c.proof = (e.sources ?? []).map(src => ({ file: src.fileName ?? src.importId, role: src.role === 'amazon' ? 'Amazon VAT invoice report' : 'Your accounting export', rows: src.rows }));
@@ -55,4 +55,39 @@ export function buildCard(i) {
   if (i.reopened) c.stateNote = (c.stateNote ? c.stateNote + ' ' : '') + 'This problem was closed by evidence earlier and a newer file shows it again. Both pieces of evidence are kept in the history.';
   if (i.lapsedDeclarations?.length) c.stateNote = (c.stateNote ? c.stateNote + ' ' : '') + 'An earlier declaration no longer applies because the evidence it was based on changed.';
   return c;
+}
+
+// ---- Findings whose history passed through a deleted file. Plain words, the seller's own clock, no action line. ----
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "27 Nov 2026, 13:00" on the clock the record was written on. A record without an offset is shown in UTC and says so, never as a local time. */
+export function localTime(iso, offsetMinutes) {
+  const t = Date.parse(iso); if (Number.isNaN(t)) return 'an unknown time';
+  const hasOff = Number.isInteger(offsetMinutes), d = new Date(t + (hasOff ? offsetMinutes : 0) * 60000), p = (n) => String(n).padStart(2, '0');
+  return `${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${hasOff ? '' : ' UTC'}`;
+}
+const STEP = { PRESENT: 'found on', CLOSED: 'closed on', UNDETERMINED: 'could not be judged on', DECLARED_LINK: 'declared by you on' };
+const ident = (i) => { const s = i.subject ?? {}, p = [];
+  if (s.orderId) p.push(`order ${s.orderId}`); else if (s.orderRef) p.push(`order ${s.orderRef}`); if (s.shippingId) p.push(`shipment ${s.shippingId}`); if (s.number) p.push(`document ${s.number}`);
+  return p.length ? p.join(', ') : 'a problem found earlier'; };
+function historyText(i) {
+  const out = [], rec = i.recordedBeforeDeletion ?? { history: [] };
+  for (const d of i.deletedImports ?? []) {
+    const when = localTime(d.deletedAt, d.utcOffsetMinutes), who = d.reason === 'RETENTION_POLICY' ? 'Your retention setting deleted' : 'You deleted', why = d.reason === 'SELLER_DELETED' || d.reason === 'RETENTION_POLICY' ? '' : ` Reason: ${d.reason}.`, name = d.fileName ?? 'a file';
+    const mine = rec.history.filter(h => h.import === d.importId), first = rec.history[0]?.import === d.importId;
+    const role = d.kind === 'vidr' ? 'That file was an Amazon report, so the checks that used it can no longer be repeated here.' : mine.some(h => h.status === 'CLOSED') ? 'That file closed this problem.' : first ? 'That file is where this problem was first seen.' : 'That file was part of the checks on this problem.';
+    out.push(`${who} ${name} on ${when}.${why} ${role}`);
+  }
+  if (rec.history.length) out.push(`What we recorded before the deletion: ${rec.history.map(h => `${STEP[h.status] ?? 'recorded on'} ${h.file ?? 'a file'}`).join(', then ')}.`);
+  return out;
+}
+function historyCard(i) {
+  const closed = i.priorRecordedState === 'VERIFIED_CLOSED';
+  const now = closed ? 'It was closed by evidence before the deletion. With that file gone we can no longer re-check that, so we do not count it as closed, and we do not list it as open again either because we cannot check.' : 'With that file gone we cannot show what it said, so we cannot say whether this problem is still there.';
+  const perm = 'If you load a file that covers this document, we can show what that file says about it today. This note stays: the history will still record that earlier evidence was deleted and that we could not re-check it.';
+  return { title: `Problem on ${ident(i)}`, what: [...historyText(i), now, perm].join(' '), why: '', proof: [], action: '', closesWhen: '', stateLabel: STATE_LABEL.HISTORY_INCOMPLETE, stateNote: null, history: i.history };
+}
+export function buildCard(i) {
+  if (!i.historyIncomplete) return baseCard(i);
+  if (i.state === 'HISTORY_INCOMPLETE') return historyCard(i);
+  const c = baseCard(i); c.stateNote = (c.stateNote ? c.stateNote + ' ' : '') + 'History incomplete. ' + historyText(i).join(' '); return c;
 }
