@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as F from '../tools/make-loop-fixtures.mjs';
-import { preflight, preflightStored, pilotScope, createPilotRecord, aggregateMetrics, assertAggregateOnly, ADJUDICATIONS } from '../src/loop/pilot.js';
+import { preflight, preflightPending, preflightStored, pilotScope, createPilotRecord, aggregateMetrics, assertAggregateOnly, ADJUDICATIONS } from '../src/loop/pilot.js';
 import { createLoopStore } from '../src/loop/store.js';
 import { createVault } from '../src/loop/vault.js';
 import { memoryAdapter } from '../src/history.js';
@@ -90,4 +90,50 @@ test('wording: source type is labelled seller-declared and the file origin is no
 });
 test('preflight works one file at a time and says the pair checks wait', () => {
   const v = preflight({ vidrText: F.PV, vidrDeclared: vd() }); assert.ok(v.checks.some(x => x.id === 'PAIR' && x.status === 'NOTE')); assert.equal(status(v, 'PERIOD_COVERAGE'), undefined); assert.ok(!v.warnings.includes('PAIR'));
+});
+
+// ---- final P4 integrity: the whole stored dataset decides, not the latest pair ----
+let tick = 0; const clock = () => new Date(Date.parse('2026-11-20T10:00:00Z') + (tick++) * 60000).toISOString();
+const mkStore = () => createLoopStore(memoryAdapter(), { now: clock });
+const ids = (r, st) => r.checks.filter(x => x.status === st).map(x => x.id);
+async function agg(s) { return aggregateMetrics({ projection: await s.project(), record: { adjudications: {}, missedBySeller: 0 }, imports: await s.imports() }); }
+
+test('dataset: a missing Amazon report, or a missing accounting export, is not a pilot and no aggregate is produced', async () => {
+  const a = mkStore(); await a.addLedger({ text: F.PL1, profile: F.PROFILE, declared: ld() });
+  assert.ok(ids(preflightStored(await a.imports()), 'FAIL').includes('VIDR_PRESENT')); await assert.rejects(agg(a), /do not pass the pilot preflight.*VIDR_PRESENT/);
+  const b = mkStore(); await b.addVidr({ text: F.PV, declared: vd() });
+  assert.ok(ids(preflightStored(await b.imports()), 'FAIL').includes('LEDGER_PRESENT')); await assert.rejects(agg(b), /LEDGER_PRESENT/);
+  assert.equal(preflightStored([]).ready, false);
+});
+test('dataset: a valid latest pair does not hide an older incompatible import', async () => {
+  const s = mkStore(); await s.addVidr({ text: F.PV, declared: { ...vd(), rangeFrom: '2026-10-01', rangeTo: '2026-10-31' } });   // older, other period
+  await s.addVidr({ text: F.PV, declared: vd() }); await s.addLedger({ text: F.PL1, profile: F.PROFILE, declared: ld() });
+  const r = preflightStored(await s.imports()); assert.equal(r.ready, false); assert.ok(ids(r, 'FAIL').includes('PILOT_SCOPE')); await assert.rejects(agg(s), /PILOT_SCOPE|more than one marketplace or period/);
+  const t = mkStore(); await t.addVidr({ text: F.PV, declared: { ...vd(), options: 'PENDING_ONLY' } }); await t.addVidr({ text: F.PV, declared: vd() }); await t.addLedger({ text: F.PL1, profile: F.PROFILE, declared: ld() });
+  assert.ok(ids(preflightStored(await t.imports()), 'FAIL').includes('REPORT_OPTIONS'), 'an older pending-only report must fail the dataset');
+});
+test('dataset: several accounting exports must all match the marketplace and cover the period', async () => {
+  for (const [label, bad] of [['marketplace', { marketplace: 'A13V1IB3VIYZZH' }], ['period', { periodFrom: '2026-11-10', periodTo: '2026-11-30' }], ['incomplete', { complete: false }]]) {
+    const s = mkStore(); await s.addVidr({ text: F.PV, declared: vd() }); await s.addLedger({ text: F.PL1, profile: F.PROFILE, declared: ld() }); await s.addLedger({ text: F.PL2, profile: F.PROFILE, declared: { ...ld(), ...bad } });
+    const r = preflightStored(await s.imports()); assert.equal(r.ready, false, label); await assert.rejects(agg(s), /do not pass/, label);
+  }
+});
+test('dataset: aggregate is blocked by a failed preflight even when only one file is bad', async () => {
+  const s = mkStore(); await s.addVidr({ text: F.PV, declared: vd() }); await s.addLedger({ text: F.PL1, profile: F.PROFILE, declared: { ...ld(), complete: false } });
+  await assert.rejects(agg(s), /LEDGER_COMPLETE/);
+});
+test('dataset: a fully valid multi-import pilot still produces its aggregate, WARNs stay visible', async () => {
+  const s = mkStore(); await s.addVidr({ text: F.PV, declared: vd() }); await s.addLedger({ text: F.PL1, profile: F.PROFILE, declared: ld() });
+  await s.addVidr({ text: F.PV, declared: { ...vd(), createdAfterUploadConfirmed: false } }); await s.addLedger({ text: F.PL2, profile: F.PROFILE, declared: ld() });
+  const r = preflightStored(await s.imports()); assert.equal(r.ready, true, JSON.stringify(r.checks)); assert.ok(r.warnings.includes('REPORT_FRESH'), 'the WARN must stay a WARN');
+  const m = await agg(s); assert.deepEqual([m.imports.amazonReports, m.imports.accountingExports, m.preflightOnThisData.ready, m.preflightOnThisData.warn >= 1], [2, 2, true, true]);
+});
+test('staged: the pending file is checked against EVERY stored file, not the latest opposite one', async () => {
+  const s = mkStore(); await s.addVidr({ text: F.PV, declared: vd() }); await s.addLedger({ text: F.PL1, profile: F.PROFILE, declared: { ...ld(), periodFrom: '2026-11-10', periodTo: '2026-11-30' } }).catch(() => {});
+  const imps = await s.imports();
+  const pv = preflightPending('vidr', { text: F.PV, declared: { ...vd(), marketplace: 'A13V1IB3VIYZZH' } }, imps); assert.equal(pv.ready, false); assert.ok(ids(pv, 'FAIL').includes('PILOT_SCOPE') || ids(pv, 'FAIL').includes('MARKETPLACE'));
+  const pl = preflightPending('ledger', { text: F.PL1, profile: F.PROFILE, declared: { ...ld(), periodFrom: '2026-11-10', periodTo: '2026-11-30' } }, imps); assert.equal(pl.ready, false); assert.ok(ids(pl, 'FAIL').includes('PERIOD_COVERAGE'));
+  const ok = preflightPending('ledger', { text: F.PL2, profile: F.PROFILE, declared: ld() }, imps); assert.equal(ok.ready, true, JSON.stringify(ok.checks)); assert.ok(!ok.checks.some(x => x.id === 'VIDR_PRESENT'), 'presence is not required while the dataset is being built');
+  const first = preflightPending('vidr', { text: F.PV, declared: { ...vd(), rangeFrom: '2026-10-01', rangeTo: '2026-10-31' } }, (await s.imports()).filter(i => i.kind === 'ledger'));
+  assert.equal(first.ready, false, 'a first Amazon report outside the stored export period must be refused');
 });

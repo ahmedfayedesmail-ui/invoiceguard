@@ -32,3 +32,6 @@ The assessment is written from the aggregate file plus the seller's own words, w
 
 ## Scope rule
 One pilot is one marketplace and one reporting period (taken from the first Amazon report stored). Follow-up imports must be for the same marketplace and period; otherwise the preflight blocks them. If the stored files cover more than one marketplace or period, the aggregate file refuses to build. Use a separate vault for a different period.
+
+## Whole-dataset rule
+The staged check compares the pending file with every stored file, not only the latest one. "Re-check the stored files" and the aggregate use the whole stored dataset: at least one Amazon report and one accounting export must exist, every Amazon report must be in the pilot marketplace and period, every accounting export must be in the pilot marketplace and cover the period, and every file must pass its own checks. If any blocking check fails, the aggregate file is not produced. WARNs stay WARNs and are listed (acknowledged when storing).

@@ -1,4 +1,4 @@
-import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflight, preflightStored, pilotScope, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
+import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflightPending, preflightStored, pilotScope, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
 const $ = (s) => document.querySelector(s);
 const el = (t, props = {}, ...kids) => { const e = document.createElement(t); for (const [k, v] of Object.entries(props)) k === 'class' ? (e.className = v) : k === 'onclick' ? e.addEventListener('click', v) : e.setAttribute(k, v); for (const x of kids.flat()) if (x != null) e.append(x.nodeType ? x : String(x)); return e; };
 const baseline = new Set(performance.getEntriesByType('resource').map(r => r.name));
@@ -16,9 +16,7 @@ const nowLocal = () => new Date().toISOString().slice(0, 16);
 
 // Staged import: the file is read and checked in memory; nothing is stored until the preflight decision is complete.
 async function stage(kind, text, declared, profile, store1, after) {
-  const imps = await store.imports(), sc = pilotScope(imps), other = [...imps].reverse().find(i => i.kind === (kind === 'vidr' ? 'ledger' : 'vidr'));
-  const args = kind === 'vidr' ? { vidrText: text, vidrDeclared: declared, ledgerText: other?.text, profile: other?.profile, ledgerDeclared: other?.declared } : { vidrText: other?.text, vidrDeclared: other?.declared, ledgerText: text, profile, ledgerDeclared: declared };
-  const x = preflight({ ...args, scope: sc }), box = $('#stage'); box.replaceChildren();
+  const imps = await store.imports(), x = preflightPending(kind, { text, declared, profile }, imps), box = $('#stage'); box.replaceChildren();
   const ticks = [], go = el('button', { id: 'st-store' }, 'Store this file');
   box.append(el('h3', {}, 'Preflight (nothing is stored yet)'), el('p', {}, el('span', { class: 'badge ' + (x.ready ? 'b-ok' : 'b-bad') }, x.ready ? 'No blocking problem' : 'Blocked: fix the FAIL lines, then check again')));
   for (const c of x.checks) { const row = el('p', { class: 'kv' }, el('span', { class: 'badge ' + (c.status === 'PASS' ? 'b-ok' : c.status === 'WARN' ? 'b-warn' : c.status === 'NOTE' ? '' : 'b-bad') }, c.status), ' ' + c.detail);

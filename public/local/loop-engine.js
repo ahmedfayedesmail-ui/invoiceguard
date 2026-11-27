@@ -3898,14 +3898,36 @@ function preflight({ vidrText, vidrDeclared, ledgerText, profile, ledgerDeclared
   if (!(hasV && hasL)) checks.push(c("PAIR", "NOTE", "Only one of the two files is being checked now. The checks that compare both files run when the second file is loaded."));
   return { ready: !checks.some((x) => x.status === "FAIL"), checks, warnings: checks.filter((x) => x.status === "WARN").map((x) => x.id), note: "Counts and fixed wording only. Everything about the source is declared by the seller, not verified." };
 }
-function preflightStored(imports) {
-  const v = [...imports].reverse().find((i) => i.kind === "vidr"), l = [...imports].reverse().find((i) => i.kind === "ledger"), sc = pilotScope(imports);
-  const r = preflight({ vidrText: v?.text, vidrDeclared: v?.declared, ledgerText: l?.text, profile: l?.profile, ledgerDeclared: l?.declared });
-  if (sc.distinctScopes > 1) {
-    r.checks.push(c("PILOT_SCOPE", "FAIL", `The stored Amazon reports cover ${sc.distinctScopes} different marketplace/period combinations. One pilot is one marketplace and one period.`));
-    r.ready = false;
+var RANK = { PASS: 0, NOTE: 0, WARN: 1, FAIL: 2 };
+function mergeChecks(lists) {
+  const by = /* @__PURE__ */ new Map();
+  for (const ch of lists.flat()) {
+    const e = by.get(ch.id);
+    if (!e) by.set(ch.id, { worst: ch, n: 1, bad: ch.status === "FAIL" || ch.status === "WARN" ? 1 : 0 });
+    else {
+      e.n++;
+      if (ch.status === "FAIL" || ch.status === "WARN") e.bad++;
+      if (RANK[ch.status] > RANK[e.worst.status]) e.worst = ch;
+    }
   }
-  return r;
+  return [...by.values()].map(({ worst, n, bad }) => n > 1 && bad ? { ...worst, detail: `${worst.detail} (${bad} of ${n} checks)` } : worst);
+}
+var finish = (checks) => ({ ready: !checks.some((x) => x.status === "FAIL"), checks, warnings: checks.filter((x) => x.status === "WARN").map((x) => x.id), note: "Counts and fixed wording only. Everything about the source is declared by the seller, not verified." });
+var side = (i) => i.kind === "vidr" ? { vidrText: i.text, vidrDeclared: i.declared } : { ledgerText: i.text, profile: i.profile, ledgerDeclared: i.declared };
+function preflightStored(imports) {
+  const v = imports.filter((i) => i.kind === "vidr"), l = imports.filter((i) => i.kind === "ledger"), sc = pilotScope(imports), lists = [];
+  lists.push([c("VIDR_PRESENT", v.length ? "PASS" : "FAIL", v.length ? `${v.length} Amazon report(s) stored.` : "No Amazon report is stored."), c("LEDGER_PRESENT", l.length ? "PASS" : "FAIL", l.length ? `${l.length} accounting export(s) stored.` : "No accounting export is stored.")]);
+  for (const i of imports) lists.push(preflight({ ...side(i), scope: sc }).checks.filter((x) => x.id !== "PAIR"));
+  for (const a of v) for (const b of l) lists.push(preflight({ ...side(a), ...side(b), scope: sc }).checks.filter((x) => ["PERIOD_COVERAGE", "MARKETPLACE"].includes(x.id)));
+  if (sc.distinctScopes > 1) lists.push([c("PILOT_SCOPE", "FAIL", `The stored Amazon reports cover ${sc.distinctScopes} different marketplace/period combinations. One pilot is one marketplace and one period.`)]);
+  return finish(mergeChecks(lists));
+}
+function preflightPending(kind, pending, imports) {
+  const sc = pilotScope(imports), opp = imports.filter((i) => i.kind === (kind === "vidr" ? "ledger" : "vidr")), mine = kind === "vidr" ? { vidrText: pending.text, vidrDeclared: pending.declared } : { ledgerText: pending.text, profile: pending.profile, ledgerDeclared: pending.declared };
+  const lists = [preflight({ ...mine, scope: sc }).checks.filter((x) => !(opp.length && x.id === "PAIR"))];
+  for (const o of opp) lists.push(preflight({ ...mine, ...side(o), scope: sc }).checks.filter((x) => ["PERIOD_COVERAGE", "MARKETPLACE"].includes(x.id)));
+  if (kind === "vidr" && !imports.some((i) => i.kind === "vidr")) for (const o of opp) lists.push(preflight({ ...side(o), scope: { first: { marketplace: pending.declared?.marketplace, rangeFrom: pending.declared?.rangeFrom, rangeTo: pending.declared?.rangeTo } } }).checks.filter((x) => x.id === "PILOT_SCOPE"));
+  return finish(mergeChecks(lists));
 }
 var ADJUDICATIONS = Object.freeze(["CONFIRMED_REAL", "FALSE_POSITIVE", "COULD_NOT_CONFIRM"]);
 var num = (v) => v === void 0 || v === null || v === "" ? null : Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v) * 10) / 10 : NaN;
@@ -3959,6 +3981,7 @@ function aggregateMetrics({ projection, record, imports = [] }) {
   const sc = pilotScope(imports);
   if (sc.distinctScopes > 1) throw new Error("The stored files cover more than one marketplace or period, so they are not one pilot. Delete the extra files before creating a pilot result.");
   const pf = preflightStored(imports);
+  if (!pf.ready) throw new Error("The stored files do not pass the pilot preflight, so no pilot aggregate is produced. Failed checks: " + pf.checks.filter((x) => x.status === "FAIL").map((x) => x.id).join(", ") + ".");
   const issues = projection.issues, adj = record.adjudications ?? {}, keys = new Set(issues.map((i) => i.key));
   const by = (f) => issues.reduce((m, i) => {
     const k = f(i);
@@ -4013,5 +4036,6 @@ export {
   migrateLegacy,
   pilotScope,
   preflight,
+  preflightPending,
   preflightStored
 };

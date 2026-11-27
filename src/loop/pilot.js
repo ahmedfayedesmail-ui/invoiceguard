@@ -53,12 +53,34 @@ export function preflight({ vidrText, vidrDeclared, ledgerText, profile, ledgerD
   return { ready: !checks.some(x => x.status === 'FAIL'), checks, warnings: checks.filter(x => x.status === 'WARN').map(x => x.id), note: 'Counts and fixed wording only. Everything about the source is declared by the seller, not verified.' };
 }
 
-/** Preflight of what is already stored (latest of each kind), for the whole pilot dataset. */
+const RANK = { PASS: 0, NOTE: 0, WARN: 1, FAIL: 2 };
+/** Merges checks with the same id: the worst status wins; the detail says how many files were involved. */
+function mergeChecks(lists) {
+  const by = new Map(); for (const ch of lists.flat()) { const e = by.get(ch.id); if (!e) by.set(ch.id, { worst: ch, n: 1, bad: ch.status === 'FAIL' || ch.status === 'WARN' ? 1 : 0 }); else { e.n++; if (ch.status === 'FAIL' || ch.status === 'WARN') e.bad++; if (RANK[ch.status] > RANK[e.worst.status]) e.worst = ch; } }
+  return [...by.values()].map(({ worst, n, bad }) => (n > 1 && bad ? { ...worst, detail: `${worst.detail} (${bad} of ${n} checks)` } : worst));
+}
+const finish = (checks) => ({ ready: !checks.some(x => x.status === 'FAIL'), checks, warnings: checks.filter(x => x.status === 'WARN').map(x => x.id), note: 'Counts and fixed wording only. Everything about the source is declared by the seller, not verified.' });
+const side = (i) => (i.kind === 'vidr' ? { vidrText: i.text, vidrDeclared: i.declared } : { ledgerText: i.text, profile: i.profile, ledgerDeclared: i.declared });
+
+/** Preflight of the WHOLE stored dataset: at least one Amazon report and one accounting export; every report in the pilot marketplace and period;
+ *  every export in the pilot marketplace and covering the period; every file passes its own checks. Old incompatible files are not ignored. */
 export function preflightStored(imports) {
-  const v = [...imports].reverse().find(i => i.kind === 'vidr'), l = [...imports].reverse().find(i => i.kind === 'ledger'), sc = pilotScope(imports);
-  const r = preflight({ vidrText: v?.text, vidrDeclared: v?.declared, ledgerText: l?.text, profile: l?.profile, ledgerDeclared: l?.declared });
-  if (sc.distinctScopes > 1) { r.checks.push(c('PILOT_SCOPE', 'FAIL', `The stored Amazon reports cover ${sc.distinctScopes} different marketplace/period combinations. One pilot is one marketplace and one period.`)); r.ready = false; }
-  return r;
+  const v = imports.filter(i => i.kind === 'vidr'), l = imports.filter(i => i.kind === 'ledger'), sc = pilotScope(imports), lists = [];
+  lists.push([c('VIDR_PRESENT', v.length ? 'PASS' : 'FAIL', v.length ? `${v.length} Amazon report(s) stored.` : 'No Amazon report is stored.'), c('LEDGER_PRESENT', l.length ? 'PASS' : 'FAIL', l.length ? `${l.length} accounting export(s) stored.` : 'No accounting export is stored.')]);
+  for (const i of imports) lists.push(preflight({ ...side(i), scope: sc }).checks.filter(x => x.id !== 'PAIR'));
+  for (const a of v) for (const b of l) lists.push(preflight({ ...side(a), ...side(b), scope: sc }).checks.filter(x => ['PERIOD_COVERAGE', 'MARKETPLACE'].includes(x.id)));
+  if (sc.distinctScopes > 1) lists.push([c('PILOT_SCOPE', 'FAIL', `The stored Amazon reports cover ${sc.distinctScopes} different marketplace/period combinations. One pilot is one marketplace and one period.`)]);
+  return finish(mergeChecks(lists));
+}
+
+/** Preflight of ONE pending file (still only in memory) against the whole existing dataset. Existing files are not required to be complete yet: presence is not checked here. */
+export function preflightPending(kind, pending, imports) {
+  const sc = pilotScope(imports), opp = imports.filter(i => i.kind === (kind === 'vidr' ? 'ledger' : 'vidr')), mine = kind === 'vidr' ? { vidrText: pending.text, vidrDeclared: pending.declared } : { ledgerText: pending.text, profile: pending.profile, ledgerDeclared: pending.declared };
+  const lists = [preflight({ ...mine, scope: sc }).checks.filter(x => !(opp.length && x.id === 'PAIR'))];
+  for (const o of opp) lists.push(preflight({ ...mine, ...side(o), scope: sc }).checks.filter(x => ['PERIOD_COVERAGE', 'MARKETPLACE'].includes(x.id)));
+  // a pending first Amazon report establishes the scope: stored exports must still match it
+  if (kind === 'vidr' && !imports.some(i => i.kind === 'vidr')) for (const o of opp) lists.push(preflight({ ...side(o), scope: { first: { marketplace: pending.declared?.marketplace, rangeFrom: pending.declared?.rangeFrom, rangeTo: pending.declared?.rangeTo } } }).checks.filter(x => x.id === 'PILOT_SCOPE'));
+  return finish(mergeChecks(lists));
 }
 
 export const ADJUDICATIONS = Object.freeze(['CONFIRMED_REAL', 'FALSE_POSITIVE', 'COULD_NOT_CONFIRM']);
@@ -88,7 +110,7 @@ export function assertAggregateOnly(o, allowed = new Set()) {
 /** Aggregate metrics only: no order ids, no document numbers, no dates, no file names, no hashes. */
 export function aggregateMetrics({ projection, record, imports = [] }) {
   const sc = pilotScope(imports); if (sc.distinctScopes > 1) throw new Error('The stored files cover more than one marketplace or period, so they are not one pilot. Delete the extra files before creating a pilot result.');
-  const pf = preflightStored(imports);
+  const pf = preflightStored(imports); if (!pf.ready) throw new Error('The stored files do not pass the pilot preflight, so no pilot aggregate is produced. Failed checks: ' + pf.checks.filter(x => x.status === 'FAIL').map(x => x.id).join(', ') + '.');
   const issues = projection.issues, adj = record.adjudications ?? {}, keys = new Set(issues.map(i => i.key));
   const by = (f) => issues.reduce((m, i) => { const k = f(i); m[k] = (m[k] ?? 0) + 1; return m; }, {});
   const mine = Object.entries(adj).filter(([k]) => keys.has(k)).map(([, v]) => v), n = (v) => mine.filter(x => x === v).length;
