@@ -89,7 +89,8 @@ export function planUpload(text, opts = {}) {
     const kept = [], skipped = [], held = [];
     const parsed = parseVidr(text);
     for (const s of parsed) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) skipped.push({ orderId: s.orderId, why }); else kept.push(s); }
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: parsed.invalidRows ?? [], truncated: !!t.truncated };
+    kept.invalidRows = parsed.invalidRows ?? []; // the list is handed to processReport as `shipments`: the invalid rows must travel with it
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: kept.invalidRows, truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };

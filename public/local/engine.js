@@ -48877,17 +48877,26 @@ function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l, i2) => [l, i2 + 1]).filter(([l]) => l.trim());
   if (!lines.length) return { rows: [], invalid: [], head: [] };
   const head = lines[0][0].split("	").map((h) => h.trim().toLowerCase());
-  const rows = [], invalid = [];
+  const missingOf = (n) => n < head.length ? head.slice(n).filter((h) => !OPTIONAL_TRAILING.has(h)) : [];
+  const items = [], invalid = [];
+  let prev = null;
   for (const [l, no] of lines.slice(1)) {
     const c = l.split("	");
-    const missing = c.length < head.length ? head.slice(c.length).filter((h) => !OPTIONAL_TRAILING.has(h)) : [];
+    const missing = missingOf(c.length);
     if (c.length > head.length || missing.length) {
       invalid.push({ line: no, cells: c.length, expected: head.length, missing, reason: c.length > head.length ? "more cells than the header" : "required cells are missing (the row is cut off or split)" });
+      if (prev && c.length <= head.length && prev.cells + c.length - 1 <= head.length && !missingOf(prev.cells + c.length - 1).length) {
+        prev.item.drop = true;
+        invalid.push({ line: prev.no, cells: prev.cells, expected: head.length, missing: [], reason: "this row and the unreadable line after it look like one row split by a newline inside a cell (the line after it cannot start a row), so neither is used" });
+      }
+      prev = null;
       continue;
     }
-    rows.push(Object.fromEntries(head.map((h, i2) => [h, (c[i2] ?? "").trim()])));
+    const item = { row: Object.fromEntries(head.map((h, i2) => [h, (c[i2] ?? "").trim()])) };
+    items.push(item);
+    prev = { item, no, cells: c.length };
   }
-  return { rows, invalid, head };
+  return { rows: items.filter((i2) => !i2.drop).map((i2) => i2.row), invalid: invalid.sort((x, y) => x.line - y.line), head };
 }
 var PARTS = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
 function parseVidr(text) {
@@ -49064,7 +49073,8 @@ function planUpload(text, opts = {}) {
       if (why) skipped.push({ orderId: s.orderId, why });
       else kept.push(s);
     }
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: parsed.invalidRows ?? [], truncated: !!t.truncated };
+    kept.invalidRows = parsed.invalidRows ?? [];
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: kept.invalidRows, truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };

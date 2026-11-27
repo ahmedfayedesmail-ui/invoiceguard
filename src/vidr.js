@@ -24,14 +24,21 @@ export function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => [l, i + 1]).filter(([l]) => l.trim());
   if (!lines.length) return { rows: [], invalid: [], head: [] };
   const head = lines[0][0].split('\t').map(h => h.trim().toLowerCase());
-  const rows = [], invalid = [];
+  const missingOf = (n) => n < head.length ? head.slice(n).filter(h => !OPTIONAL_TRAILING.has(h)) : [];
+  const items = [], invalid = []; let prev = null; // prev = the accepted row on the physical line directly before, if any
   for (const [l, no] of lines.slice(1)) {
-    const c = l.split('\t');
-    const missing = c.length < head.length ? head.slice(c.length).filter(h => !OPTIONAL_TRAILING.has(h)) : [];
-    if (c.length > head.length || missing.length) { invalid.push({ line: no, cells: c.length, expected: head.length, missing, reason: c.length > head.length ? 'more cells than the header' : 'required cells are missing (the row is cut off or split)' }); continue; }
-    rows.push(Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim()])));
+    const c = l.split('\t'); const missing = missingOf(c.length);
+    if (c.length > head.length || missing.length) {
+      invalid.push({ line: no, cells: c.length, expected: head.length, missing, reason: c.length > head.length ? 'more cells than the header' : 'required cells are missing (the row is cut off or split)' });
+      // The known limit of a cell count: a newline inside the LAST cells leaves a first piece that already looks complete. If the short line joined to the row before it makes EXACTLY a complete row, they are one row split by a newline: quarantine both. Never repaired.
+      if (prev && c.length <= head.length && prev.cells + c.length - 1 <= head.length && !missingOf(prev.cells + c.length - 1).length) {
+        prev.item.drop = true; invalid.push({ line: prev.no, cells: prev.cells, expected: head.length, missing: [], reason: 'this row and the unreadable line after it look like one row split by a newline inside a cell (the line after it cannot start a row), so neither is used' });
+      }
+      prev = null; continue;
+    }
+    const item = { row: Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim()])) }; items.push(item); prev = { item, no, cells: c.length };
   }
-  return { rows, invalid, head };
+  return { rows: items.filter(i => !i.drop).map(i => i.row), invalid: invalid.sort((x, y) => x.line - y.line), head };
 }
 export function parseTsv(text) { return checkTsv(text).rows; }
 
