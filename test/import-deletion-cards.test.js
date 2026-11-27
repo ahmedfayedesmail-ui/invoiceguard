@@ -24,14 +24,34 @@ for (const [which, file] of [['books2', 'books-nov-2.csv'], ['books1', 'books-no
     assert.ok(text.includes('27 Nov 2026, 13:00'), 'deleted at 11:00 UTC on a +02:00 clock reads 13:00'); assert.ok(card.what.includes(file));
     assert.ok(text.includes('405-1000002-2000002') && text.includes('S9002'), 'order and shipment identifiers stay in the title');
     assert.ok(!/does not contain it/.test(text), 'the claim the missing evidence supported is gone'); assert.equal(card.action, ''); assert.equal(card.closesWhen, '');
-    assert.match(card.what, /history will still record that earlier evidence was deleted/); assert.match(card.what, /we cannot|can no longer/);
+    assert.match(card.what, /history will still record that earlier evidence was deleted/); assert.match(card.what, /cannot|can no longer/);
     assert.equal(card.stateLabel, 'History incomplete: a file you deleted was part of this'); assert.equal(g.state, 'HISTORY_INCOMPLETE');
   });
 }
-test('card wording per case: what the deleted file was, and what was recorded before', async () => {
-  assert.match((await run('books2')).card.what, /That file closed this problem/); assert.match((await run('books2')).card.what, /found on books-nov-1\.csv, then closed on books-nov-2\.csv/);
-  assert.match((await run('books1')).card.what, /where this problem was first seen/);
-  const r = (await run('report')).card.what; assert.match(r, /Amazon report/); assert.match(r, /checks that used it can no longer be repeated/);
+test('per-case claim: the card says unavailable only for what the DELETED file held', async () => {
+  const c2 = (await run('books2')).card.what, c1 = (await run('books1')).card.what, cr = (await run('report')).card.what;
+  // closing file deleted: the closure is the thing that is gone, the origin is not
+  assert.match(c2, /closed on books-nov-2\.csv \(deleted\)/); assert.match(c2, /found on books-nov-1\.csv(,| then)/); assert.ok(!/found on books-nov-1\.csv \(deleted\)/.test(c2));
+  assert.match(c2, /The closure can no longer be re-checked, so we do not count it as closed/); assert.ok(!/re-derived from scratch/.test(c2));
+  // origin deleted: the closing file is still loaded, so nothing is said about its closure being unavailable
+  assert.match(c1, /found on books-nov-1\.csv \(deleted\), then closed on books-nov-2\.csv\./); assert.match(c1, /cannot be re-derived from scratch/);
+  assert.match(c1, /The file that closed it, books-nov-2\.csv, is still loaded/); assert.ok(!/no longer be re-checked|do not count it as closed/.test(c1), 'false claim: the closing file is intact');
+  assert.match(c1, /This note stays because the beginning of the history is gone/);
+  // report deleted: every check that used it is gone
+  assert.match(cr, /That file was the Amazon report, so every check that used it can no longer be repeated here/); assert.match(cr, /The closure can no longer be re-checked/);
+  // the same fact is not stated three times
+  for (const c of [c1, c2, cr]) { assert.ok(!/That file closed this problem|It was closed by evidence/.test(c)); assert.ok((c.match(/closed on/g) ?? []).length === 1); }
+  // a deleted name is marked wherever the history lists it, and only that name
+  const hist = (c) => c.split('Recorded before the deletion: ')[1].split(/\.(?: |$)/)[0];
+  assert.equal(hist(c2), 'found on books-nov-1.csv, then closed on books-nov-2.csv (deleted)');
+  assert.equal(hist(c1), 'found on books-nov-1.csv (deleted), then closed on books-nov-2.csv');
+  assert.equal(hist(cr), 'found on books-nov-1.csv, then closed on books-nov-2.csv');
+});
+test('per-case claim: when the record cannot tell what the deleted file did, the card says so instead of picking a role', async () => {
+  const { buildCard } = await import('../src/loop/cards.js');
+  const card = buildCard({ family: 'BOOKS_GAP', subtype: 'NOT_IN_BOOKS', state: 'HISTORY_INCOMPLETE', historyIncomplete: true, priorRecordedState: 'OPEN', subject: { orderId: 'O-1', shippingId: 'S-1' }, history: [],
+    deletedImports: [{ deletionId: 'd', importId: 'x', fileName: 'mystery.csv', kind: 'ledger', deletedAt: '2026-11-27T11:00:00.000Z', utcOffsetMinutes: 120, reason: 'SELLER_DELETED' }], recordedBeforeDeletion: { state: 'OPEN', episodes: [], history: [{ import: 'y', file: 'other.csv', status: 'PRESENT', note: null }] } });
+  assert.match(card.what, /We cannot tell from the record what this file was used for on this problem/); assert.ok(!/first seen|closed this|Amazon report/.test(card.what));
 });
 test('reason in words: retention and a custom reason, and the record carries the clock offset it was written on', async () => {
   const a = await run('books2', { reason: 'RETENTION_POLICY' }); assert.match(a.card.what, /Your retention setting deleted books-nov-2\.csv/); assert.ok(!/RETENTION_POLICY/.test(a.text));
