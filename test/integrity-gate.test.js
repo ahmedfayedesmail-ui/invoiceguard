@@ -270,3 +270,31 @@ test('review 5, history policy: EVERY re-check is its own history event and seen
   const db = openDb(), bad = file(rowOf(0, { 'item-vat-incl-amount': '60.00' })); for (let i = 0; i < 4; i++) await run(bad, db);
   assert.deepEqual(db.prepare("SELECT event FROM integrity_history ORDER BY rowid").all().map(r => r.event), ['OPENED', 'RECHECKED_SAME', 'RECHECKED_SAME', 'RECHECKED_SAME']); assert.equal(db.prepare("SELECT seen_count FROM integrity_findings").get().seen_count, 4);
 });
+
+// ---- Ahmed's second review (22:26): written BEFORE the fixes ----
+const R2 = (n, incl, sku) => rowOf(0, { 'quantity-purchased': '1', 'order-item-id': String(900 + n), sku, 'item-vat-amount': '8.40', 'item-vat-excl-amount': '40.00', 'item-vat-incl-amount': incl });
+test('review 6, multi-row rounding through processReport: rows with a rounding difference on the same part give no database error, ONE invoice, every difference stored, every note shown in the result and the preview', async () => {
+  const text = file(R2(1, '48.41', 'SKU-A'), R2(2, '48.39', 'SKU-B'), R2(3, '48.41', 'SKU-C'));
+  const { db, out } = await run(text);
+  assert.equal(out.errors.length, 0, JSON.stringify(out.errors)); assert.equal(out.uploaded, 1); assert.equal(out.held.length, 0); assert.equal(count(db, "SELECT count(*) c FROM invoices WHERE kind='invoice'"), 1, 'exactly once');
+  const f = db.prepare("SELECT evidence, explanation, status FROM integrity_findings WHERE code='ROUNDING_DIFFERENCE'").all(); assert.equal(f.length, 1); assert.equal(f[0].status, 'NOTED');
+  const ev = JSON.parse(f[0].evidence); assert.equal(ev.rows.length, 3); assert.deepEqual(ev.rows.map(r => r.differenceCents), [1, -1, 1]); assert.equal(new Set(ev.rows.map(r => r.line)).size, 3, 'three physical lines, each with its own values'); assert.ok(ev.rows.every(r => r.values.excl === '40.00'));
+  const lines = ev.rows.map(r => r.line); for (const l of lines) assert.ok(out.notes.map(n => n.text).join(' ').includes(`line ${l}`), 'result note for line ' + l);
+  const p = planUpload(text); assert.equal(p.shipments.length, 1); for (const l of lines) assert.ok(p.notes.map(n => n.text).join(' ').includes(`line ${l}`), 'preview note for line ' + l);
+  await run(text, db); assert.equal(count(db, "SELECT count(*) c FROM integrity_findings"), 1, 're-run: still one row');
+});
+test('review 6b, the ledger key is unique for any shipment: many rows with every kind of finding on the same parts never produce two findings with the same code and field', () => {
+  const rows = []; for (let i = 0; i < 12; i++) rows.push(rowOf(0, { 'quantity-purchased': i % 2 ? 'x' : '1', 'order-item-id': String(i % 3), sku: 'S' + i, 'shipment-date': i % 4 ? '2026-11-24' : '24/11/2026', 'item-vat-amount': i % 5 ? '8.40' : '8,4x', 'item-vat-excl-amount': '40.00', 'item-vat-incl-amount': i % 3 ? '48.41' : '60.00', currency: i % 6 ? 'EUR' : 'USD' }));
+  const keys = assessShipment(one(file(...rows))).findings.map(f => f.code + '|' + f.evidence.field); assert.equal(new Set(keys).size, keys.length, keys.join(','));
+});
+test('review 7, append-only at the SQLite level: a recorded decision (and the history) cannot be updated or deleted; the only way is a documented schema change', async () => {
+  const db = openDb(); await run(file(rowOf(0), rowOf(0)), db); const c = db.prepare("SELECT code, fingerprint FROM integrity_findings").get();
+  releaseIntegrity(db, SELLER.id, 'SHIPMENT:S1001', c.code, c.fingerprint, { user: 'u1', reason: 'two identical units, checked the order' });
+  for (const t of ['integrity_decisions', 'integrity_history']) {
+    assert.throws(() => db.prepare(`UPDATE ${t} SET fingerprint='x'`).run(), /append-only/); assert.throws(() => db.prepare(`DELETE FROM ${t}`).run(), /append-only/);
+  }
+  assert.throws(() => db.prepare("UPDATE integrity_decisions SET reason='changed my mind'").run(), /append-only/);
+  assert.equal(count(db, "SELECT count(*) c FROM integrity_decisions"), 1); assert.equal(db.prepare("SELECT reason FROM integrity_decisions").get().reason, 'two identical units, checked the order');
+  await run(file(rowOf(0), rowOf(0)), db); await run(file(rowOf(0), rowOf(0, { sku: 'SKU-Z' })), db); // normal re-evaluation still works: history is only ever appended
+  assert.ok(count(db, "SELECT count(*) c FROM integrity_history") >= 3);
+});

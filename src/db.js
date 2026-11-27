@@ -26,6 +26,10 @@ export function openDb(file = ':memory:') {
   CREATE TRIGGER IF NOT EXISTS integrity_release_needs_decision_i BEFORE INSERT ON integrity_findings WHEN NEW.status='RELEASED' AND NOT EXISTS (SELECT 1 FROM integrity_decisions d WHERE d.seller_id=NEW.seller_id AND d.shipment_key=NEW.shipment_key AND d.code=NEW.code AND d.field=NEW.field AND d.fingerprint=NEW.fingerprint)
     BEGIN SELECT RAISE(ABORT,'RELEASED needs a recorded decision'); END;
   CREATE TABLE IF NOT EXISTS integrity_decisions (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, fingerprint TEXT, decided_by TEXT, reason TEXT, decided_at TEXT);
+  CREATE TRIGGER IF NOT EXISTS integrity_decisions_no_update BEFORE UPDATE ON integrity_decisions BEGIN SELECT RAISE(ABORT,'integrity_decisions is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_decisions_no_delete BEFORE DELETE ON integrity_decisions BEGIN SELECT RAISE(ABORT,'integrity_decisions is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_history_no_update BEFORE UPDATE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_history_no_delete BEFORE DELETE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
   CREATE INDEX IF NOT EXISTS idx_events_seller ON events (seller_id, ts);
   CREATE INDEX IF NOT EXISTS idx_ship_status ON shipments (seller_id, status);
   CREATE INDEX IF NOT EXISTS idx_ship_date ON shipments (seller_id, shipment_date);
