@@ -1,4 +1,4 @@
-import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflightPending, preflightStored, pilotScope, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
+import { createLoopStore, Refused, DELETION_EXPORT_NOTICE, RESTORE_WARNING, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflightPending, preflightStored, pilotScope, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
 const $ = (s) => document.querySelector(s);
 const el = (t, props = {}, ...kids) => { const e = document.createElement(t); for (const [k, v] of Object.entries(props)) k === 'class' ? (e.className = v) : k === 'onclick' ? e.addEventListener('click', v) : e.setAttribute(k, v); for (const x of kids.flat()) if (x != null) e.append(x.nodeType ? x : String(x)); return e; };
 const baseline = new Set(performance.getEntriesByType('resource').map(r => r.name));
@@ -75,7 +75,7 @@ $('#lfile').addEventListener('change', async (ev) => {
   form.append(box);
 });
 
-const GROUPS = [['Needs action', i => i.state === 'ACTION_REQUIRED'], ['Needs a human reading', i => i.state === 'OPEN'], ['In progress, waiting for a newer file', i => i.state === 'AWAITING_NEW_EVIDENCE'], ['Reported resolved by you, not confirmed by a file', i => i.state === 'MANUALLY_REPORTED_RESOLUTION'], ['Closed, with evidence from a newer file', i => i.state === 'VERIFIED_CLOSED']];
+const GROUPS = [['Needs action', i => i.state === 'ACTION_REQUIRED'], ['Needs a human reading', i => i.state === 'OPEN'], ['In progress, waiting for a newer file', i => i.state === 'AWAITING_NEW_EVIDENCE'], ['Reported resolved by you, not confirmed by a file', i => i.state === 'MANUALLY_REPORTED_RESOLUTION'], ['Closed, with evidence from a newer file', i => i.state === 'VERIFIED_CLOSED'], ['History incomplete: a file you deleted was part of this', i => i.state === 'HISTORY_INCOMPLETE']];
 async function ask(issue, type, extra = {}) {
   const author = prompt('Your name or role (any name you choose):'); if (!author) return; const reasoning = prompt('Your reasoning, in words:'); if (!reasoning) return;
   try { await store.addEvent({ type, issueKey: issue.key, author, reasoning, ...extra }); await render(); await pilotPanel(); } catch (e) { refused(e); }
@@ -100,11 +100,12 @@ function cardNode(i) {
 }
 async function delImport(x) {
   try { const m = await store.deletionImpact(x.id), n = (o) => Object.entries(o).map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
-    if (!confirm(`Delete ${x.fileName ?? x.id}?\n\nThis removes: the stored file and its declarations; problems that exist only because of it (${n(m.issuesDisappearing)}); ${m.issuesChanging} other problem(s) will change because this file no longer counts; your notes on the removed problems (${n(m.eventsRemoved)}).\nThis keeps: ${m.importsRemaining} other file(s) and your other notes. Copies you downloaded are not touched.\nIt cannot be undone unless you have a backup.`)) return;
+    if (!confirm(`Delete ${x.fileName ?? x.id}?\n\nThis removes the file's contents. We keep a record that it existed (name, time, a fingerprint), never what was in it. ${m.findingsMarkedHistoryIncomplete} problem(s) that used it will stay listed, marked as having an incomplete history. Your other files and notes stay. Copies you downloaded are not touched.\nThe deletion cannot be undone unless you have a backup.`)) return;
     await store.deleteImport(x.id, { confirmed: true }); say('Deleted ' + (x.fileName ?? x.id) + '.'); await render(); await pilotPanel(); } catch (e) { refused(e); }
 }
 async function render() {
   const r = await store.project(), out = $('#results'); out.replaceChildren();
+  out.append(el('div', { class: 'card', id: 'coverage' }, el('h3', {}, 'What this check covered'), ...r.coverage.statement.map(t => el('p', { class: 'kv' }, t))));
   const b = r.buckets; out.append(el('div', { class: 'card', id: 'summary' }, el('h3', {}, 'Summary'), el('p', { class: 'kv' }, `Matched by invoice number: ${b.matchedByInvoiceNumber} (currency and buyer tax id are compared for each pair; the invoice total, net, VAT, dates and lines are not compared in this version). In progress at Amazon: ${b.inProgressAtAmazon}. Needs action: ${b.needsActionNow}. Needs a human reading: ${b.needsHumanReading}. Waiting for a newer file: ${b.awaitingNewEvidence}. Cannot determine: ${b.cannotDetermine}.`),
     el('p', { class: 'kv' }, el('b', {}, 'Closed with evidence: ' + b.closedWithEvidence), '. Reported resolved by you, not confirmed by a file: ' + b.reportedResolvedBySeller + '. These two numbers are never added.')));
   for (const [name, f] of GROUPS) { const xs = r.issues.filter(f); if (xs.length) out.append(el('details', { class: 'group', open: '' }, el('summary', {}, `${name} (${xs.length})`), ...xs.map(cardNode))); }
@@ -113,6 +114,7 @@ async function render() {
   $('#notchecked').textContent = r.notCheckedInThisVersion.join('; ') + '.';
   net();
 }
+$('#bundle').after(el('p', { class: 'small mut', id: 'bundle-notice' }, DELETION_EXPORT_NOTICE));
 $('#bundle').addEventListener('click', async () => { if (!store) return; const b = await store.bundle(), a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' })), download: 'invoiceguard-loop-bundle.json' }); document.body.append(a); a.click(); a.remove(); });
 $('#wipe').addEventListener('click', async () => {
   if (!store) return;
@@ -137,8 +139,8 @@ async function showGate(note = '') {
       if (pw.value !== pw2.value) return bad('The two passwords differ.');
       try { const { recoveryKey } = await vault.create(pw.value); gate.replaceChildren(el('h3', {}, 'Your recovery key'), el('p', { class: 'small' }, 'Write this down now. It is shown once, it is not stored anywhere, and it is the only way in if you forget the password.'), el('pre', { id: 'g-rec' }, recoveryKey), el('label', {}, (() => { const c = el('input', { type: 'checkbox', id: 'g-saved' }); return c; })(), ' I have saved the recovery key'), el('button', { onclick: async () => { if (!$('#g-saved').checked) return; await enter(); } }, 'Continue')); } catch (e) { bad(e.message); }
     } }, 'Create vault'));
-    const rf = el('input', { type: 'file', id: 'g-restore' }); gate.append(el('h3', {}, 'Or restore an encrypted backup'), rf);
-    rf.addEventListener('change', async () => { const f = rf.files[0]; if (!f) return; const p = prompt('Password of the backup:'); if (!p) return; try { await vault.restoreBackup(JSON.parse(await readFile(f)), p); await showGate('Backup restored and checked. Unlock with its password.'); } catch (e) { bad(e.message); } });
+    const rf = el('input', { type: 'file', id: 'g-restore' }); gate.append(el('h3', {}, 'Or restore an encrypted backup'), el('p', { class: 'small', id: 'g-restore-warning' }, RESTORE_WARNING), rf);
+    rf.addEventListener('change', async () => { const f = rf.files[0]; if (!f) return; if (!confirm(RESTORE_WARNING + '\n\nRestore this backup?')) return; const p = prompt('Password of the backup:'); if (!p) return; try { await vault.restoreBackup(JSON.parse(await readFile(f)), p); await showGate('Backup restored and checked. Unlock with its password.'); } catch (e) { bad(e.message); } });
   } else {
     const pw = inp('g-pw', 'password');
     gate.append(el('h3', {}, 'Unlock'), field('Password', pw), msg, el('button', { onclick: async () => { try { await vault.unlock(pw.value); await enter(); } catch (e) { bad(e.message); } } }, 'Unlock'),

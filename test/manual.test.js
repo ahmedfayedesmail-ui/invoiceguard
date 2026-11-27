@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
@@ -21,23 +21,12 @@ test('detects formats and refuses the All Orders report', () => {
   assert.equal(planUpload('a,b,c\n1,2,3').ok, false, 'csv is refused with a plain reason');
 });
 
-test('order report: clean order, consumer skip, and every hold has a reason', () => {
-  const p = planUpload(file(
-    { 'order-id': 'OK1' },
-    { 'order-id': 'CONS', 'buyer-company-name': '', 'buyer-tax-registration-id': '' },
-    { 'order-id': 'PROMO', 'item-promotion-discount': '5.00' },
-    { 'order-id': 'ODD', 'item-price': '100.00', 'item-tax': '13.37' },
-    { 'order-id': 'NOCC', 'buyer-tax-registration-id': '12345678', 'buyer-tax-registration-country': '' },
-    { 'order-id': 'TXT', 'item-price': 'abc' },
-  ));
-  assert.equal(p.ok, true);
-  assert.equal(p.shipments.length, 0, 'no billing address in the report, so nothing is issued by default');
-  assert.equal(p.skipped.length, 1);
-  assert.equal(p.held.length, 5);
-  assert.ok(p.held.every(h => h.reason.length > 20));
-  const q = planUpload(file({ 'order-id': 'OK1' }), { useDeliveryAddress: true });
-  assert.equal(q.shipments.length, 1);
-  const s = q.shipments[0]; assert.equal(s.buyerVat, 'ESB12345674'); assert.equal(s.items[0].vatRate, 21); assert.equal(s.incl, 121); assert.equal(s.vat, 21); assert.equal(s.marketplace, 'ES');
+test('order report: a preview only. Every order is held with a reason, nothing is ready, whatever option is passed', () => {
+  const rs = [{ 'order-id': 'OK1' }, { 'order-id': 'CONS', 'buyer-company-name': '', 'buyer-tax-registration-id': '' }, { 'order-id': 'PROMO', 'item-promotion-discount': '5.00' }, { 'order-id': 'ODD', 'item-price': '100.00', 'item-tax': '13.37' }, { 'order-id': 'TXT', 'item-price': 'abc' }];
+  for (const opts of [{}, { useDeliveryAddress: true }, { useDeliveryAddress: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } }]) {
+    const p = planUpload(file(...rs), opts); assert.equal(p.ok, true); assert.equal(p.shipments.length, 0); assert.equal(p.skipped.length, 0); assert.equal(p.held.length, 5);
+    assert.ok(p.held.every(h => /VAT Invoice Data Report/.test(h.reason)));
+  }
 });
 
 test('vidr preview: consumer and non-invoiceable rows are skipped up front, not promised as invoices', () => {
@@ -56,6 +45,7 @@ test('zip writer produces a valid archive', () => {
 });
 
 test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', async () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 24, 10, 30, 0) }); // fixed clock 30 min after the last fixture shipment (due = shipment + 24 h): the issue-window check is deterministic
   const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test', env: { ALLOW_MANUAL_UPLOAD: '1' } }); await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`; let sid = '';
   const call = async (path, body) => { const r = await fetch(base + '/api/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: body === undefined ? undefined : JSON.stringify(body) }); const c = r.headers.get('set-cookie'); if (c) sid = c.split(';')[0];
@@ -64,27 +54,28 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
   await call('seller', { name: 'Tienda Demo S.L.', nif: 'b11111111', address: 'Calle Falsa 1, Madrid', marketplaces: ['ES'] });
   assert.equal((await call('amazon/connect', { manual: true })).body.mode, 'manual');
   assert.equal((await call('sync', {})).status >= 400, true);
-  const text = file({ 'order-id': 'M1' }, { 'order-id': 'M2', 'item-promotion-discount': '3' });
-  assert.equal((await call('manual/issue', { text, attest: true })).body.issued, 0);
+  const orderText = file({ 'order-id': 'M1' });
+  assert.equal((await call('manual/issue', { text: orderText, useDeliveryAddress: true, attest: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } })).body.issued, 0, 'the Order Report is a preview: nothing is issued from it, declaration or not');
+  const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
   assert.equal((await call('manual/preview', { text: 'nope' })).status, 400);
-  assert.equal((await call('manual/issue', { text, useDeliveryAddress: true })).status, 400, 'needs the checks');
-  const r = (await call('manual/issue', { text, useDeliveryAddress: true, attest: true })).body;
-  assert.equal(r.issued, 1); assert.equal(r.heldNow, 1);
-  assert.equal((await call('manual/issue', { text, useDeliveryAddress: true, attest: true })).body.issued, 0, 'no duplicate');
-  const d = (await call('dashboard')).body; assert.equal(d.kpis.ready, 1); assert.equal(d.invoices.length, 1);
+  assert.equal((await call('manual/issue', { text })).status, 400, 'needs the checks');
+  const r = (await call('manual/issue', { text, attest: true })).body;
+  assert.equal(r.issued, 3); assert.equal(r.heldNow, 1);
+  assert.equal((await call('manual/issue', { text, attest: true })).body.issued, 0, 'no duplicate');
+  const d = (await call('dashboard')).body; assert.equal(d.kpis.ready, 3); assert.equal(d.invoices.length, 3);
   const zip = await call('pack'); assert.equal(zip.body.subarray(0, 2).toString(), 'PK'); assert.match(zip.body.toString('latin1'), /manifest\.csv/);
   assert.equal((await call('invoices/mark', { numbers: [d.invoices[0].number] })).body.marked, 1);
-  assert.equal((await call('invoices/mark', { all: true })).body.marked, 0);
+  assert.equal((await call('invoices/mark', { all: true })).body.marked, 2); assert.equal((await call('invoices/mark', { all: true })).body.marked, 0);
   assert.equal((await call('pack')).status, 404);
-  const d2 = (await call('dashboard')).body; assert.equal(d2.kpis.ready, 0); assert.equal(d2.kpis.uploaded, 1);
+  const d2 = (await call('dashboard')).body; assert.equal(d2.kpis.ready, 0); assert.equal(d2.kpis.uploaded, 3);
   const tr = (await call('invoices/' + d.invoices[0].number + '/trail')).body;
-  assert.equal(tr.number, d.invoices[0].number); assert.ok(tr.issuedAt); assert.equal(tr.orderId, 'M1');
+  assert.equal(tr.number, d.invoices[0].number); assert.ok(tr.issuedAt); assert.ok(tr.orderId);
   const types = tr.events.map(e => e.type);
   assert.ok(types.includes('detected'), 'trail starts at detection');
   assert.ok(types.includes('issued_manual')); assert.ok(types.includes('exported')); assert.ok(types.includes('uploaded'));
-  if (tr.dueAt) assert.ok(new Date(tr.issuedAt) <= new Date(tr.dueAt), 'issued inside the upload window');
+  assert.ok(tr.dueAt, 'a due date is recorded'); assert.ok(new Date(tr.issuedAt) <= new Date(tr.dueAt), 'issued inside the upload window'); assert.equal(tr.issuedAt.slice(0, 10), '2026-11-24', 'the injected clock is what issued it');
   assert.equal((await call('invoices/A-2026-999999/trail')).status, 404);
-  server.close();
+  server.close(); mock.timers.reset();
 });
 
 test('leaving demo mode removes the sample data and lands on the upload route', async () => {

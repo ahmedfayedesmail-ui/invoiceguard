@@ -7,6 +7,7 @@ import { sha256 } from './sha256.js';
 import { eventShapeProblem, declarationProblem, DECLARATION_TYPES } from './events.js';
 import { buildCard } from './cards.js';
 
+import { coverageStatement } from './coverage.js';
 export const LOOP_VERSION = 'loop-1.0';
 export const KEY_VERSION = 'k1';
 export const FAMILIES = Object.freeze(['SOURCE_INCOMPLETE', 'UNMATCHED_DOCUMENT', 'INVOICE_AMAZON_STATE', 'BOOKS_GAP', 'DATA_MISMATCH', 'DUPLICATE_DOCUMENT']); // P1 and P2, ordinary invoices only
@@ -70,10 +71,38 @@ function evaluate(prefix, events, ctx) {
   const usableVidr = (i) => { const { defects } = importDefects.get(i.id); const c = clsOf(i.id); return !defects.length && c && c.declared.options === 'ALL'; };
 
   // ---- Amazon side: ordinary invoices only ----
-  const A = rec.docs.filter(d => d.parts['transaction-type'] === 'SHIPMENT' && !d.correction && d.state !== 'CREATED_BY_AMAZON');
-  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter(d => d.state === 'CREATED_BY_AMAZON').length, notOrdinaryInvoice: rec.docs.filter(d => d.parts['transaction-type'] !== 'SHIPMENT' || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
+  const noteGroup = new Map(); const noteAdd = (reason, subject) => { const k = reason; if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] }); const g = noteGroup.get(k); g.count++; if (g.sample.length < 5) g.sample.push(subject); };
+  // is-amazon-invoiced is read from the field itself, never inferred from invoice-status. Rows of one shipment that disagree, or a value that is not TRUE or FALSE, are shown as undetermined and never become a confident finding.
+  const amazonFlag = (d) => { const v = new Set((d.evidence.rows ?? []).map(r => String(r['is-amazon-invoiced'] ?? '').trim().toUpperCase())); if ([...v].some(x => !['TRUE', 'FALSE', ''].includes(x))) return 'UNREADABLE'; if (v.has('TRUE')) return v.size > 1 ? 'CONFLICT' : 'TRUE'; return v.has('FALSE') ? 'FALSE' : 'BLANK'; };
+  // The field and invoice-status must agree. Field TRUE with a status other than InvoiceCreatedByAmazon, or field FALSE with InvoiceCreatedByAmazon, is a CONFLICT: shown as undetermined, never confident. A BLANK field is UNKNOWN: it is never inferred from the status.
+  const ordinary = rec.docs.filter(d => d.parts['transaction-type'] === 'SHIPMENT' && !d.correction);
+  const flagVsStatus = new Set(), flagged = new Map(ordinary.map(d => { const f = amazonFlag(d), byAmazon = d.reportedState === 'CREATED_BY_AMAZON'; if ((f === 'TRUE' && !byAmazon) || (f === 'FALSE' && byAmazon)) flagVsStatus.add(d); return [d, f === 'TRUE' ? (byAmazon ? 'TRUE' : 'CONFLICT') : f === 'FALSE' ? (byAmazon ? 'CONFLICT' : 'FALSE') : f]; }));
+  const A0 = ordinary.filter(d => flagged.get(d) === 'FALSE');
+  const flagUndetermined = ordinary.filter(d => ['CONFLICT', 'UNREADABLE', 'BLANK'].includes(flagged.get(d)));
+  // is-business-order is read from the field. TRUE: the order is eligible. FALSE: no judgment and no action against the seller. BLANK, an unreadable value, or rows of one shipment that disagree: no confident judgment, shown as undetermined with the missing evidence stated.
+  const businessFlag = (d) => { const v = new Set((d.evidence.rows ?? []).map(r => String(r['is-business-order'] ?? '').trim().toUpperCase())); if ([...v].some(x => !['TRUE', 'FALSE', ''].includes(x))) return 'UNREADABLE'; if (v.size > 1) return 'CONFLICT'; return v.has('TRUE') ? 'TRUE' : v.has('FALSE') ? 'FALSE' : 'BLANK'; };
+  const sellerSet = A0;
+  const bflag = new Map(sellerSet.map(d => [d, businessFlag(d)]));
+  const A = sellerSet.filter(d => bflag.get(d) === 'TRUE');
+  const bizUndetermined = sellerSet.filter(d => ['BLANK', 'UNREADABLE', 'CONFLICT'].includes(bflag.get(d)));
+  // A shipment that is not judged is held out of the ledger-side findings: business flag not TRUE, OR the Amazon-invoiced flag unknown (blank, unreadable, conflicting). A books document of such a shipment says nothing about the seller.
+  const notJudged = [...sellerSet.filter(d => bflag.get(d) !== 'TRUE'), ...flagUndetermined];
+  const heldOutNum = new Set(notJudged.filter(d => d.evidence.invoiceNumber).map(d => d.parts['marketplace-id'] + '|' + d.evidence.invoiceNumber)), heldOutOrder = new Set(notJudged.map(d => d.parts['marketplace-id'] + '|' + d.parts['order-id']));
+  const stats = { amazonInvoices: A.length, nonBusinessOrders: sellerSet.filter(d => bflag.get(d) === 'FALSE').length, businessFlagUndetermined: bizUndetermined.length, createdByAmazon: rec.docs.filter(d => d.state === 'CREATED_BY_AMAZON').length - ordinary.filter(d => d.state === 'CREATED_BY_AMAZON' && flagged.get(d) !== 'TRUE').length + ordinary.filter(d => d.state !== 'CREATED_BY_AMAZON' && flagged.get(d) === 'TRUE').length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter(d => d.parts['transaction-type'] !== 'SHIPMENT' || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   // Closure after an action: if the seller recorded ACTION_STARTED before this report was loaded, only a report CREATED after that event can close the problem. Upload time never stands in for creation time; an unknown creation time is never evidence.
   const afterAction = (key, d) => { const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter(e => ms(e.createdAt) <= (ms(imp?.importedAt) ?? Infinity)); if (!acts.length) return true; const t = imp ? createdMs(imp) : null; return t !== null && t > Math.max(...acts.map(e => ms(e.createdAt))); };
+  for (const d of flagUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
+    const why = flagVsStatus.has(d) ? `the is-amazon-invoiced column (${[...new Set((d.evidence.rows ?? []).map(r => String(r['is-amazon-invoiced'] ?? '').trim().toUpperCase()))].join('/')}) and invoice-status (${d.rawStatus}) disagree about whether Amazon issued the invoice` : flagged.get(d) === 'CONFLICT' ? 'the rows of this shipment disagree about whether Amazon issued the invoice' : flagged.get(d) === 'BLANK' ? `the is-amazon-invoiced column is empty, so it cannot be told whether Amazon issued the invoice (invoice-status ${d.rawStatus || 'is empty'} is not used as a substitute)` : 'the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE';
+    put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp('IAS', id, 'AMZFLAG', flagged.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}.` });
+    noteAdd(`Amazon invoice flag could not be read (${flagged.get(d)}): ${why}`, id);
+  }
+  for (const d of bizUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
+    const why = bflag.get(d) === 'BLANK' ? 'the is-business-order column is empty' : bflag.get(d) === 'CONFLICT' ? 'the rows of this shipment disagree about is-business-order' : 'the is-business-order column holds a value that is neither TRUE nor FALSE';
+    put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp('IAS', id, 'BIZFLAG', bflag.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}, so it cannot be told whether the order needs a seller invoice.` });
+    noteAdd(`is-business-order could not be read (${bflag.get(d)}): ${why}`, id);
+  }
   for (const d of A) {
     const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
     const ev = { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, amazonDescription: d.evidence.statusDescription ?? null, invoiceNumber: d.evidence.invoiceNumber ?? null };
@@ -114,6 +143,8 @@ function evaluate(prefix, events, ctx) {
     const n = d.evidence.invoiceNumber, mk = d.parts['marketplace-id'];
     if (n) {
       const Lc = byNum.get(mk + '|' + n) ?? [];
+      // The number matches, but the accounting document names another Amazon order than the one Amazon shows for this number: the pair is not confirmed, and nothing is concluded for either side.
+      if (Lc.length === 1 && !Lc[0].conflicting && aNum.get(mk + '|' + n).length === 1 && Lc[0].orderRef && Lc[0].orderRef !== d.parts['order-id']) { setA(d, { level: 'ORDER_MISMATCH', ledger: [ledgerKey(Lc[0])], why: `the accounting document ${n} names the order ${Lc[0].orderRef}, but Amazon shows ${n} on the order ${d.parts['order-id']}` }); addL(Lc[0], { level: 'ORDER_MISMATCH', amazon: [amazonId(d)], why: `the accounting document ${n} names the order ${Lc[0].orderRef}, but Amazon shows ${n} on the order ${d.parts['order-id']}` }); continue; }
       if (Lc.length === 1 && !Lc[0].conflicting && aNum.get(mk + '|' + n).length === 1) { setA(d, { level: 'CONFIRMED', ledger: [ledgerKey(Lc[0])] }); addL(Lc[0], { level: 'CONFIRMED', amazon: [amazonId(d)] }); continue; }
       if (Lc.length) { setA(d, { level: 'AMBIGUOUS', ledger: Lc.map(ledgerKey), why: Lc.length > 1 ? `${Lc.length} accounting documents carry the number ${n}` : Lc[0].conflicting ? `the accounting document ${n} appears twice in one file with different content` : `${aNum.get(mk + '|' + n).length} Amazon transactions show the number ${n}` }); Lc.forEach(l => addL(l, { level: 'AMBIGUOUS', amazon: [amazonId(d)] })); continue; }
     }
@@ -140,7 +171,9 @@ function evaluate(prefix, events, ctx) {
   for (const l of Le) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, 'DUPLICATE_DOCUMENT', 'L:' + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
     if (l.conflicting || l.repeatRows) { const rows = rowsOfIdentity(l), unknownLevel = l.level === null, sub = unknownLevel ? 'SUSPECTED_DUPLICATE' : l.conflicting ? 'SAME_NUMBER_DIFFERENT_CONTENT' : 'EXACT_REPEAT';
-      put(key, { family: 'DUPLICATE_DOCUMENT', subtype: sub, status: 'PRESENT', subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: 'accounting', rows }], rowNumbers: rows.map(r => r.ref), documentLevel: l.level, ...(l.level === 'LINE' && l.conflicting ? { disagreeingFields: disagreeing(l) } : {}) }, fingerprint: fp('DUP', lk, sub, rows.map(r => r.cells)), ...(unknownLevel ? { note: 'The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate.' } : { safeAction: true }) }); }
+      // A repeated or conflicting accounting record that belongs to an order which is not judged for the seller's invoicing duty (is-business-order FALSE, blank, unreadable or conflicting) is information about the seller's books only: it sits in its own section, is never ACTION_REQUIRED and is never called a confirmed duplicate invoice.
+      const ldq = true; // every duplicate is Ledger Data Quality information: a repeated accounting record does not by itself prove a duplicate invoice or a violation
+      put(key, { ...(ldq ? { section: 'LEDGER_DATA_QUALITY', label: sub === 'SAME_NUMBER_DIFFERENT_CONTENT' ? 'Conflicting records sharing the same document number (higher review priority)' : 'Repeated accounting record candidate' } : {}), family: 'DUPLICATE_DOCUMENT', subtype: sub, status: 'PRESENT', subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: 'accounting', rows }], rowNumbers: rows.map(r => r.ref), documentLevel: l.level, ...(l.conflicting ? { disagreeingFields: disagreeing(l) } : {}), ...(ldq ? { orderTie: { orderRef: l.orderRef ?? null, amazonShipments: sellerSet.filter(d => d.parts['marketplace-id'] === l.marketplace && (d.parts['order-id'] === l.orderRef || d.evidence.invoiceNumber === l.number)).map(d => ({ orderId: d.parts['order-id'], transactionId: d.parts['transaction-id'], isBusinessOrder: bflag.get(d) })) } } : {}) }, fingerprint: fp('DUP', lk, sub, rows.map(r => r.cells)), ...(unknownLevel ? { note: 'The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate.' } : ldq ? { safeAction: false, note: 'Information about the accounting file only. A repeated accounting record does not by itself show a duplicate invoice or a missing or wrong Amazon invoice. It is not called a duplicate invoice until the rows and the document level are confirmed.' } : { safeAction: true }) }); }
     else closed.set(key, { why: l.level === 'LINE' ? `The file is declared by the seller as one row per line item, so repeated rows of ${l.number} are expected.` : `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
   }
   // ---- DATA_MISMATCH (P2): confirmed pairs only (a unique number on both sides). Zero tolerance, minor units. Nothing is compared that either side does not state exactly. ----
@@ -204,7 +237,6 @@ function evaluate(prefix, events, ctx) {
       why.push(`${i.fileName ?? i.id}: ${r.join('; ')}`); }
     return { ok: false, why: why.length ? why : ['no Amazon report has been loaded'] };
   };
-  const noteGroup = new Map(); const noteAdd = (reason, subject) => { const k = reason; if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] }); const g = noteGroup.get(k); g.count++; if (g.sample.length < 5) g.sample.push(subject); };
 
   // ---- BOOKS_GAP ----
   for (const d of A) {
@@ -213,6 +245,7 @@ function evaluate(prefix, events, ctx) {
     const number = d.evidence.invoiceNumber ?? null, base = { sources: [vidrEvidence(d)], amazonState: d.state, invoiceNumberAtAmazon: number };
     if (L?.level === 'CONFIRMED') { const l = merged.get(L.ledger[0]); closed.set(key, { why: `The accounting document ${l.number} matches the number Amazon shows, and it is the only one.`, sources: [ledgerEvidence(l)], importId: l.importId }); continue; }
     if (L?.level === 'DECLARED') { const l = merged.get(L.ledger[0]); put(key, { family: 'BOOKS_GAP', subtype: number ? 'NUMBER_AT_AMAZON_NOT_IN_BOOKS' : 'NOT_IN_BOOKS', status: 'DECLARED_LINK', declared: { event: L.event }, subject, evidence: { ...base, declaredLink: { document: l.number, by: L.event.author, reasoning: L.event.reasoning } }, fingerprint: fp('BG', id, 'DECLARED', ledgerKey(l), L.event.id ?? L.event.createdAt), safeAction: true }); continue; }
+    if (L?.level === 'ORDER_MISMATCH') { put(key, { family: 'BOOKS_GAP', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: base, fingerprint: fp('BG', id, 'ORDER_MISMATCH', L.ledger), note: `Nothing is concluded: ${L.why}.` }); noteAdd(`An accounting document and Amazon disagree about which order a document number belongs to: ${L.why}`, id); continue; }
     if (L && ['PROPOSED', 'AMBIGUOUS', 'OTHER_NUMBER'].includes(L.level)) { put(key, { family: 'BOOKS_GAP', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: base, fingerprint: fp('BG', id, L.level, L.ledger), note: L.level === 'PROPOSED' ? 'An accounting document for this order exists but is not confirmed as the same document. See the matching problem.' : L.level === 'AMBIGUOUS' ? `More than one document could belong to this transaction: ${L.why}.` : 'An accounting document for the same order exists under a different number. Comparing numbers is not part of this version.' });
       if (L.level === 'OTHER_NUMBER') noteAdd('A document for the same order is in the books under a different number than Amazon shows (comparison not part of this version)', id); continue; }
     const cov = booksCover(d);
@@ -224,6 +257,8 @@ function evaluate(prefix, events, ctx) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, 'UNMATCHED_DOCUMENT', 'L:' + lk), L = ledLink.get(lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, orderRef: l.orderRef, issueDate: l.issueDate };
     const ev = { sources: [ledgerEvidence(l)], document: { number: l.number, issueDate: l.issueDate, orderRef: l.orderRef, operationDate: l.operationDate } };
     if (l.conflicting) continue; // reported as DUPLICATE_DOCUMENT
+    if (!ledLink.get(lk)?.level && (heldOutNum.has(l.marketplace + '|' + l.number) || heldOutOrder.has(l.marketplace + '|' + l.orderRef))) { noteAdd('This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing', lk); continue; }
+    if (L?.level === 'ORDER_MISMATCH') { put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: ev, fingerprint: fp('UD', lk, 'ORDER_MISMATCH', L.amazon), note: `Nothing is concluded: ${L.why}.` }); noteAdd(`An accounting document and Amazon disagree about which order a document number belongs to: ${L.why}`, lk); continue; }
     if (L?.level === 'CONFIRMED') { const a = A.find(x => amazonId(x) === L.amazon[0]); closed.set(key, { why: `Amazon shows the same number (${l.number}) on one transaction.`, sources: a ? [vidrEvidence(a)] : [], importId: a?.current.importId }); continue; }
     if (L?.level === 'DECLARED') { put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'PROPOSED_LINK_UNCONFIRMED', status: 'PRESENT', declared: { event: L.event }, subject, evidence: ev, fingerprint: fp('UD', lk, 'DECLARED', L.amazon, L.event.id ?? L.event.createdAt), safeAction: true }); continue; }
     if (L?.level === 'PROPOSED') { const a = A.find(x => amazonId(x) === L.amazon[0]); put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'PROPOSED_LINK_UNCONFIRMED', status: 'PRESENT', subject, evidence: { ...ev, candidate: { amazonId: L.amazon[0], sources: a ? [vidrEvidence(a)] : [] } }, fingerprint: fp('UD', lk, 'PROPOSED', l.raw, L.amazon, a?.evidence.rows), safeAction: true }); continue; }
@@ -235,16 +270,27 @@ function evaluate(prefix, events, ctx) {
   }
   const covNotes = [...noteGroup.values()].sort((a, b) => a.reason.localeCompare(b.reason));
   const docsFine = A.filter(d => d.state === 'ACCEPTED' && link.get(amazonId(d))?.level === 'CONFIRMED').length;
-  return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
+  // Coverage: what the check looked at and what it did not. A separate metric: it feeds no finding and changes no number above. One model over ALL unique transactions: scope + undetermined + outside the check.
+  const byFlag = (f) => sellerSet.filter(d => bflag.get(d) === f).length, matchedBiz = A.filter(d => link.get(amazonId(d))?.level === 'CONFIRMED').length, nonOrdinary = rec.docs.length - ordinary.length, amazonInv = ordinary.filter(d => flagged.get(d) === 'TRUE').length;
+  const coverage = { transactionsTotal: rec.docs.length, totalMeans: 'every unique transaction in the loaded Amazon reports (one shipment counts once however many item rows it has)',
+    scope: { count: A.length + byFlag('FALSE'), means: 'unique shipments that the seller must invoice (is-amazon-invoiced FALSE) and whose is-business-order field is readable',
+      business: { entered: A.length, matched: matchedBiz, matchedAndAccepted: docsFine, notMatched: A.length - matchedBiz, matchedMeans: 'the shipment is linked to a document in the books by its invoice number; denominator = business shipments in scope' },
+      nonBusiness: { count: byFlag('FALSE'), status: 'NOT_EVALUATED', reason: 'These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result for them either way.' } },
+    undetermined: { count: bizUndetermined.length + flagUndetermined.length, byReason: { BUSINESS_FLAG_BLANK: byFlag('BLANK'), BUSINESS_FLAG_CONFLICT: byFlag('CONFLICT'), BUSINESS_FLAG_UNREADABLE: byFlag('UNREADABLE'), AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: flagUndetermined.length },
+      reason: 'The business-order field is blank or holds a value that is neither TRUE nor FALSE, or the rows of one shipment disagree, or the field that says who issues the invoice could not be read. They sit in no figure of the scope.' },
+    outsideScope: { count: nonOrdinary + amazonInv, byReason: { AMAZON_INVOICED: amazonInv, NOT_ORDINARY_INVOICE: nonOrdinary }, reason: 'Invoices created by Amazon are not the seller\'s to issue. Corrections and non-shipment rows are not ordinary invoices. None of them is in the scope.' } };
+  coverage.statement = coverageStatement(coverage);
+  return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, coverage, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
 }
 
 /** @param {{imports:object[], events?:object[], sellerProfileId?:string}} input */
-export function project({ imports, events = [], sellerProfileId = 'local' }) {
+export function project({ imports, events = [], sellerProfileId = 'local', deletions: allDeletions = [] }) {
+  const deletions = allDeletions.filter(d => (d.status ?? 'COMMITTED') === 'COMMITTED'); // a PENDING record is an attempt, not a deletion
   const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: new Map(), rowIdx: new Map(), actions: new Map(), prevMismatch: new Map() };
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) { const p = eventShapeProblem(e); if (p) rejectedEvents.push({ event: e, reason: p }); else goodEvents.push(e); }
   for (const e of goodEvents) if (e.type === 'ACTION_STARTED') { if (!ctx.actions.has(e.issueKey)) ctx.actions.set(e.issueKey, []); ctx.actions.get(e.issueKey).push(e); }
-  const hist = new Map(); let last = { findings: new Map(), closed: new Map(), notes: [], stats: {}, links: {}, amazonDocs: [], importDefects: new Map(), ledgerDocs: [] };
+  const hist = new Map(); let last = { findings: new Map(), closed: new Map(), notes: [], stats: {}, coverage: (() => { const c = { transactionsTotal: 0, scope: { count: 0, business: { entered: 0, matched: 0, matchedAndAccepted: 0, notMatched: 0 }, nonBusiness: { count: 0, status: 'NOT_EVALUATED' } }, undetermined: { count: 0, byReason: { BUSINESS_FLAG_BLANK: 0, BUSINESS_FLAG_CONFLICT: 0, BUSINESS_FLAG_UNREADABLE: 0, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 0 } }, outsideScope: { count: 0, byReason: { AMAZON_INVOICED: 0, NOT_ORDINARY_INVOICE: 0 } } }; c.statement = coverageStatement(c); return c; })(), links: {}, amazonDocs: [], importDefects: new Map(), ledgerDocs: [] };
   const n = ordered.length;
   for (let k = 0; k < n; k++) {
     const horizon = k < n - 1 ? Math.min(...ordered.slice(k + 1).map(i => ms(i.importedAt) ?? Infinity)) : Infinity;
@@ -283,14 +329,29 @@ export function project({ imports, events = [], sellerProfileId = 'local' }) {
       reopened: episodes.length > 1, episodes, history: h.map(x => ({ import: x.importId, file: x.fileName, status: x.status, subtype: x.subtype ?? null, note: x.note ?? null })),
       events: goodEvents.filter(e => e.issueKey === key).map(e => ({ id: e.id ?? null, type: e.type, kind: e.kind ?? null, author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })),
       lapsedDeclarations: lapsed.map(e => ({ author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })), declaration: declaration ? { author: declaration.author, createdAt: declaration.createdAt, reasoning: declaration.reasoning, kind: declaration.kind ?? declaration.type } : null,
-      fingerprint: shown?.fingerprint ?? null, closure: final.status === 'CLOSED' ? closure ?? final.closure : null, finding: shown ? { evidence: shown.evidence, note: shown.note ?? null } : { evidence: pastP.evidence, note: null, lastSeen: true } };
+      section: shown?.section ?? null, label: shown?.label ?? null, fingerprint: shown?.fingerprint ?? null, closure: final.status === 'CLOSED' ? closure ?? final.closure : null, finding: shown ? { evidence: shown.evidence, note: shown.note ?? null } : { evidence: pastP.evidence, note: null, lastSeen: true } };
     issue.card = buildCard(issue);
     issues.push(issue);
   }
+  // ---- Deleted imports: the content may be gone, the trace is not. Every finding whose history passed through a deleted import carries a permanent marker; none silently reverts, none silently disappears. ----
+  const byKey = new Map();
+  for (const d of [...deletions].sort((a, b) => String(a.deletedAt).localeCompare(String(b.deletedAt)) || String(a.id).localeCompare(String(b.id)))) for (const a of d.affected ?? []) { if (!byKey.has(a.key)) byKey.set(a.key, []); byKey.get(a.key).push({ d, a }); }
+  for (const [key, list] of byKey) {
+    const first = list[0].a, deletedImports = list.map(({ d }) => ({ deletionId: d.id, importId: d.import.id, fileName: d.import.fileName ?? null, kind: d.import.kind, deletedAt: d.deletedAt, utcOffsetMinutes: d.utcOffsetMinutes ?? null, reason: d.reason }));
+    const recorded = { state: first.recordedState, episodes: first.recordedEpisodes ?? [], history: first.recordedHistory ?? [] }, wasClosed = list.some(({ a }) => a.recordedState === 'VERIFIED_CLOSED');
+    let issue = issues.find(i => i.key === key);
+    if (!issue) {
+      issue = { key, family: first.family, subtype: first.subtype, state: 'HISTORY_INCOMPLETE', outcome: null, awaiting: null, subject: first.subject, reopened: false, episodes: [], history: [], events: goodEvents.filter(e => e.issueKey === key).map(e => ({ id: e.id ?? null, type: e.type, kind: e.kind ?? null, author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })), lapsedDeclarations: [], declaration: null, section: null, label: null, fingerprint: null, closure: null, placeholder: true, finding: { evidence: null, note: null, lastSeen: true } };
+      issues.push(issue);
+    }
+    Object.assign(issue, { historyIncomplete: true, deletedImports, priorRecordedState: first.recordedState, recordedBeforeDeletion: recorded });
+    if (wasClosed && issue.state !== 'VERIFIED_CLOSED') { issue.priorRecordedState = 'VERIFIED_CLOSED'; issue.state = 'HISTORY_INCOMPLETE'; issue.outcome = null; issue.awaiting = null; }
+    issue.card = buildCard(issue);
+  }
   issues.sort((a, b) => a.key.localeCompare(b.key));
   const count = (s) => issues.filter(i => i.state === s).length;
-  const buckets = { matchedByInvoiceNumber: last.stats.matchedByInvoiceNumber ?? 0, inProgressAtAmazon: last.stats.processing ?? 0, needsActionNow: count('ACTION_REQUIRED'), needsHumanReading: count('OPEN'), awaitingNewEvidence: count('AWAITING_NEW_EVIDENCE'),
-    cannotDetermine: last.notes.reduce((n, g) => n + g.count, 0), reportedResolvedBySeller: count('MANUALLY_REPORTED_RESOLUTION'), closedWithEvidence: count('VERIFIED_CLOSED') };
-  return { loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId, issues, buckets, coverageNotes: last.notes, stats: last.stats, rejectedEvents, notCheckedInThisVersion: NOT_CHECKED_IN_THIS_VERSION,
+  const buckets = { matchedByInvoiceNumber: last.stats.matchedByInvoiceNumber ?? 0, inProgressAtAmazon: last.stats.processing ?? 0, needsActionNow: count('ACTION_REQUIRED'), needsHumanReading: issues.filter(i => i.state === 'OPEN' && i.section !== 'LEDGER_DATA_QUALITY').length, ledgerDataQuality: issues.filter(i => i.section === 'LEDGER_DATA_QUALITY').length, awaitingNewEvidence: count('AWAITING_NEW_EVIDENCE'),
+    historyIncomplete: issues.filter(i => i.historyIncomplete).length, cannotDetermine: last.notes.reduce((n, g) => n + g.count, 0), reportedResolvedBySeller: count('MANUALLY_REPORTED_RESOLUTION'), closedWithEvidence: count('VERIFIED_CLOSED') };
+  return { loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId, issues, buckets, coverageNotes: last.notes, stats: last.stats, coverage: last.coverage, rejectedEvents, notCheckedInThisVersion: NOT_CHECKED_IN_THIS_VERSION,
     imports: ordered.map(i => ({ id: i.id, kind: isLedger(i) ? 'ledger' : 'vidr', fileName: i.fileName ?? null, importedAt: i.importedAt, descriptor: descriptor(i), defects: last.importDefects.get(i.id)?.defects ?? [], scopeNotes: last.importDefects.get(i.id)?.scopeNotes ?? [] })) };
 }

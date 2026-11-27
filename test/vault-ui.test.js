@@ -100,16 +100,18 @@ test('vault page: delete one import (with impact shown), encrypted backup, delet
     // backup (a blob made by the page: captured, never sent anywhere)
     await click(page, 'Download encrypted backup'); await sleep(500);
     const bk = await page.evaluate(() => window.__blobs.at(-1).text()); for (const s of SECRETS) assert.ok(!bk.includes(s), 'plaintext in the backup: ' + s); const bkPath = join(dir, 'backup.json'); writeFileSync(bkPath, bk);
+    assert.match(await page.$eval('#bundle-notice', e => e.innerText), /names, their fingerprints \(SHA-256\), the time of each deletion/, 'the export button carries its notice');
     const summary = await page.$eval('#summary', e => e.innerText);
     // delete the ledger import: confirm text shows what is removed
     let dialogText = ''; page.removeAllListeners('dialog'); page.on('dialog', async d => { dialogText = d.message(); await d.accept('x'); });
     await page.evaluate(() => document.querySelectorAll('[data-del]')[1].click()); await page.waitForFunction("document.querySelector('#results').innerText.includes('Loaded files (1)')");
-    assert.match(dialogText, /This removes:/); assert.match(dialogText, /This keeps:/); assert.match(dialogText, /cannot be undone/);
+    assert.match(dialogText, /This removes the file's contents/); assert.match(dialogText, /We keep a record that it existed/); assert.match(dialogText, /cannot be undone/);
     const db = await idb(page); assert.ok(!JSON.stringify(db).includes('A-2001')); const keysAfterDelete = db.keys.filter(k => k.startsWith('e1:loop:import:')).length; assert.equal(keysAfterDelete, 1);
     // whole workspace deletion: nothing usable remains
     await click(page, 'Delete everything stored here'); await page.waitForFunction("window.__gateReady && document.querySelector('#g-pw2')"); const empty = await idb(page); assert.deepEqual(empty.keys, [], 'whole-workspace deletion leaves no key, no vault');
     // restore the backup on the empty workspace, unlock, same results as before the deletions
     page.removeAllListeners('dialog'); page.on('dialog', async d => { await d.accept(PAGE_PW); });
+    assert.match(await page.$eval('#g-restore-warning', e => e.innerText), /Files you deleted after that backup come back.*will not be shown as deleted/s, 'the restore page warns in words');
     await (await page.$('#g-restore')).uploadFile(bkPath); await page.waitForFunction("document.querySelector('#g-msg').textContent.includes('Backup restored')");
     await page.type('#g-pw', PAGE_PW); await click(page, 'Unlock'); await page.waitForFunction("document.querySelector('#results').innerText.includes('Loaded files (2)')");
     assert.equal(await page.$eval('#summary', e => e.innerText), summary, 'the restored workspace gives the same summary'); void results;

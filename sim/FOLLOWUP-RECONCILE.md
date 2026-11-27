@@ -1,0 +1,8 @@
+# Follow-up decline after the B2B fix: reconciliation (seed 0, main engine vs integration/all-fixes 3bcf30c)
+Definition: a follow-up item is one injected problem tracked in round 2 (a todo of the sim). "Lost" = no issue of the item's family exists for its order or number in round 2 (the sim's own rule, run.mjs round2).
+Per-item file: sim/out/followup-changed-items.json (49 records: seller, order id, scenario, kind, cohort, business flag, round-2 states before and after).
+- All items: 565 (490 in cohort through_report_day, 75 in monthly_export). Items whose round-2 state differs between the main engine and the fixed engine: 49, in 35 sellers. For all 49 the is-business-order value is FALSE; 0 of the 49 are on a TRUE order.
+  Before: 28 ACTION_REQUIRED, 17 VERIFIED_CLOSED, 4 MANUALLY_REPORTED_RESOLUTION. After: no issue (not judged).
+- Lost items in total: 57 -> 106 (+49). The 57 existing before are all in monthly_export (a books gap hidden by a month-only coverage note, same on main).
+- Where the two numbers come from: the aggregate report's follow-up line (the figure of 42 lost) covers the through_report_day cohort and does not count kind declareOnly items. 49 = 46 in through_report_day + 3 in monthly_export. The 46 in through_report_day include 4 declareOnly items, which the aggregate does not count: 46 - 4 = 42. So 42 (cohort, definition of the aggregate) and 49 (all cohorts, all kinds) are both correct, with different denominators. No item is unexplained.
+- Status of every one of the 49: non_business_no_longer_judged. The engine no longer judges them, by the is-business-order rule. Whether the simulation's follow-up list should still contain non-business orders as defects is an expectation question, not changed here.

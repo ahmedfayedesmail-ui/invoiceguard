@@ -1,0 +1,2688 @@
+[
+ {
+  "seller": 5,
+  "orderId": "219-1091934-2000133",
+  "docNumber": "A19",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-29T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 5,
+  "orderId": "444-1091967-2000366",
+  "docNumber": "A52",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-13T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 5,
+  "orderId": "164-1091963-2000336",
+  "docNumber": "A48",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-14T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 5,
+  "orderId": "633-1091929-2000099",
+  "docNumber": "A14",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-03T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 5,
+  "orderId": "342-1092004-2000626",
+  "docNumber": "A89",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-05T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 30,
+  "orderId": "615-6785871-2003634",
+  "docNumber": "2026-519",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-12T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 30,
+  "orderId": "191-6786093-2005189",
+  "docNumber": "2026-741",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-28T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 30,
+  "orderId": "958-6786130-2005446",
+  "docNumber": "2026-778",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-31T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 30,
+  "orderId": "986-6786241-2006226",
+  "docNumber": "2026-889",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-31T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 30,
+  "orderId": "490-6786389-2007262",
+  "docNumber": "2026-1037",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-25T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 30,
+  "orderId": "234-6786981-2011407",
+  "docNumber": "2026-1629",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-22T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 30,
+  "orderId": "336-6787129-2012439",
+  "docNumber": "2026-1777",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-26T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 31,
+  "orderId": "471-7242456-2000365",
+  "docNumber": "2026-52",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-23T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 43,
+  "orderId": "461-1503810-2000018",
+  "docNumber": "FA-2026-0002",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-06T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 43,
+  "orderId": "623-1503813-2000035",
+  "docNumber": "FA-2026-0005",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-22T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 47,
+  "orderId": "139-7701045-2000039",
+  "docNumber": "FA-2026-0005",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-08T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/ACTION_REQUIRED."
+ },
+ {
+  "seller": 68,
+  "orderId": "136-6551035-2000098",
+  "docNumber": "INV-100014",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-05T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 68,
+  "orderId": "201-6551034-2000092",
+  "docNumber": "INV-100013",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-24T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 68,
+  "orderId": "480-6551022-2000009",
+  "docNumber": "INV-100001",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-18T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 68,
+  "orderId": "178-6551023-2000018",
+  "docNumber": "INV-100002",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-19T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 68,
+  "orderId": "474-6551030-2000067",
+  "docNumber": "INV-100009",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-20T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 68,
+  "orderId": "842-6551024-2000021",
+  "docNumber": "INV-100003",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-16T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 68,
+  "orderId": "911-6551032-2000081",
+  "docNumber": "INV-100011",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-04T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 69,
+  "orderId": "292-5008657-2000150",
+  "docNumber": "F000021",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-23T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 70,
+  "orderId": "968-3020818-2000714",
+  "docNumber": "F000102",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-12T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION."
+ },
+ {
+  "seller": 83,
+  "orderId": "886-7065838-2000080",
+  "docNumber": "2026-11",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-17T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/ACTION_REQUIRED."
+ },
+ {
+  "seller": 116,
+  "orderId": "807-7018800-2000030",
+  "docNumber": "RE2026/004",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-28T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 117,
+  "orderId": "822-8005383-2000162",
+  "docNumber": "A23",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-31T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 120,
+  "orderId": "293-8899594-2000024",
+  "docNumber": "RE2026/003",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-28T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/ACTION_REQUIRED."
+ },
+ {
+  "seller": 142,
+  "orderId": "389-1413801-2000015",
+  "docNumber": "FA-2026-0002",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-27T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 142,
+  "orderId": "479-1413809-2000071",
+  "docNumber": "FA-2026-0010",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-22T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 142,
+  "orderId": "693-1413823-2000171",
+  "docNumber": "FA-2026-0024",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-30T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 153,
+  "orderId": "340-1408619-2000011",
+  "docNumber": "INV-100001",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-20T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 157,
+  "orderId": "488-8011013-2000141",
+  "docNumber": "2026/ES/00020",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "monthly_export",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-07T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/ACTION_REQUIRED."
+ },
+ {
+  "seller": 158,
+  "orderId": "861-6876507-2000151",
+  "docNumber": "2026-21",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-10T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 178,
+  "orderId": "619-2555925-2000191",
+  "docNumber": "FA-2026-0027",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-07T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 179,
+  "orderId": "683-3938964-2000091",
+  "docNumber": "FA-2026-0013",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-18T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 180,
+  "orderId": "679-7236031-2000014",
+  "docNumber": "FA-2026-0002",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-09T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Round 2 of this seller shows zero issues and every Amazon invoice matched by number (23 of 23); nothing is left open, so there is no issue of this family to report. Proven at seller level by the round-2 projection. That round 1 held it only as an UNDETERMINED coverage note (never stored as an issue) follows from the design and was not checked per item."
+ },
+ {
+  "seller": 180,
+  "orderId": "232-7236043-2000098",
+  "docNumber": "FA-2026-0014",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-28T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Round 2 of this seller shows zero issues and every Amazon invoice matched by number (23 of 23); nothing is left open, so there is no issue of this family to report. Proven at seller level by the round-2 projection. That round 1 held it only as an UNDETERMINED coverage note (never stored as an issue) follows from the design and was not checked per item."
+ },
+ {
+  "seller": 180,
+  "orderId": "619-7236049-2000141",
+  "docNumber": "FA-2026-0020",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-05T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Round 2 of this seller shows zero issues and every Amazon invoice matched by number (23 of 23); nothing is left open, so there is no issue of this family to report. Proven at seller level by the round-2 projection. That round 1 held it only as an UNDETERMINED coverage note (never stored as an issue) follows from the design and was not checked per item."
+ },
+ {
+  "seller": 180,
+  "orderId": "161-7236046-2000119",
+  "docNumber": "FA-2026-0017",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-19T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Round 2 of this seller shows zero issues and every Amazon invoice matched by number (23 of 23); nothing is left open, so there is no issue of this family to report. Proven at seller level by the round-2 projection. That round 1 held it only as an UNDETERMINED coverage note (never stored as an issue) follows from the design and was not checked per item."
+ },
+ {
+  "seller": 180,
+  "orderId": "179-7236050-2000148",
+  "docNumber": "FA-2026-0021",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-07T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Round 2 of this seller shows zero issues and every Amazon invoice matched by number (23 of 23); nothing is left open, so there is no issue of this family to report. Proven at seller level by the round-2 projection. That round 1 held it only as an UNDETERMINED coverage note (never stored as an issue) follows from the design and was not checked per item."
+ },
+ {
+  "seller": 190,
+  "orderId": "714-8317167-2000240",
+  "docNumber": "A34",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-03T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 190,
+  "orderId": "883-8317162-2000205",
+  "docNumber": "A29",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-09T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 190,
+  "orderId": "938-8317148-2000105",
+  "docNumber": "A15",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-13T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 190,
+  "orderId": "509-8317149-2000116",
+  "docNumber": "A16",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-05T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 191,
+  "orderId": "703-3269218-2000029",
+  "docNumber": "F000004",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-13T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 194,
+  "orderId": "764-5904187-2000066",
+  "docNumber": "F000009",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-08T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/ACTION_REQUIRED."
+ },
+ {
+  "seller": 195,
+  "orderId": "230-8394776-2000429",
+  "docNumber": "RE2026/061",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "monthly_export",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-28T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/ACTION_REQUIRED."
+ },
+ {
+  "seller": 218,
+  "orderId": "192-8037437-2000044",
+  "docNumber": "2026/ES/00006",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-17T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "declareOnly item: the seller declared a resolution and no issue is raised in round 2 on either engine."
+ },
+ {
+  "seller": 218,
+  "orderId": "387-8037436-2000038",
+  "docNumber": "2026/ES/00005",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-20T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "declareOnly item: the seller declared a resolution and no issue is raised in round 2 on either engine."
+ },
+ {
+  "seller": 218,
+  "orderId": "230-8037434-2000024",
+  "docNumber": "2026/ES/00003",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-26T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "declareOnly item: the seller declared a resolution and no issue is raised in round 2 on either engine."
+ },
+ {
+  "seller": 227,
+  "orderId": "893-3582084-2000029",
+  "docNumber": "2026/ES/00004",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-31T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 228,
+  "orderId": "674-6279501-2000053",
+  "docNumber": "FA-2026-0007",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-08T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 228,
+  "orderId": "366-6279530-2000254",
+  "docNumber": "FA-2026-0036",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-27T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 228,
+  "orderId": "439-6279525-2000221",
+  "docNumber": "FA-2026-0031",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-14T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 253,
+  "orderId": "773-5352117-2001017",
+  "docNumber": "2026-145",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-15T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 254,
+  "orderId": "829-5705180-2000095",
+  "docNumber": "2026/ES/00013",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-28T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 264,
+  "orderId": "502-3677610-2000014",
+  "docNumber": "2026-2",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-09T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 289,
+  "orderId": "785-7962387-2000185",
+  "docNumber": "2026-26",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-14T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 289,
+  "orderId": "376-7962388-2000191",
+  "docNumber": "2026-27",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-19T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 289,
+  "orderId": "355-7962397-2000253",
+  "docNumber": "2026-36",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-25T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 289,
+  "orderId": "612-7962440-2000554",
+  "docNumber": "2026-79",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-14T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 289,
+  "orderId": "445-7962448-2000611",
+  "docNumber": "2026-87",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-17T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 289,
+  "orderId": "580-7962413-2000366",
+  "docNumber": "2026-52",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-25T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 289,
+  "orderId": "412-7962389-2000198",
+  "docNumber": "2026-28",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-03T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 290,
+  "orderId": "301-3813565-2001026",
+  "docNumber": "FA-2026-0146",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-08T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 292,
+  "orderId": "836-5343470-2000464",
+  "docNumber": "FA-2026-0066",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-03T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION."
+ },
+ {
+  "seller": 326,
+  "orderId": "180-2021724-2000057",
+  "docNumber": "2026/ES/00008",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-26T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 327,
+  "orderId": "827-6093503-2000028",
+  "docNumber": "RE2026/004",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-19T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 327,
+  "orderId": "654-6093508-2000066",
+  "docNumber": "RE2026/009",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-09T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 327,
+  "orderId": "375-6093511-2000088",
+  "docNumber": "RE2026/012",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-06T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 327,
+  "orderId": "924-6093510-2000078",
+  "docNumber": "RE2026/011",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-31T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 327,
+  "orderId": "242-6093507-2000058",
+  "docNumber": "RE2026/008",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-05T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 327,
+  "orderId": "934-6093515-2000113",
+  "docNumber": "RE2026/016",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-15T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 327,
+  "orderId": "213-6093509-2000070",
+  "docNumber": "RE2026/010",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-19T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 338,
+  "orderId": "803-2035866-2000010",
+  "docNumber": "INV-100001",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-11T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 338,
+  "orderId": "705-2035888-2000162",
+  "docNumber": "INV-100023",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-13T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 342,
+  "orderId": "655-6088805-2000120",
+  "docNumber": "FA-2026-0017",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "monthly_export",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-08T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 364,
+  "orderId": "675-8372300-2000014",
+  "docNumber": "FA-2026-0002",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-24T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 365,
+  "orderId": "130-1185256-2000522",
+  "docNumber": "A74",
+  "scenario": "follow_up_stale_report",
+  "kind": "fixAllButStaleReport",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-24T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Round 2 of this seller shows zero issues and every Amazon invoice matched by number (131 of 131); nothing is left open, so there is no issue of this family to report. Proven at seller level by the round-2 projection. That round 1 held it only as an UNDETERMINED coverage note (never stored as an issue) follows from the design and was not checked per item."
+ },
+ {
+  "seller": 375,
+  "orderId": "564-6335423-2000162",
+  "docNumber": "F000023",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-29T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Round 2 of this seller shows zero issues and every Amazon invoice matched by number (31 of 31); nothing is left open, so there is no issue of this family to report. Proven at seller level by the round-2 projection. That round 1 held it only as an UNDETERMINED coverage note (never stored as an issue) follows from the design and was not checked per item."
+ },
+ {
+  "seller": 376,
+  "orderId": "703-8108841-2000507",
+  "docNumber": "A72",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-29T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 379,
+  "orderId": "964-2668295-2000017",
+  "docNumber": "2026/ES/00002",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-05T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 400,
+  "orderId": "444-6550003-2002858",
+  "docNumber": "F000408",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-06T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 400,
+  "orderId": "790-6550447-2005966",
+  "docNumber": "F000852",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-05T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 400,
+  "orderId": "392-6550521-2006482",
+  "docNumber": "F000926",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-28T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 400,
+  "orderId": "878-6550558-2006743",
+  "docNumber": "F000963",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-20T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 400,
+  "orderId": "385-6551446-2012961",
+  "docNumber": "F001851",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-09T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 400,
+  "orderId": "853-6552593-2020986",
+  "docNumber": "F002998",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-20T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 403,
+  "orderId": "109-6564375-2000591",
+  "docNumber": "2026/ES/00084",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-26T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "declareOnly item: the seller declared a resolution and no issue is raised in round 2 on either engine."
+ },
+ {
+  "seller": 413,
+  "orderId": "629-6019918-2000150",
+  "docNumber": "2026-21",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-23T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 413,
+  "orderId": "864-6019904-2000051",
+  "docNumber": "2026-7",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-19T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 413,
+  "orderId": "112-6019910-2000091",
+  "docNumber": "2026-13",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-23T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 416,
+  "orderId": "608-2288319-2000064",
+  "docNumber": "F000009",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-03T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 416,
+  "orderId": "976-2288315-2000035",
+  "docNumber": "F000005",
+  "scenario": "currency_mismatch",
+  "kind": "fixCurrency",
+  "cohort": "through_report_day",
+  "families": [
+   "DATA_MISMATCH"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-24T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "DATA_MISMATCH/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised DATA_MISMATCH/ACTION_REQUIRED."
+ },
+ {
+  "seller": 438,
+  "orderId": "586-6738764-2000010",
+  "docNumber": "2026-1",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-06T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/VERIFIED_CLOSED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/VERIFIED_CLOSED."
+ },
+ {
+  "seller": 438,
+  "orderId": "176-6738773-2000071",
+  "docNumber": "2026-10",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-27T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ },
+ {
+  "seller": 440,
+  "orderId": "546-8517807-2000100",
+  "docNumber": "F000014",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-13T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION."
+ },
+ {
+  "seller": 474,
+  "orderId": "306-2281887-2000052",
+  "docNumber": "2026-7",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-14T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 474,
+  "orderId": "206-2281895-2000106",
+  "docNumber": "2026-15",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-26T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 474,
+  "orderId": "635-2281897-2000122",
+  "docNumber": "2026-17",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-25T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 474,
+  "orderId": "109-2281884-2000029",
+  "docNumber": "2026-4",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "TRUE"
+  ],
+  "shipmentDate": [
+   "2026-10-20T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 474,
+  "orderId": "831-2281898-2000127",
+  "docNumber": "2026-18",
+  "scenario": "follow_up_fixed_and_unfixed",
+  "kind": "fixSome",
+  "cohort": "monthly_export",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-19T00:00:00Z"
+  ],
+  "lostOnMain": true,
+  "lostOnFixed": true,
+  "booksPeriodRound2": [
+   "2026-10-02",
+   "2026-10-31"
+  ],
+  "engineBefore_main_35bb98a": [],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on BOTH engines. Books of round 2 declare period 2026-10-02 to 2026-10-31, which ends before the round-2 report day (2026-12-04): the engine rule (project.js: absence needs the books period to cover the shipment through the report day) gives an UNDETERMINED coverage note, never a finding. The monthly_export cohort exists to test exactly this."
+ },
+ {
+  "seller": 477,
+  "orderId": "586-7980554-2000283",
+  "docNumber": "INV-100040",
+  "scenario": "follow_up_seller_declares_resolved",
+  "kind": "declareOnly",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-06T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION."
+ },
+ {
+  "seller": 487,
+  "orderId": "142-7972528-2000115",
+  "docNumber": "2026-16",
+  "scenario": "uploaded_not_in_books",
+  "kind": "fixBooks",
+  "cohort": "through_report_day",
+  "families": [
+   "BOOKS_GAP"
+  ],
+  "isBusinessOrder_inRound2File": [
+   "FALSE"
+  ],
+  "shipmentDate": [
+   "2026-10-09T00:00:00Z"
+  ],
+  "lostOnMain": false,
+  "lostOnFixed": true,
+  "booksPeriodRound2": null,
+  "engineBefore_main_35bb98a": [
+   "BOOKS_GAP/ACTION_REQUIRED"
+  ],
+  "engineAfter_integration_06e5496": [],
+  "reason": "Lost on the fixed engine only. The order is-business-order is FALSE in the round-2 file, so the fixed engine does not judge it; main raised BOOKS_GAP/ACTION_REQUIRED."
+ }
+]

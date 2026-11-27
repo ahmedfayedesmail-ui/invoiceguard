@@ -1,0 +1,35 @@
+# 500-seller stress test (simulation only)
+
+Synthetic only. No real seller data, no deploy, no production code touched.
+
+Run (about 45 s, deterministic: same seed gives the same results apart from timings):
+
+    node sim/run.mjs 500 sim/out/results.jsonl && python3 sim/aggregate.py sim/out/results.jsonl
+
+Layout
+- `gen.mjs`, `scenarios.mjs`: build sellers and the expected problems. They import nothing from `src/`, so the expected results do not depend on the engine.
+- `run.mjs`: loads each seller's files through the real engine (`detectLedgerMapping`, `preflight`, `createLoopStore`, `project`) and compares to the injected problems. Matching is by order id or document number.
+- `aggregate.py`, `analyze.py`: totals and drill-down.
+- `out/results.jsonl`: raw result per seller. `out/aggregate.txt`: totals. `out/failing-ids.json`: seller ids per failure category, generated from results.jsonl by `python3 sim/failing-ids.py sim/out/results.jsonl > sim/out/failing-ids.json` (v1 file kept as failing-ids-v1.json, it does not match v2).
+
+Metric definitions (denominators are always stated)
+- Recall = detected injected problems / injected in-scope problems (normal cohort, excluding sellers whose own declaration is wrong).
+- Precision = 1 - confident false findings / confident findings (state ACTION_REQUIRED). Example from the baseline: 59 false of 926 confident = 93.6%.
+- Out-of-contract problems (invoice totals, credit notes) are counted separately and are never counted as detected.
+- Cohort `monthly_export`: the books export ends at the end of the period, not on the report day. Reported separately because the engine refuses to conclude absence there.
+
+Limits
+- Expected results are my reading of the engine contract, built by construction. They can hide errors where reading and engine agree but a real Amazon file differs.
+- The harness asks the engine's reader once to learn whether localized document-type words are rejected, then models a seller who sets the document type by hand.
+
+## v2 corrections (after review)
+- The Amazon scenario was contradictory (is-amazon-invoiced TRUE with invoice-status InvoiceUploaded). It is now TRUE with InvoiceCreatedByAmazon. A separate scenario `amazon_flag_status_conflict` has the two fields disagree; no confident finding may be raised there.
+- The 83 duplicates came from identical rows declared DOCUMENT. Multi-line documents now have a different amount on each line, and three scenarios declare LINE, DOCUMENT and UNKNOWN. Findings that depend on the seller declaration are counted separately ("declaration-dependent"), never as true or false.
+- The v1 aggregate's 85 of 926 mixed commercial findings with SOURCE_INCOMPLETE. 85 = 59 (Amazon-issued scenario) + 11 ambiguous-dates (harness defect: order dates outside the declared range, fixed) + 11 long-period + 4 malformed (SOURCE_INCOMPLETE source-state notices). The "93.6%" divided the commercial 59 by a denominator that included source notices. Now each confident finding is in exactly one bucket and every ratio prints its numerator, denominator and formula.
+- v1 files are kept: sim/out/results-v1.jsonl, aggregate-v1.txt, aggregate-v1.py. Same seed (0), same 500 sellers.
+- Stale-report round 2 is inconclusive by design and is not part of the closed-wrong headline.
+
+### Precision, three figures (v2)
+- Strict: confirmed-true / all confident commercial = 930/1135 = 81.9%.
+- Scored: true / (true + false) = 930/930 = 100%. It leaves out declaration-dependent (80), conflicting-evidence (28) and non-B2B (97) findings. Not quotable alone.
+- Decided: true / (true + false + conflicting) = 930/958 = 97.1%. The 28 conflicting-evidence findings count as errors. This is the figure that must be quoted.

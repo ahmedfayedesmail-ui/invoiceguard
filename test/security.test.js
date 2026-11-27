@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
 import { passwordProblem, totpAt, totpMatch, newTotpSecret, purgeBuyerData } from '../src/security.js';
@@ -31,6 +31,7 @@ async function boot() {
 }
 
 test('two-step sign-in: setup, enable, required at login, no code reuse, disable', async () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 27, 12, 0, 10) }); // fixed clock mid-step: no 30 s boundary can fall inside this test (see security-clock.test.js)
   const { server, call, clear } = await boot(); const pw = 'Correct-Horse-42!';
   assert.equal((await call('signup', { email: 'm@x.es', password: pw })).status, 200);
   const su = await call('mfa/setup', {}); assert.equal(su.status, 200); assert.match(su.body.url, /^otpauth:\/\/totp\//);
@@ -43,7 +44,7 @@ test('two-step sign-in: setup, enable, required at login, no code reuse, disable
   r = await call('login', { email: 'm@x.es', password: pw, code: totpAt(su.body.secret, now() + 1) }); assert.equal(r.status, 200);
   r = await call('mfa/disable', { password: pw, code: totpAt(su.body.secret, now() + 1) }); assert.equal(r.status, 401, 'disable needs a fresh code');
   r = await call('mfa/disable', { password: 'wrong', code: totpAt(su.body.secret, now() - 1) }); assert.equal(r.status, 401);
-  server.close();
+  server.close(); mock.timers.reset();
 });
 
 test('password change: needs current password, enforces rules and the last-10 history, ends other sessions', async () => {

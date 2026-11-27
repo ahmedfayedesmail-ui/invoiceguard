@@ -473,9 +473,12 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/rules/review') { if (!isOperator) return json(res, 403, { error: 'Only the InvoiceGuard operator can mark a rule as reviewed.' }); try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); } }
       if (p === '/api/manual/preview' || p === '/api/manual/issue') {
         if (env.ALLOW_MANUAL_UPLOAD !== '1') return json(res, 403, { error: 'Uploading your own report is not open yet - the pilot runs on made-up sample data only, exactly as the homepage says.' });
-        const plan = planUpload(String(body.text ?? ''), { useDeliveryAddress: body.useDeliveryAddress === true });
+        const plan = planUpload(String(body.text ?? ''));
         if (!plan.ok) return json(res, 400, { error: plan.error, format: plan.format ?? null });
-        const view = { format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: plan.truncated, willIssue: plan.shipments.length, held: plan.held.map(h => ({ orderId: h.orderId, reason: h.reason })).slice(0, 100), heldCount: plan.held.length, skippedCount: plan.skipped.length, skipped: plan.skipped.slice(0, 20),
+        const bad = plan.invalidRows ?? []; // quarantined rows: line numbers and counts only, never cell content
+        const invalidRows = bad.slice(0, 50).map(x => ({ line: x.line, reason: x.reason, cells: x.cells, expected: x.expected }));
+        const warning = bad.length ? `${bad.length} ${bad.length === 1 ? 'line' : 'lines'} of your file could not be read and ${bad.length === 1 ? 'was' : 'were'} not used (a line break inside a cell splits a row). No invoice was made from ${bad.length === 1 ? 'it' : 'them'}. Download the report again and check ${bad.length === 1 ? 'that line' : 'those lines'}: ${bad.slice(0, 10).map(x => x.line).join(', ')}${bad.length > 10 ? ' and more' : ''}.` : null;
+        const view = { invalidRowsCount: bad.length, invalidRows, warning, format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: plan.truncated, willIssue: plan.shipments.length, held: plan.held.map(h => ({ orderId: h.orderId, reason: h.reason })).slice(0, 100), heldCount: plan.held.length, skippedCount: plan.skipped.length, skipped: plan.skipped.slice(0, 20),
           sample: plan.shipments.slice(0, 20).map(x => ({ orderId: x.orderId, buyer: x.buyerCompany, buyerVat: x.buyerVat, currency: x.currency, total: x.incl, vat: x.vat })) };
         if (p === '/api/manual/preview') return json(res, 200, view);
         if (body.attest !== true) return json(res, 400, { error: 'Please confirm the two checks first.' });

@@ -482,24 +482,24 @@ var require_buffer = __commonJS({
           return false;
       }
     };
-    Buffer3.concat = function concat(list, length) {
-      if (!Array.isArray(list)) {
+    Buffer3.concat = function concat(list2, length) {
+      if (!Array.isArray(list2)) {
         throw new TypeError('"list" argument must be an Array of Buffers');
       }
-      if (list.length === 0) {
+      if (list2.length === 0) {
         return Buffer3.alloc(0);
       }
       let i;
       if (length === void 0) {
         length = 0;
-        for (i = 0; i < list.length; ++i) {
-          length += list[i].length;
+        for (i = 0; i < list2.length; ++i) {
+          length += list2[i].length;
         }
       }
       const buffer = Buffer3.allocUnsafe(length);
       let pos = 0;
-      for (i = 0; i < list.length; ++i) {
-        let buf = list[i];
+      for (i = 0; i < list2.length; ++i) {
+        let buf = list2[i];
         if (isInstance(buf, Uint8Array)) {
           if (pos + buf.length > buffer.length) {
             if (!Buffer3.isBuffer(buf)) buf = Buffer3.from(buf);
@@ -1853,6 +1853,12 @@ function classifyTransactionId(id, type) {
   return { role: null, format: null, unknown: true, why: 'the id starts with "Correction" but matches none of the known shapes' };
 }
 
+// src/vidr.js
+var readFlag = (values) => {
+  const v = new Set([].concat(values).map((x) => String(x ?? "").trim().toUpperCase()));
+  return v.size === 1 && v.has("TRUE") ? true : v.size === 1 && v.has("FALSE") ? false : null;
+};
+
 // src/manual.js
 var MAX_ROWS = 2e4;
 function parseTable(text) {
@@ -2122,6 +2128,7 @@ var EXPLAIN = {
   SELLER_UPLOAD_REQUIRED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}. Amazon did not calculate the tax for this transaction, so the seller must upload the invoice. Nothing has been uploaded as far as this report shows. This is an exception.`,
   REJECTED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon found errors in the upload. Amazon says the seller must upload this document again.`,
   CREATED_BY_AMAZON: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon made this document itself. The seller has nothing to upload for it.`,
+  ISSUER_UNDETERMINED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}. The report states that status, but it does not show who issued the invoice: is-amazon-invoiced is not an explicit TRUE on every row of this document (it is FALSE, blank, unreadable or differs between rows). So we do not say Amazon made it, and we do not say the seller must upload it. To resolve it, load a VAT Invoice Data Report in which is-amazon-invoiced holds TRUE on every row of this document.`,
   INCOMPLETE_SOURCE: (c2) => `The file says ${c2.raw}, but it is not shown as accepted. ${c2.why}`,
   UNMATCHED: (c2) => `We could not tie this to one document with confidence: ${c2.why}`,
   UNKNOWN_STATUS: (c2) => `The file has a status we do not recognise (${JSON.stringify(c2.raw)}). We did not guess. This is counted as cannot determine.`,
@@ -2159,8 +2166,8 @@ function reconcile(imports) {
   }
   const docs = [];
   const snap = (o) => ({ importId: o.importId, rawStatus: o.raw, mapped: o.mapped, times: o.times, rows: o.rows, invoiceNumber: o.invoiceNumber, transactionId: o.parts["transaction-id"], statusDescription: o.statusDescription });
-  for (const [key, list] of byDoc) {
-    const sorted = [...list].sort((a, b) => (a.et.t ?? -Infinity) - (b.et.t ?? -Infinity) || String(a.importId).localeCompare(String(b.importId)));
+  for (const [key, list2] of byDoc) {
+    const sorted = [...list2].sort((a, b) => (a.et.t ?? -Infinity) - (b.et.t ?? -Infinity) || String(a.importId).localeCompare(String(b.importId)));
     const last = sorted.at(-1), sameTime = sorted.filter((o) => o.et.t !== null && o.et.t === last.et.t);
     let cur = last, why = null;
     if (sameTime.length > 1 && uniq(sameTime.map((o) => o.mapped + "|" + o.raw)).length > 1) {
@@ -2185,6 +2192,7 @@ function reconcile(imports) {
       parts: cur.parts,
       itemIds: cur.itemIds,
       state: cur.mapped,
+      reportedState: cur.mapped,
       reasonCode: cur.reasonCode ?? null,
       unmatchedReason: cur.unmatchedReason ?? null,
       rawStatus: cur.raw,
@@ -2221,6 +2229,14 @@ function reconcile(imports) {
       if (state === "PARTIALLY_ACCEPTED" && s.ownState === "ACCEPTED") s.state = "PARTIALLY_ACCEPTED";
     }
   }
+  for (const d of docs) if (d.state === "CREATED_BY_AMAZON") {
+    const flag = readFlag((d.evidence.rows ?? []).map((r) => r["is-amazon-invoiced"]));
+    d.issuerFlag = flag === true ? "TRUE" : flag === false ? "FALSE" : "UNKNOWN";
+    if (flag !== true) {
+      d.state = "ISSUER_UNDETERMINED";
+      d.ownState = "ISSUER_UNDETERMINED";
+    }
+  }
   for (const d of docs) {
     const c2 = d.ctx;
     delete d.ctx;
@@ -2232,10 +2248,10 @@ function reconcile(imports) {
 }
 function headline(docs, cycles, unkeyed, importSummaries) {
   const n = (s) => docs.filter((d) => d.state === s).length, inc = (code) => docs.filter((d) => d.state === "INCOMPLETE_SOURCE" && d.reasonCode === code).length;
-  const parts = { truncatedFile: inc("TRUNCATED_FILE"), missingColumns: inc("MISSING_COLUMNS"), importNotComplete: inc("IMPORT_NOT_COMPLETE"), preconditionUnmet: inc("PRECONDITION_UNMET"), orderDateMissingOrUnreadable: inc("MISSING_OR_INVALID_ORDER_DATE"), dateFormatUnrecognized: inc("UNRECOGNIZED_DATE_FORMAT") + inc("DATE_ORDER_CONTRADICTION") + inc("MONTH_FIRST_NOT_SUPPORTED"), dateOrderUnconfirmed: n("DATE_ORDER_UNCONFIRMED"), invoiceNumberIncomplete: n("INVOICE_NUMBER_INCOMPLETE"), unmatched: n("UNMATCHED"), unknownStatus: n("UNKNOWN_STATUS"), unknownTransactionIdFormat: n("UNKNOWN_TRANSACTION_ID_FORMAT"), incompatibleStatusAndType: n("INCOMPATIBLE_STATUS_AND_TYPE") };
+  const parts = { truncatedFile: inc("TRUNCATED_FILE"), missingColumns: inc("MISSING_COLUMNS"), importNotComplete: inc("IMPORT_NOT_COMPLETE"), preconditionUnmet: inc("PRECONDITION_UNMET"), orderDateMissingOrUnreadable: inc("MISSING_OR_INVALID_ORDER_DATE"), dateFormatUnrecognized: inc("UNRECOGNIZED_DATE_FORMAT") + inc("DATE_ORDER_CONTRADICTION") + inc("MONTH_FIRST_NOT_SUPPORTED"), dateOrderUnconfirmed: n("DATE_ORDER_UNCONFIRMED"), invoiceNumberIncomplete: n("INVOICE_NUMBER_INCOMPLETE"), unmatched: n("UNMATCHED"), unknownStatus: n("UNKNOWN_STATUS"), unknownTransactionIdFormat: n("UNKNOWN_TRANSACTION_ID_FORMAT"), incompatibleStatusAndType: n("INCOMPATIBLE_STATUS_AND_TYPE"), issuerUndetermined: n("ISSUER_UNDETERMINED") };
   const cannot = Object.values(parts).reduce((a, b) => a + b, 0);
   const openCycles = cycles.filter((c2) => c2.state !== "ACCEPTED"), openDocKeys = new Set(openCycles.flatMap((c2) => c2.sides));
-  const EXC = ["REJECTED", "SELLER_UPLOAD_REQUIRED", "INCOMPLETE_SOURCE", "UNMATCHED", "UNKNOWN_STATUS", "UNKNOWN_TRANSACTION_ID_FORMAT", "INCOMPATIBLE_STATUS_AND_TYPE", "INVOICE_NUMBER_INCOMPLETE", "DATE_ORDER_UNCONFIRMED"];
+  const EXC = ["REJECTED", "SELLER_UPLOAD_REQUIRED", "INCOMPLETE_SOURCE", "UNMATCHED", "UNKNOWN_STATUS", "UNKNOWN_TRANSACTION_ID_FORMAT", "INCOMPATIBLE_STATUS_AND_TYPE", "INVOICE_NUMBER_INCOMPLETE", "ISSUER_UNDETERMINED", "DATE_ORDER_UNCONFIRMED"];
   const exceptions = docs.filter((d) => EXC.includes(d.state) || openDocKeys.has(d.key)).length;
   const counts = {
     documents: docs.length,
@@ -2246,12 +2262,13 @@ function headline(docs, cycles, unkeyed, importSummaries) {
     rejected: n("REJECTED"),
     sellerUploadRequired: n("SELLER_UPLOAD_REQUIRED"),
     createdByAmazon: n("CREATED_BY_AMAZON"),
+    issuerUndetermined: n("ISSUER_UNDETERMINED"),
     correctionCyclesNotClosed: openCycles.length,
     cannotDetermine: cannot,
     cannotDetermineParts: parts,
     rowsWithoutKey: unkeyed.length
   };
-  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} document(s) with an exception (one document can be in more than one line below): ${counts.rejected} rejected by Amazon, ${counts.sellerUploadRequired} where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), ${counts.correctionCyclesNotClosed} correction(s) not closed on both sides, ${cannot} we cannot determine (${parts.truncatedFile} from a partly read file, ${parts.missingColumns} from a file with missing columns, ${parts.importNotComplete} from another incomplete import, ${parts.preconditionUnmet} with an unmet check, ${parts.orderDateMissingOrUnreadable} with a missing or unreadable order date, ${parts.dateFormatUnrecognized} with dates in a format we do not recognise, that look month-first or that contradict each other, ${parts.dateOrderUnconfirmed} waiting for the seller to confirm the date format, ${parts.invoiceNumberIncomplete} with an invoice number blank on some rows, ${parts.unmatched} unmatched, ${parts.unknownStatus} unknown status, ${parts.unknownTransactionIdFormat} unknown correction id format, ${parts.incompatibleStatusAndType} status that does not fit the transaction type). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} observed as accepted, ${counts.createdByAmazon} created by Amazon (nothing to upload). Separately, ${counts.rowsWithoutKey} row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.`;
+  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} document(s) with an exception (one document can be in more than one line below): ${counts.rejected} rejected by Amazon, ${counts.sellerUploadRequired} where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), ${counts.correctionCyclesNotClosed} correction(s) not closed on both sides, ${cannot} we cannot determine (${parts.truncatedFile} from a partly read file, ${parts.missingColumns} from a file with missing columns, ${parts.importNotComplete} from another incomplete import, ${parts.preconditionUnmet} with an unmet check, ${parts.orderDateMissingOrUnreadable} with a missing or unreadable order date, ${parts.dateFormatUnrecognized} with dates in a format we do not recognise, that look month-first or that contradict each other, ${parts.dateOrderUnconfirmed} waiting for the seller to confirm the date format, ${parts.invoiceNumberIncomplete} with an invoice number blank on some rows, ${parts.unmatched} unmatched, ${parts.unknownStatus} unknown status, ${parts.unknownTransactionIdFormat} unknown correction id format, ${parts.incompatibleStatusAndType} status that does not fit the transaction type, ${parts.issuerUndetermined} where the report does not show who issued the invoice (issuer undetermined)). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} observed as accepted, ${counts.createdByAmazon} created by Amazon (nothing to upload). Separately, ${counts.rowsWithoutKey} row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.`;
   return { ...counts, exceptions, accountingComparison: "not available: needs the seller invoice export (Issued is not visible in the Amazon files)", sentence, anyCompleteImport: importSummaries.some((i) => i.scope === "COMPLETE_SCOPE") };
 }
 
@@ -2618,9 +2635,9 @@ function declarationProblem(e, family, subtype) {
 
 // src/loop/cards.js
 init_buffer_shim();
-var STATE_LABEL = { OPEN: "Needs a human reading", ACTION_REQUIRED: "Action required", AWAITING_NEW_EVIDENCE: "Waiting for new evidence", VERIFIED_CLOSED: "Closed, with evidence", MANUALLY_REPORTED_RESOLUTION: "Reported resolved by you, not confirmed by the files" };
+var STATE_LABEL = { HISTORY_INCOMPLETE: "History incomplete: a file you deleted was part of this", OPEN: "Needs a human reading", ACTION_REQUIRED: "Action required", AWAITING_NEW_EVIDENCE: "Waiting for new evidence", VERIFIED_CLOSED: "Closed, with evidence", MANUALLY_REPORTED_RESOLUTION: "Reported resolved by you, not confirmed by the files" };
 var mkt = (s) => s?.marketplace ?? "the declared marketplace";
-function buildCard(i) {
+function baseCard(i) {
   const s = i.subject ?? {}, e = i.finding?.evidence ?? {}, t = i.subtype;
   const c2 = { title: "", what: "", why: "", proof: [], action: "", closesWhen: "", stateLabel: STATE_LABEL[i.state] ?? i.state, stateNote: null, history: i.history };
   c2.proof = (e.sources ?? []).map((src) => ({ file: src.fileName ?? src.importId, role: src.role === "amazon" ? "Amazon VAT invoice report" : "Your accounting export", rows: src.rows }));
@@ -2709,6 +2726,15 @@ function buildCard(i) {
       c2.closesWhen = "A complete export of the same scope that states what one row is. If one row is one document, a repeated number then becomes a duplicate; if one row is one line item, the repetition is expected.";
       return c2;
     }
+    if (i.section === "LEDGER_DATA_QUALITY") {
+      const fs = e.disagreeingFields ?? [];
+      c2.title = `${i.label}: ${s.number ?? ""}`;
+      c2.what = (t === "SAME_NUMBER_DIFFERENT_CONTENT" ? `Rows ${(e.rowNumbers ?? []).join(", ")} of the accounting file carry the same document number ${s.number ?? ""} with different content` + (fs.length ? " (differing: " + fs.map((f) => f.label).join(", ") + ")" : "") + "." : `Rows ${(e.rowNumbers ?? []).join(", ")} of the accounting file are identical copies carrying the document number ${s.number ?? ""}.`) + " This is information about your accounting file (Ledger Data Quality), not a finding about an Amazon invoice.";
+      c2.why = "A repeated accounting record does not by itself show a duplicate invoice or a problem with an Amazon invoice. Nothing is asked of you because of this alone. It is not called a duplicate invoice until the rows and the document level are confirmed. Other checks on the same order are unaffected.";
+      c2.action = "Optional: look at these rows in your accounting system. Do not delete anything that is correct; nothing in this message asks you to remove a row.";
+      c2.closesWhen = "A newer complete accounting export of the same scope in which the document appears once.";
+      return c2;
+    }
     c2.what = t === "SAME_NUMBER_DIFFERENT_CONTENT" ? `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document identity with different content.` : `Rows ${(e.rowNumbers ?? []).join(", ")} are identical copies of the same document.`;
     c2.why = "A document identity can hold one document. We do not pick one of the rows.";
     c2.action = "You declared that one row of this export is a whole document, so the same document number on several rows is a problem in the export. Check the rows shown below in your accounting system. Do not delete anything that is correct; if a row is a line item of a document, load the file again and declare that one row is one line item.";
@@ -2726,6 +2752,79 @@ function buildCard(i) {
   if (i.reopened) c2.stateNote = (c2.stateNote ? c2.stateNote + " " : "") + "This problem was closed by evidence earlier and a newer file shows it again. Both pieces of evidence are kept in the history.";
   if (i.lapsedDeclarations?.length) c2.stateNote = (c2.stateNote ? c2.stateNote + " " : "") + "An earlier declaration no longer applies because the evidence it was based on changed.";
   return c2;
+}
+var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function localTime(iso2, offsetMinutes) {
+  const t = Date.parse(iso2);
+  if (Number.isNaN(t)) return "an unknown time";
+  const hasOff = Number.isInteger(offsetMinutes), d = new Date(t + (hasOff ? offsetMinutes : 0) * 6e4), p = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${hasOff ? "" : " UTC"}`;
+}
+var STEP = { PRESENT: "found on", CLOSED: "closed on", UNDETERMINED: "could not be judged on", DECLARED_LINK: "declared by you on" };
+var ident = (i) => {
+  const s = i.subject ?? {}, p = [];
+  if (s.orderId) p.push(`order ${s.orderId}`);
+  else if (s.orderRef) p.push(`order ${s.orderRef}`);
+  if (s.shippingId) p.push(`shipment ${s.shippingId}`);
+  if (s.number) p.push(`document ${s.number}`);
+  return p.length ? p.join(", ") : "a problem found earlier";
+};
+function analyse(i) {
+  const rec = i.recordedBeforeDeletion ?? { history: [] }, gone = new Set((i.deletedImports ?? []).map((d) => d.importId)), h = rec.history;
+  const openedBy = h.find((x) => x.status === "PRESENT")?.import ?? null, closing = h.filter((x) => x.status === "CLOSED");
+  const vidrGone = (i.deletedImports ?? []).some((d) => d.kind === "vidr");
+  const closureGone = closing.some((x) => gone.has(x.import)), originGone = openedBy !== null && gone.has(openedBy);
+  const closureHeldBy = closing.filter((x) => !gone.has(x.import)).at(-1)?.file ?? null;
+  return { rec, gone, h, vidrGone, closureGone, originGone, closureHeldBy, closed: i.priorRecordedState === "VERIFIED_CLOSED" };
+}
+function historyText(i) {
+  const out = [], A = analyse(i);
+  for (const d of i.deletedImports ?? []) {
+    const when = localTime(d.deletedAt, d.utcOffsetMinutes), who = d.reason === "RETENTION_POLICY" ? "Your retention setting deleted" : "You deleted", why = d.reason === "SELLER_DELETED" || d.reason === "RETENTION_POLICY" ? "" : ` Reason: ${d.reason}.`, name = d.fileName ?? "a file";
+    const mine = A.h.filter((x) => x.import === d.importId);
+    let role = "";
+    if (d.kind === "vidr") role = " That file was the Amazon report, so every check that used it can no longer be repeated here.";
+    else if (A.h.length && A.h[0].import === d.importId && A.h.find((x) => x.status === "PRESENT")?.import === d.importId) role = " That file is where this problem was first seen, so it cannot be re-derived from scratch.";
+    else if (mine.some((x) => x.status === "CLOSED")) role = "";
+    else if (mine.length) role = " That file was one of the files this problem was checked against.";
+    else role = " We cannot tell from the record what this file was used for on this problem.";
+    out.push(`${who} ${name} on ${when}.${why}${role}`);
+  }
+  if (A.h.length) out.push(`Recorded before the deletion: ${A.h.map((x) => `${STEP[x.status] ?? "recorded on"} ${x.file ?? "a file"}${A.gone.has(x.import) ? " (deleted)" : ""}`).join(", then ")}.`);
+  return out;
+}
+function historyCard(i) {
+  const A = analyse(i), lost = A.vidrGone || A.closureGone;
+  let now;
+  if (A.closed && lost) now = "The closure can no longer be re-checked, so we do not count it as closed and we do not list it as open either, because we cannot check.";
+  else if (A.closed && A.closureHeldBy) now = `The file that closed it, ${A.closureHeldBy}, is still loaded. It is not listed as open.`;
+  else if (A.closed) now = "We cannot tell from the record which file closed it, so we make no claim about the closure.";
+  else now = "With that evidence gone we cannot say whether this problem is still there.";
+  const perm = A.closed && A.closureHeldBy && !lost ? "This note stays because the beginning of the history is gone: the history will still record that earlier evidence was deleted." : "If you load a file that covers this document, we can show what that file says about it today. This note stays: the history will still record that earlier evidence was deleted and that we could not re-check it.";
+  return { title: `Problem on ${ident(i)}`, what: [...historyText(i), now, perm].join(" "), why: "", proof: [], action: "", closesWhen: "", stateLabel: STATE_LABEL.HISTORY_INCOMPLETE, stateNote: null, history: i.history };
+}
+function buildCard(i) {
+  if (!i.historyIncomplete) return baseCard(i);
+  if (i.state === "HISTORY_INCOMPLETE") return historyCard(i);
+  const c2 = baseCard(i);
+  c2.stateNote = (c2.stateNote ? c2.stateNote + " " : "") + "History incomplete. " + historyText(i).join(" ");
+  return c2;
+}
+
+// src/loop/coverage.js
+init_buffer_shim();
+var UND = { BUSINESS_FLAG_BLANK: "the business-order field is blank", BUSINESS_FLAG_CONFLICT: "the rows of one shipment disagree about the business-order field", BUSINESS_FLAG_UNREADABLE: "the business-order field is neither TRUE nor FALSE", AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: "who issues the invoice is blank, could not be read, or the fields that say so disagree" };
+var list = (by, words) => Object.entries(by).filter(([, n]) => n > 0).map(([k, n]) => `${n} where ${words[k] ?? k}`).join("; ");
+function coverageStatement(c2) {
+  if (!c2 || !c2.transactionsTotal) return ["No Amazon report is loaded, so nothing has been checked yet."];
+  const s = c2.scope, b = s.business, out = [];
+  out.push(`Scope: ${s.count} unique shipments that you must invoice yourself (Amazon did not create the invoice, and the business-order field could be read).`);
+  if (s.count > 0) out.push(`${b.matched} of ${b.entered} business shipments are linked to a document in your books by invoice number, whatever Amazon's status; ${b.notMatched} are not linked. ${b.matchedAndAccepted ?? 0} of the linked ones are also shown as accepted by Amazon (the figure in the Summary below). ` + (s.nonBusiness.count > 0 ? `This figure covers business shipments only, not all ${s.count} shipments in scope.` : `This figure covers all ${s.count} shipments in scope.`));
+  if (s.nonBusiness.count > 0) out.push(`${s.nonBusiness.count} shipments in scope were NOT EVALUATED: they are marked as non-business orders, and they were not checked against your books because of the current check rule. That is not a result for them either way.`);
+  if (c2.undetermined.count > 0) out.push(`${c2.undetermined.count} could not be classified, so they are in none of the figures above: ${list(c2.undetermined.byReason, UND)}.`);
+  if (c2.outsideScope.count > 0) out.push(`${c2.outsideScope.count} are outside the check: ${c2.outsideScope.byReason.AMAZON_INVOICED ?? 0} invoices created by Amazon, ${c2.outsideScope.byReason.NOT_ORDINARY_INVOICE ?? 0} corrections or non-shipment rows.`);
+  out.push(`Total: ${c2.transactionsTotal} unique transactions = ${s.count} in scope + ${c2.undetermined.count} undetermined + ${c2.outsideScope.count} outside the check.`);
+  return out;
 }
 
 // src/loop/project.js
@@ -2817,8 +2916,8 @@ function evaluate(prefix, events, ctx) {
     }
     importDefects.set(i.id, { defects, scopeNotes });
   }
-  for (const [desc, list] of groups) {
-    const latest = list[list.length - 1], full = list.filter(fullScope).at(-1), key = issueKey(ctx.seller, "SOURCE_INCOMPLETE", desc);
+  for (const [desc, list2] of groups) {
+    const latest = list2[list2.length - 1], full = list2.filter(fullScope).at(-1), key = issueKey(ctx.seller, "SOURCE_INCOMPLETE", desc);
     const subjectOf = (x) => ({ descriptor: desc, source: isLedger(x) ? "accounting export" : "Amazon VAT invoice report", fileName: x.fileName ?? null });
     const raise = (x) => {
       const { defects } = importDefects.get(x.id);
@@ -2834,14 +2933,59 @@ function evaluate(prefix, events, ctx) {
     const c2 = clsOf(i.id);
     return !defects.length && c2 && c2.declared.options === "ALL";
   };
-  const A = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction && d.state !== "CREATED_BY_AMAZON");
-  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
+  const noteGroup = /* @__PURE__ */ new Map();
+  const noteAdd = (reason, subject) => {
+    const k = reason;
+    if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] });
+    const g = noteGroup.get(k);
+    g.count++;
+    if (g.sample.length < 5) g.sample.push(subject);
+  };
+  const amazonFlag = (d) => {
+    const v = new Set((d.evidence.rows ?? []).map((r) => String(r["is-amazon-invoiced"] ?? "").trim().toUpperCase()));
+    if ([...v].some((x) => !["TRUE", "FALSE", ""].includes(x))) return "UNREADABLE";
+    if (v.has("TRUE")) return v.size > 1 ? "CONFLICT" : "TRUE";
+    return v.has("FALSE") ? "FALSE" : "BLANK";
+  };
+  const ordinary = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction);
+  const flagVsStatus = /* @__PURE__ */ new Set(), flagged = new Map(ordinary.map((d) => {
+    const f = amazonFlag(d), byAmazon = d.reportedState === "CREATED_BY_AMAZON";
+    if (f === "TRUE" && !byAmazon || f === "FALSE" && byAmazon) flagVsStatus.add(d);
+    return [d, f === "TRUE" ? byAmazon ? "TRUE" : "CONFLICT" : f === "FALSE" ? byAmazon ? "CONFLICT" : "FALSE" : f];
+  }));
+  const A0 = ordinary.filter((d) => flagged.get(d) === "FALSE");
+  const flagUndetermined = ordinary.filter((d) => ["CONFLICT", "UNREADABLE", "BLANK"].includes(flagged.get(d)));
+  const businessFlag = (d) => {
+    const v = new Set((d.evidence.rows ?? []).map((r) => String(r["is-business-order"] ?? "").trim().toUpperCase()));
+    if ([...v].some((x) => !["TRUE", "FALSE", ""].includes(x))) return "UNREADABLE";
+    if (v.size > 1) return "CONFLICT";
+    return v.has("TRUE") ? "TRUE" : v.has("FALSE") ? "FALSE" : "BLANK";
+  };
+  const sellerSet = A0;
+  const bflag = new Map(sellerSet.map((d) => [d, businessFlag(d)]));
+  const A = sellerSet.filter((d) => bflag.get(d) === "TRUE");
+  const bizUndetermined = sellerSet.filter((d) => ["BLANK", "UNREADABLE", "CONFLICT"].includes(bflag.get(d)));
+  const notJudged = [...sellerSet.filter((d) => bflag.get(d) !== "TRUE"), ...flagUndetermined];
+  const heldOutNum = new Set(notJudged.filter((d) => d.evidence.invoiceNumber).map((d) => d.parts["marketplace-id"] + "|" + d.evidence.invoiceNumber)), heldOutOrder = new Set(notJudged.map((d) => d.parts["marketplace-id"] + "|" + d.parts["order-id"]));
+  const stats = { amazonInvoices: A.length, nonBusinessOrders: sellerSet.filter((d) => bflag.get(d) === "FALSE").length, businessFlagUndetermined: bizUndetermined.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length - ordinary.filter((d) => d.state === "CREATED_BY_AMAZON" && flagged.get(d) !== "TRUE").length + ordinary.filter((d) => d.state !== "CREATED_BY_AMAZON" && flagged.get(d) === "TRUE").length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   const afterAction = (key, d) => {
     const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter((e) => ms2(e.createdAt) <= (ms2(imp?.importedAt) ?? Infinity));
     if (!acts.length) return true;
     const t = imp ? createdMs(imp) : null;
     return t !== null && t > Math.max(...acts.map((e) => ms2(e.createdAt)));
   };
+  for (const d of flagUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
+    const why = flagVsStatus.has(d) ? `the is-amazon-invoiced column (${[...new Set((d.evidence.rows ?? []).map((r) => String(r["is-amazon-invoiced"] ?? "").trim().toUpperCase()))].join("/")}) and invoice-status (${d.rawStatus}) disagree about whether Amazon issued the invoice` : flagged.get(d) === "CONFLICT" ? "the rows of this shipment disagree about whether Amazon issued the invoice" : flagged.get(d) === "BLANK" ? `the is-amazon-invoiced column is empty, so it cannot be told whether Amazon issued the invoice (invoice-status ${d.rawStatus || "is empty"} is not used as a substitute)` : "the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE";
+    put(key, { family: "INVOICE_AMAZON_STATE", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp("IAS", id, "AMZFLAG", flagged.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}.` });
+    noteAdd(`Amazon invoice flag could not be read (${flagged.get(d)}): ${why}`, id);
+  }
+  for (const d of bizUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
+    const why = bflag.get(d) === "BLANK" ? "the is-business-order column is empty" : bflag.get(d) === "CONFLICT" ? "the rows of this shipment disagree about is-business-order" : "the is-business-order column holds a value that is neither TRUE nor FALSE";
+    put(key, { family: "INVOICE_AMAZON_STATE", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp("IAS", id, "BIZFLAG", bflag.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}, so it cannot be told whether the order needs a seller invoice.` });
+    noteAdd(`is-business-order could not be read (${bflag.get(d)}): ${why}`, id);
+  }
   for (const d of A) {
     const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
     const ev = { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, amazonDescription: d.evidence.statusDescription ?? null, invoiceNumber: d.evidence.invoiceNumber ?? null };
@@ -2922,6 +3066,11 @@ function evaluate(prefix, events, ctx) {
     const n = d.evidence.invoiceNumber, mk = d.parts["marketplace-id"];
     if (n) {
       const Lc = byNum.get(mk + "|" + n) ?? [];
+      if (Lc.length === 1 && !Lc[0].conflicting && aNum.get(mk + "|" + n).length === 1 && Lc[0].orderRef && Lc[0].orderRef !== d.parts["order-id"]) {
+        setA(d, { level: "ORDER_MISMATCH", ledger: [ledgerKey(Lc[0])], why: `the accounting document ${n} names the order ${Lc[0].orderRef}, but Amazon shows ${n} on the order ${d.parts["order-id"]}` });
+        addL(Lc[0], { level: "ORDER_MISMATCH", amazon: [amazonId(d)], why: `the accounting document ${n} names the order ${Lc[0].orderRef}, but Amazon shows ${n} on the order ${d.parts["order-id"]}` });
+        continue;
+      }
       if (Lc.length === 1 && !Lc[0].conflicting && aNum.get(mk + "|" + n).length === 1) {
         setA(d, { level: "CONFIRMED", ledger: [ledgerKey(Lc[0])] });
         addL(Lc[0], { level: "CONFIRMED", amazon: [amazonId(d)] });
@@ -2980,7 +3129,8 @@ function evaluate(prefix, events, ctx) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "DUPLICATE_DOCUMENT", "L:" + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
     if (l.conflicting || l.repeatRows) {
       const rows = rowsOfIdentity(l), unknownLevel = l.level === null, sub = unknownLevel ? "SUSPECTED_DUPLICATE" : l.conflicting ? "SAME_NUMBER_DIFFERENT_CONTENT" : "EXACT_REPEAT";
-      put(key, { family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref), documentLevel: l.level, ...l.level === "LINE" && l.conflicting ? { disagreeingFields: disagreeing(l) } : {} }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : { safeAction: true } });
+      const ldq = true;
+      put(key, { ...ldq ? { section: "LEDGER_DATA_QUALITY", label: sub === "SAME_NUMBER_DIFFERENT_CONTENT" ? "Conflicting records sharing the same document number (higher review priority)" : "Repeated accounting record candidate" } : {}, family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref), documentLevel: l.level, ...l.conflicting ? { disagreeingFields: disagreeing(l) } : {}, ...ldq ? { orderTie: { orderRef: l.orderRef ?? null, amazonShipments: sellerSet.filter((d) => d.parts["marketplace-id"] === l.marketplace && (d.parts["order-id"] === l.orderRef || d.evidence.invoiceNumber === l.number)).map((d) => ({ orderId: d.parts["order-id"], transactionId: d.parts["transaction-id"], isBusinessOrder: bflag.get(d) })) } } : {} }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : ldq ? { safeAction: false, note: "Information about the accounting file only. A repeated accounting record does not by itself show a duplicate invoice or a missing or wrong Amazon invoice. It is not called a duplicate invoice until the rows and the document level are confirmed." } : { safeAction: true } });
     } else closed.set(key, { why: l.level === "LINE" ? `The file is declared by the seller as one row per line item, so repeated rows of ${l.number} are expected.` : `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
   }
   const money = (v) => /^-?\d+(\.\d{1,2})?$/.test(String(v ?? "").trim()) ? readMoney(String(v).trim(), ".", "") : null;
@@ -3056,14 +3206,6 @@ function evaluate(prefix, events, ctx) {
     }
     return { ok: false, why: why.length ? why : ["no Amazon report has been loaded"] };
   };
-  const noteGroup = /* @__PURE__ */ new Map();
-  const noteAdd = (reason, subject) => {
-    const k = reason;
-    if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] });
-    const g = noteGroup.get(k);
-    g.count++;
-    if (g.sample.length < 5) g.sample.push(subject);
-  };
   for (const d of A) {
     if (!["PENDING", "SELLER_UPLOAD_REQUIRED", "REJECTED", "PROCESSING", "ACCEPTED"].includes(d.state)) continue;
     const id = amazonId(d), key = issueKey(ctx.seller, "BOOKS_GAP", id), L = link.get(id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
@@ -3076,6 +3218,11 @@ function evaluate(prefix, events, ctx) {
     if (L?.level === "DECLARED") {
       const l = merged.get(L.ledger[0]);
       put(key, { family: "BOOKS_GAP", subtype: number ? "NUMBER_AT_AMAZON_NOT_IN_BOOKS" : "NOT_IN_BOOKS", status: "DECLARED_LINK", declared: { event: L.event }, subject, evidence: { ...base, declaredLink: { document: l.number, by: L.event.author, reasoning: L.event.reasoning } }, fingerprint: fp("BG", id, "DECLARED", ledgerKey(l), L.event.id ?? L.event.createdAt), safeAction: true });
+      continue;
+    }
+    if (L?.level === "ORDER_MISMATCH") {
+      put(key, { family: "BOOKS_GAP", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: base, fingerprint: fp("BG", id, "ORDER_MISMATCH", L.ledger), note: `Nothing is concluded: ${L.why}.` });
+      noteAdd(`An accounting document and Amazon disagree about which order a document number belongs to: ${L.why}`, id);
       continue;
     }
     if (L && ["PROPOSED", "AMBIGUOUS", "OTHER_NUMBER"].includes(L.level)) {
@@ -3095,6 +3242,15 @@ function evaluate(prefix, events, ctx) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "UNMATCHED_DOCUMENT", "L:" + lk), L = ledLink.get(lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, orderRef: l.orderRef, issueDate: l.issueDate };
     const ev = { sources: [ledgerEvidence(l)], document: { number: l.number, issueDate: l.issueDate, orderRef: l.orderRef, operationDate: l.operationDate } };
     if (l.conflicting) continue;
+    if (!ledLink.get(lk)?.level && (heldOutNum.has(l.marketplace + "|" + l.number) || heldOutOrder.has(l.marketplace + "|" + l.orderRef))) {
+      noteAdd("This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing", lk);
+      continue;
+    }
+    if (L?.level === "ORDER_MISMATCH") {
+      put(key, { family: "UNMATCHED_DOCUMENT", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: ev, fingerprint: fp("UD", lk, "ORDER_MISMATCH", L.amazon), note: `Nothing is concluded: ${L.why}.` });
+      noteAdd(`An accounting document and Amazon disagree about which order a document number belongs to: ${L.why}`, lk);
+      continue;
+    }
     if (L?.level === "CONFIRMED") {
       const a = A.find((x) => amazonId(x) === L.amazon[0]);
       closed.set(key, { why: `Amazon shows the same number (${l.number}) on one transaction.`, sources: a ? [vidrEvidence(a)] : [], importId: a?.current.importId });
@@ -3127,9 +3283,28 @@ function evaluate(prefix, events, ctx) {
   }
   const covNotes = [...noteGroup.values()].sort((a, b) => a.reason.localeCompare(b.reason));
   const docsFine = A.filter((d) => d.state === "ACCEPTED" && link.get(amazonId(d))?.level === "CONFIRMED").length;
-  return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
+  const byFlag = (f) => sellerSet.filter((d) => bflag.get(d) === f).length, matchedBiz = A.filter((d) => link.get(amazonId(d))?.level === "CONFIRMED").length, nonOrdinary = rec.docs.length - ordinary.length, amazonInv = ordinary.filter((d) => flagged.get(d) === "TRUE").length;
+  const coverage = {
+    transactionsTotal: rec.docs.length,
+    totalMeans: "every unique transaction in the loaded Amazon reports (one shipment counts once however many item rows it has)",
+    scope: {
+      count: A.length + byFlag("FALSE"),
+      means: "unique shipments that the seller must invoice (is-amazon-invoiced FALSE) and whose is-business-order field is readable",
+      business: { entered: A.length, matched: matchedBiz, matchedAndAccepted: docsFine, notMatched: A.length - matchedBiz, matchedMeans: "the shipment is linked to a document in the books by its invoice number; denominator = business shipments in scope" },
+      nonBusiness: { count: byFlag("FALSE"), status: "NOT_EVALUATED", reason: "These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result for them either way." }
+    },
+    undetermined: {
+      count: bizUndetermined.length + flagUndetermined.length,
+      byReason: { BUSINESS_FLAG_BLANK: byFlag("BLANK"), BUSINESS_FLAG_CONFLICT: byFlag("CONFLICT"), BUSINESS_FLAG_UNREADABLE: byFlag("UNREADABLE"), AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: flagUndetermined.length },
+      reason: "The business-order field is blank or holds a value that is neither TRUE nor FALSE, or the rows of one shipment disagree, or the field that says who issues the invoice could not be read. They sit in no figure of the scope."
+    },
+    outsideScope: { count: nonOrdinary + amazonInv, byReason: { AMAZON_INVOICED: amazonInv, NOT_ORDINARY_INVOICE: nonOrdinary }, reason: "Invoices created by Amazon are not the seller's to issue. Corrections and non-shipment rows are not ordinary invoices. None of them is in the scope." }
+  };
+  coverage.statement = coverageStatement(coverage);
+  return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, coverage, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
 }
-function project({ imports, events = [], sellerProfileId = "local" }) {
+function project({ imports, events = [], sellerProfileId = "local", deletions: allDeletions = [] }) {
+  const deletions = allDeletions.filter((d) => (d.status ?? "COMMITTED") === "COMMITTED");
   const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: /* @__PURE__ */ new Map(), rowIdx: /* @__PURE__ */ new Map(), actions: /* @__PURE__ */ new Map(), prevMismatch: /* @__PURE__ */ new Map() };
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) {
@@ -3142,7 +3317,11 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
     ctx.actions.get(e.issueKey).push(e);
   }
   const hist = /* @__PURE__ */ new Map();
-  let last = { findings: /* @__PURE__ */ new Map(), closed: /* @__PURE__ */ new Map(), notes: [], stats: {}, links: {}, amazonDocs: [], importDefects: /* @__PURE__ */ new Map(), ledgerDocs: [] };
+  let last = { findings: /* @__PURE__ */ new Map(), closed: /* @__PURE__ */ new Map(), notes: [], stats: {}, coverage: (() => {
+    const c2 = { transactionsTotal: 0, scope: { count: 0, business: { entered: 0, matched: 0, matchedAndAccepted: 0, notMatched: 0 }, nonBusiness: { count: 0, status: "NOT_EVALUATED" } }, undetermined: { count: 0, byReason: { BUSINESS_FLAG_BLANK: 0, BUSINESS_FLAG_CONFLICT: 0, BUSINESS_FLAG_UNREADABLE: 0, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 0 } }, outsideScope: { count: 0, byReason: { AMAZON_INVOICED: 0, NOT_ORDINARY_INVOICE: 0 } } };
+    c2.statement = coverageStatement(c2);
+    return c2;
+  })(), links: {}, amazonDocs: [], importDefects: /* @__PURE__ */ new Map(), ledgerDocs: [] };
   const n = ordered.length;
   for (let k = 0; k < n; k++) {
     const horizon = k < n - 1 ? Math.min(...ordered.slice(k + 1).map((i) => ms2(i.importedAt) ?? Infinity)) : Infinity;
@@ -3232,6 +3411,8 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
       events: goodEvents.filter((e) => e.issueKey === key).map((e) => ({ id: e.id ?? null, type: e.type, kind: e.kind ?? null, author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })),
       lapsedDeclarations: lapsed.map((e) => ({ author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })),
       declaration: declaration ? { author: declaration.author, createdAt: declaration.createdAt, reasoning: declaration.reasoning, kind: declaration.kind ?? declaration.type } : null,
+      section: shown?.section ?? null,
+      label: shown?.label ?? null,
       fingerprint: shown?.fingerprint ?? null,
       closure: final.status === "CLOSED" ? closure ?? final.closure : null,
       finding: shown ? { evidence: shown.evidence, note: shown.note ?? null } : { evidence: pastP.evidence, note: null, lastSeen: true }
@@ -3239,14 +3420,38 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
     issue.card = buildCard(issue);
     issues.push(issue);
   }
+  const byKey = /* @__PURE__ */ new Map();
+  for (const d of [...deletions].sort((a, b) => String(a.deletedAt).localeCompare(String(b.deletedAt)) || String(a.id).localeCompare(String(b.id)))) for (const a of d.affected ?? []) {
+    if (!byKey.has(a.key)) byKey.set(a.key, []);
+    byKey.get(a.key).push({ d, a });
+  }
+  for (const [key, list2] of byKey) {
+    const first = list2[0].a, deletedImports = list2.map(({ d }) => ({ deletionId: d.id, importId: d.import.id, fileName: d.import.fileName ?? null, kind: d.import.kind, deletedAt: d.deletedAt, utcOffsetMinutes: d.utcOffsetMinutes ?? null, reason: d.reason }));
+    const recorded = { state: first.recordedState, episodes: first.recordedEpisodes ?? [], history: first.recordedHistory ?? [] }, wasClosed = list2.some(({ a }) => a.recordedState === "VERIFIED_CLOSED");
+    let issue = issues.find((i) => i.key === key);
+    if (!issue) {
+      issue = { key, family: first.family, subtype: first.subtype, state: "HISTORY_INCOMPLETE", outcome: null, awaiting: null, subject: first.subject, reopened: false, episodes: [], history: [], events: goodEvents.filter((e) => e.issueKey === key).map((e) => ({ id: e.id ?? null, type: e.type, kind: e.kind ?? null, author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })), lapsedDeclarations: [], declaration: null, section: null, label: null, fingerprint: null, closure: null, placeholder: true, finding: { evidence: null, note: null, lastSeen: true } };
+      issues.push(issue);
+    }
+    Object.assign(issue, { historyIncomplete: true, deletedImports, priorRecordedState: first.recordedState, recordedBeforeDeletion: recorded });
+    if (wasClosed && issue.state !== "VERIFIED_CLOSED") {
+      issue.priorRecordedState = "VERIFIED_CLOSED";
+      issue.state = "HISTORY_INCOMPLETE";
+      issue.outcome = null;
+      issue.awaiting = null;
+    }
+    issue.card = buildCard(issue);
+  }
   issues.sort((a, b) => a.key.localeCompare(b.key));
   const count = (s) => issues.filter((i) => i.state === s).length;
   const buckets = {
     matchedByInvoiceNumber: last.stats.matchedByInvoiceNumber ?? 0,
     inProgressAtAmazon: last.stats.processing ?? 0,
     needsActionNow: count("ACTION_REQUIRED"),
-    needsHumanReading: count("OPEN"),
+    needsHumanReading: issues.filter((i) => i.state === "OPEN" && i.section !== "LEDGER_DATA_QUALITY").length,
+    ledgerDataQuality: issues.filter((i) => i.section === "LEDGER_DATA_QUALITY").length,
     awaitingNewEvidence: count("AWAITING_NEW_EVIDENCE"),
+    historyIncomplete: issues.filter((i) => i.historyIncomplete).length,
     cannotDetermine: last.notes.reduce((n2, g) => n2 + g.count, 0),
     reportedResolvedBySeller: count("MANUALLY_REPORTED_RESOLUTION"),
     closedWithEvidence: count("VERIFIED_CLOSED")
@@ -3259,6 +3464,7 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
     buckets,
     coverageNotes: last.notes,
     stats: last.stats,
+    coverage: last.coverage,
     rejectedEvents,
     notCheckedInThisVersion: NOT_CHECKED_IN_THIS_VERSION,
     imports: ordered.map((i) => ({ id: i.id, kind: isLedger(i) ? "ledger" : "vidr", fileName: i.fileName ?? null, importedAt: i.importedAt, descriptor: descriptor(i), defects: last.importDefects.get(i.id)?.defects ?? [], scopeNotes: last.importDefects.get(i.id)?.scopeNotes ?? [] }))
@@ -3267,6 +3473,8 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
 
 // src/loop/store.js
 var isoDay2 = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+var DELETION_EXPORT_NOTICE = "This export contains a record of the files you deleted: their names, their fingerprints (SHA-256), the time of each deletion and which problems each one touched. It does not contain what was inside those files. Anyone who receives this export can read those names and times.";
+var RESTORE_WARNING = "A restore puts your workspace back exactly as it was when the backup was made. Files you deleted after that backup come back with it, and the records of those deletions are not in it, so they will not be shown as deleted.";
 var Refused = class extends Error {
   constructor(reasons) {
     super(reasons.join(" "));
@@ -3301,18 +3509,27 @@ function ledgerDoorProblems(text, profile, d = {}) {
   return p;
 }
 var sig = (r) => JSON.stringify(r.issues.map((i) => [i.key, i.state, i.fingerprint]).sort());
-function orphanedEvents(events, after, imports, pid) {
+function orphanedEvents(events, after, imports, pid, deletions = []) {
   const keys = new Set(after.issues.map((i) => i.key)), base = sig(after);
-  return events.filter((e) => e.type === "LINK_DECISION" ? sig(project({ imports, events: events.filter((x) => x !== e), sellerProfileId: pid })) === base : !keys.has(e.issueKey));
+  return events.filter((e) => e.type === "LINK_DECISION" ? sig(project({ imports, events: events.filter((x) => x !== e), sellerProfileId: pid, deletions })) === base : !keys.has(e.issueKey));
 }
-function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toISOString() } = {}) {
+function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toISOString(), offsetMinutes = () => -(/* @__PURE__ */ new Date()).getTimezoneOffset() } = {}) {
   const key = (k, id) => `loop:${k}:${id}`;
-  const list = async (k) => {
+  const list2 = async (k) => {
     const out = [];
     for (const x of (await adapter.list()).filter((x2) => String(x2).startsWith(`loop:${k}:`)).sort()) out.push(await adapter.get(x));
     return out;
   };
   let seq = 0;
+  const pruneOrphans = async () => {
+    const imports = await list2("import"), events = await list2("event"), pid = await api.profileId(), deletions = (await list2("deletion")).filter((d) => (d.status ?? "COMMITTED") === "COMMITTED"), after = project({ imports, events, sellerProfileId: pid, deletions });
+    let n = 0;
+    for (const e of orphanedEvents(events, after, imports, pid, deletions)) {
+      await adapter.del(key("event", e.id));
+      n++;
+    }
+    return n;
+  };
   const api = {
     async profileId() {
       let p = await adapter.get("loop:profile");
@@ -3337,13 +3554,33 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
       return rec.id;
     },
     async imports() {
-      return list("import");
+      return list2("import");
     },
     async events() {
-      return list("event");
+      return list2("event");
+    },
+    /** The permanent record of deleted imports: which file, when, why, and which problems it touched. It never holds file content. */
+    async deletions() {
+      return list2("deletion");
+    },
+    async committedDeletions() {
+      return (await list2("deletion")).filter((d) => (d.status ?? "COMMITTED") === "COMMITTED");
+    },
+    /** Settles every PENDING deletion record by looking at whether its file is really gone. File gone: the record is completed (COMMITTED), once, under its own id. File present: the record is KEPT, however old, and counts as no deletion (it is invisible to project()); a retry reuses it under the same id. There is no time-based discard: a stalled tab could still delete the file later, and a discarded record would then be lost. Only the file's absence moves a record forward. The file is looked up by its import id, never by name or hash. Idempotent. */
+    async recoverDeletions() {
+      const out = { committed: [], pending: [] };
+      for (const rec of (await list2("deletion")).filter((d) => d.status === "PENDING")) {
+        if (!await adapter.get(key("import", rec.import.id))) {
+          await adapter.put(key("deletion", rec.id), { ...rec, status: "COMMITTED", committedAt: now() });
+          out.committed.push(rec.id);
+        } else out.pending.push(rec.id);
+      }
+      if (out.committed.length) await pruneOrphans();
+      return out;
     },
     async project() {
-      return project({ imports: await this.imports(), events: await this.events(), sellerProfileId: await this.profileId() });
+      await this.recoverDeletions();
+      return project({ imports: await this.imports(), events: await this.events(), sellerProfileId: await this.profileId(), deletions: await this.committedDeletions() });
     },
     /** Records what the seller said. It checks the event against the current projection and refuses what the problem does not accept. It never writes a state. */
     async addEvent(e) {
@@ -3356,6 +3593,7 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
       } else {
         const issue = r.issues.find((i) => i.key === ev.issueKey);
         if (!issue) throw new Refused(["That problem is not in the current results."]);
+        if (issue.placeholder) throw new Refused(["The history of that problem is incomplete because a file was deleted, so no new statement can be attached to it."]);
         if (issue.state === "VERIFIED_CLOSED") throw new Refused(["That problem is already closed by evidence."]);
         if (DECLARATION_TYPES.includes(ev.type)) {
           const d = declarationProblem(ev, issue.family, issue.subtype);
@@ -3369,7 +3607,7 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
     },
     /** Evidence bundle: inputs, events, and the projection with what each closure rests on. No field adds declared resolutions to evidence-closed ones. */
     async bundle() {
-      const r = await this.project(), imports = await this.imports(), events = await this.events();
+      const r = await this.project(), imports = await this.imports(), events = await this.events(), deletions = await this.committedDeletions();
       const b = r.buckets;
       return {
         bundleVersion: 1,
@@ -3382,8 +3620,11 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
         note: "State of the loaded files on the dates they were loaded. Anything marked declared was said by the seller and is not confirmed by a file. No statement here is about the legal position of any document.",
         imports: imports.map((i) => ({ id: i.id, kind: i.kind, fileName: i.fileName, sha256: i.sha256, importedAt: i.importedAt, declared: i.declared, profile: i.profile ?? null, text: i.text })),
         events,
+        deletions,
+        deletionRecordNotice: DELETION_EXPORT_NOTICE,
         headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },
-        issues: r.issues.map((i) => ({ key: i.key, family: i.family, subtype: i.subtype, state: i.state, closureBasis: i.outcome, episodes: i.episodes, history: i.history, events: i.events, declaration: i.declaration, lapsedDeclarations: i.lapsedDeclarations, closure: i.closure, card: i.card })),
+        issues: r.issues.map((i) => ({ key: i.key, family: i.family, subtype: i.subtype, state: i.state, closureBasis: i.outcome, episodes: i.episodes, history: i.history, events: i.events, declaration: i.declaration, lapsedDeclarations: i.lapsedDeclarations, closure: i.closure, historyIncomplete: i.historyIncomplete ?? false, priorRecordedState: i.priorRecordedState ?? null, deletedImports: i.deletedImports ?? [], recordedBeforeDeletion: i.recordedBeforeDeletion ?? null, card: i.card })),
+        coverage: r.coverage,
         coverageNotes: r.coverageNotes,
         rejectedEvents: r.rejectedEvents.map((x) => ({ reason: x.reason, type: x.event.type })),
         notCheckedInThisVersion: r.notCheckedInThisVersion
@@ -3406,40 +3647,50 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
     },
     /** What deleting this import would do, computed from the data, nothing is changed. */
     async deletionImpact(importId) {
-      const imports = await this.imports(), events = await this.events(), target = imports.find((i) => i.id === importId);
+      const imports = await this.imports(), events = await this.events(), deletions = await this.committedDeletions(), target = imports.find((i) => i.id === importId);
       if (!target) throw new Refused(["That import is not stored."]);
-      const pid = await this.profileId(), before = project({ imports, events, sellerProfileId: pid }), rest = imports.filter((i) => i.id !== importId), after = project({ imports: rest, events, sellerProfileId: pid });
-      const orphans = orphanedEvents(events, after, rest, pid), ak = new Map(after.issues.map((i) => [i.key, i]));
+      const pid = await this.profileId(), before = project({ imports, events, sellerProfileId: pid, deletions }), rest = imports.filter((i) => i.id !== importId), after = project({ imports: rest, events, sellerProfileId: pid, deletions });
+      const ak = new Map(after.issues.map((i) => [i.key, i]));
+      const touched = before.issues.filter((i) => !i.placeholder && (i.history.some((h) => h.import === importId) || !ak.has(i.key) || ak.get(i.key).state !== i.state || ak.get(i.key).fingerprint !== i.fingerprint));
       const gone = before.issues.filter((i) => !ak.has(i.key)), changed = before.issues.filter((i) => ak.has(i.key) && (ak.get(i.key).state !== i.state || ak.get(i.key).fingerprint !== i.fingerprint));
       const tally = (xs, f) => xs.reduce((m, x) => {
         const k = f(x);
         m[k] = (m[k] ?? 0) + 1;
         return m;
       }, {});
+      const record = {
+        import: { id: target.id, kind: target.kind, fileName: target.fileName ?? null, importedAt: target.importedAt, sha256: target.sha256 },
+        affected: touched.map((i) => ({ key: i.key, family: i.family, subtype: i.subtype, subject: i.subject, recordedState: i.state, recordedEpisodes: i.episodes.map((e) => ({ from: e.from, fromFile: e.fromFile, to: e.to })), recordedHistory: i.history.map((h) => ({ import: h.import, file: h.file, status: h.status, note: h.note })) }))
+      };
       return {
-        import: { id: target.id, kind: target.kind, fileName: target.fileName, importedAt: target.importedAt, sha256: target.sha256 },
+        import: record.import,
         issuesDisappearing: tally(gone, (i) => i.family),
         issuesChanging: changed.length,
-        eventsRemoved: tally(orphans, (e) => e.type),
-        eventsKept: events.length - orphans.length,
+        findingsMarkedHistoryIncomplete: touched.length,
         importsRemaining: rest.length,
-        removes: ["the stored file text and its declarations and mapping profile", "every problem that exists only because of this file (computed, not stored, so nothing else to erase)", "the seller statements attached to those problems (listed above)"],
-        keeps: ["all other imports", "seller statements on problems that still exist", "any copy you downloaded (evidence bundle or backup) outside this page"]
+        record,
+        removes: ["the stored file text and its declarations and mapping profile"],
+        keeps: ["a permanent record of this deletion: file name, kind, hash, time, reason and the problems it touched (never the file content)", "every problem that existed because of this file, shown as HISTORY_INCOMPLETE with what was recorded before", "the seller statements attached to those problems", "all other imports", "any copy you downloaded (evidence bundle or backup) outside this page"]
       };
     },
-    /** Deletes the import, then the seller statements that no longer attach to anything. Needs {confirmed:true}. Import first: an interruption leaves orphaned statements, never a lost import and never a half-deleted file. */
-    async deleteImport(importId, { confirmed = false } = {}) {
+    /** Records the deletion permanently, deletes the import, then the seller statements that no longer attach to anything. Needs {confirmed:true}. The record is written first: an interruption leaves a record for a file that is still there, never a lost trace. */
+    async deleteImport(importId, { confirmed = false, reason = "SELLER_DELETED" } = {}) {
       if (confirmed !== true) throw new Refused(["Deleting needs your confirmation after you have seen what it removes."]);
       if (!adapter.del) throw new Refused(["This storage cannot delete single records."]);
-      const impact = await this.deletionImpact(importId);
-      await adapter.del(key("import", importId));
-      const imports = await this.imports(), events = await this.events(), pid = await this.profileId(), after = project({ imports, events, sellerProfileId: pid });
-      let removed = 0;
-      for (const e of orphanedEvents(events, after, imports, pid)) {
-        await adapter.del(key("event", e.id));
-        removed++;
+      if (typeof reason !== "string" || !reason.trim() || reason.length > 200) throw new Refused(["The reason for a deletion is a short text of at most 200 characters."]);
+      await this.recoverDeletions();
+      const impact = await this.deletionImpact(importId), at = now(), prior = (await list2("deletion")).find((d) => d.status === "PENDING" && d.import.id === importId);
+      const rec = { id: prior?.id ?? `del-${at.replace(/\D/g, "").slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, status: "PENDING", attemptedAt: at, deletedAt: at, utcOffsetMinutes: offsetMinutes(), reason: reason.trim(), ...impact.record };
+      await adapter.put(key("deletion", rec.id), rec);
+      try {
+        await adapter.del(key("import", importId));
+        if (await adapter.get(key("import", importId))) throw new Error("The file is still stored after the delete.");
+      } catch (e) {
+        throw e;
       }
-      return { ...impact, deleted: true, eventsDeleted: removed };
+      await adapter.put(key("deletion", rec.id), { ...rec, status: "COMMITTED", committedAt: now() });
+      const removed = await pruneOrphans();
+      return { ...impact, deleted: true, deletionId: rec.id, eventsDeleted: removed };
     },
     /** Imports older than the retention days. Only ever acts when the seller turned retention on and confirmed. */
     async retentionPreview(asOf = now()) {
@@ -3451,7 +3702,7 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
     async applyRetention(asOf = now()) {
       const p = await this.retentionPreview(asOf), done = [];
       for (const i of p.due) {
-        await this.deleteImport(i.id, { confirmed: true });
+        await this.deleteImport(i.id, { confirmed: true, reason: "RETENTION_POLICY" });
         done.push(i.id);
       }
       return { enabled: p.enabled, deleted: done };
@@ -4023,7 +4274,9 @@ function aggregateMetrics({ projection, record, imports = [] }) {
 }
 export {
   ADJUDICATIONS,
+  DELETION_EXPORT_NOTICE,
   FIELDS,
+  RESTORE_WARNING,
   Refused,
   VaultError,
   VaultLocked,

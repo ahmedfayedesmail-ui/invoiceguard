@@ -1,4 +1,4 @@
-import { parseVidr, needsInvoice } from './vidr.js';
+import { parseVidr, needsInvoice, heldForUnknownFlags, unknownFlags, unknownFlagsReason } from './vidr.js';
 import { validateVat } from './vies.js';
 import { buildInvoice, buildRectificativa } from './invoice.js';
 import { verifyBuyer, hasOverride } from './verify.js';
@@ -38,6 +38,9 @@ export async function processReport(db, seller, reportText, { api, validate = va
   const reportSeq = reportAttemptSeq ?? null;
   const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
   const list = shipments ?? parseVidr(reportText);
+  // Row integrity: rows cut off or split by a raw newline were already rejected by the parser. They are quarantined here, counted and logged by line number only (no cell content), and never processed.
+  out.invalidRows = list.invalidRows ?? [];
+  if (out.invalidRows.length) logEvent(db, seller.id, 'invalid_rows', { count: out.invalidRows.length, lines: out.invalidRows.slice(0, 50).map(r => ({ line: r.line, cells: r.cells, expected: r.expected })) });
   // Friction fix: without this, N shipments meant N SEQUENTIAL VIES round-trips (the loop awaits each
   // check), so a big report could outlive the request timeout. Pre-warm the unique buyer VATs in
   // parallel; the cached validator caps real parallelism and serves the loop below instantly.
@@ -46,7 +49,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
   for (const s of list) {
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
-    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
+    if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); } else out.skipped++; continue; }
     if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     // Round-15 (critic round-13 P1-B): a STALE report row must never drive an upload decision.
     // An old report saying "still pending" could otherwise pass the unknown-settle cross-check
@@ -54,6 +57,8 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // an in-flight attempt - old information causing a new financial upload.
     const staleDoc = staleDocForReport(db, seller, s, reportSeq);
     if (staleDoc) { logStaleRow(db, seller, s, staleDoc, reportSeq); out.skipped++; continue; }
+    // A blank, unreadable or disagreeing is-amazon-invoiced or is-business-order is UNKNOWN. It is never read as a value and never inferred from the status or the buyer data: nothing is issued for it, and it is shown as held with the reason.
+    if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);

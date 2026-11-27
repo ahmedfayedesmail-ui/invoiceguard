@@ -1,0 +1,994 @@
+[
+{
+"seller": 49,
+"scenario": "duplicate_same_content",
+"finding_id": "15cd4fa6aa79dc15f634f125c590d506367f13b386ca3e1419ed8dcf835f5a39",
+"subtype": "EXACT_REPEAT",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 91",
+"row 143"
+],
+"row_contents": [
+{
+"ref": "row 91",
+"cells": {
+"Document Number": "2026/ES/00090",
+"Doc Type": "Invoice",
+"Issue Date": "2026-10-25",
+"Operation Date": "2026-10-23",
+"Currency": "EUR",
+"Gross Amount": "113.94",
+"Net Amount": "94.17",
+"VAT Amount": "19.77",
+"Order Reference": "727-5370586-2000632",
+"Source": "Amazon.it"
+}
+},
+{
+"ref": "row 143",
+"cells": {
+"Document Number": "2026/ES/00090",
+"Doc Type": "Invoice",
+"Issue Date": "2026-10-25",
+"Operation Date": "2026-10-23",
+"Currency": "EUR",
+"Gross Amount": "113.94",
+"Net Amount": "94.17",
+"VAT Amount": "19.77",
+"Order Reference": "727-5370586-2000632",
+"Source": "Amazon.it"
+}
+}
+],
+"fields_that_differ": null,
+"documentLevel": "DOCUMENT",
+"document_number": "2026/ES/00090",
+"tie_to_amazon_order": {
+"orderRef": "727-5370586-2000632",
+"amazonShipments": [
+{
+"orderId": "727-5370586-2000632",
+"transactionId": "S250848537",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 49,
+"scenario": "duplicate_same_content",
+"finding_id": "a427bbcb12f23b50abe006cda643ea01e5f4e4879f2fae4030975d56c6fc8291",
+"subtype": "EXACT_REPEAT",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 54",
+"row 142"
+],
+"row_contents": [
+{
+"ref": "row 54",
+"cells": {
+"Document Number": "2026/ES/00053",
+"Doc Type": "Invoice",
+"Issue Date": "2026-10-28",
+"Operation Date": "2026-10-26",
+"Currency": "EUR",
+"Gross Amount": "247.22",
+"Net Amount": "204.31",
+"VAT Amount": "42.91",
+"Order Reference": "624-5370549-2000371",
+"Source": "Amazon.it"
+}
+},
+{
+"ref": "row 142",
+"cells": {
+"Document Number": "2026/ES/00053",
+"Doc Type": "Invoice",
+"Issue Date": "2026-10-28",
+"Operation Date": "2026-10-26",
+"Currency": "EUR",
+"Gross Amount": "247.22",
+"Net Amount": "204.31",
+"VAT Amount": "42.91",
+"Order Reference": "624-5370549-2000371",
+"Source": "Amazon.it"
+}
+}
+],
+"fields_that_differ": null,
+"documentLevel": "DOCUMENT",
+"document_number": "2026/ES/00053",
+"tie_to_amazon_order": {
+"orderRef": "624-5370549-2000371",
+"amazonShipments": [
+{
+"orderId": "624-5370549-2000371",
+"transactionId": "S556382313",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 63,
+"scenario": "multi_line_declared_UNKNOWN",
+"finding_id": "1bcba140f71cffe2dd6fbd5669eb128a73d361c2f70373b3a9dd50dc6952bbdb",
+"subtype": "SUSPECTED_DUPLICATE",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 28",
+"row 29",
+"row 30"
+],
+"row_contents": [
+{
+"ref": "row 28",
+"cells": {
+"Invoice Number": "FA-2026-0023",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-27",
+"Order Date": "2026-10-25",
+"Currency": "EUR",
+"Gross": "26.47",
+"Net": "21.88",
+"VAT": "4.59",
+"Amazon Order ID": "648-1277415-2000163"
+}
+},
+{
+"ref": "row 29",
+"cells": {
+"Invoice Number": "FA-2026-0023",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-27",
+"Order Date": "2026-10-25",
+"Currency": "EUR",
+"Gross": "52.93",
+"Net": "43.74",
+"VAT": "9.19",
+"Amazon Order ID": "648-1277415-2000163"
+}
+},
+{
+"ref": "row 30",
+"cells": {
+"Invoice Number": "FA-2026-0023",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-27",
+"Order Date": "2026-10-25",
+"Currency": "EUR",
+"Gross": "79.40",
+"Net": "65.62",
+"VAT": "13.78",
+"Amazon Order ID": "648-1277415-2000163"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": null,
+"document_number": "FA-2026-0023",
+"tie_to_amazon_order": {
+"orderRef": "648-1277415-2000163",
+"amazonShipments": [
+{
+"orderId": "648-1277415-2000163",
+"transactionId": "S370642230",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate."
+},
+{
+"seller": 100,
+"scenario": "multi_line_declared_UNKNOWN",
+"finding_id": "84d07ae6352473f7ceab983516fc62ae1f14807d8d8892b900df327017ae0e36",
+"subtype": "SUSPECTED_DUPLICATE",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 5",
+"row 6"
+],
+"row_contents": [
+{
+"ref": "row 5",
+"cells": {
+"N\u00ba factura": "RE2026/003",
+"Fecha factura": "27/10/2026",
+"Fecha operaci\u00f3n": "25/10/2026",
+"Divisa": "PLN",
+"Total": "40,21",
+"Base imponible": "33,23",
+"IVA": "6,98",
+"Pedido Amazon": "978-6056340-2000023"
+}
+},
+{
+"ref": "row 6",
+"cells": {
+"N\u00ba factura": "RE2026/003",
+"Fecha factura": "27/10/2026",
+"Fecha operaci\u00f3n": "25/10/2026",
+"Divisa": "PLN",
+"Total": "80,42",
+"Base imponible": "66,46",
+"IVA": "13,96",
+"Pedido Amazon": "978-6056340-2000023"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": null,
+"document_number": "RE2026/003",
+"tie_to_amazon_order": {
+"orderRef": "978-6056340-2000023",
+"amazonShipments": [
+{
+"orderId": "978-6056340-2000023",
+"transactionId": "S416666917",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate."
+},
+{
+"seller": 161,
+"scenario": "duplicate_different_content",
+"finding_id": "4e8b1f90583040e5dd92f22dab63cf86e7a86ec2ff109874c371bc99b31e1d8f",
+"subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+"label": "Conflicting records sharing the same document number (higher review priority)",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 46",
+"row 65"
+],
+"row_contents": [
+{
+"ref": "row 46",
+"cells": {
+"N\u00ba factura": "INV-100045",
+"Tipo": "Factura",
+"Fecha factura": "15/10/2026",
+"Fecha operaci\u00f3n": "13/10/2026",
+"Divisa": "EUR",
+"Total": "186,25",
+"Base imponible": "153,93",
+"IVA": "32,32",
+"Canal": "Amazon.nl"
+}
+},
+{
+"ref": "row 65",
+"cells": {
+"N\u00ba factura": "INV-100045",
+"Tipo": "Factura",
+"Fecha factura": "15/10/2026",
+"Fecha operaci\u00f3n": "13/10/2026",
+"Divisa": "EUR",
+"Total": "191,25",
+"Base imponible": "158,06",
+"IVA": "33,19",
+"Canal": "Amazon.nl"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": "DOCUMENT",
+"document_number": "INV-100045",
+"tie_to_amazon_order": {
+"orderRef": null,
+"amazonShipments": [
+{
+"orderId": "149-5691275-2000317",
+"transactionId": "S139821906",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 173,
+"scenario": "multi_line_declared_DOCUMENT",
+"finding_id": "cdb0c1d7d82fd381ec8254badda0c7b44c078be1fe9daac6028b57add37df8fa",
+"subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+"label": "Conflicting records sharing the same document number (higher review priority)",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 115",
+"row 116"
+],
+"row_contents": [
+{
+"ref": "row 115",
+"cells": {
+"Document Number": "2026/ES/00109",
+"Doc Type": "Invoice",
+"Issue Date": "2026-10-25",
+"Operation Date": "2026-10-23",
+"Currency": "PLN",
+"Gross Amount": "67.62",
+"Net Amount": "55.88",
+"VAT Amount": "11.74",
+"Order Reference": "442-2999601-2000765",
+"Source": "Amazon.pl"
+}
+},
+{
+"ref": "row 116",
+"cells": {
+"Document Number": "2026/ES/00109",
+"Doc Type": "Invoice",
+"Issue Date": "2026-10-25",
+"Operation Date": "2026-10-23",
+"Currency": "PLN",
+"Gross Amount": "135.24",
+"Net Amount": "111.77",
+"VAT Amount": "23.47",
+"Order Reference": "442-2999601-2000765",
+"Source": "Amazon.pl"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": "DOCUMENT",
+"document_number": "2026/ES/00109",
+"tie_to_amazon_order": {
+"orderRef": "442-2999601-2000765",
+"amazonShipments": [
+{
+"orderId": "442-2999601-2000765",
+"transactionId": "S270577776",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 174,
+"scenario": "multi_line_declared_UNKNOWN",
+"finding_id": "016de54c168693b843819e885666eb61a27a49b714164fd171836cc0fd6288c5",
+"subtype": "SUSPECTED_DUPLICATE",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 2",
+"row 3"
+],
+"row_contents": [
+{
+"ref": "row 2",
+"cells": {
+"N\u00ba factura": "2026-1",
+"Tipo": "Factura",
+"Fecha factura": "17/10/2026",
+"Fecha operaci\u00f3n": "15/10/2026",
+"Divisa": "SEK",
+"Total": "67,62",
+"Base imponible": "55,88",
+"IVA": "11,74",
+"Pedido Amazon": "113-4280172-2000010"
+}
+},
+{
+"ref": "row 3",
+"cells": {
+"N\u00ba factura": "2026-1",
+"Tipo": "Factura",
+"Fecha factura": "17/10/2026",
+"Fecha operaci\u00f3n": "15/10/2026",
+"Divisa": "SEK",
+"Total": "135,23",
+"Base imponible": "111,76",
+"IVA": "23,47",
+"Pedido Amazon": "113-4280172-2000010"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": null,
+"document_number": "2026-1",
+"tie_to_amazon_order": {
+"orderRef": "113-4280172-2000010",
+"amazonShipments": [
+{
+"orderId": "113-4280172-2000010",
+"transactionId": "S885029868",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate."
+},
+{
+"seller": 198,
+"scenario": "duplicate_different_content",
+"finding_id": "25482da717785ff25674ed2d34283b222038886d9a1eaa29fc1b14ac49636551",
+"subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+"label": "Conflicting records sharing the same document number (higher review priority)",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 11",
+"row 15"
+],
+"row_contents": [
+{
+"ref": "row 11",
+"cells": {
+"Rechnungsnummer": "A10",
+"Belegart": "Rechnung",
+"Rechnungsdatum": "26.10.2026",
+"Leistungsdatum": "24.10.2026",
+"W\u00e4hrung": "EUR",
+"Brutto": "289,30",
+"Netto": "239,09",
+"USt": "50,21",
+"Kanal": "Amazon.it"
+}
+},
+{
+"ref": "row 15",
+"cells": {
+"Rechnungsnummer": "A10",
+"Belegart": "Rechnung",
+"Rechnungsdatum": "26.10.2026",
+"Leistungsdatum": "24.10.2026",
+"W\u00e4hrung": "EUR",
+"Brutto": "294,30",
+"Netto": "243,22",
+"USt": "51,08",
+"Kanal": "Amazon.it"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": "DOCUMENT",
+"document_number": "A10",
+"tie_to_amazon_order": {
+"orderRef": null,
+"amazonShipments": [
+{
+"orderId": "994-8686684-2000074",
+"transactionId": "S253112355",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 248,
+"scenario": "multi_line_declared_UNKNOWN",
+"finding_id": "b8afd47aa87db7a04c84f27ed8cbbdbb33b116e2eb2ef6ab051a822fb7687315",
+"subtype": "SUSPECTED_DUPLICATE",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 36",
+"row 37",
+"row 38"
+],
+"row_contents": [
+{
+"ref": "row 36",
+"cells": {
+"Invoice Number": "A20",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-17",
+"Order Date": "2026-10-15",
+"Currency": "EUR",
+"Gross": "58.42",
+"Net": "48.28",
+"VAT": "10.14",
+"Amazon Order ID": "567-8231652-2000143"
+}
+},
+{
+"ref": "row 37",
+"cells": {
+"Invoice Number": "A20",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-17",
+"Order Date": "2026-10-15",
+"Currency": "EUR",
+"Gross": "116.84",
+"Net": "96.56",
+"VAT": "20.28",
+"Amazon Order ID": "567-8231652-2000143"
+}
+},
+{
+"ref": "row 38",
+"cells": {
+"Invoice Number": "A20",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-17",
+"Order Date": "2026-10-15",
+"Currency": "EUR",
+"Gross": "175.26",
+"Net": "144.84",
+"VAT": "30.42",
+"Amazon Order ID": "567-8231652-2000143"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": null,
+"document_number": "A20",
+"tie_to_amazon_order": {
+"orderRef": "567-8231652-2000143",
+"amazonShipments": [
+{
+"orderId": "567-8231652-2000143",
+"transactionId": "S323059734",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate."
+},
+{
+"seller": 284,
+"scenario": "multi_line_declared_DOCUMENT",
+"finding_id": "d5769215cf667def97241e9fbd8906edf0559e75dcd50ff09fe970ecfaf33126",
+"subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+"label": "Conflicting records sharing the same document number (higher review priority)",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 36",
+"row 37",
+"row 38"
+],
+"row_contents": [
+{
+"ref": "row 36",
+"cells": {
+"Invoice No": "INV-100022",
+"Type": "Invoice",
+"Date": "2026-10-20",
+"Sale Date": "2026-10-18",
+"Currency": "EUR",
+"Total": "20.33",
+"Net Amount": "16.80",
+"Tax": "3.53",
+"Order ID": "814-2997297-2000154"
+}
+},
+{
+"ref": "row 37",
+"cells": {
+"Invoice No": "INV-100022",
+"Type": "Invoice",
+"Date": "2026-10-20",
+"Sale Date": "2026-10-18",
+"Currency": "EUR",
+"Total": "40.67",
+"Net Amount": "33.61",
+"Tax": "7.06",
+"Order ID": "814-2997297-2000154"
+}
+},
+{
+"ref": "row 38",
+"cells": {
+"Invoice No": "INV-100022",
+"Type": "Invoice",
+"Date": "2026-10-20",
+"Sale Date": "2026-10-18",
+"Currency": "EUR",
+"Total": "61.00",
+"Net Amount": "50.41",
+"Tax": "10.59",
+"Order ID": "814-2997297-2000154"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": "DOCUMENT",
+"document_number": "INV-100022",
+"tie_to_amazon_order": {
+"orderRef": "814-2997297-2000154",
+"amazonShipments": [
+{
+"orderId": "814-2997297-2000154",
+"transactionId": "S852528801",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 285,
+"scenario": "multi_line_declared_UNKNOWN",
+"finding_id": "141aa55612ec5759e9cca59a3673dd3ab20ba6b8148c0b251fe8b9b8a316f4c9",
+"subtype": "SUSPECTED_DUPLICATE",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 13",
+"row 14",
+"row 15"
+],
+"row_contents": [
+{
+"ref": "row 13",
+"cells": {
+"Invoice No": "INV-100008",
+"Date": "2026-11-01",
+"Sale Date": "2026-10-30",
+"Currency": "EUR",
+"Total": "8.48",
+"Net Amount": "7.01",
+"Tax": "1.47",
+"Order ID": "981-7708532-2000057",
+"Sales Channel": "Amazon.nl"
+}
+},
+{
+"ref": "row 14",
+"cells": {
+"Invoice No": "INV-100008",
+"Date": "2026-11-01",
+"Sale Date": "2026-10-30",
+"Currency": "EUR",
+"Total": "16.96",
+"Net Amount": "14.02",
+"Tax": "2.94",
+"Order ID": "981-7708532-2000057",
+"Sales Channel": "Amazon.nl"
+}
+},
+{
+"ref": "row 15",
+"cells": {
+"Invoice No": "INV-100008",
+"Date": "2026-11-01",
+"Sale Date": "2026-10-30",
+"Currency": "EUR",
+"Total": "25.43",
+"Net Amount": "21.02",
+"Tax": "4.41",
+"Order ID": "981-7708532-2000057",
+"Sales Channel": "Amazon.nl"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": null,
+"document_number": "INV-100008",
+"tie_to_amazon_order": {
+"orderRef": "981-7708532-2000057",
+"amazonShipments": [
+{
+"orderId": "981-7708532-2000057",
+"transactionId": "S170982036",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate."
+},
+{
+"seller": 345,
+"scenario": "duplicate_same_content",
+"finding_id": "e0196996489e6a86325ccdc620932219091a40b933a7fb05f7f348334eb232a1",
+"subtype": "EXACT_REPEAT",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 26",
+"row 50"
+],
+"row_contents": [
+{
+"ref": "row 26",
+"cells": {
+"Numer faktury": "A25",
+"Data wystawienia": "2026-10-10",
+"Data sprzeda\u017cy": "2026-10-08",
+"Waluta": "EUR",
+"Brutto": "263,75",
+"Netto": "217,98",
+"VAT": "45,77"
+}
+},
+{
+"ref": "row 50",
+"cells": {
+"Numer faktury": "A25",
+"Data wystawienia": "2026-10-10",
+"Data sprzeda\u017cy": "2026-10-08",
+"Waluta": "EUR",
+"Brutto": "263,75",
+"Netto": "217,98",
+"VAT": "45,77"
+}
+}
+],
+"fields_that_differ": null,
+"documentLevel": "DOCUMENT",
+"document_number": "A25",
+"tie_to_amazon_order": {
+"orderRef": null,
+"amazonShipments": [
+{
+"orderId": "480-5014208-2000176",
+"transactionId": "S381424291",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 346,
+"scenario": "duplicate_different_content",
+"finding_id": "3f3a96258e1bbbff450afb3733c6366cb340b69140748adfd7bac73dea2fa06f",
+"subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+"label": "Conflicting records sharing the same document number (higher review priority)",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 29",
+"row 44"
+],
+"row_contents": [
+{
+"ref": "row 29",
+"cells": {
+"Invoice Number": "RE2026/028",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-05",
+"Order Date": "2026-10-03",
+"Currency": "EUR",
+"Gross": "319.53",
+"Net": "264.07",
+"VAT": "55.46",
+"Channel": "Amazon.de"
+}
+},
+{
+"ref": "row 44",
+"cells": {
+"Invoice Number": "RE2026/028",
+"Document Type": "Invoice",
+"Invoice Date": "2026-10-05",
+"Order Date": "2026-10-03",
+"Currency": "EUR",
+"Gross": "324.53",
+"Net": "268.21",
+"VAT": "56.32",
+"Channel": "Amazon.de"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": "DOCUMENT",
+"document_number": "RE2026/028",
+"tie_to_amazon_order": {
+"orderRef": null,
+"amazonShipments": [
+{
+"orderId": "652-2881343-2000198",
+"transactionId": "S764272764",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 396,
+"scenario": "multi_line_declared_UNKNOWN",
+"finding_id": "7568a230b16a585698576ceb3e2e3f29cf85bbbd03df89a73a48299c7a4f8216",
+"subtype": "SUSPECTED_DUPLICATE",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 5",
+"row 6",
+"row 7"
+],
+"row_contents": [
+{
+"ref": "row 5",
+"cells": {
+"N\u00ba factura": "INV-100003",
+"Tipo": "Factura",
+"Fecha factura": "08/10/2026",
+"Fecha operaci\u00f3n": "06/10/2026",
+"Divisa": "EUR",
+"Total": "61,39",
+"Base imponible": "50,74",
+"IVA": "10,65",
+"Pedido Amazon": "635-7165583-2000023",
+"Canal": "Amazon.nl"
+}
+},
+{
+"ref": "row 6",
+"cells": {
+"N\u00ba factura": "INV-100003",
+"Tipo": "Factura",
+"Fecha factura": "08/10/2026",
+"Fecha operaci\u00f3n": "06/10/2026",
+"Divisa": "EUR",
+"Total": "122,77",
+"Base imponible": "101,46",
+"IVA": "21,31",
+"Pedido Amazon": "635-7165583-2000023",
+"Canal": "Amazon.nl"
+}
+},
+{
+"ref": "row 7",
+"cells": {
+"N\u00ba factura": "INV-100003",
+"Tipo": "Factura",
+"Fecha factura": "08/10/2026",
+"Fecha operaci\u00f3n": "06/10/2026",
+"Divisa": "EUR",
+"Total": "184,16",
+"Base imponible": "152,20",
+"IVA": "31,96",
+"Pedido Amazon": "635-7165583-2000023",
+"Canal": "Amazon.nl"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": null,
+"document_number": "INV-100003",
+"tie_to_amazon_order": {
+"orderRef": "635-7165583-2000023",
+"amazonShipments": [
+{
+"orderId": "635-7165583-2000023",
+"transactionId": "S586078154",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate."
+},
+{
+"seller": 493,
+"scenario": "duplicate_same_content",
+"finding_id": "0fb2e51a646896298d308a5ea8c980e6984e2a5e7bd47035e64817910bab375b",
+"subtype": "EXACT_REPEAT",
+"label": "Repeated accounting record candidate",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 2",
+"row 26"
+],
+"row_contents": [
+{
+"ref": "row 2",
+"cells": {
+"Numer faktury": "INV-100001",
+"Typ": "Faktura",
+"Data wystawienia": "2026-11-01",
+"Data sprzeda\u017cy": "2026-10-30",
+"Waluta": "PLN",
+"Brutto": "357,88",
+"Netto": "295,77",
+"VAT": "62,11",
+"Zam\u00f3wienie Amazon": "271-7552027-2000007"
+}
+},
+{
+"ref": "row 26",
+"cells": {
+"Numer faktury": "INV-100001",
+"Typ": "Faktura",
+"Data wystawienia": "2026-11-01",
+"Data sprzeda\u017cy": "2026-10-30",
+"Waluta": "PLN",
+"Brutto": "357,88",
+"Netto": "295,77",
+"VAT": "62,11",
+"Zam\u00f3wienie Amazon": "271-7552027-2000007"
+}
+}
+],
+"fields_that_differ": null,
+"documentLevel": "DOCUMENT",
+"document_number": "INV-100001",
+"tie_to_amazon_order": {
+"orderRef": "271-7552027-2000007",
+"amazonShipments": [
+{
+"orderId": "271-7552027-2000007",
+"transactionId": "S199085387",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+},
+{
+"seller": 494,
+"scenario": "duplicate_different_content",
+"finding_id": "02ee8179825ebdbabc47f08a02a1be0ab304f0f6d8ffff22dd7548ae4a00ede8",
+"subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+"label": "Conflicting records sharing the same document number (higher review priority)",
+"state": "OPEN",
+"accounting_file": "books.csv",
+"duplicate_row_numbers": [
+"row 2",
+"row 17"
+],
+"row_contents": [
+{
+"ref": "row 2",
+"cells": {
+"N\u00b0 facture": "F000001",
+"Type": "Facture",
+"Date facture": "29/10/2026",
+"Date op\u00e9ration": "27/10/2026",
+"Devise": "EUR",
+"Total TTC": "388,64",
+"Total HT": "321,19",
+"TVA": "67,45",
+"Commande Amazon": "819-4475947-2000008",
+"Canal": "Amazon.nl"
+}
+},
+{
+"ref": "row 17",
+"cells": {
+"N\u00b0 facture": "F000001",
+"Type": "Facture",
+"Date facture": "29/10/2026",
+"Date op\u00e9ration": "27/10/2026",
+"Devise": "EUR",
+"Total TTC": "393,64",
+"Total HT": "325,32",
+"TVA": "68,32",
+"Commande Amazon": "819-4475947-2000008",
+"Canal": "Amazon.nl"
+}
+}
+],
+"fields_that_differ": [],
+"documentLevel": "DOCUMENT",
+"document_number": "F000001",
+"tie_to_amazon_order": {
+"orderRef": "819-4475947-2000008",
+"amazonShipments": [
+{
+"orderId": "819-4475947-2000008",
+"transactionId": "S486894584",
+"isBusinessOrder": "FALSE"
+}
+]
+},
+"note": "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed."
+}
+]

@@ -1,0 +1,258 @@
+{
+ "21": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "3 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "1 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "24": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 9
+  },
+  "confident": 0,
+  "notes": [
+   "8 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "56": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "8 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice"
+  ]
+ },
+ "59": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 3
+  },
+  "confident": 0,
+  "notes": []
+ },
+ "91": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "4 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "28 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "94": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 11
+  },
+  "confident": 0,
+  "notes": [
+   "1 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "126": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "6 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "10 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "129": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 4
+  },
+  "confident": 0,
+  "notes": [
+   "3 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "161": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "5 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "10 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "164": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 6
+  },
+  "confident": 0,
+  "notes": [
+   "9 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "196": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "7 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "22 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "199": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 4
+  },
+  "confident": 0,
+  "notes": [
+   "1 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "231": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "3 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "2 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "234": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 11
+  },
+  "confident": 0,
+  "notes": [
+   "6 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "266": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "9 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "5 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "269": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 7
+  },
+  "confident": 0,
+  "notes": []
+ },
+ "301": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "5 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "3 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "304": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 9
+  },
+  "confident": 0,
+  "notes": [
+   "3 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "336": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "5 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "13 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "339": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 3
+  },
+  "confident": 0,
+  "notes": []
+ },
+ "371": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "5 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "2 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "374": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 4
+  },
+  "confident": 0,
+  "notes": [
+   "4 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "406": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "10 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "1 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "409": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 3
+  },
+  "confident": 0,
+  "notes": []
+ },
+ "441": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "8 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice",
+   "7 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "444": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 6
+  },
+  "confident": 0,
+  "notes": [
+   "5 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ },
+ "476": {
+  "scenario": "amazon_issued_invoices",
+  "byFamily": {},
+  "confident": 0,
+  "notes": [
+   "2 x Amazon invoice flag could not be read (CONFLICT): the is-amazon-invoiced column (TRUE) and invoice-status (InvoiceUploaded) disagree about whether Amazon issued the invoice"
+  ]
+ },
+ "479": {
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "byFamily": {
+   "DUPLICATE_DOCUMENT/EXACT_REPEAT/OPEN": 3
+  },
+  "confident": 0,
+  "notes": [
+   "4 x This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+  ]
+ }
+}

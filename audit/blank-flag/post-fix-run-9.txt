@@ -1,0 +1,5 @@
+not ok 305 - the business flag must not affect DATA_RECONCILIATION: a currency difference is found and acted on the same way on a business and a non-business order # TODO engine change not made yet: non-business shipments are held out before linking
+# tests 630
+# pass 629
+# fail 0
+# todo 1

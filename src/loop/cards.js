@@ -1,7 +1,7 @@
 // Action cards. Every sentence is built from a template and values taken from the evidence. No wording states the legal position of a document or of the seller.
-const STATE_LABEL = { OPEN: 'Needs a human reading', ACTION_REQUIRED: 'Action required', AWAITING_NEW_EVIDENCE: 'Waiting for new evidence', VERIFIED_CLOSED: 'Closed, with evidence', MANUALLY_REPORTED_RESOLUTION: 'Reported resolved by you, not confirmed by the files' };
+const STATE_LABEL = { HISTORY_INCOMPLETE: 'History incomplete: a file you deleted was part of this', OPEN: 'Needs a human reading', ACTION_REQUIRED: 'Action required', AWAITING_NEW_EVIDENCE: 'Waiting for new evidence', VERIFIED_CLOSED: 'Closed, with evidence', MANUALLY_REPORTED_RESOLUTION: 'Reported resolved by you, not confirmed by the files' };
 const mkt = (s) => s?.marketplace ?? 'the declared marketplace';
-export function buildCard(i) {
+function baseCard(i) {
   const s = i.subject ?? {}, e = i.finding?.evidence ?? {}, t = i.subtype;
   const c = { title: '', what: '', why: '', proof: [], action: '', closesWhen: '', stateLabel: STATE_LABEL[i.state] ?? i.state, stateNote: null, history: i.history };
   c.proof = (e.sources ?? []).map(src => ({ file: src.fileName ?? src.importId, role: src.role === 'amazon' ? 'Amazon VAT invoice report' : 'Your accounting export', rows: src.rows }));
@@ -41,6 +41,7 @@ export function buildCard(i) {
       c.action = 'Check these rows in your accounting system and make the document-level data the same on every line of the document, if that is what the document says. Nothing in this message means that a row should be deleted.';
       c.closesWhen = 'A newer complete accounting export of the same scope in which the document-level data agrees across the lines.'; return c; }
     if (t === 'SUSPECTED_DUPLICATE') { c.title = `Document ${s.number ?? ''} is on several rows: cannot tell if it is a duplicate`; c.what = `Rows ${(e.rowNumbers ?? []).join(', ')} carry the same document number.`; c.why = 'The file does not say what one row is. If each row is one line of the document, the repetition is normal; if each row is a whole document, it is a duplicate.'; c.action = 'Load the file again and state what one row is: a whole document or one line item of a document. Do not remove rows from your accounting system because of this message.'; c.closesWhen = 'A complete export of the same scope that states what one row is. If one row is one document, a repeated number then becomes a duplicate; if one row is one line item, the repetition is expected.'; return c; }
+    if (i.section === 'LEDGER_DATA_QUALITY') { const fs = e.disagreeingFields ?? []; c.title = `${i.label}: ${s.number ?? ''}`; c.what = (t === 'SAME_NUMBER_DIFFERENT_CONTENT' ? `Rows ${(e.rowNumbers ?? []).join(', ')} of the accounting file carry the same document number ${s.number ?? ''} with different content` + (fs.length ? ' (differing: ' + fs.map(f => f.label).join(', ') + ')' : '') + '.' : `Rows ${(e.rowNumbers ?? []).join(', ')} of the accounting file are identical copies carrying the document number ${s.number ?? ''}.`) + ' This is information about your accounting file (Ledger Data Quality), not a finding about an Amazon invoice.'; c.why = 'A repeated accounting record does not by itself show a duplicate invoice or a problem with an Amazon invoice. Nothing is asked of you because of this alone. It is not called a duplicate invoice until the rows and the document level are confirmed. Other checks on the same order are unaffected.'; c.action = 'Optional: look at these rows in your accounting system. Do not delete anything that is correct; nothing in this message asks you to remove a row.'; c.closesWhen = 'A newer complete accounting export of the same scope in which the document appears once.'; return c; }
     c.what = t === 'SAME_NUMBER_DIFFERENT_CONTENT' ? `Rows ${(e.rowNumbers ?? []).join(', ')} carry the same document identity with different content.` : `Rows ${(e.rowNumbers ?? []).join(', ')} are identical copies of the same document.`;
     c.why = 'A document identity can hold one document. We do not pick one of the rows.';
     c.action = 'You declared that one row of this export is a whole document, so the same document number on several rows is a problem in the export. Check the rows shown below in your accounting system. Do not delete anything that is correct; if a row is a line item of a document, load the file again and declare that one row is one line item.';
@@ -54,4 +55,57 @@ export function buildCard(i) {
   if (i.reopened) c.stateNote = (c.stateNote ? c.stateNote + ' ' : '') + 'This problem was closed by evidence earlier and a newer file shows it again. Both pieces of evidence are kept in the history.';
   if (i.lapsedDeclarations?.length) c.stateNote = (c.stateNote ? c.stateNote + ' ' : '') + 'An earlier declaration no longer applies because the evidence it was based on changed.';
   return c;
+}
+
+// ---- Findings whose history passed through a deleted file. Plain words, the seller's own clock, no action line. ----
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "27 Nov 2026, 13:00" on the clock the record was written on. A record without an offset is shown in UTC and says so, never as a local time. */
+export function localTime(iso, offsetMinutes) {
+  const t = Date.parse(iso); if (Number.isNaN(t)) return 'an unknown time';
+  const hasOff = Number.isInteger(offsetMinutes), d = new Date(t + (hasOff ? offsetMinutes : 0) * 60000), p = (n) => String(n).padStart(2, '0');
+  return `${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${hasOff ? '' : ' UTC'}`;
+}
+const STEP = { PRESENT: 'found on', CLOSED: 'closed on', UNDETERMINED: 'could not be judged on', DECLARED_LINK: 'declared by you on' };
+const ident = (i) => { const s = i.subject ?? {}, p = [];
+  if (s.orderId) p.push(`order ${s.orderId}`); else if (s.orderRef) p.push(`order ${s.orderRef}`); if (s.shippingId) p.push(`shipment ${s.shippingId}`); if (s.number) p.push(`document ${s.number}`);
+  return p.length ? p.join(', ') : 'a problem found earlier'; };
+/** What each deleted file was responsible for, read from the record. A claim of "no longer available" is made only for what the DELETED file held. */
+function analyse(i) {
+  const rec = i.recordedBeforeDeletion ?? { history: [] }, gone = new Set((i.deletedImports ?? []).map(d => d.importId)), h = rec.history;
+  const openedBy = h.find(x => x.status === 'PRESENT')?.import ?? null, closing = h.filter(x => x.status === 'CLOSED');
+  const vidrGone = (i.deletedImports ?? []).some(d => d.kind === 'vidr');
+  const closureGone = closing.some(x => gone.has(x.import)), originGone = openedBy !== null && gone.has(openedBy);
+  const closureHeldBy = closing.filter(x => !gone.has(x.import)).at(-1)?.file ?? null;
+  return { rec, gone, h, vidrGone, closureGone, originGone, closureHeldBy, closed: i.priorRecordedState === 'VERIFIED_CLOSED' };
+}
+function historyText(i) {
+  const out = [], A = analyse(i);
+  for (const d of i.deletedImports ?? []) {
+    const when = localTime(d.deletedAt, d.utcOffsetMinutes), who = d.reason === 'RETENTION_POLICY' ? 'Your retention setting deleted' : 'You deleted', why = d.reason === 'SELLER_DELETED' || d.reason === 'RETENTION_POLICY' ? '' : ` Reason: ${d.reason}.`, name = d.fileName ?? 'a file';
+    const mine = A.h.filter(x => x.import === d.importId);
+    let role = '';
+    if (d.kind === 'vidr') role = ' That file was the Amazon report, so every check that used it can no longer be repeated here.';
+    else if (A.h.length && A.h[0].import === d.importId && A.h.find(x => x.status === 'PRESENT')?.import === d.importId) role = ' That file is where this problem was first seen, so it cannot be re-derived from scratch.';
+    else if (mine.some(x => x.status === 'CLOSED')) role = '';
+    else if (mine.length) role = ' That file was one of the files this problem was checked against.';
+    else role = ' We cannot tell from the record what this file was used for on this problem.';
+    out.push(`${who} ${name} on ${when}.${why}${role}`);
+  }
+  if (A.h.length) out.push(`Recorded before the deletion: ${A.h.map(x => `${STEP[x.status] ?? 'recorded on'} ${x.file ?? 'a file'}${A.gone.has(x.import) ? ' (deleted)' : ''}`).join(', then ')}.`);
+  return out;
+}
+function historyCard(i) {
+  const A = analyse(i), lost = A.vidrGone || A.closureGone;
+  let now;
+  if (A.closed && lost) now = 'The closure can no longer be re-checked, so we do not count it as closed and we do not list it as open either, because we cannot check.';
+  else if (A.closed && A.closureHeldBy) now = `The file that closed it, ${A.closureHeldBy}, is still loaded. It is not listed as open.`;
+  else if (A.closed) now = 'We cannot tell from the record which file closed it, so we make no claim about the closure.';
+  else now = 'With that evidence gone we cannot say whether this problem is still there.';
+  const perm = A.closed && A.closureHeldBy && !lost ? 'This note stays because the beginning of the history is gone: the history will still record that earlier evidence was deleted.' : 'If you load a file that covers this document, we can show what that file says about it today. This note stays: the history will still record that earlier evidence was deleted and that we could not re-check it.';
+  return { title: `Problem on ${ident(i)}`, what: [...historyText(i), now, perm].join(' '), why: '', proof: [], action: '', closesWhen: '', stateLabel: STATE_LABEL.HISTORY_INCOMPLETE, stateNote: null, history: i.history };
+}
+export function buildCard(i) {
+  if (!i.historyIncomplete) return baseCard(i);
+  if (i.state === 'HISTORY_INCOMPLETE') return historyCard(i);
+  const c = baseCard(i); c.stateNote = (c.stateNote ? c.stateNote + ' ' : '') + 'History incomplete. ' + historyText(i).join(' '); return c;
 }

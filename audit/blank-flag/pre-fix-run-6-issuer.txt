@@ -1,0 +1,350 @@
+Final test file run against the pre-fix source c20a5e22fdb1f32520f744c233a21d27ac505fb6 (the first version counted headline figures over the whole fixture file; corrected before the fix to a one-document file).
+TAP version 13
+# Subtest: issuer: InvoiceCreatedByAmazon with an explicit TRUE on every row is CREATED_BY_AMAZON (characterization)
+not ok 1 - issuer: InvoiceCreatedByAmazon with an explicit TRUE on every row is CREATED_BY_AMAZON (characterization)
+  ---
+  duration_ms: 4.58969
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:23:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    undefined !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:25:157)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with explicit TRUE is CREATED_BY_AMAZON
+ok 2 - issuer: CreditNoteCreatedByAmazon with explicit TRUE is CREATED_BY_AMAZON
+  ---
+  duration_ms: 1.877596
+  type: 'test'
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 3 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.761622
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 4 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.428321
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 5 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.677685
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 6 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.433064
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 7 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.446316
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 8 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.473549
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 9 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.830341
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+not ok 10 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.755601
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:32:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:34:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: rows of one document that disagree on is-amazon-invoiced are ISSUER_UNDETERMINED, the first row alone is not enough
+not ok 11 - issuer: rows of one document that disagree on is-amazon-invoiced are ISSUER_UNDETERMINED, the first row alone is not enough
+  ---
+  duration_ms: 0.510444
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:43:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    [{"is-amazon-invoiced":"TRUE"},{"is-amazon-invoiced":"FALSE"}]
+    + actual - expected
+    
+    + 'CREATED_BY_AMAZON'
+    - 'ISSUER_UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'ISSUER_UNDETERMINED'
+  actual: 'CREATED_BY_AMAZON'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:45:48)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: a flag that conflicts with a seller-side status is untouched here (it is not a CreatedByAmazon document); the status stays what the report says
+ok 12 - issuer: a flag that conflicts with a seller-side status is untouched here (it is not a CreatedByAmazon document); the status stays what the report says
+  ---
+  duration_ms: 0.381708
+  type: 'test'
+  ...
+# Subtest: issuer: no explanation and no headline sentence ever describes an ISSUER_UNDETERMINED document as Amazon-issued, across every case
+not ok 13 - issuer: no explanation and no headline sentence ever describes an ISSUER_UNDETERMINED document as Amazon-issued, across every case
+  ---
+  duration_ms: 1.139639
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:51:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input was expected to not match the regular expression /Amazon made this|made this document itself|nothing to upload|Amazon-issued|created by Amazon \(nothing/i. Input:
+    
+    'Observed as InvoiceCreatedByAmazon in the report dated 2026-11-16 (date as declared by the seller): Amazon made this document itself. The seller has nothing to upload for it. Out of 1 document(s) in the loaded files: 0 document(s) with an exception (one document can be in more than one line below): 0 rejected by Amazon, 0 where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), 0 correction(s) not closed on both sides, 0 we cannot determine (0 from a partly read file, 0 from a file with missing columns, 0 from another incomplete import, 0 with an unmet check, 0 with a missing or unreadable order date, 0 with dates in a format we do not recognise, that look month-first or that contradict each other, 0 waiting for the seller to confirm the date format, 0 with an invoice number blank on some rows, 0 unmatched, 0 unknown status, 0 unknown correction id format, 0 status that does not fit the transaction type). 0 in progress (pending or processing), 0 observed as accepted, 1 created by Amazon (nothing to upload). Separately, 0 row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: 'Observed as InvoiceCreatedByAmazon in the report dated 2026-11-16 (date as declared by the seller): Amazon made this document itself. The seller has nothing to upload for it. Out of 1 document(s) in the loaded files: 0 document(s) with an exception (one document can be in more than one line below): 0 rejected by Amazon, 0 where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), 0 correction(s) not closed on both sides, 0 we cannot determine (0 from a partly read file, 0 from a file with missing columns, 0 from another incomplete import, 0 with an unmet check, 0 with a missing or unreadable order date, 0 with dates in a format we do not recognise, that look month-first or that contradict each other, 0 waiting for the seller to confirm the date format, 0 with an invoice number blank on some rows, 0 unmatched, 0 unknown status, 0 unknown correction id format, 0 status that does not fit the transaction type). 0 in progress (pending or processing), 0 observed as accepted, 1 created by Amazon (nothing to upload). Separately, 0 row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.'
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:52:130)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: issuer: the total is kept: every document is in the state counts, and the undetermined ones also in cannotDetermine and exceptions
+not ok 14 - issuer: the total is kept: every document is in the state counts, and the undetermined ones also in cannotDetermine and exceptions
+  ---
+  duration_ms: 3.821343
+  type: 'test'
+  location: '/tmp/pw/test/issuer-determination.test.js:54:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(h.documents >= states.reduce((n, k) => n + h[k], 0))
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///tmp/pw/test/issuer-determination.test.js:57:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 2
+# fail 12
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 100.644897

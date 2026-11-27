@@ -1,0 +1,1080 @@
+[
+{
+"seller": 30,
+"order": "615-6785871-2003634",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 30,
+"order": "191-6786093-2005189",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 30,
+"order": "958-6786130-2005446",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 30,
+"order": "986-6786241-2006226",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 30,
+"order": "490-6786389-2007262",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 30,
+"order": "234-6786981-2011407",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 30,
+"order": "336-6787129-2012439",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 31,
+"order": "471-7242456-2000365",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 47,
+"order": "139-7701045-2000039",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 69,
+"order": "292-5008657-2000150",
+"scenario": "follow_up_stale_report",
+"kind": "fixAllButStaleReport",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 70,
+"order": "968-3020818-2000714",
+"scenario": "follow_up_seller_declares_resolved",
+"kind": "declareOnly",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"MANUALLY_REPORTED_RESOLUTION"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 83,
+"order": "886-7065838-2000080",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 116,
+"order": "807-7018800-2000030",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 117,
+"order": "822-8005383-2000162",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 120,
+"order": "293-8899594-2000024",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 153,
+"order": "340-1408619-2000011",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 157,
+"order": "488-8011013-2000141",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "monthly_export"
+},
+{
+"seller": 158,
+"order": "861-6876507-2000151",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 178,
+"order": "619-2555925-2000191",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 179,
+"order": "683-3938964-2000091",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 191,
+"order": "703-3269218-2000029",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 194,
+"order": "764-5904187-2000066",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 195,
+"order": "230-8394776-2000429",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "monthly_export"
+},
+{
+"seller": 227,
+"order": "893-3582084-2000029",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 253,
+"order": "773-5352117-2001017",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 254,
+"order": "829-5705180-2000095",
+"scenario": "follow_up_stale_report",
+"kind": "fixAllButStaleReport",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 264,
+"order": "502-3677610-2000014",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 290,
+"order": "301-3813565-2001026",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 292,
+"order": "836-5343470-2000464",
+"scenario": "follow_up_seller_declares_resolved",
+"kind": "declareOnly",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"MANUALLY_REPORTED_RESOLUTION"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 326,
+"order": "180-2021724-2000057",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 338,
+"order": "803-2035866-2000010",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 338,
+"order": "705-2035888-2000162",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 342,
+"order": "655-6088805-2000120",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "monthly_export"
+},
+{
+"seller": 364,
+"order": "675-8372300-2000014",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 376,
+"order": "703-8108841-2000507",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 379,
+"order": "964-2668295-2000017",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 400,
+"order": "444-6550003-2002858",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 400,
+"order": "790-6550447-2005966",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 400,
+"order": "392-6550521-2006482",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 400,
+"order": "878-6550558-2006743",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 400,
+"order": "385-6551446-2012961",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 400,
+"order": "853-6552593-2020986",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 416,
+"order": "608-2288319-2000064",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 416,
+"order": "976-2288315-2000035",
+"scenario": "currency_mismatch",
+"kind": "fixCurrency",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"DATA_MISMATCH"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"DATA_MISMATCH/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 438,
+"order": "586-6738764-2000010",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"VERIFIED_CLOSED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/VERIFIED_CLOSED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 438,
+"order": "176-6738773-2000071",
+"scenario": "follow_up_fixed_and_unfixed",
+"kind": "fixSome",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 440,
+"order": "546-8517807-2000100",
+"scenario": "follow_up_seller_declares_resolved",
+"kind": "declareOnly",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"MANUALLY_REPORTED_RESOLUTION"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 477,
+"order": "586-7980554-2000283",
+"scenario": "follow_up_seller_declares_resolved",
+"kind": "declareOnly",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"MANUALLY_REPORTED_RESOLUTION"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/MANUALLY_REPORTED_RESOLUTION"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+},
+{
+"seller": 487,
+"order": "142-7972528-2000115",
+"scenario": "uploaded_not_in_books",
+"kind": "fixBooks",
+"business_flag": [
+"FALSE"
+],
+"fams": [
+"BOOKS_GAP"
+],
+"old_states": [
+"ACTION_REQUIRED"
+],
+"new_states": [],
+"old_issues": [
+"BOOKS_GAP/ACTION_REQUIRED"
+],
+"new_issues": [],
+"class": "non_business_no_longer_judged",
+"cohort": "through_report_day"
+}
+]

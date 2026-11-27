@@ -1,0 +1,3812 @@
+TAP version 13
+# Subtest: full seller journey on simulated Amazon
+ok 1 - full seller journey on simulated Amazon
+  ---
+  duration_ms: 308.824331
+  type: 'test'
+  ...
+# Subtest: login rejects wrong password; sessions are per user
+ok 2 - login rejects wrong password; sessions are per user
+  ---
+  duration_ms: 153.56551
+  type: 'test'
+  ...
+# Subtest: dashboard script has valid syntax
+ok 3 - dashboard script has valid syntax
+  ---
+  duration_ms: 31.064736
+  type: 'test'
+  ...
+# Subtest: audit verify and csv export
+ok 4 - audit verify and csv export
+  ---
+  duration_ms: 131.332174
+  type: 'test'
+  ...
+# Subtest: invoice language setting applies to new invoices
+ok 5 - invoice language setting applies to new invoices
+  ---
+  duration_ms: 130.564984
+  type: 'test'
+  ...
+# Subtest: rectify API: amount differences, address, seller details, and validation
+ok 6 - rectify API: amount differences, address, seller details, and validation
+  ---
+  duration_ms: 117.186252
+  type: 'test'
+  ...
+# Subtest: security: cross-site POST blocked, same-site allowed, headers and Secure cookie
+ok 7 - security: cross-site POST blocked, same-site allowed, headers and Secure cookie
+  ---
+  duration_ms: 92.042188
+  type: 'test'
+  ...
+# Subtest: limits: oversize body gets a clear 413, bad JSON a 400, internal errors do not leak
+ok 8 - limits: oversize body gets a clear 413, bad JSON a 400, internal errors do not leak
+  ---
+  duration_ms: 15.289529
+  type: 'test'
+  ...
+# Subtest: a JSON null or array body is a 400, never a crash
+ok 9 - a JSON null or array body is a 400, never a crash
+  ---
+  duration_ms: 11.422978
+  type: 'test'
+  ...
+# Subtest: login throttle also counts per account across different IPs
+ok 10 - login throttle also counts per account across different IPs
+  ---
+  duration_ms: 373.554151
+  type: 'test'
+  ...
+# Subtest: release and retry without a shipment key are a clear 400
+ok 11 - release and retry without a shipment key are a clear 400
+  ---
+  duration_ms: 54.654581
+  type: 'test'
+  ...
+# Subtest: referral capture: auth, validation, dedupe, cap
+ok 12 - referral capture: auth, validation, dedupe, cap
+  ---
+  duration_ms: 60.070244
+  type: 'test'
+  ...
+# Subtest: invite links: every user gets a code, signup through ?ref= attributes the referrer
+ok 13 - invite links: every user gets a code, signup through ?ref= attributes the referrer
+  ---
+  duration_ms: 136.412116
+  type: 'test'
+  ...
+# Subtest: public sample: run, pdf, page, no auth needed
+ok 14 - public sample: run, pdf, page, no auth needed
+  ---
+  duration_ms: 224.807276
+  type: 'test'
+  ...
+# Subtest: real-data gate: live Amazon connections and own-report uploads are refused unless explicitly opened
+ok 15 - real-data gate: live Amazon connections and own-report uploads are refused unless explicitly opened
+  ---
+  duration_ms: 59.691083
+  type: 'test'
+  ...
+# Subtest: real-data gate opens only by explicit env switch
+ok 16 - real-data gate opens only by explicit env switch
+  ---
+  duration_ms: 54.335881
+  type: 'test'
+  ...
+# Subtest: a busy database is reported honestly and no stale snapshot is copied
+ok 17 - a busy database is reported honestly and no stale snapshot is copied
+  ---
+  duration_ms: 5006.551976
+  type: 'test'
+  ...
+# Subtest: vidr business flag: TRUE and FALSE are read as written, case and spaces ignored (characterization)
+ok 18 - vidr business flag: TRUE and FALSE are read as written, case and spaces ignored (characterization)
+  ---
+  duration_ms: 2.104119
+  type: 'test'
+  ...
+# Subtest: vidr business flag: blank, unreadable and disagreeing rows are unknown (null), not false
+ok 19 - vidr business flag: blank, unreadable and disagreeing rows are unknown (null), not false
+  ---
+  duration_ms: 0.659579
+  type: 'test'
+  ...
+# Subtest: vidr business flag: needsInvoice is false for unknown, true only for an explicit TRUE (with an explicit FALSE amazon flag)
+ok 20 - vidr business flag: needsInvoice is false for unknown, true only for an explicit TRUE (with an explicit FALSE amazon flag)
+  ---
+  duration_ms: 0.477005
+  type: 'test'
+  ...
+# Subtest: manual plan, VIDR: a blank or unreadable business flag is HELD, not skipped as consumer and not issued
+ok 21 - manual plan, VIDR: a blank or unreadable business flag is HELD, not skipped as consumer and not issued
+  ---
+  duration_ms: 0.966585
+  type: 'test'
+  ...
+# Subtest: manual plan, VIDR: an explicit FALSE business flag is still a consumer skip, as written (characterization)
+ok 22 - manual plan, VIDR: an explicit FALSE business flag is still a consumer skip, as written (characterization)
+  ---
+  duration_ms: 0.396306
+  type: 'test'
+  ...
+# Subtest: manual plan, VIDR: both flags unknown gives ONE hold naming both columns
+ok 23 - manual plan, VIDR: both flags unknown gives ONE hold naming both columns
+  ---
+  duration_ms: 0.262111
+  type: 'test'
+  ...
+# Subtest: pipeline: a blank business flag is held and issues nothing
+ok 24 - pipeline: a blank business flag is held and issues nothing
+  ---
+  duration_ms: 70.636958
+  type: 'test'
+  ...
+# Subtest: wording: every held reason names the column, says it was not guessed and nothing was issued, and says what would resolve it
+ok 25 - wording: every held reason names the column, says it was not guessed and nothing was issued, and says what would resolve it
+  ---
+  duration_ms: 1.277938
+  type: 'test'
+  ...
+# Subtest: wording: the Order Report reason says the report type itself does not carry the columns and points to the report that does; it never says the order is a consumer order
+ok 26 - wording: the Order Report reason says the report type itself does not carry the columns and points to the report that does; it never says the order is a consumer order
+  ---
+  duration_ms: 0.456018
+  type: 'test'
+  ...
+# Subtest: wording: the reason names only the column that is unknown (business known, amazon blank)
+ok 27 - wording: the reason names only the column that is unknown (business known, amazon blank)
+  ---
+  duration_ms: 0.484884
+  type: 'test'
+  ...
+# Subtest: wording: company name and VAT number are said not to prove either flag, and invoice-status is said not to be used
+ok 28 - wording: company name and VAT number are said not to prove either flag, and invoice-status is said not to be used
+  ---
+  duration_ms: 0.436598
+  type: 'test'
+  ...
+# Subtest: loop: BLANK is-amazon-invoiced with InvoiceUploaded is UNDETERMINED, no confident finding
+ok 29 - loop: BLANK is-amazon-invoiced with InvoiceUploaded is UNDETERMINED, no confident finding
+  ---
+  duration_ms: 12.134707
+  type: 'test'
+  ...
+# Subtest: loop: BLANK is-amazon-invoiced with InvoicePending is UNDETERMINED, no confident finding
+ok 30 - loop: BLANK is-amazon-invoiced with InvoicePending is UNDETERMINED, no confident finding
+  ---
+  duration_ms: 2.919267
+  type: 'test'
+  ...
+# Subtest: loop: BLANK is-amazon-invoiced with InvoiceCreatedByAmazon is UNDETERMINED, no confident finding
+ok 31 - loop: BLANK is-amazon-invoiced with InvoiceCreatedByAmazon is UNDETERMINED, no confident finding
+  ---
+  duration_ms: 5.166826
+  type: 'test'
+  ...
+# Subtest: loop: BLANK with InvoiceCreatedByAmazon is NOT counted as an invoice Amazon created
+ok 32 - loop: BLANK with InvoiceCreatedByAmazon is NOT counted as an invoice Amazon created
+  ---
+  duration_ms: 5.562555
+  type: 'test'
+  ...
+# Subtest: loop: explicit values are read exactly as written (characterization, passes before and after)
+ok 33 - loop: explicit values are read exactly as written (characterization, passes before and after)
+  ---
+  duration_ms: 19.021683
+  type: 'test'
+  ...
+# Subtest: loop: a conflict between the field and the status stays UNDETERMINED (characterization)
+ok 34 - loop: a conflict between the field and the status stays UNDETERMINED (characterization)
+  ---
+  duration_ms: 5.86689
+  type: 'test'
+  ...
+# Subtest: vidr: parseVidr keeps a blank flag as unknown (null), not false; TRUE and FALSE as written
+ok 35 - vidr: parseVidr keeps a blank flag as unknown (null), not false; TRUE and FALSE as written
+  ---
+  duration_ms: 1.270184
+  type: 'test'
+  ...
+# Subtest: vidr: needsInvoice is false for an unknown flag whatever the status says, true for an explicit FALSE
+ok 36 - vidr: needsInvoice is false for an unknown flag whatever the status says, true for an explicit FALSE
+  ---
+  duration_ms: 0.687667
+  type: 'test'
+  ...
+# Subtest: vidr: rows of one shipment that disagree about the flag are unknown, not decided by the first row
+ok 37 - vidr: rows of one shipment that disagree about the flag are unknown, not decided by the first row
+  ---
+  duration_ms: 0.416373
+  type: 'test'
+  ...
+# Subtest: manual plan, VAT Invoice Data Report: a blank flag is HELD with a reason that names the field; it is neither issued nor silently skipped
+ok 38 - manual plan, VAT Invoice Data Report: a blank flag is HELD with a reason that names the field; it is neither issued nor silently skipped
+  ---
+  duration_ms: 0.944945
+  type: 'test'
+  ...
+# Subtest: order report: no flag columns means HELD with the statement that the report does not carry the evidence; never ready, never skipped as consumer
+ok 39 - order report: no flag columns means HELD with the statement that the report does not carry the evidence; never ready, never skipped as consumer
+  ---
+  duration_ms: 0.479499
+  type: 'test'
+  ...
+# Subtest: order report: an order with no company name and no tax id is not excluded as consumer either: the business flag is unknown
+ok 40 - order report: an order with no company name and no tax id is not excluded as consumer either: the business flag is unknown
+  ---
+  duration_ms: 0.204832
+  type: 'test'
+  ...
+# Subtest: order report: company name and tax id are buyer data, not proof of the business flag or of who issues the invoice
+ok 41 - order report: company name and tax id are buyer data, not proof of the business flag or of who issues the invoice
+  ---
+  duration_ms: 0.144955
+  type: 'test'
+  ...
+# Subtest: order report: a seller declaration option, complete or partial, is ignored: it is not a route to an invoice (decision: issuing needs a VAT Invoice Data Report)
+ok 42 - order report: a seller declaration option, complete or partial, is ignored: it is not a route to an invoice (decision: issuing needs a VAT Invoice Data Report)
+  ---
+  duration_ms: 0.265431
+  type: 'test'
+  ...
+# Subtest: order report: flag columns, when the file does carry them, are read as written for skipping, but the Order Report never issues
+ok 43 - order report: flag columns, when the file does carry them, are read as written for skipping, but the Order Report never issues
+  ---
+  duration_ms: 0.488455
+  type: 'test'
+  ...
+# Subtest: pipeline: processReport holds a shipment whose is-amazon-invoiced is blank and issues nothing for it; the explicit FALSE rows of the same file are still issued
+ok 44 - pipeline: processReport holds a shipment whose is-amazon-invoiced is blank and issues nothing for it; the explicit FALSE rows of the same file are still issued
+  ---
+  duration_ms: 62.616755
+  type: 'test'
+  ...
+# Subtest: bundles: public/local/engine.js and loop-engine.js are exactly what node tools/build-local.mjs builds from the current sources
+ok 45 - bundles: public/local/engine.js and loop-engine.js are exactly what node tools/build-local.mjs builds from the current sources
+  ---
+  duration_ms: 335.215642
+  type: 'test'
+  ...
+# Subtest: web/engine-entry.js (source): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 46 - web/engine-entry.js (source): an Order Report without a declaration is HELD with the reason; nothing is ready
+  ---
+  duration_ms: 196.018748
+  type: 'test'
+  ...
+# Subtest: web/engine-entry.js (source): a seller declaration passed to analyze() is not a route to a ready invoice: the order stays held
+ok 47 - web/engine-entry.js (source): a seller declaration passed to analyze() is not a route to a ready invoice: the order stays held
+  ---
+  duration_ms: 0.429054
+  type: 'test'
+  ...
+# Subtest: web/engine-entry.js (source): a partial declaration still holds the order
+ok 48 - web/engine-entry.js (source): a partial declaration still holds the order
+  ---
+  duration_ms: 0.280465
+  type: 'test'
+  ...
+# Subtest: public/local/engine.js (committed bundle): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 49 - public/local/engine.js (committed bundle): an Order Report without a declaration is HELD with the reason; nothing is ready
+  ---
+  duration_ms: 199.1402
+  type: 'test'
+  ...
+# Subtest: public/local/engine.js (committed bundle): a seller declaration passed to analyze() is not a route to a ready invoice: the order stays held
+ok 50 - public/local/engine.js (committed bundle): a seller declaration passed to analyze() is not a route to a ready invoice: the order stays held
+  ---
+  duration_ms: 1.101956
+  type: 'test'
+  ...
+# Subtest: public/local/engine.js (committed bundle): a partial declaration still holds the order
+ok 51 - public/local/engine.js (committed bundle): a partial declaration still holds the order
+  ---
+  duration_ms: 0.303067
+  type: 'test'
+  ...
+# Subtest: combined 1: Amazon-flag conflict on a non-business order: nothing is concluded, no action
+ok 52 - combined 1: Amazon-flag conflict on a non-business order: nothing is concluded, no action
+  ---
+  duration_ms: 13.961468
+  type: 'test'
+  ...
+# Subtest: combined 2: Amazon-flag conflict on a business order stays undetermined with its note (the B2B fix does not hide it)
+ok 53 - combined 2: Amazon-flag conflict on a business order stays undetermined with its note (the B2B fix does not hide it)
+  ---
+  duration_ms: 2.720991
+  type: 'test'
+  ...
+# Subtest: combined 3: EXACT_REPEAT in the books on a NON-business order is Ledger Data Quality, information only, never ACTION_REQUIRED
+ok 54 - combined 3: EXACT_REPEAT in the books on a NON-business order is Ledger Data Quality, information only, never ACTION_REQUIRED
+  ---
+  duration_ms: 10.367315
+  type: 'test'
+  ...
+# Subtest: combined 4: SAME_NUMBER_DIFFERENT_CONTENT on a non-business order carries the higher-priority label, rows, file and differing fields
+ok 55 - combined 4: SAME_NUMBER_DIFFERENT_CONTENT on a non-business order carries the higher-priority label, rows, file and differing fields
+  ---
+  duration_ms: 4.771675
+  type: 'test'
+  ...
+# Subtest: combined 5: the same duplicate on a BUSINESS order is also Ledger Data Quality, information only, rows kept
+ok 56 - combined 5: the same duplicate on a BUSINESS order is also Ledger Data Quality, information only, rows kept
+  ---
+  duration_ms: 9.39883
+  type: 'test'
+  ...
+# Subtest: combined 14: a business duplicate is information only while the other checks on that order and on its neighbour are unaffected
+ok 57 - combined 14: a business duplicate is information only while the other checks on that order and on its neighbour are unaffected
+  ---
+  duration_ms: 7.09024
+  type: 'test'
+  ...
+# Subtest: combined 6: wrong-order link on a non-business order: no mismatch accusation, no action
+ok 58 - combined 6: wrong-order link on a non-business order: no mismatch accusation, no action
+  ---
+  duration_ms: 3.099391
+  type: 'test'
+  ...
+# Subtest: combined 7: wrong-order link on a business order is shown (note) and never confirmed or accused
+ok 59 - combined 7: wrong-order link on a business order is shown (note) and never confirmed or accused
+  ---
+  duration_ms: 2.981336
+  type: 'test'
+  ...
+# Subtest: combined 8: a correct business shipment next to a non-business one: only the business one is judged
+ok 60 - combined 8: a correct business shipment next to a non-business one: only the business one is judged
+  ---
+  duration_ms: 2.467031
+  type: 'test'
+  ...
+# Subtest: combined 9: a correct, matched business shipment is not disturbed by a non-business neighbour with a wrong-order document
+ok 61 - combined 9: a correct, matched business shipment is not disturbed by a non-business neighbour with a wrong-order document
+  ---
+  duration_ms: 2.971862
+  type: 'test'
+  ...
+# Subtest: combined 10: multi-line books (documentLevel LINE) repeating a number on a non-business order is expected, not a quality finding
+ok 62 - combined 10: multi-line books (documentLevel LINE) repeating a number on a non-business order is expected, not a quality finding
+  ---
+  duration_ms: 3.376
+  type: 'test'
+  ...
+# Subtest: combined 11: blank business flag + Amazon-issued status: nothing concluded, nothing accused
+ok 63 - combined 11: blank business flag + Amazon-issued status: nothing concluded, nothing accused
+  ---
+  duration_ms: 1.978678
+  type: 'test'
+  ...
+# Subtest: combined 12: business flag conflict (rows disagree) and a duplicate in the books: the duplicate is information only
+ok 64 - combined 12: business flag conflict (rows disagree) and a duplicate in the books: the duplicate is information only
+  ---
+  duration_ms: 7.746803
+  type: 'test'
+  ...
+# Subtest: combined 13: no ACTION_REQUIRED anywhere is raised on the basis of a non-business order (all three fixes together)
+ok 65 - combined 13: no ACTION_REQUIRED anywhere is raised on the basis of a non-business order (all three fixes together)
+  ---
+  duration_ms: 7.451273
+  type: 'test'
+  ...
+# Subtest: parseVidr: allow-list of correction ids (reversal, current, legacy); near-misses are flagged unknown and never issued; plain ids stay plain
+ok 66 - parseVidr: allow-list of correction ids (reversal, current, legacy); near-misses are flagged unknown and never issued; plain ids stay plain
+  ---
+  duration_ms: 4.971169
+  type: 'test'
+  ...
+# Subtest: the one-document-per-correction-event database guard covers both id forms
+ok 67 - the one-document-per-correction-event database guard covers both id forms
+  ---
+  duration_ms: 3.064618
+  type: 'test'
+  ...
+# Subtest: Amazon billing-data correction: credit note + new invoice, both with transaction IDs, no double processing
+ok 68 - Amazon billing-data correction: credit note + new invoice, both with transaction IDs, no double processing
+  ---
+  duration_ms: 115.514231
+  type: 'test'
+  ...
+# Subtest: audit chain verifies, and detects a tampered invoice
+ok 69 - audit chain verifies, and detects a tampered invoice
+  ---
+  duration_ms: 45.325355
+  type: 'test'
+  ...
+# Subtest: Amazon closed-beta error is explained in plain words
+ok 70 - Amazon closed-beta error is explained in plain words
+  ---
+  duration_ms: 0.328944
+  type: 'test'
+  ...
+# Subtest: VIDR parsing groups shipments and detects who needs an invoice
+ok 71 - VIDR parsing groups shipments and detects who needs an invoice
+  ---
+  duration_ms: 2.803221
+  type: 'test'
+  ...
+# Subtest: VAT format checks
+ok 72 - VAT format checks
+  ---
+  duration_ms: 0.345791
+  type: 'test'
+  ...
+# Subtest: VIES: service outage is never treated as invalid
+ok 73 - VIES: service outage is never treated as invalid
+  ---
+  duration_ms: 1201.518856
+  type: 'test'
+  ...
+# Subtest: pipeline: uploads valid B2B, holds bad VAT, ignores B2C and already-uploaded, is idempotent
+ok 74 - pipeline: uploads valid B2B, holds bad VAT, ignores B2C and already-uploaded, is idempotent
+  ---
+  duration_ms: 89.765594
+  type: 'test'
+  ...
+# Subtest: acceptance: DONE alone never marks uploaded; the report verdict does, and rejection flips with its reason
+ok 75 - acceptance: DONE alone never marks uploaded; the report verdict does, and rejection flips with its reason
+  ---
+  duration_ms: 40.218209
+  type: 'test'
+  ...
+# Subtest: upload target: store codes resolve (UK -> GB id), raw marketplace IDs pass through, unknown codes hold and never upload
+ok 76 - upload target: store codes resolve (UK -> GB id), raw marketplace IDs pass through, unknown codes hold and never upload
+  ---
+  duration_ms: 86.336197
+  type: 'test'
+  ...
+# Subtest: a failed correction upload still leaves the issued correction recorded locally (never Amazon-only)
+ok 77 - a failed correction upload still leaves the issued correction recorded locally (never Amazon-only)
+  ---
+  duration_ms: 40.770464
+  type: 'test'
+  ...
+# Subtest: intra-EU invoice carries Amazon citation text and zero VAT
+ok 78 - intra-EU invoice carries Amazon citation text and zero VAT
+  ---
+  duration_ms: 2.23224
+  type: 'test'
+  ...
+# Subtest: rectificativa by substitution: new R number, references original, VIES-checked, original untouched
+ok 79 - rectificativa by substitution: new R number, references original, VIES-checked, original untouched
+  ---
+  duration_ms: 30.31184
+  type: 'test'
+  ...
+# Subtest: rectificativa by differences: negative deltas become a credit note upload
+ok 80 - rectificativa by differences: negative deltas become a credit note upload
+  ---
+  duration_ms: 28.693507
+  type: 'test'
+  ...
+# Subtest: SP-API client: LWA token, feed options, throttle, retry on 429
+ok 81 - SP-API client: LWA token, feed options, throttle, retry on 429
+  ---
+  duration_ms: 1.218697
+  type: 'test'
+  ...
+# Subtest: PDF renders and starts with %PDF (written to /tmp/sample-invoice.pdf for visual check)
+ok 82 - PDF renders and starts with %PDF (written to /tmp/sample-invoice.pdf for visual check)
+  ---
+  duration_ms: 26.713239
+  type: 'test'
+  ...
+# live VIES result: valid null
+# Subtest: LIVE VIES (skipped offline): known-valid German VAT number
+ok 83 - LIVE VIES (skipped offline): known-valid German VAT number
+  ---
+  duration_ms: 1754.695968
+  type: 'test'
+  ...
+# Subtest: failed upload keeps the invoice number and retry reuses it (no gaps, no duplicates)
+ok 84 - failed upload keeps the invoice number and retry reuses it (no gaps, no duplicates)
+  ---
+  duration_ms: 77.223738
+  type: 'test'
+  ...
+# Subtest: VIES outage defers instead of rejecting
+ok 85 - VIES outage defers instead of rejecting
+  ---
+  duration_ms: 2.265479
+  type: 'test'
+  ...
+# Subtest: applyEdits: amounts, address, seller details, removal
+ok 86 - applyEdits: amounts, address, seller details, removal
+  ---
+  duration_ms: 4.86516
+  type: 'test'
+  ...
+# Subtest: applyEdits: VAT percentage correction recomputes tax
+ok 87 - applyEdits: VAT percentage correction recomputes tax
+  ---
+  duration_ms: 4.117901
+  type: 'test'
+  ...
+# Subtest: radar levels and one alert per level
+ok 88 - radar levels and one alert per level
+  ---
+  duration_ms: 252.086919
+  type: 'test'
+  ...
+# Subtest: wizard states only pack rules and asks what it cannot know
+ok 89 - wizard states only pack rules and asks what it cannot know
+  ---
+  duration_ms: 59.467628
+  type: 'test'
+  ...
+# Subtest: buyer-country routing
+ok 90 - buyer-country routing
+  ---
+  duration_ms: 0.566576
+  type: 'test'
+  ...
+# Subtest: export zip: contents, totals, range validation, external docs
+ok 91 - export zip: contents, totals, range validation, external docs
+  ---
+  duration_ms: 155.913635
+  type: 'test'
+  ...
+# Subtest: convert held shipment to consumer-style invoice, only when VAT was charged
+ok 92 - convert held shipment to consumer-style invoice, only when VAT was charged
+  ---
+  duration_ms: 144.289046
+  type: 'test'
+  ...
+# Subtest: vat watch reports changes and never auto-acts
+ok 93 - vat watch reports changes and never auto-acts
+  ---
+  duration_ms: 56.661985
+  type: 'test'
+  ...
+# Subtest: explainer is private until reviewed, escapes names, unpublishes
+ok 94 - explainer is private until reviewed, escapes names, unpublishes
+  ---
+  duration_ms: 63.193848
+  type: 'test'
+  ...
+# Subtest: iron rule: countries without verified packs are held, never run on Spanish rules
+ok 95 - iron rule: countries without verified packs are held, never run on Spanish rules
+  ---
+  duration_ms: 54.797869
+  type: 'test'
+  ...
+# Subtest: Germany: issues with DE content rule, only data corrections by substitution
+ok 96 - Germany: issues with DE content rule, only data corrections by substitution
+  ---
+  duration_ms: 93.025582
+  type: 'test'
+  ...
+# Subtest: France: held until the seller supplies the legal payment particulars, then issues with them and never defaults
+ok 97 - France: held until the seller supplies the legal payment particulars, then issues with them and never defaults
+  ---
+  duration_ms: 94.446567
+  type: 'test'
+  ...
+# Subtest: rule expiry: a legal text with an end date warns, then holds, never silently applies
+ok 98 - rule expiry: a legal text with an end date warns, then holds, never silently applies
+  ---
+  duration_ms: 1.706645
+  type: 'test'
+  ...
+# Subtest: FR corrections hold automatically once the repealed CGI text has ended
+ok 99 - FR corrections hold automatically once the repealed CGI text has ended
+  ---
+  duration_ms: 1.462718
+  type: 'test'
+  ...
+# Subtest: perf: VAT cache merges lookups, never caches outages, honours forget/fresh
+ok 100 - perf: VAT cache merges lookups, never caches outages, honours forget/fresh
+  ---
+  duration_ms: 121.38893
+  type: 'test'
+  ...
+# Subtest: perf: password hashing is async, verifies old sync hashes, and a wrong password never verifies
+ok 101 - perf: password hashing is async, verifies old sync hashes, and a wrong password never verifies
+  ---
+  duration_ms: 196.553034
+  type: 'test'
+  ...
+# Subtest: perf/security: login throttle stops guessing, overload answers 503 not a hang, duplicate signup is a clean 409
+ok 102 - perf/security: login throttle stops guessing, overload answers 503 not a hang, duplicate signup is a clean 409
+  ---
+  duration_ms: 455.722606
+  type: 'test'
+  ...
+# Subtest: loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+ok 103 - loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+  ---
+  duration_ms: 18.314624
+  type: 'test'
+  ...
+# Subtest: loop, ledger side: a books document for an order whose flag is unknown (is-business-order BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+ok 104 - loop, ledger side: a books document for an order whose flag is unknown (is-business-order BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+  ---
+  duration_ms: 2.970382
+  type: 'test'
+  ...
+# Subtest: loop, ledger side: a books document for an order whose flag is unknown (both BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+ok 105 - loop, ledger side: a books document for an order whose flag is unknown (both BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+  ---
+  duration_ms: 6.362906
+  type: 'test'
+  ...
+# Subtest: loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced CONFLICT (TRUE with InvoiceUploaded)) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+ok 106 - loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced CONFLICT (TRUE with InvoiceUploaded)) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+  ---
+  duration_ms: 3.406205
+  type: 'test'
+  ...
+# Subtest: loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced UNREADABLE) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+ok 107 - loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced UNREADABLE) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+  ---
+  duration_ms: 7.724898
+  type: 'test'
+  ...
+# Subtest: loop: both flags BLANK is one undetermined transaction counted once, in no scope figure
+ok 108 - loop: both flags BLANK is one undetermined transaction counted once, in no scope figure
+  ---
+  duration_ms: 5.124613
+  type: 'test'
+  ...
+# Subtest: app route: a seller declaration sent to the route is ignored, real booleans or not: the Order Report stays held and nothing can be issued from it
+ok 109 - app route: a seller declaration sent to the route is ignored, real booleans or not: the Order Report stays held and nothing can be issued from it
+  ---
+  duration_ms: 127.844324
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+ok 110 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 2.823153
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+ok 111 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.496456
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+ok 112 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.585815
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+ok 113 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.307225
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+ok 114 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.37092
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+ok 115 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.247764
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+ok 116 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.278004
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+ok 117 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.316364
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+ok 118 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.453234
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+ok 119 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.494814
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+ok 120 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.283108
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+ok 121 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.223878
+  type: 'test'
+  ...
+# Subtest: held: guards that must keep working: explicit values are read as written, and a known non-business order is skipped, whatever the status
+ok 122 - held: guards that must keep working: explicit values are read as written, and a known non-business order is skipped, whatever the status
+  ---
+  duration_ms: 1.413112
+  type: 'test'
+  ...
+# Subtest: held: the pipeline (API accounts) also holds a blank is-amazon-invoiced with InvoiceCreatedByAmazon and InvoiceUploaded, and issues nothing for it
+ok 123 - held: the pipeline (API accounts) also holds a blank is-amazon-invoiced with InvoiceCreatedByAmazon and InvoiceUploaded, and issues nothing for it
+  ---
+  duration_ms: 97.59792
+  type: 'test'
+  ...
+# Subtest: vidr-only: no seller declaration, however complete, turns an Order Report into a ready invoice (API)
+ok 124 - vidr-only: no seller declaration, however complete, turns an Order Report into a ready invoice (API)
+  ---
+  duration_ms: 0.950384
+  type: 'test'
+  ...
+# Subtest: vidr-only: an Order Report that itself carries explicit TRUE/FALSE columns is still not an issuing source
+ok 125 - vidr-only: an Order Report that itself carries explicit TRUE/FALSE columns is still not an issuing source
+  ---
+  duration_ms: 0.218294
+  type: 'test'
+  ...
+# Subtest: vidr-only: the preview says in plain words that issuing needs a VAT Invoice Data Report, for every order of the file
+ok 126 - vidr-only: the preview says in plain words that issuing needs a VAT Invoice Data Report, for every order of the file
+  ---
+  duration_ms: 0.19647
+  type: 'test'
+  ...
+# Subtest: vidr-only: the declaration pass-through is removed from the code (web entry, route, parser); the concept stays in the docs
+ok 127 - vidr-only: the declaration pass-through is removed from the code (web entry, route, parser); the concept stays in the docs
+  ---
+  duration_ms: 0.961623
+  type: 'test'
+  ...
+# Subtest: history: add imports in any order, reconcile, export an Evidence Bundle, delete everything
+ok 128 - history: add imports in any order, reconcile, export an Evidence Bundle, delete everything
+  ---
+  duration_ms: 21.526578
+  type: 'test'
+  ...
+# Subtest: history: encrypted store is not readable without the passphrase, and a wrong passphrase fails loudly
+ok 129 - history: encrypted store is not readable without the passphrase, and a wrong passphrase fails loudly
+  ---
+  duration_ms: 139.442417
+  type: 'test'
+  ...
+# Subtest: card after deleting books2: plain words, the seller's own clock, identifiers kept, no old claim, no action
+ok 130 - card after deleting books2: plain words, the seller's own clock, identifiers kept, no old claim, no action
+  ---
+  duration_ms: 42.439013
+  type: 'test'
+  ...
+# Subtest: card after deleting books1: plain words, the seller's own clock, identifiers kept, no old claim, no action
+ok 131 - card after deleting books1: plain words, the seller's own clock, identifiers kept, no old claim, no action
+  ---
+  duration_ms: 17.740922
+  type: 'test'
+  ...
+# Subtest: card after deleting report: plain words, the seller's own clock, identifiers kept, no old claim, no action
+ok 132 - card after deleting report: plain words, the seller's own clock, identifiers kept, no old claim, no action
+  ---
+  duration_ms: 20.061989
+  type: 'test'
+  ...
+# Subtest: per-case claim: the card says unavailable only for what the DELETED file held
+ok 133 - per-case claim: the card says unavailable only for what the DELETED file held
+  ---
+  duration_ms: 18.538403
+  type: 'test'
+  ...
+# Subtest: per-case claim: when the record cannot tell what the deleted file did, the card says so instead of picking a role
+ok 134 - per-case claim: when the record cannot tell what the deleted file did, the card says so instead of picking a role
+  ---
+  duration_ms: 0.605651
+  type: 'test'
+  ...
+# Subtest: reason in words: retention and a custom reason, and the record carries the clock offset it was written on
+ok 135 - reason in words: retention and a custom reason, and the record carries the clock offset it was written on
+  ---
+  duration_ms: 10.107221
+  type: 'test'
+  ...
+# Subtest: baseline: the finding is opened by books1 and closed by books2
+ok 136 - baseline: the finding is opened by books1 and closed by books2
+  ---
+  duration_ms: 35.242454
+  type: 'test'
+  ...
+# Subtest: deleting the closing file never turns a closed finding silently into an open one
+ok 137 - deleting the closing file never turns a closed finding silently into an open one
+  ---
+  duration_ms: 30.162123
+  type: 'test'
+  ...
+# Subtest: deleting the file that created the finding never erases that it existed
+ok 138 - deleting the file that created the finding never erases that it existed
+  ---
+  duration_ms: 27.054827
+  type: 'test'
+  ...
+# Subtest: deleting the Amazon report never erases the trace of earlier checks
+ok 139 - deleting the Amazon report never erases the trace of earlier checks
+  ---
+  duration_ms: 5.514047
+  type: 'test'
+  ...
+# Subtest: a permanent record exists: reason, affected import, affected cases; the file content is gone
+ok 140 - a permanent record exists: reason, affected import, affected cases; the file content is gone
+  ---
+  duration_ms: 6.902048
+  type: 'test'
+  ...
+# Subtest: the marker is permanent: it survives later imports, a second deletion and a re-projection
+ok 141 - the marker is permanent: it survives later imports, a second deletion and a re-projection
+  ---
+  duration_ms: 12.321817
+  type: 'test'
+  ...
+# Subtest: refused deletion leaves no record and no marker; deleting something that affects nothing records an empty case list
+ok 142 - refused deletion leaves no record and no marker; deleting something that affects nothing records an empty case list
+  ---
+  duration_ms: 13.190237
+  type: 'test'
+  ...
+# Subtest: retention deletion is recorded with its own reason
+ok 143 - retention deletion is recorded with its own reason
+  ---
+  duration_ms: 5.593428
+  type: 'test'
+  ...
+# Subtest: a seller statement about a finding survives the deletion of the file that created it, and a placeholder finding accepts no new statement
+ok 144 - a seller statement about a finding survives the deletion of the file that created it, and a placeholder finding accepts no new statement
+  ---
+  duration_ms: 8.917061
+  type: 'test'
+  ...
+# Subtest: interruption 1: after the record is written and before the file is deleted, the seller sees the untouched picture
+ok 145 - interruption 1: after the record is written and before the file is deleted, the seller sees the untouched picture
+  ---
+  duration_ms: 56.964483
+  type: 'test'
+  ...
+# Subtest: interruption 2: after the file is deleted and before COMMITTED is written, recovery completes the record once
+ok 146 - interruption 2: after the file is deleted and before COMMITTED is written, recovery completes the record once
+  ---
+  duration_ms: 29.62502
+  type: 'test'
+  ...
+# Subtest: retry after interruption 1: one record, committed, no duplicate; after interruption 2: one record, no loss, nothing to redo
+ok 147 - retry after interruption 1: one record, committed, no duplicate; after interruption 2: one record, no loss, nothing to redo
+  ---
+  duration_ms: 16.010949
+  type: 'test'
+  ...
+# Subtest: RACE (found by Ahmed): a stalled tab one, a recovering tab two, then tab one deletes the file and dies before COMMITTED: the record of the deletion must survive
+ok 148 - RACE (found by Ahmed): a stalled tab one, a recovering tab two, then tab one deletes the file and dies before COMMITTED: the record of the deletion must survive
+  ---
+  duration_ms: 18.017173
+  type: 'test'
+  ...
+# Subtest: a PENDING record with its file present is kept however old, is invisible to project(), and is reused by a retry under the same id
+ok 149 - a PENDING record with its file present is kept however old, is invisible to project(), and is reused by a retry under the same id
+  ---
+  duration_ms: 10.200268
+  type: 'test'
+  ...
+# Subtest: a failed own delete leaves its PENDING record in place (no discard): nothing is lost if the file went after all
+ok 150 - a failed own delete leaves its PENDING record in place (no discard): nothing is lost if the file went after all
+  ---
+  duration_ms: 10.241659
+  type: 'test'
+  ...
+# Subtest: presence is checked by import id, never by file name or hash: delete, then re-upload identical bytes under the same name, and the record still commits
+ok 151 - presence is checked by import id, never by file name or hash: delete, then re-upload identical bytes under the same name, and the record still commits
+  ---
+  duration_ms: 9.216611
+  type: 'test'
+  ...
+# Subtest: project() itself ignores a pending record
+ok 152 - project() itself ignores a pending record
+  ---
+  duration_ms: 3.239987
+  type: 'test'
+  ...
+# Subtest: the export carries the record of deleted files AND says so in the file itself, in plain words
+ok 153 - the export carries the record of deleted files AND says so in the file itself, in plain words
+  ---
+  duration_ms: 18.590587
+  type: 'test'
+  ...
+# Subtest: the export page shows the same words next to the export button, and the restore page warns before and when a backup is chosen
+ok 154 - the export page shows the same words next to the export button, and the restore page warns before and when a backup is chosen
+  ---
+  duration_ms: 0.291836
+  type: 'test'
+  ...
+# Subtest: the deletion record is stored only inside the encrypted vault: no file name or fingerprint in the raw store, no content anywhere
+ok 155 - the deletion record is stored only inside the encrypted vault: no file name or fingerprint in the raw store, no content anywhere
+  ---
+  duration_ms: 22.896258
+  type: 'test'
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with an explicit TRUE on every row is CREATED_BY_AMAZON (characterization)
+ok 156 - issuer: InvoiceCreatedByAmazon with an explicit TRUE on every row is CREATED_BY_AMAZON (characterization)
+  ---
+  duration_ms: 4.147987
+  type: 'test'
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with explicit TRUE is CREATED_BY_AMAZON
+ok 157 - issuer: CreditNoteCreatedByAmazon with explicit TRUE is CREATED_BY_AMAZON
+  ---
+  duration_ms: 0.565358
+  type: 'test'
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 158 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 1.068638
+  type: 'test'
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 159 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.474796
+  type: 'test'
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 160 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.73028
+  type: 'test'
+  ...
+# Subtest: issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 161 - issuer: InvoiceCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.426652
+  type: 'test'
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 162 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced FALSE is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.412312
+  type: 'test'
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 163 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced BLANK is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.422106
+  type: 'test'
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 164 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (yes) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.781445
+  type: 'test'
+  ...
+# Subtest: issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+ok 165 - issuer: CreditNoteCreatedByAmazon with is-amazon-invoiced UNREADABLE (1) is ISSUER_UNDETERMINED: raw status kept, report state kept, never described as Amazon-issued, counted once and not as created by Amazon
+  ---
+  duration_ms: 0.626632
+  type: 'test'
+  ...
+# Subtest: issuer: rows of one document that disagree on is-amazon-invoiced are ISSUER_UNDETERMINED, the first row alone is not enough
+ok 166 - issuer: rows of one document that disagree on is-amazon-invoiced are ISSUER_UNDETERMINED, the first row alone is not enough
+  ---
+  duration_ms: 1.370568
+  type: 'test'
+  ...
+# Subtest: issuer: a flag that conflicts with a seller-side status is untouched here (it is not a CreatedByAmazon document); the status stays what the report says
+ok 167 - issuer: a flag that conflicts with a seller-side status is untouched here (it is not a CreatedByAmazon document); the status stays what the report says
+  ---
+  duration_ms: 0.411212
+  type: 'test'
+  ...
+# Subtest: issuer: no explanation and no headline sentence ever describes an ISSUER_UNDETERMINED document as Amazon-issued, across every case
+ok 168 - issuer: no explanation and no headline sentence ever describes an ISSUER_UNDETERMINED document as Amazon-issued, across every case
+  ---
+  duration_ms: 1.178599
+  type: 'test'
+  ...
+# Subtest: issuer: the total is kept: every document is in the state counts, and the undetermined ones also in cannotDetermine and exceptions
+ok 169 - issuer: the total is kept: every document is in the state counts, and the undetermined ones also in cannotDetermine and exceptions
+  ---
+  duration_ms: 0.303373
+  type: 'test'
+  ...
+# Subtest: FA3 built XML is schema-valid
+ok 170 - FA3 built XML is schema-valid
+  ---
+  duration_ms: 43.940597
+  type: 'test'
+  ...
+# Subtest: FA(3) correction (KOR) is schema-valid and refuses incomplete references
+ok 171 - FA(3) correction (KOR) is schema-valid and refuses incomplete references
+  ---
+  duration_ms: 122.176467
+  type: 'test'
+  ...
+# Subtest: FA3 builder refuses unknown rate and missing data
+ok 172 - FA3 builder refuses unknown rate and missing data
+  ---
+  duration_ms: 0.228375
+  type: 'test'
+  ...
+# Subtest: validator rejects broken FA3 and accepts no unknown element
+ok 173 - validator rejects broken FA3 and accepts no unknown element
+  ---
+  duration_ms: 42.0484
+  type: 'test'
+  ...
+# Subtest: FatturaPA sample is schema-valid, broken one is rejected
+ok 174 - FatturaPA sample is schema-valid, broken one is rejected
+  ---
+  duration_ms: 71.411855
+  type: 'test'
+  ...
+# Subtest: FA3 amount correction: before/after rows, difference totals, schema-valid
+ok 175 - FA3 amount correction: before/after rows, difference totals, schema-valid
+  ---
+  duration_ms: 39.687384
+  type: 'test'
+  ...
+# Subtest: FA3 multi-rate: per-rate totals and per-rate correction differences
+ok 176 - FA3 multi-rate: per-rate totals and per-rate correction differences
+  ---
+  duration_ms: 0.548764
+  type: 'test'
+  ...
+# P2 round 1: {"mismatch":["Currency: Amazon shows EUR, your accounting export shows USD."],"duplicate":["Rows row 4, row 5 of the accounting file carry the same document number A-2003 with different content. This is information about your accounting file (Ledger Data Quality), not a finding about an Amazon invoice."],"states":["DATA_MISMATCH/FIELDS_DIFFER/ACTION_REQUIRED","DUPLICATE_DOCUMENT/SAME_NUMBER_DIFFERENT_CONTENT/OPEN"]}
+# P2 round 2: {"states":["DATA_MISMATCH/FIELDS_DIFFER/VERIFIED_CLOSED","DUPLICATE_DOCUMENT/SAME_NUMBER_DIFFERENT_CONTENT/VERIFIED_CLOSED"],"closedWithEvidence":2,"matched":3}
+# LINE-conflict card: {"title":"The rows of document M-1 disagree on data that belongs to the whole document","what":"You declared that each row of this export is one line item of a document. Rows row 2, row 3 share the document number M-1, but they do not agree on the buyer tax id (row 2: DE811128135; row 3: DE000000000).","action":"Check these rows in your accounting system and make the document-level data the same on every line of the document, if that is what the document says. Nothing in this message means that a row should be deleted."}
+# Subtest: p2 fixtures: committed P2 files equal the generator output
+ok 177 - p2 fixtures: committed P2 files equal the generator output
+  ---
+  duration_ms: 1.08368
+  type: 'test'
+  ...
+# Subtest: mismatch: a buyer tax id that differs is ONE problem for the pair, with both values
+ok 178 - mismatch: a buyer tax id that differs is ONE problem for the pair, with both values
+  ---
+  duration_ms: 12.510805
+  type: 'test'
+  ...
+# Subtest: mismatch: every difference of the pair is in the same single problem
+ok 179 - mismatch: every difference of the pair is in the same single problem
+  ---
+  duration_ms: 2.742403
+  type: 'test'
+  ...
+# Subtest: fix-1: the invoice total is NEVER compared: a total that differs from the item price (shipping, gift wrap, discount) gives no phantom mismatch, and is listed as not compared
+ok 180 - fix-1: the invoice total is NEVER compared: a total that differs from the item price (shipping, gift wrap, discount) gives no phantom mismatch, and is listed as not compared
+  ---
+  duration_ms: 16.92419
+  type: 'test'
+  ...
+# Subtest: mismatch: an id one side does not state is not compared and never invents a mismatch
+ok 181 - mismatch: an id one side does not state is not compared and never invents a mismatch
+  ---
+  duration_ms: 11.4181
+  type: 'test'
+  ...
+# Subtest: fix-4: the buyer tax id is compared only when EVERY Amazon row of the transaction carries it: a value on one row and an empty cell on another is not comparable
+ok 182 - fix-4: the buyer tax id is compared only when EVERY Amazon row of the transaction carries it: a value on one row and an empty cell on another is not comparable
+  ---
+  duration_ms: 8.254852
+  type: 'test'
+  ...
+# Subtest: mismatch: only CONFIRMED pairs (unique number on both sides): a proposal, a different number or a declared link never compares
+ok 183 - mismatch: only CONFIRMED pairs (unique number on both sides): a proposal, a different number or a declared link never compares
+  ---
+  duration_ms: 23.182107
+  type: 'test'
+  ...
+# Subtest: mismatch: the key is the pair, never the values; a changed value keeps the key and changes what is shown
+ok 184 - mismatch: the key is the pair, never the values; a changed value keeps the key and changes what is shown
+  ---
+  duration_ms: 5.232478
+  type: 'test'
+  ...
+# Subtest: mismatch: a corrected export of the same pair closes it by evidence; a field that can no longer be compared does not
+ok 185 - mismatch: a corrected export of the same pair closes it by evidence; a field that can no longer be compared does not
+  ---
+  duration_ms: 3.997681
+  type: 'test'
+  ...
+# Subtest: explained: DIFFERENCE_EXPLAINED gives MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED, and keeps author, time and words
+ok 186 - explained: DIFFERENCE_EXPLAINED gives MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED, and keeps author, time and words
+  ---
+  duration_ms: 2.385125
+  type: 'test'
+  ...
+# Subtest: explained: it lapses when the values change, and refuses on every other family and on a general declaration
+ok 187 - explained: it lapses when the values change, and refuses on every other family and on a general declaration
+  ---
+  duration_ms: 17.795173
+  type: 'test'
+  ...
+# Subtest: duplicate: one document identity twice in ONE file with different content is one problem, rows named, and nothing is picked
+ok 188 - duplicate: one document identity twice in ONE file with different content is one problem, rows named, and nothing is picked
+  ---
+  duration_ms: 1.196904
+  type: 'test'
+  ...
+# Subtest: duplicate: identical copies in one file are a duplicate of kind EXACT_REPEAT
+ok 189 - duplicate: identical copies in one file are a duplicate of kind EXACT_REPEAT
+  ---
+  duration_ms: 0.891284
+  type: 'test'
+  ...
+# Subtest: duplicate: a re-export of the same document in a later file is NEVER a duplicate, identical or changed
+ok 190 - duplicate: a re-export of the same document in a later file is NEVER a duplicate, identical or changed
+  ---
+  duration_ms: 5.522955
+  type: 'test'
+  ...
+# Subtest: duplicate: a corrected file in which the document appears once closes it by evidence; no declaration closes it
+ok 191 - duplicate: a corrected file in which the document appears once closes it by evidence; no declaration closes it
+  ---
+  duration_ms: 4.809788
+  type: 'test'
+  ...
+# Subtest: p2 fixtures end to end: round 1 shows one mismatch and one duplicate, round 2 closes both by evidence and nothing is invented
+ok 192 - p2 fixtures end to end: round 1 shows one mismatch and one duplicate, round 2 closes both by evidence and nothing is invented
+  ---
+  duration_ms: 4.652281
+  type: 'test'
+  ...
+# Subtest: p2 determinism: the same imports in any order and the same events give identical results, and the inputs are not mutated
+ok 193 - p2 determinism: the same imports in any order and the same events give identical results, and the inputs are not mutated
+  ---
+  duration_ms: 4.824416
+  type: 'test'
+  ...
+# Subtest: fix-2: a newer PARTIAL export that holds the document once does NOT close a duplicate of a complete file; only a complete file of the same scope does
+ok 194 - fix-2: a newer PARTIAL export that holds the document once does NOT close a duplicate of a complete file; only a complete file of the same scope does
+  ---
+  duration_ms: 2.899468
+  type: 'test'
+  ...
+# Subtest: fix-3: where the file does not say what one row is, repeated rows are an UNDETERMINED suspicion, never a duplicate, and the card never tells the seller to remove rows
+ok 195 - fix-3: where the file does not say what one row is, repeated rows are an UNDETERMINED suspicion, never a duplicate, and the card never tells the seller to remove rows
+  ---
+  duration_ms: 5.569687
+  type: 'test'
+  ...
+# Subtest: sha256: the synchronous hash equals node:crypto for empty, ascii, multibyte and long input
+ok 196 - sha256: the synchronous hash equals node:crypto for empty, ascii, multibyte and long input
+  ---
+  duration_ms: 8.505938
+  type: 'test'
+  ...
+# Subtest: fixtures: committed files equal the generator output (nothing hand-edited)
+ok 197 - fixtures: committed files equal the generator output (nothing hand-edited)
+  ---
+  duration_ms: 2.40827
+  type: 'test'
+  ...
+# Subtest: mapping: Spanish headers, semicolons, decimal comma are detected and proposed, never stored
+ok 198 - mapping: Spanish headers, semicolons, decimal comma are detected and proposed, never stored
+  ---
+  duration_ms: 1.765703
+  type: 'test'
+  ...
+# Subtest: mapping: two columns for one field is AMBIGUOUS and names both
+ok 199 - mapping: two columns for one field is AMBIGUOUS and names both
+  ---
+  duration_ms: 1.0569
+  type: 'test'
+  ...
+# Subtest: mapping: a required field with no column is MISSING and stops the import
+ok 200 - mapping: a required field with no column is MISSING and stops the import
+  ---
+  duration_ms: 0.260687
+  type: 'test'
+  ...
+# Subtest: mapping: header and content must agree (a date column holding words fails with the cell named)
+ok 201 - mapping: header and content must agree (a date column holding words fails with the cell named)
+  ---
+  duration_ms: 0.37129
+  type: 'test'
+  ...
+# Subtest: mapping: dates that fit day-first and month-first are AMBIGUOUS and need a declaration; proof in the file is read as proof; both kinds is a CONTRADICTION
+ok 202 - mapping: dates that fit day-first and month-first are AMBIGUOUS and need a declaration; proof in the file is read as proof; both kinds is a CONTRADICTION
+  ---
+  duration_ms: 0.696034
+  type: 'test'
+  ...
+# Subtest: mapping: unknown columns must be acknowledged; an unconfirmed profile reads nothing
+ok 203 - mapping: unknown columns must be acknowledged; an unconfirmed profile reads nothing
+  ---
+  duration_ms: 0.823687
+  type: 'test'
+  ...
+# Subtest: mapping: a negative amount never makes a credit note; kind comes only from a kind column or the seller's declaration
+ok 204 - mapping: a negative amount never makes a credit note; kind comes only from a kind column or the seller's declaration
+  ---
+  duration_ms: 0.649432
+  type: 'test'
+  ...
+# Subtest: values: money in integer minor units under the declared separators; anything else is refused, never rounded
+ok 205 - values: money in integer minor units under the declared separators; anything else is refused, never rounded
+  ---
+  duration_ms: 0.587042
+  type: 'test'
+  ...
+# Subtest: values: unreadable rows are rejected with row and reason and the import becomes incomplete; nothing is dropped silently
+ok 206 - values: unreadable rows are rejected with row and reason and the import becomes incomplete; nothing is dropped silently
+  ---
+  duration_ms: 1.503931
+  type: 'test'
+  ...
+# Subtest: values: a blank line inside the data and a short row are counted and make the file incomplete
+ok 207 - values: a blank line inside the data and a short row are counted and make the file incomplete
+  ---
+  duration_ms: 0.360826
+  type: 'test'
+  ...
+# Subtest: loop: round 1 finds the problems the files show, each with its family, and nothing else
+ok 208 - loop: round 1 finds the problems the files show, each with its family, and nothing else
+  ---
+  duration_ms: 43.84829
+  type: 'test'
+  ...
+# Subtest: loop: PROCESSING is not an exception (counted as in progress, no card); a non-Amazon channel row creates no problem
+ok 209 - loop: PROCESSING is not an exception (counted as in progress, no card); a non-Amazon channel row creates no problem
+  ---
+  duration_ms: 15.623596
+  type: 'test'
+  ...
+# Subtest: loop: every card names what, why, proof rows, the action and what closes it, built from the evidence
+ok 210 - loop: every card names what, why, proof rows, the action and what closes it, built from the evidence
+  ---
+  duration_ms: 2.998942
+  type: 'test'
+  ...
+# Subtest: loop: an order id alone is a PROPOSAL; a proposal produces no books-gap card for that transaction
+ok 211 - loop: an order id alone is a PROPOSAL; a proposal produces no books-gap card for that transaction
+  ---
+  duration_ms: 2.876065
+  type: 'test'
+  ...
+# Subtest: loop: no mismatch card exists in P1: a ledger document under another number for the same order produces no gap, no no-candidate and no mismatch card
+ok 212 - loop: no mismatch card exists in P1: a ledger document under another number for the same order produces no gap, no no-candidate and no mismatch card
+  ---
+  duration_ms: 2.560265
+  type: 'test'
+  ...
+# Subtest: identity: the key never contains status, amount, date, file name or row: the same problem keeps its key across imports and subtype changes
+ok 213 - identity: the key never contains status, amount, date, file name or row: the same problem keeps its key across imports and subtype changes
+  ---
+  duration_ms: 14.412155
+  type: 'test'
+  ...
+# Subtest: identity: different family or subject gives a different key; the profile id and the key version are in the hash
+ok 214 - identity: different family or subject gives a different key; the profile id and the key version are in the hash
+  ---
+  duration_ms: 0.183563
+  type: 'test'
+  ...
+# Subtest: identity: SOURCE_INCOMPLETE is keyed by scope descriptor, so a complete replacement closes the SAME issue
+ok 215 - identity: SOURCE_INCOMPLETE is keyed by scope descriptor, so a complete replacement closes the SAME issue
+  ---
+  duration_ms: 5.594544
+  type: 'test'
+  ...
+# Subtest: identity: SOURCE_INCOMPLETE is not closed by a declaration or an action note; a different scope does not close it
+ok 216 - identity: SOURCE_INCOMPLETE is not closed by a declaration or an action note; a different scope does not close it
+  ---
+  duration_ms: 2.396976
+  type: 'test'
+  ...
+# Subtest: lifecycle: the seller says they started; the state is AWAITING_NEW_EVIDENCE, not closed; a newer report that still shows it returns it to ACTION_REQUIRED with the event kept
+ok 217 - lifecycle: the seller says they started; the state is AWAITING_NEW_EVIDENCE, not closed; a newer report that still shows it returns it to ACTION_REQUIRED with the event kept
+  ---
+  duration_ms: 8.827061
+  type: 'test'
+  ...
+# Subtest: lifecycle: closure appears only when a newer report meets the acceptance gate for the SAME subject; both sides keep the history
+ok 218 - lifecycle: closure appears only when a newer report meets the acceptance gate for the SAME subject; both sides keep the history
+  ---
+  duration_ms: 5.685029
+  type: 'test'
+  ...
+# Subtest: lifecycle: a changed TransactionId does NOT close the old problem (no merge, no guessing about Amazon)
+ok 219 - lifecycle: a changed TransactionId does NOT close the old problem (no merge, no guessing about Amazon)
+  ---
+  duration_ms: 3.226081
+  type: 'test'
+  ...
+# Subtest: lifecycle: closure is derived: removing the evidence removes the closure (no stored flag to repair)
+ok 220 - lifecycle: closure is derived: removing the evidence removes the closure (no stored flag to repair)
+  ---
+  duration_ms: 6.718835
+  type: 'test'
+  ...
+# Subtest: lifecycle: a later import that contradicts a closure reopens it as a new episode, keeping both pieces of evidence
+ok 221 - lifecycle: a later import that contradicts a closure reopens it as a new episode, keeping both pieces of evidence
+  ---
+  duration_ms: 7.10911
+  type: 'test'
+  ...
+# Subtest: lifecycle: Amazon processing makes the issue AWAITING_NEW_EVIDENCE from the report itself, not from a seller event
+ok 222 - lifecycle: Amazon processing makes the issue AWAITING_NEW_EVIDENCE from the report itself, not from a seller event
+  ---
+  duration_ms: 1.072227
+  type: 'test'
+  ...
+# Subtest: declarations: Amazon-state problems and SOURCE_INCOMPLETE refuse a declaration; the refusal names the reason
+ok 223 - declarations: Amazon-state problems and SOURCE_INCOMPLETE refuse a declaration; the refusal names the reason
+  ---
+  duration_ms: 11.319287
+  type: 'test'
+  ...
+# Subtest: declarations: NOT_AN_AMAZON_SALE gives MANUALLY_REPORTED_RESOLUTION and never VERIFIED_CLOSED; it lapses when its evidence changes
+ok 224 - declarations: NOT_AN_AMAZON_SALE gives MANUALLY_REPORTED_RESOLUTION and never VERIFIED_CLOSED; it lapses when its evidence changes
+  ---
+  duration_ms: 14.706103
+  type: 'test'
+  ...
+# Subtest: links: a seller-declared link gives MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED, and no file confirms it
+ok 225 - links: a seller-declared link gives MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED, and no file confirms it
+  ---
+  duration_ms: 11.795986
+  type: 'test'
+  ...
+# Subtest: links: a rejected proposal removes the proposal; the transaction is then judged on its own (books gap if coverage allows)
+ok 226 - links: a rejected proposal removes the proposal; the transaction is then judged on its own (books gap if coverage allows)
+  ---
+  duration_ms: 8.683084
+  type: 'test'
+  ...
+# Subtest: matching: a document number is confirmed only when unique: two Amazon transactions with one number, or two ledger documents with one number, stay UNMATCHED (multiple candidates)
+ok 227 - matching: a document number is confirmed only when unique: two Amazon transactions with one number, or two ledger documents with one number, stay UNMATCHED (multiple candidates)
+  ---
+  duration_ms: 2.17326
+  type: 'test'
+  ...
+# Subtest: matching: no match by amount or date even when they agree exactly
+ok 228 - matching: no match by amount or date even when they agree exactly
+  ---
+  duration_ms: 1.82593
+  type: 'test'
+  ...
+# Subtest: coverage: amazonScope UNKNOWN allows no absence conclusion at all (cannot determine, named), but links still work
+ok 229 - coverage: amazonScope UNKNOWN allows no absence conclusion at all (cannot determine, named), but links still work
+  ---
+  duration_ms: 2.377065
+  type: 'test'
+  ...
+# Subtest: coverage: books-gap needs the export scope: declared as a partial export gives no gap and names the unmet condition
+ok 230 - coverage: books-gap needs the export scope: declared as a partial export gives no gap and names the unmet condition
+  ---
+  duration_ms: 2.187108
+  type: 'test'
+  ...
+# Subtest: coverage: books-gap needs the export scope: declared for another marketplace gives no gap and names the unmet condition
+ok 231 - coverage: books-gap needs the export scope: declared for another marketplace gives no gap and names the unmet condition
+  ---
+  duration_ms: 1.944474
+  type: 'test'
+  ...
+# Subtest: coverage: books-gap needs the export scope: does not declare invoices gives no gap and names the unmet condition
+ok 232 - coverage: books-gap needs the export scope: does not declare invoices gives no gap and names the unmet condition
+  ---
+  duration_ms: 1.968279
+  type: 'test'
+  ...
+# Subtest: coverage: books-gap needs the export scope: period too early gives no gap and names the unmet condition
+ok 233 - coverage: books-gap needs the export scope: period too early gives no gap and names the unmet condition
+  ---
+  duration_ms: 2.61818
+  type: 'test'
+  ...
+# Subtest: coverage: books-gap needs the export scope: period starts after the shipment gives no gap and names the unmet condition
+ok 234 - coverage: books-gap needs the export scope: period starts after the shipment gives no gap and names the unmet condition
+  ---
+  duration_ms: 2.580568
+  type: 'test'
+  ...
+# Subtest: coverage: with no accounting export at all there is no books-gap and no invented problem; the note says so
+ok 235 - coverage: with no accounting export at all there is no books-gap and no invented problem; the note says so
+  ---
+  duration_ms: 0.966671
+  type: 'test'
+  ...
+# Subtest: coverage: a pending-only report is a scope limit, not a defect: pending rows still show, nothing is called missing from Amazon
+ok 236 - coverage: a pending-only report is a scope limit, not a defect: pending rows still show, nothing is called missing from Amazon
+  ---
+  duration_ms: 1.899781
+  type: 'test'
+  ...
+# Subtest: coverage: no-candidate needs the document's operation date and a complete all-statuses report covering it
+ok 237 - coverage: no-candidate needs the document's operation date and a complete all-statuses report covering it
+  ---
+  duration_ms: 4.055397
+  type: 'test'
+  ...
+# Subtest: coverage: an incomplete Amazon file (missing declaration) cannot support an absence conclusion and raises ONE SOURCE_INCOMPLETE issue, no other problem from the incompleteness
+ok 238 - coverage: an incomplete Amazon file (missing declaration) cannot support an absence conclusion and raises ONE SOURCE_INCOMPLETE issue, no other problem from the incompleteness
+  ---
+  duration_ms: 2.705908
+  type: 'test'
+  ...
+# Subtest: coverage: a later complete export of the same scope replaces an earlier one: a document no longer in it is no longer in the books
+ok 239 - coverage: a later complete export of the same scope replaces an earlier one: a document no longer in it is no longer in the books
+  ---
+  duration_ms: 4.691472
+  type: 'test'
+  ...
+# Subtest: door: an import without its scope is refused with the missing names and nothing is stored
+ok 240 - door: an import without its scope is refused with the missing names and nothing is stored
+  ---
+  duration_ms: 0.693791
+  type: 'test'
+  ...
+# Subtest: determinism: the same imports in any order, with caches cold, give an identical projection
+ok 241 - determinism: the same imports in any order, with caches cold, give an identical projection
+  ---
+  duration_ms: 14.88347
+  type: 'test'
+  ...
+# Subtest: determinism: the projection does not mutate its inputs
+ok 242 - determinism: the projection does not mutate its inputs
+  ---
+  duration_ms: 5.047916
+  type: 'test'
+  ...
+# Subtest: structure: the loop imports nothing from repair, pipeline, db or app, and stores no state, status or closed field
+ok 243 - structure: the loop imports nothing from repair, pipeline, db or app, and stores no state, status or closed field
+  ---
+  duration_ms: 1.797739
+  type: 'test'
+  ...
+# Subtest: structure: VERIFIED_CLOSED is assigned in one place only, from a closure predicate
+ok 244 - structure: VERIFIED_CLOSED is assigned in one place only, from a closure predicate
+  ---
+  duration_ms: 0.844407
+  type: 'test'
+  ...
+# Subtest: language: no card or bundle text claims legal position, certification, filing or "accepted on"
+ok 245 - language: no card or bundle text claims legal position, certification, filing or "accepted on"
+  ---
+  duration_ms: 4.86696
+  type: 'test'
+  ...
+# Subtest: bundle: closureBasis is evidence or declaration or null, declarations keep author, time and reasoning, and raw files are included with their hash
+ok 246 - bundle: closureBasis is evidence or declaration or null, declarations keep author, time and reasoning, and raw files are included with their hash
+  ---
+  duration_ms: 10.796189
+  type: 'test'
+  ...
+# Subtest: order: imports are ordered by the report's own time, then load time, then id
+ok 247 - order: imports are ordered by the report's own time, then load time, then id
+  ---
+  duration_ms: 0.149997
+  type: 'test'
+  ...
+# Subtest: structure: nothing stored carries a state, status, closed flag, issue or link, whatever the seller did
+ok 248 - structure: nothing stored carries a state, status, closed flag, issue or link, whatever the seller did
+  ---
+  duration_ms: 6.612329
+  type: 'test'
+  ...
+# Subtest: fix1: a newer PARTIAL ledger never closes an earlier SOURCE_INCOMPLETE of the same scope
+ok 249 - fix1: a newer PARTIAL ledger never closes an earlier SOURCE_INCOMPLETE of the same scope
+  ---
+  duration_ms: 6.028514
+  type: 'test'
+  ...
+# Subtest: fix1: a newer PENDING-ONLY report never closes a SOURCE_INCOMPLETE raised from an all-statuses report
+ok 250 - fix1: a newer PENDING-ONLY report never closes a SOURCE_INCOMPLETE raised from an all-statuses report
+  ---
+  duration_ms: 2.413771
+  type: 'test'
+  ...
+# Subtest: fix1: a COMPLETE valid replacement of the same scope does close it (ledger and report)
+ok 251 - fix1: a COMPLETE valid replacement of the same scope does close it (ledger and report)
+  ---
+  duration_ms: 5.075939
+  type: 'test'
+  ...
+# Subtest: fix2: an ACCEPTED report created BEFORE ACTION_STARTED but uploaded after it does not close the problem
+ok 252 - fix2: an ACCEPTED report created BEFORE ACTION_STARTED but uploaded after it does not close the problem
+  ---
+  duration_ms: 5.162126
+  type: 'test'
+  ...
+# Subtest: fix2: an ACCEPTED report created AFTER ACTION_STARTED closes it when the other conditions pass
+ok 253 - fix2: an ACCEPTED report created AFTER ACTION_STARTED closes it when the other conditions pass
+  ---
+  duration_ms: 5.389199
+  type: 'test'
+  ...
+# Subtest: fix2: with an action recorded, an unknown creation time is never evidence; without one, closure is unchanged
+ok 254 - fix2: with an action recorded, an unknown creation time is never evidence; without one, closure is unchanged
+  ---
+  duration_ms: 8.767208
+  type: 'test'
+  ...
+# Subtest: fix2: a report only counts as newer evidence after an action by its own creation time, not by upload time
+ok 255 - fix2: a report only counts as newer evidence after an action by its own creation time, not by upload time
+  ---
+  duration_ms: 9.397875
+  type: 'test'
+  ...
+# Subtest: fix3: a ledger exported before the Amazon report was created cannot prove a document is missing from the books
+ok 256 - fix3: a ledger exported before the Amazon report was created cannot prove a document is missing from the books
+  ---
+  duration_ms: 3.494217
+  type: 'test'
+  ...
+# Subtest: fix3: an unknown export time is Cannot Determine, upload time is never substituted, and the shown time is labelled as declared
+ok 257 - fix3: an unknown export time is Cannot Determine, upload time is never substituted, and the shown time is labelled as declared
+  ---
+  duration_ms: 10.844999
+  type: 'test'
+  ...
+# Subtest: fix4: a later complete file replaces an earlier one only with the SAME scope: ALL to CHANNEL does not replace
+ok 258 - fix4: a later complete file replaces an earlier one only with the SAME scope: ALL to CHANNEL does not replace
+  ---
+  duration_ms: 11.285532
+  type: 'test'
+  ...
+# Subtest: fix4: changing which channel values mean Amazon changes the scope; a partial file never replaces or erases a complete one
+ok 259 - fix4: changing which channel values mean Amazon changes the scope; a partial file never replaces or erases a complete one
+  ---
+  duration_ms: 11.24426
+  type: 'test'
+  ...
+# Subtest: wording: the summary bucket is "matched by invoice number" and the bundle says amounts, taxes and differences are not examined
+ok 260 - wording: the summary bucket is "matched by invoice number" and the bundle says amounts, taxes and differences are not examined
+  ---
+  duration_ms: 4.234856
+  type: 'test'
+  ...
+# Subtest: door: an export time that is not a date is refused
+ok 261 - door: an export time that is not a date is refused
+  ---
+  duration_ms: 0.259174
+  type: 'test'
+  ...
+# Subtest: fix-b: BOOKS_GAP proof rests on the newest complete ledger of the scope, never on the superseded one
+ok 262 - fix-b: BOOKS_GAP proof rests on the newest complete ledger of the scope, never on the superseded one
+  ---
+  duration_ms: 3.463678
+  type: 'test'
+  ...
+# Subtest: fix-b: with the newest ledger stale, a superseded fresh one cannot stand in; the newest complete ledger alone proves it when fresh
+ok 263 - fix-b: with the newest ledger stale, a superseded fresh one cannot stand in; the newest complete ledger alone proves it when fresh
+  ---
+  duration_ms: 3.518694
+  type: 'test'
+  ...
+# Subtest: detects formats and refuses the All Orders report
+ok 264 - detects formats and refuses the All Orders report
+  ---
+  duration_ms: 1.425123
+  type: 'test'
+  ...
+# Subtest: order report: a preview only. Every order is held with a reason, nothing is ready, whatever option is passed
+ok 265 - order report: a preview only. Every order is held with a reason, nothing is ready, whatever option is passed
+  ---
+  duration_ms: 1.024109
+  type: 'test'
+  ...
+# Subtest: vidr preview: consumer and non-invoiceable rows are skipped up front, not promised as invoices
+ok 266 - vidr preview: consumer and non-invoiceable rows are skipped up front, not promised as invoices
+  ---
+  duration_ms: 3.863066
+  type: 'test'
+  ...
+# Subtest: zip writer produces a valid archive
+ok 267 - zip writer produces a valid archive
+  ---
+  duration_ms: 4.76537
+  type: 'test'
+  ...
+# Subtest: manual journey: upload, hold, issue, pack, mark as uploaded; no sync
+ok 268 - manual journey: upload, hold, issue, pack, mark as uploaded; no sync
+  ---
+  duration_ms: 296.926184
+  type: 'test'
+  ...
+# Subtest: leaving demo mode removes the sample data and lands on the upload route
+ok 269 - leaving demo mode removes the sample data and lands on the upload route
+  ---
+  duration_ms: 119.308155
+  type: 'test'
+  ...
+# Subtest: only genuine Amazon confirm URLs are accepted as a callback
+ok 270 - only genuine Amazon confirm URLs are accepted as a callback
+  ---
+  duration_ms: 1.116446
+  type: 'test'
+  ...
+# Subtest: oauth stays off until every setting is present
+ok 271 - oauth stays off until every setting is present
+  ---
+  duration_ms: 0.240019
+  type: 'test'
+  ...
+# Subtest: website flow: consent URL, single-use state, code exchange, encrypted token stored
+ok 272 - website flow: consent URL, single-use state, code exchange, encrypted token stored
+  ---
+  duration_ms: 136.105169
+  type: 'test'
+  ...
+# Subtest: website flow: failed exchange and denied access connect nothing
+ok 273 - website flow: failed exchange and denied access connect nothing
+  ---
+  duration_ms: 98.220066
+  type: 'test'
+  ...
+# Subtest: Appstore flow: login URI validates the callback, continue needs a signed-in seller, then redirects to Amazon with our state
+ok 274 - Appstore flow: login URI validates the callback, continue needs a signed-in seller, then redirects to Amazon with our state
+  ---
+  duration_ms: 64.835532
+  type: 'test'
+  ...
+# Subtest: everything is closed when not configured
+ok 275 - everything is closed when not configured
+  ---
+  duration_ms: 62.014779
+  type: 'test'
+  ...
+# Subtest: adding the coverage metric leaves every current result unchanged (issues, buckets, stats, notes, imports are byte-identical to the engine before the change)
+ok 276 - adding the coverage metric leaves every current result unchanged (issues, buckets, stats, notes, imports are byte-identical to the engine before the change)
+  ---
+  duration_ms: 81.404401
+  type: 'test'
+  ...
+# Subtest: one model: scope = shipments determined to need a seller invoice (both fields readable); undetermined and outside-scope sit outside it; the three add up to ALL unique transactions
+ok 277 - one model: scope = shipments determined to need a seller invoice (both fields readable); undetermined and outside-scope sit outside it; the three add up to ALL unique transactions
+  ---
+  duration_ms: 3.115417
+  type: 'test'
+  ...
+# Subtest: business and non-business are subsets of the scope; matched and not matched are counted over the business subset and the scope total is stated beside them
+ok 278 - business and non-business are subsets of the scope; matched and not matched are counted over the business subset and the scope total is stated beside them
+  ---
+  duration_ms: 2.681873
+  type: 'test'
+  ...
+# Subtest: the coverage figure and the Summary figure cannot contradict: linked (any Amazon status) is stated apart from linked AND accepted, and the second is exactly the Summary number
+ok 279 - the coverage figure and the Summary figure cannot contradict: linked (any Amazon status) is stated apart from linked AND accepted, and the second is exactly the Summary number
+  ---
+  duration_ms: 20.620891
+  type: 'test'
+  ...
+# Subtest: undetermined is a separate bucket with its own reasons and is in no denominator
+ok 280 - undetermined is a separate bucket with its own reasons and is in no denominator
+  ---
+  duration_ms: 2.183934
+  type: 'test'
+  ...
+# Subtest: outside scope: Amazon-created invoices and corrections or non-shipment rows, each counted with its reason
+ok 281 - outside scope: Amazon-created invoices and corrections or non-shipment rows, each counted with its reason
+  ---
+  duration_ms: 2.315387
+  type: 'test'
+  ...
+# Subtest: a non-business shipment is never described as unmatched, and the reason is in words
+ok 282 - a non-business shipment is never described as unmatched, and the reason is in words
+  ---
+  duration_ms: 2.94912
+  type: 'test'
+  ...
+# Subtest: empty input: every count is 0 and the invariant holds
+ok 283 - empty input: every count is 0 and the invariant holds
+  ---
+  duration_ms: 0.153949
+  type: 'test'
+  ...
+# Subtest: the invariant holds for every synthetic scenario
+ok 284 - the invariant holds for every synthetic scenario
+  ---
+  duration_ms: 10.517229
+  type: 'test'
+  ...
+# Subtest: the statement names its scope and denominators, and never presents the business-only figure as covering every shipment
+ok 285 - the statement names its scope and denominators, and never presents the business-only figure as covering every shipment
+  ---
+  duration_ms: 2.715559
+  type: 'test'
+  ...
+# Subtest: when every shipment in scope is a business shipment the statement says the figure covers all of them
+ok 286 - when every shipment in scope is a business shipment the statement says the figure covers all of them
+  ---
+  duration_ms: 0.228901
+  type: 'test'
+  ...
+# Subtest: nothing loaded: the statement says so instead of showing zeros as a result
+ok 287 - nothing loaded: the statement says so instead of showing zeros as a result
+  ---
+  duration_ms: 0.115901
+  type: 'test'
+  ...
+# Subtest: the statement is part of the data, the export carries it, and the page renders it from that one source
+ok 288 - the statement is part of the data, the export carries it, and the page renders it from that one source
+  ---
+  duration_ms: 2.585633
+  type: 'test'
+  ...
+# Subtest: threshold declared in decimal text becomes minor units, with no default and no invention
+ok 289 - threshold declared in decimal text becomes minor units, with no default and no invention
+  ---
+  duration_ms: 1.758752
+  type: 'test'
+  ...
+# Subtest: amount above the declared threshold is MATERIAL and the action is SELLER_ACTION
+ok 290 - amount above the declared threshold is MATERIAL and the action is SELLER_ACTION
+  ---
+  duration_ms: 0.335889
+  type: 'test'
+  ...
+# Subtest: amount exactly equal to the threshold is MATERIAL (at or above)
+ok 291 - amount exactly equal to the threshold is MATERIAL (at or above)
+  ---
+  duration_ms: 0.121188
+  type: 'test'
+  ...
+# Subtest: amount below the threshold is IMMATERIAL: no finding, kept in the per-currency summary
+ok 292 - amount below the threshold is IMMATERIAL: no finding, kept in the per-currency summary
+  ---
+  duration_ms: 0.123113
+  type: 'test'
+  ...
+# Subtest: no declared threshold is UNDETERMINED with REVIEW, the amount is shown, nothing is escalated
+ok 293 - no declared threshold is UNDETERMINED with REVIEW, the amount is shown, nothing is escalated
+  ---
+  duration_ms: 0.27582
+  type: 'test'
+  ...
+# Subtest: a EUR threshold does not apply to USD, and no conversion is made
+ok 294 - a EUR threshold does not apply to USD, and no conversion is made
+  ---
+  duration_ms: 0.147016
+  type: 'test'
+  ...
+# Subtest: identity differences (tax id, currency) are MATERIAL by nature, whatever the threshold
+ok 295 - identity differences (tax id, currency) are MATERIAL by nature, whatever the threshold
+  ---
+  duration_ms: 0.198176
+  type: 'test'
+  ...
+# Subtest: a date difference is MATERIAL only when it changes the candidate tax period
+ok 296 - a date difference is MATERIAL only when it changes the candidate tax period
+  ---
+  duration_ms: 0.129814
+  type: 'test'
+  ...
+# Subtest: materiality never lowers a ledger-integrity finding and does not apply to the B2B domain
+ok 297 - materiality never lowers a ledger-integrity finding and does not apply to the B2B domain
+  ---
+  duration_ms: 0.341239
+  type: 'test'
+  ...
+# Subtest: the business flag is not an input: the same difference gives the same materiality for any order
+ok 298 - the business flag is not an input: the same difference gives the same materiality for any order
+  ---
+  duration_ms: 0.426235
+  type: 'test'
+  ...
+# Subtest: immaterial differences never disappear: one summary line per currency with count, sum of absolute differences and the largest
+ok 299 - immaterial differences never disappear: one summary line per currency with count, sum of absolute differences and the largest
+  ---
+  duration_ms: 7.037257
+  type: 'test'
+  ...
+# Subtest: the business flag must not affect DATA_RECONCILIATION: a currency difference is found and acted on the same way on a business and a non-business order
+not ok 300 - the business flag must not affect DATA_RECONCILIATION: a currency difference is found and acted on the same way on a business and a non-business order # TODO engine change not made yet: non-business shipments are held out before linking
+  ---
+  duration_ms: 14.49476
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/phase-a-materiality.test.js:64:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    must also be found on a non-business order
+    
+    0 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/phase-a-materiality.test.js:66:78)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: preflight: fixtures pass or warn, nothing fails
+ok 301 - preflight: fixtures pass or warn, nothing fails
+  ---
+  duration_ms: 3.74052
+  type: 'test'
+  ...
+# Subtest: preflight: each requirement fails closed
+ok 302 - preflight: each requirement fails closed
+  ---
+  duration_ms: 6.817617
+  type: 'test'
+  ...
+# Subtest: preflight output contains no file values (order ids, document numbers, marketplace ids)
+ok 303 - preflight output contains no file values (order ids, document numbers, marketplace ids)
+  ---
+  duration_ms: 0.377252
+  type: 'test'
+  ...
+# Subtest: measurement: aggregate has only numbers and fixed words, no sensitive values, and labels seller-reported vs machine-verified
+ok 304 - measurement: aggregate has only numbers and fixed words, no sensitive values, and labels seller-reported vs machine-verified
+  ---
+  duration_ms: 45.906689
+  type: 'test'
+  ...
+# Subtest: measurement: refuses bad input, and the guard refuses free text
+ok 305 - measurement: refuses bad input, and the guard refuses free text
+  ---
+  duration_ms: 15.689226
+  type: 'test'
+  ...
+# Subtest: measurement record is encrypted in the vault storage and goes with whole-workspace deletion
+ok 306 - measurement record is encrypted in the vault storage and goes with whole-workspace deletion
+  ---
+  duration_ms: 22.396251
+  type: 'test'
+  ...
+# Subtest: aggregate metrics change when a later file closes a finding (machine-verified count), not when the seller declares
+ok 307 - aggregate metrics change when a later file closes a finding (machine-verified count), not when the seller declares
+  ---
+  duration_ms: 5.022667
+  type: 'test'
+  ...
+# Subtest: correction 2: both times must be present, finite and non-negative; empty is never zero; incomplete stays unavailable
+ok 308 - correction 2: both times must be present, finite and non-negative; empty is never zero; incomplete stays unavailable
+  ---
+  duration_ms: 23.274628
+  type: 'test'
+  ...
+# Subtest: correction 3: pilot scope is one marketplace and one period; a different scope is refused at preflight and blocks the aggregate
+ok 309 - correction 3: pilot scope is one marketplace and one period; a different scope is refused at preflight and blocks the aggregate
+  ---
+  duration_ms: 26.996424
+  type: 'test'
+  ...
+# Subtest: wording: source type is labelled seller-declared and the file origin is not claimed as verified
+ok 310 - wording: source type is labelled seller-declared and the file origin is not claimed as verified
+  ---
+  duration_ms: 2.261843
+  type: 'test'
+  ...
+# Subtest: preflight works one file at a time and says the pair checks wait
+ok 311 - preflight works one file at a time and says the pair checks wait
+  ---
+  duration_ms: 0.292379
+  type: 'test'
+  ...
+# Subtest: dataset: a missing Amazon report, or a missing accounting export, is not a pilot and no aggregate is produced
+ok 312 - dataset: a missing Amazon report, or a missing accounting export, is not a pilot and no aggregate is produced
+  ---
+  duration_ms: 5.495945
+  type: 'test'
+  ...
+# Subtest: dataset: a valid latest pair does not hide an older incompatible import
+ok 313 - dataset: a valid latest pair does not hide an older incompatible import
+  ---
+  duration_ms: 5.42064
+  type: 'test'
+  ...
+# Subtest: dataset: several accounting exports must all match the marketplace and cover the period
+ok 314 - dataset: several accounting exports must all match the marketplace and cover the period
+  ---
+  duration_ms: 10.87455
+  type: 'test'
+  ...
+# Subtest: dataset: aggregate is blocked by a failed preflight even when only one file is bad
+ok 315 - dataset: aggregate is blocked by a failed preflight even when only one file is bad
+  ---
+  duration_ms: 2.078456
+  type: 'test'
+  ...
+# Subtest: dataset: a fully valid multi-import pilot still produces its aggregate, WARNs stay visible
+ok 316 - dataset: a fully valid multi-import pilot still produces its aggregate, WARNs stay visible
+  ---
+  duration_ms: 5.713169
+  type: 'test'
+  ...
+# Subtest: staged: the pending file is checked against EVERY stored file, not the latest opposite one
+ok 317 - staged: the pending file is checked against EVERY stored file, not the latest opposite one
+  ---
+  duration_ms: 1.685845
+  type: 'test'
+  ...
+# Subtest: truncation: a pending accounting export over the row limit is blocked, with an explanation
+ok 318 - truncation: a pending accounting export over the row limit is blocked, with an explanation
+  ---
+  duration_ms: 899.81181
+  type: 'test'
+  ...
+# Subtest: truncation: a stored truncated import fails the whole dataset and the aggregate is refused; exactly at the limit still passes
+ok 319 - truncation: a stored truncated import fails the whole dataset and the aggregate is refused; exactly at the limit still passes
+  ---
+  duration_ms: 8994.767172
+  type: 'test'
+  ...
+# EXAMPLE (a) evidence log: {"doc":{"marketplace-id":"A1RKKUPIHCS9HS","order-id":"405-1111111-0000001","shipping-id":"S9001","transaction-id":"S9001","transaction-type":"SHIPMENT"},"report":"all-r3-uploaded","sha256":"8eb846399dfc8669...","status":"InvoiceUploaded","number":"A-2026-000123","tx":"S9001","effective":"2026-11-14T08:00:00.000Z","basis":"createdAt (seller-confirmed)","history":["InvoicePending","InvoiceProcessing","InvoiceUploaded"]}
+# EXAMPLE (b) import: INCOMPLETE_SOURCE | Declared as the pending-only report: it leaves out invoices Amazon already accepted. | accepted = 0
+# TEST G: R2 alone -> PROCESSING | R3+R2 / R2+R3 / all 6 orders -> ACCEPTED | old R1 imported last -> ACCEPTED (current import all-r3-uploaded)
+# HEADLINE (R1+R2+R3 all-status): Out of 8 document(s) in the loaded files: 3 document(s) with an exception (one document can be in more than one line below): 1 rejected by Amazon, 1 where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), 1 correction(s) not closed on both sides, 0 we cannot determine (0 from a partly read file, 0 from a file with missing columns, 0 from another incomplete import, 0 with an unmet check, 0 with a missing or unreadable order date, 0 with dates in a format we do not recognise, that look month-first or that contradict each other, 0 waiting for the seller to confirm the date format, 0 with an invoice number blank on some rows, 0 unmatched, 0 unknown status, 0 unknown correction id format, 0 status that does not fit the transaction type, 0 where the report does not show who issued the invoice (issuer undetermined)). 0 in progress (pending or processing), 5 observed as accepted, 0 created by Amazon (nothing to upload). Separately, 0 row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.
+# HEADLINE (pending-only only): Out of 2 document(s) in the loaded files: 1 document(s) with an exception (one document can be in more than one line below): 1 rejected by Amazon, 0 where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), 0 correction(s) not closed on both sides, 0 we cannot determine (0 from a partly read file, 0 from a file with missing columns, 0 from another incomplete import, 0 with an unmet check, 0 with a missing or unreadable order date, 0 with dates in a format we do not recognise, that look month-first or that contradict each other, 0 waiting for the seller to confirm the date format, 0 with an invoice number blank on some rows, 0 unmatched, 0 unknown status, 0 unknown correction id format, 0 status that does not fit the transaction type, 0 where the report does not show who issued the invoice (issuer undetermined)). 1 in progress (pending or processing), 0 observed as accepted, 0 created by Amazon (nothing to upload). Separately, 0 row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.
+# P1-a outside-period import -> INCOMPLETE_SOURCE ROWS_OUTSIDE_RANGE | accepted = 0 | S9001 (InvoiceUploaded inside the period): INCOMPLETE_SOURCE IMPORT_NOT_COMPLETE
+# P1-b truncated import -> INCOMPLETE_SOURCE TRUNCATED_FILE | rows read 20000 | accepted = 0 | first doc: INCOMPLETE_SOURCE TRUNCATED_FILE | The file says InvoiceUploaded, but it is not shown as accepted. file was read in full (only part of the file was read); import is complete (every import-level c
+# P1-c matrix cells asserted: 44 | e.g. REFUND+InvoiceUploaded -> INCOMPATIBLE_STATUS_AND_TYPE
+# P1-1 one good InvoiceUploaded + one row with an empty order date -> INCOMPLETE_SOURCE MISSING_OR_INVALID_ORDER_DATE | accepted = 0 | S9001: INCOMPLETE_SOURCE MISSING_OR_INVALID_ORDER_DATE
+# P1-2 multi-row document, one row numbered, one blank -> INVOICE_NUMBER_INCOMPLETE | accepted (that document alone, 2 rows) = 0 | The rows of this document do not agree on the invoice number. Some rows of this document carry the invoice number "A-2026-000123" and others have it b
+# dates: unrecognised format -> INCOMPLETE_SOURCE UNRECOGNIZED_DATE_FORMAT | accepted = 0 | 9 order date(s) in the file are not in a format we recognise. Amazon documents DD/MM/YYYY (for example 17/05/2018). This file is not shown as a complete read.
+# dates: month-first file -> INCOMPLETE_SOURCE MONTH_FIRST_NOT_SUPPORTED | accepted = 0 | The order dates in this file look month-first (for example "05/17/2018"). Amazon documents DD/MM/YYYY for this report, so this file cannot be read as it is. Download the report again and load it unchanged.
+# dates: unconfirmed ambiguous file (all 05/03/2018) -> COMPLETE_SCOPE | accepted = 0 | DATE_ORDER_UNCONFIRMED | Every valid order date in this file is ambiguous between day/month and month/day. Nothing in the file proves the order, so nothing is shown as accepted until the seller confirms DD/MM/YYYY, the format Amazon documents for this report.
+# Subtest: literal status strings: exactly the 11 documented values, each mapped, none UNKNOWN; anything else is UNKNOWN_STATUS (never PENDING)
+ok 320 - literal status strings: exactly the 11 documented values, each mapped, none UNKNOWN; anything else is UNKNOWN_STATUS (never PENDING)
+  ---
+  duration_ms: 9.274523
+  type: 'test'
+  ...
+# Subtest: WORKED EXAMPLE (a): one synthetic order Expected -> Uploaded -> Accepted, every evidence field filled
+ok 321 - WORKED EXAMPLE (a): one synthetic order Expected -> Uploaded -> Accepted, every evidence field filled
+  ---
+  duration_ms: 9.70381
+  type: 'test'
+  ...
+# Subtest: WORKED EXAMPLE (b): a pending-only import cannot reach ACCEPTED; it classifies INCOMPLETE_SOURCE and says why
+ok 322 - WORKED EXAMPLE (b): a pending-only import cannot reach ACCEPTED; it classifies INCOMPLETE_SOURCE and says why
+  ---
+  duration_ms: 0.728692
+  type: 'test'
+  ...
+# Subtest: TEST G: Processing earlier, Uploaded later. State advances on evidence, an OLDER report never rolls it back, nothing accepted early
+ok 323 - TEST G: Processing earlier, Uploaded later. State advances on evidence, an OLDER report never rolls it back, nothing accepted early
+  ---
+  duration_ms: 9.451369
+  type: 'test'
+  ...
+# Subtest: each ACCEPTED precondition blocks acceptance on its own (INCOMPLETE_SOURCE, with the unmet one named)
+ok 324 - each ACCEPTED precondition blocks acceptance on its own (INCOMPLETE_SOURCE, with the unmet one named)
+  ---
+  duration_ms: 4.430773
+  type: 'test'
+  ...
+# Subtest: H: multi-shipment order, duplicate rows, return, not-due, overlap are all handled without guessing
+ok 325 - H: multi-shipment order, duplicate rows, return, not-due, overlap are all handled without guessing
+  ---
+  duration_ms: 1.464763
+  type: 'test'
+  ...
+# Subtest: H: conflicting rows inside one document block ACCEPTED (UNMATCHED, reason AMBIGUOUS)
+ok 326 - H: conflicting rows inside one document block ACCEPTED (UNMATCHED, reason AMBIGUOUS)
+  ---
+  duration_ms: 2.474975
+  type: 'test'
+  ...
+# Subtest: E: a correction cycle closes only when BOTH sides are independently accepted
+ok 327 - E: a correction cycle closes only when BOTH sides are independently accepted
+  ---
+  duration_ms: 2.096048
+  type: 'test'
+  ...
+# Subtest: I: headline counts come from the evidence; cannot-determine is its own count; no accounting claim is made
+ok 328 - I: headline counts come from the evidence; cannot-determine is its own count; no accounting claim is made
+  ---
+  duration_ms: 2.722325
+  type: 'test'
+  ...
+# Subtest: no legal-consequence wording anywhere in the engine output
+ok 329 - no legal-consequence wording anywhere in the engine output
+  ---
+  duration_ms: 1.23315
+  type: 'test'
+  ...
+# Subtest: declared-versus-file contradiction is reported and the file is never upgraded
+ok 330 - declared-versus-file contradiction is reported and the file is never upgraded
+  ---
+  duration_ms: 0.363452
+  type: 'test'
+  ...
+# Subtest: Amazon-created documents are strictly apart from seller-uploaded ones: nothing due, no upload stage, own count
+ok 331 - Amazon-created documents are strictly apart from seller-uploaded ones: nothing due, no upload stage, own count
+  ---
+  duration_ms: 0.766346
+  type: 'test'
+  ...
+# Subtest: NoTaxCalculated creates an obligation: Expected is due, it is an exception while nothing is uploaded, and it clears only on a later report that shows an upload
+ok 332 - NoTaxCalculated creates an obligation: Expected is due, it is an exception while nothing is uploaded, and it clears only on a later report that shows an upload
+  ---
+  duration_ms: 3.046123
+  type: 'test'
+  ...
+# Subtest: correction ids: allow-list. current and legacy shapes both close a cycle; near-misses are UNKNOWN_TRANSACTION_ID_FORMAT and never a correction
+ok 333 - correction ids: allow-list. current and legacy shapes both close a cycle; near-misses are UNKNOWN_TRANSACTION_ID_FORMAT and never a correction
+  ---
+  duration_ms: 2.499284
+  type: 'test'
+  ...
+# Subtest: timestamps: three separate times with their source, "observed as X in the report dated Y", never "accepted on"
+ok 334 - timestamps: three separate times with their source, "observed as X in the report dated Y", never "accepted on"
+  ---
+  duration_ms: 1.30223
+  type: 'test'
+  ...
+# Subtest: P1-a: one row outside the declared period makes the WHOLE import incomplete; an InvoiceUploaded document inside the period is not accepted
+ok 335 - P1-a: one row outside the declared period makes the WHOLE import incomplete; an InvoiceUploaded document inside the period is not accepted
+  ---
+  duration_ms: 0.925025
+  type: 'test'
+  ...
+# Subtest: P1-a: a report missing a required column (order-item-id) with an InvoiceUploaded document yields no ACCEPTED
+ok 336 - P1-a: a report missing a required column (order-item-id) with an InvoiceUploaded document yields no ACCEPTED
+  ---
+  duration_ms: 1.427321
+  type: 'test'
+  ...
+# Subtest: P1-b: a truncated file (over 20,000 rows) never reaches ACCEPTED, says only part was read, and has its own reason in the breakdown
+ok 337 - P1-b: a truncated file (over 20,000 rows) never reaches ACCEPTED, says only part was read, and has its own reason in the breakdown
+  ---
+  duration_ms: 893.587107
+  type: 'test'
+  ...
+# Subtest: P1-c MATRIX: every one of the 11 statuses against every transaction type, each cell asserted
+ok 338 - P1-c MATRIX: every one of the 11 statuses against every transaction type, each cell asserted
+  ---
+  duration_ms: 18.968637
+  type: 'test'
+  ...
+# Subtest: P2-a: exceptions never exceed documents; rows without a key are their own line outside the denominator
+ok 339 - P2-a: exceptions never exceed documents; rows without a key are their own line outside the denominator
+  ---
+  duration_ms: 18.71836
+  type: 'test'
+  ...
+# Subtest: P2-b: each stage reads only ITS OWN report snapshot, never the current report
+ok 340 - P2-b: each stage reads only ITS OWN report snapshot, never the current report
+  ---
+  duration_ms: 2.718235
+  type: 'test'
+  ...
+# Subtest: structure: ACCEPTED is produced in one place (gateAccepted) and every ACCEPTED in every fixture combination passes the invariant
+ok 341 - structure: ACCEPTED is produced in one place (gateAccepted) and every ACCEPTED in every fixture combination passes the invariant
+  ---
+  duration_ms: 19.794566
+  type: 'test'
+  ...
+# Subtest: P1-1: a row with an empty order date makes the whole import INCOMPLETE_SOURCE (MISSING_OR_INVALID_ORDER_DATE); accepted = 0
+ok 342 - P1-1: a row with an empty order date makes the whole import INCOMPLETE_SOURCE (MISSING_OR_INVALID_ORDER_DATE); accepted = 0
+  ---
+  duration_ms: 26.048884
+  type: 'test'
+  ...
+# Subtest: P1-2: invoice number blank on one row and filled on another of the same document is a disagreement; no ACCEPTED; explicit state
+ok 343 - P1-2: invoice number blank on one row and filled on another of the same document is a disagreement; no ACCEPTED; explicit state
+  ---
+  duration_ms: 7.318865
+  type: 'test'
+  ...
+# Subtest: P2-1 Expected: InvoiceUploaded shows no Expected
+ok 344 - P2-1 Expected: InvoiceUploaded shows no Expected
+  ---
+  duration_ms: 2.294256
+  type: 'test'
+  ...
+# Subtest: P2-1 Expected: InvoiceProcessing shows no new upload required
+ok 345 - P2-1 Expected: InvoiceProcessing shows no new upload required
+  ---
+  duration_ms: 0.373896
+  type: 'test'
+  ...
+# Subtest: P2-1 Expected: InvoicePending shows Expected
+ok 346 - P2-1 Expected: InvoicePending shows Expected
+  ---
+  duration_ms: 1.795484
+  type: 'test'
+  ...
+# Subtest: P2-1 Expected: InvoiceRejected shows re-upload required
+ok 347 - P2-1 Expected: InvoiceRejected shows re-upload required
+  ---
+  duration_ms: 0.320778
+  type: 'test'
+  ...
+# Subtest: P2-1 Expected: NoTaxCalculated shows the seller upload obligation
+ok 348 - P2-1 Expected: NoTaxCalculated shows the seller upload obligation
+  ---
+  duration_ms: 1.737615
+  type: 'test'
+  ...
+# Subtest: P2-1 Expected: an INCOMPLETE_SOURCE document whose status was Uploaded never becomes Expected
+ok 349 - P2-1 Expected: an INCOMPLETE_SOURCE document whose status was Uploaded never becomes Expected
+  ---
+  duration_ms: 0.340182
+  type: 'test'
+  ...
+# Subtest: P2-2: one exported contract version; the document, the log and the bundle all derive from it; a mismatch fails
+ok 350 - P2-2: one exported contract version; the document, the log and the bundle all derive from it; a mismatch fails
+  ---
+  duration_ms: 10.526614
+  type: 'test'
+  ...
+# Subtest: class: no required field is dropped, defaulted or skipped before validation between parse and gateAccepted
+ok 351 - class: no required field is dropped, defaulted or skipped before validation between parse and gateAccepted
+  ---
+  duration_ms: 7.925295
+  type: 'test'
+  ...
+# Subtest: dates: 17/05/2018 (Amazon's documented DD/MM/YYYY) is read, matches a range covering 17 May 2018, and the document is ACCEPTED
+ok 352 - dates: 17/05/2018 (Amazon's documented DD/MM/YYYY) is read, matches a range covering 17 May 2018, and the document is ACCEPTED
+  ---
+  duration_ms: 1.943821
+  type: 'test'
+  ...
+# Subtest: dates: impossible days are rejected (31/02/2018, 32/01/2018) and a blank date still blocks completeness and ACCEPTED
+ok 353 - dates: impossible days are rejected (31/02/2018, 32/01/2018) and a blank date still blocks completeness and ACCEPTED
+  ---
+  duration_ms: 2.628679
+  type: 'test'
+  ...
+# Subtest: dates: no prefix matching: 2026-11-27Tgarbage, 2026-11-27T99:99:99Z and every other non-DD/MM/YYYY shape give UNRECOGNIZED_DATE_FORMAT
+ok 354 - dates: no prefix matching: 2026-11-27Tgarbage, 2026-11-27T99:99:99Z and every other non-DD/MM/YYYY shape give UNRECOGNIZED_DATE_FORMAT
+  ---
+  duration_ms: 8.842725
+  type: 'test'
+  ...
+# Subtest: dates: the two kinds of date use different parsers (declared range is the seller's ISO date picker value; file dates are Amazon's DD/MM/YYYY)
+ok 355 - dates: the two kinds of date use different parsers (declared range is the seller's ISO date picker value; file dates are Amazon's DD/MM/YYYY)
+  ---
+  duration_ms: 3.318417
+  type: 'test'
+  ...
+# Subtest: dates: DD/MM/YYYY proven by a value in the file is accepted and needs no confirmation
+ok 356 - dates: DD/MM/YYYY proven by a value in the file is accepted and needs no confirmation
+  ---
+  duration_ms: 1.263719
+  type: 'test'
+  ...
+# Subtest: dates: MONTH_FIRST is not a parse path: a month-first value makes the file unreadable (MONTH_FIRST_NOT_SUPPORTED) even with a seller confirmation
+ok 357 - dates: MONTH_FIRST is not a parse path: a month-first value makes the file unreadable (MONTH_FIRST_NOT_SUPPORTED) even with a seller confirmation
+  ---
+  duration_ms: 2.988891
+  type: 'test'
+  ...
+# Subtest: dates: a file of entirely ambiguous dates with no seller confirmation gives accepted = 0 (DATE_ORDER_UNCONFIRMED)
+ok 358 - dates: a file of entirely ambiguous dates with no seller confirmation gives accepted = 0 (DATE_ORDER_UNCONFIRMED)
+  ---
+  duration_ms: 1.542023
+  type: 'test'
+  ...
+# Subtest: dates: the same ambiguous file WITH the seller confirmation proceeds to the remaining conditions (declared, not verified)
+ok 359 - dates: the same ambiguous file WITH the seller confirmation proceeds to the remaining conditions (declared, not verified)
+  ---
+  duration_ms: 6.335906
+  type: 'test'
+  ...
+# Subtest: dates: a confirmation belongs to one import: it does not carry to another file, and a later month-first file contradicting it is surfaced, not overridden
+ok 360 - dates: a confirmation belongs to one import: it does not carry to another file, and a later month-first file contradicting it is surfaced, not overridden
+  ---
+  duration_ms: 5.735105
+  type: 'test'
+  ...
+# Subtest: dates: a file whose only dates are unrecognised (or blank) does not claim its dates are ambiguous
+ok 361 - dates: a file whose only dates are unrecognised (or blank) does not claim its dates are ambiguous
+  ---
+  duration_ms: 2.037156
+  type: 'test'
+  ...
+# Subtest: dates: the evidence log carries the date order, its basis, the file's order dates and the date warnings
+ok 362 - dates: the evidence log carries the date order, its basis, the file's order dates and the date warnings
+  ---
+  duration_ms: 4.256842
+  type: 'test'
+  ...
+# Subtest: dates: the cross-file conflict alone blocks the confirmed import: two imports with DIFFERENT documents, so no document is shared and recency cannot explain the refusal
+ok 363 - dates: the cross-file conflict alone blocks the confirmed import: two imports with DIFFERENT documents, so no document is shared and recency cannot explain the refusal
+  ---
+  duration_ms: 4.195484
+  type: 'test'
+  ...
+# Subtest: a plain return after issuance becomes a review-first proposal, idempotent, no auto-issue
+ok 364 - a plain return after issuance becomes a review-first proposal, idempotent, no auto-issue
+  ---
+  duration_ms: 89.734478
+  type: 'test'
+  ...
+# Subtest: decisions move a proposal out of the queue, and only once
+ok 365 - decisions move a proposal out of the queue, and only once
+  ---
+  duration_ms: 38.934003
+  type: 'test'
+  ...
+# Subtest: approving a return issues the chained credit note with the refund TransactionId and closes the repair
+ok 366 - approving a return issues the chained credit note with the refund TransactionId and closes the repair
+  ---
+  duration_ms: 62.299152
+  type: 'test'
+  ...
+# Subtest: a PARTIAL return credits only the returned amount, never the whole invoice
+ok 367 - a PARTIAL return credits only the returned amount, never the whole invoice
+  ---
+  duration_ms: 50.830154
+  type: 'test'
+  ...
+# Subtest: a refund we cannot match to the original lines issues nothing and says so
+ok 368 - a refund we cannot match to the original lines issues nothing and says so
+  ---
+  duration_ms: 27.067711
+  type: 'test'
+  ...
+# Subtest: a FULL return still cancels the whole invoice
+ok 369 - a FULL return still cancels the whole invoice
+  ---
+  duration_ms: 30.38578
+  type: 'test'
+  ...
+# Subtest: a refund for an invoice we did not issue is skipped, not proposed
+ok 370 - a refund for an invoice we did not issue is skipped, not proposed
+  ---
+  duration_ms: 2.268797
+  type: 'test'
+  ...
+# Subtest: a RETURN transaction (not only REFUND) becomes a repair proposal
+ok 371 - a RETURN transaction (not only REFUND) becomes a repair proposal
+  ---
+  duration_ms: 23.594138
+  type: 'test'
+  ...
+# Subtest: two partial refunds that together exceed the line: the second is stopped, nothing issued
+ok 372 - two partial refunds that together exceed the line: the second is stopped, nothing issued
+  ---
+  duration_ms: 47.472818
+  type: 'test'
+  ...
+# Subtest: two partial refunds inside the invoice total both issue, each for its own amount
+ok 373 - two partial refunds inside the invoice total both issue, each for its own amount
+  ---
+  duration_ms: 53.231837
+  type: 'test'
+  ...
+# Subtest: a failed upload leaves one pending correction; re-approving retries the SAME document, never a second number
+ok 374 - a failed upload leaves one pending correction; re-approving retries the SAME document, never a second number
+  ---
+  duration_ms: 50.204957
+  type: 'test'
+  ...
+# Subtest: processCorrections retries a pending correction upload instead of skipping it forever
+ok 375 - processCorrections retries a pending correction upload instead of skipping it forever
+  ---
+  duration_ms: 45.093807
+  type: 'test'
+  ...
+# Subtest: an off-by-one-cent refund is stopped, not issued (true per-cent matching)
+ok 376 - an off-by-one-cent refund is stopped, not issued (true per-cent matching)
+  ---
+  duration_ms: 28.574544
+  type: 'test'
+  ...
+# Subtest: mock amazon returns the second uploaded shipment as a RETURN row with halved amounts
+ok 377 - mock amazon returns the second uploaded shipment as a RETURN row with halved amounts
+  ---
+  duration_ms: 2.546463
+  type: 'test'
+  ...
+# Subtest: two concurrent approvals of the same repair issue exactly one document
+ok 378 - two concurrent approvals of the same repair issue exactly one document
+  ---
+  duration_ms: 34.602608
+  type: 'test'
+  ...
+# Subtest: a full refund with a one-cent tax mismatch is held, never zeroed blindly
+ok 379 - a full refund with a one-cent tax mismatch is held, never zeroed blindly
+  ---
+  duration_ms: 22.549386
+  type: 'test'
+  ...
+# Subtest: a refund Amazon already covers is not proposed (only CreditNotePending needs a credit note)
+ok 380 - a refund Amazon already covers is not proposed (only CreditNotePending needs a credit note)
+  ---
+  duration_ms: 24.173998
+  type: 'test'
+  ...
+# Subtest: a rejected invoice gets a reviewed retry that re-uploads the SAME document
+ok 381 - a rejected invoice gets a reviewed retry that re-uploads the SAME document
+  ---
+  duration_ms: 31.374425
+  type: 'test'
+  ...
+# Subtest: a rejected credit note retries the SAME document through the repair queue
+ok 382 - a rejected credit note retries the SAME document through the repair queue
+  ---
+  duration_ms: 38.757221
+  type: 'test'
+  ...
+# Subtest: repeat rejections re-open the retry review, and Amazon acceptance closes the repair for good
+ok 383 - repeat rejections re-open the retry review, and Amazon acceptance closes the repair for good
+  ---
+  duration_ms: 45.280212
+  type: 'test'
+  ...
+# Subtest: a rejected Amazon billing-correction credit note gets a reviewed retry of the SAME document
+ok 384 - a rejected Amazon billing-correction credit note gets a reviewed retry of the SAME document
+  ---
+  duration_ms: 62.499277
+  type: 'test'
+  ...
+# Subtest: a rejected correction replacement invoice retries the SAME document, and the verdict never lands on the original
+ok 385 - a rejected correction replacement invoice retries the SAME document, and the verdict never lands on the original
+  ---
+  duration_ms: 44.896466
+  type: 'test'
+  ...
+# Subtest: boot recovery reads the document state instead of blindly resetting stuck repairs
+ok 386 - boot recovery reads the document state instead of blindly resetting stuck repairs
+  ---
+  duration_ms: 10.928567
+  type: 'test'
+  ...
+# Subtest: an interrupted upload is never blindly resent: unknown state, a hold for a human, and the fresh report settles it
+ok 387 - an interrupted upload is never blindly resent: unknown state, a hold for a human, and the fresh report settles it
+  ---
+  duration_ms: 16.45802
+  type: 'test'
+  ...
+# Subtest: a content rejection is held for a real fix, never blindly re-uploaded
+ok 388 - a content rejection is held for a real fix, never blindly re-uploaded
+  ---
+  duration_ms: 10.142742
+  type: 'test'
+  ...
+# Subtest: a retry upload interrupted mid-flight goes to unknown with a hold and refuses re-approval until the fresh report settles it
+ok 389 - a retry upload interrupted mid-flight goes to unknown with a hold and refuses re-approval until the fresh report settles it
+  ---
+  duration_ms: 26.690739
+  type: 'test'
+  ...
+# Subtest: content rejections of credit notes and replacement invoices are HELD, and an empty reason holds too
+ok 390 - content rejections of credit notes and replacement invoices are HELD, and an empty reason holds too
+  ---
+  duration_ms: 71.462996
+  type: 'test'
+  ...
+# Subtest: boot recovery never closes a repair on an unknown or rejected document
+ok 391 - boot recovery never closes a repair on an unknown or rejected document
+  ---
+  duration_ms: 23.655118
+  type: 'test'
+  ...
+# Subtest: the crash window between Amazon acceptance and the local write is recovered as unknown, never blindly resent
+ok 392 - the crash window between Amazon acceptance and the local write is recovered as unknown, never blindly resent
+  ---
+  duration_ms: 26.214534
+  type: 'test'
+  ...
+# Subtest: an unknown-outcome credit note refuses re-approval and is settled by the fresh report (return flow)
+ok 393 - an unknown-outcome credit note refuses re-approval and is settled by the fresh report (return flow)
+  ---
+  duration_ms: 36.042289
+  type: 'test'
+  ...
+# Subtest: an unknown-outcome correction credit note is not treated as done: processCorrections settles it on the fresh report
+ok 394 - an unknown-outcome correction credit note is not treated as done: processCorrections settles it on the fresh report
+  ---
+  duration_ms: 44.980772
+  type: 'test'
+  ...
+# Subtest: a feed failure on a correction document proposes the record-key retry, never the crash-prone plain path
+ok 395 - a feed failure on a correction document proposes the record-key retry, never the crash-prone plain path
+  ---
+  duration_ms: 33.621924
+  type: 'test'
+  ...
+# Subtest: a retry upload is marked sending BEFORE Amazon is called, and a crash mid-retry is recovered as unknown
+ok 396 - a retry upload is marked sending BEFORE Amazon is called, and a crash mid-retry is recovered as unknown
+  ---
+  duration_ms: 24.049647
+  type: 'test'
+  ...
+# Subtest: a definitely refused retry returns the document to rejected, so the reviewed retry stays available
+ok 397 - a definitely refused retry returns the document to rejected, so the reviewed retry stays available
+  ---
+  duration_ms: 20.618473
+  type: 'test'
+  ...
+# Subtest: a retried correction document is marked sending before Amazon, and an interrupted retry creates a hold
+ok 398 - a retried correction document is marked sending before Amazon, and an interrupted retry creates a hold
+  ---
+  duration_ms: 34.407443
+  type: 'test'
+  ...
+# Subtest: a credit note Amazon reports as Processing is never resent, even when the local state was unknown
+ok 399 - a credit note Amazon reports as Processing is never resent, even when the local state was unknown
+  ---
+  duration_ms: 27.672767
+  type: 'test'
+  ...
+# Subtest: a fresh pending report alone does not clear a resend: an orphan feed from the interruption window blocks it
+ok 400 - a fresh pending report alone does not clear a resend: an orphan feed from the interruption window blocks it
+  ---
+  duration_ms: 20.774499
+  type: 'test'
+  ...
+# Subtest: the replacement waits for acceptance of the credit note - a failed reversal feed never strands a half pair
+ok 401 - the replacement waits for acceptance of the credit note - a failed reversal feed never strands a half pair
+  ---
+  duration_ms: 34.638466
+  type: 'test'
+  ...
+# Subtest: a FATAL feed is never treated as never-processed: unknown + hold, no retry proposal, only the settle path resends
+ok 402 - a FATAL feed is never treated as never-processed: unknown + hold, no retry proposal, only the settle path resends
+  ---
+  duration_ms: 21.452638
+  type: 'test'
+  ...
+# Subtest: a long downtime cannot hide the original feed: the settle window anchors on the attempt start
+ok 403 - a long downtime cannot hide the original feed: the settle window anchors on the attempt start
+  ---
+  duration_ms: 21.310663
+  type: 'test'
+  ...
+# Subtest: the orphan cross-check blocks on a FATAL feed but not on a CANCELLED one (cancelled feeds never ran)
+ok 404 - the orphan cross-check blocks on a FATAL feed but not on a CANCELLED one (cancelled feeds never ran)
+  ---
+  duration_ms: 9.352194
+  type: 'test'
+  ...
+# Subtest: boot reset: applies once, ends sessions, never overwrites a later change
+ok 405 - boot reset: applies once, ends sessions, never overwrites a later change
+  ---
+  duration_ms: 213.742037
+  type: 'test'
+  ...
+# Subtest: boot reset: no-op when unset, rejects short password and unknown account
+ok 406 - boot reset: no-op when unset, rejects short password and unknown account
+  ---
+  duration_ms: 42.603898
+  type: 'test'
+  ...
+# Subtest: G1: a legacy LIVE connection cannot sync while the flag is unset
+ok 407 - G1: a legacy LIVE connection cannot sync while the flag is unset
+  ---
+  duration_ms: 117.894778
+  type: 'test'
+  ...
+# Subtest: G1: oauth start is refused while the flag is unset
+ok 408 - G1: oauth start is refused while the flag is unset
+  ---
+  duration_ms: 99.382796
+  type: 'test'
+  ...
+# Subtest: G1: the OAuth callback refuses to persist a live connection while the flag is unset
+ok 409 - G1: the OAuth callback refuses to persist a live connection while the flag is unset
+  ---
+  duration_ms: 56.286353
+  type: 'test'
+  ...
+# Subtest: G2 (his verbatim scenario): known FATAL feed + VIDR still Pending + same FATAL feed in the list -> NO resend
+ok 410 - G2 (his verbatim scenario): known FATAL feed + VIDR still Pending + same FATAL feed in the list -> NO resend
+  ---
+  duration_ms: 5.628886
+  type: 'test'
+  ...
+# Subtest: G2 (round-10c contract): report text NEVER lifts the block - only CANCELLED or a human
+ok 411 - G2 (round-10c contract): report text NEVER lifts the block - only CANCELLED or a human
+  ---
+  duration_ms: 84.996426
+  type: 'test'
+  ...
+# Subtest: G2: a crash-window document (no blocking feed recorded) still uses the orphan cross-check
+ok 412 - G2: a crash-window document (no blocking feed recorded) still uses the orphan cross-check
+  ---
+  duration_ms: 2.50651
+  type: 'test'
+  ...
+# Subtest: G3: fresh databases get both indexes; a legacy duplicate fails fast with diagnostics
+ok 413 - G3: fresh databases get both indexes; a legacy duplicate fails fast with diagnostics
+  ---
+  duration_ms: 6.14484
+  type: 'test'
+  ...
+# Subtest: A-series: two overlapping syncs issue ONE invoice per shipment and the counter has no gap
+ok 414 - A-series: two overlapping syncs issue ONE invoice per shipment and the counter has no gap
+  ---
+  duration_ms: 85.014773
+  type: 'test'
+  ...
+# Subtest: R9-1: VIDR InvoiceProcessing + feed FATAL -> document stays processing, no hold re-opened
+ok 415 - R9-1: VIDR InvoiceProcessing + feed FATAL -> document stays processing, no hold re-opened
+  ---
+  duration_ms: 89.855149
+  type: 'test'
+  ...
+# Subtest: R9-2: VIDR CreditNoteProcessing + feed FATAL -> credit note stays processing, never resent
+ok 416 - R9-2: VIDR CreditNoteProcessing + feed FATAL -> credit note stays processing, never resent
+  ---
+  duration_ms: 3.776155
+  type: 'test'
+  ...
+# Subtest: R9-3: VIDR InvoiceProcessing + feed CANCELLED -> no automatic rejected, no retry proposal
+ok 417 - R9-3: VIDR InvoiceProcessing + feed CANCELLED -> no automatic rejected, no retry proposal
+  ---
+  duration_ms: 36.779535
+  type: 'test'
+  ...
+# Subtest: R9-4: processing from a DONE feed (NO VIDR verdict) + FATAL -> unknown + hold, as before
+ok 418 - R9-4: processing from a DONE feed (NO VIDR verdict) + FATAL -> unknown + hold, as before
+  ---
+  duration_ms: 51.645227
+  type: 'test'
+  ...
+# Subtest: R9-5: a verdict from a PREVIOUS cycle never protects a retry - cleared on resubmission
+ok 419 - R9-5: a verdict from a PREVIOUS cycle never protects a retry - cleared on resubmission
+  ---
+  duration_ms: 54.759995
+  type: 'test'
+  ...
+# internal error POST /api/sync Error: LWA token error: invalid_client
+#     at SpApi.accessToken (file:///home/sandbox/invoiceguard/src/spapi.js:32:24)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+#     at async SpApi.call (file:///home/sandbox/invoiceguard/src/spapi.js:42:91)
+#     at async SpApi.requestVidr (file:///home/sandbox/invoiceguard/src/spapi.js:68:15)
+#     at async syncInner (file:///home/sandbox/invoiceguard/src/app.js:123:19)
+#     at async sync (file:///home/sandbox/invoiceguard/src/app.js:96:18)
+#     at async Server.<anonymous> (file:///home/sandbox/invoiceguard/src/app.js:545:52)
+# Subtest: R9-6: a warm apiFor cache never skips the flag check
+ok 420 - R9-6: a warm apiFor cache never skips the flag check
+  ---
+  duration_ms: 348.304973
+  type: 'test'
+  ...
+# Subtest: R9-7: /oauth/amazon/login and /oauth/amazon/continue are gated while the feature is closed
+ok 421 - R9-7: /oauth/amazon/login and /oauth/amazon/continue are gated while the feature is closed
+  ---
+  duration_ms: 117.653392
+  type: 'test'
+  ...
+# Subtest: R9-8: the duplicate preflight names the actual document numbers
+ok 422 - R9-8: the duplicate preflight names the actual document numbers
+  ---
+  duration_ms: 4.586678
+  type: 'test'
+  ...
+# Subtest: R10-1 (invoice): a retry overlapping a sync must not wipe a mid-flight VIDR verdict
+ok 423 - R10-1 (invoice): a retry overlapping a sync must not wipe a mid-flight VIDR verdict
+  ---
+  duration_ms: 109.814773
+  type: 'test'
+  ...
+# Subtest: R10-2 (credit note): a correction retry overlapping a sync must not wipe a mid-flight verdict
+ok 424 - R10-2 (credit note): a correction retry overlapping a sync must not wipe a mid-flight verdict
+  ---
+  duration_ms: 23.633607
+  type: 'test'
+  ...
+# Subtest: R10-3: a verdict from a previous cycle is cleared at the claim, never protects the retry feed
+ok 425 - R10-3: a verdict from a previous cycle is cleared at the claim, never protects the retry feed
+  ---
+  duration_ms: 57.210147
+  type: 'test'
+  ...
+# Subtest: R10-4: repeated polls aggregate one feed_conflict event instead of duplicating it
+ok 426 - R10-4: repeated polls aggregate one feed_conflict event instead of duplicating it
+  ---
+  duration_ms: 49.338983
+  type: 'test'
+  ...
+# Subtest: R11-1 (his test 1): a STALE InvoiceProcessing report must NOT protect the new feed from FATAL
+ok 427 - R11-1 (his test 1): a STALE InvoiceProcessing report must NOT protect the new feed from FATAL
+  ---
+  duration_ms: 109.997499
+  type: 'test'
+  ...
+# Subtest: R11-2 (his test 2): a STALE InvoiceRejected arriving during a resend must NOT re-reject after success
+ok 428 - R11-2 (his test 2): a STALE InvoiceRejected arriving during a resend must NOT re-reject after success
+  ---
+  duration_ms: 73.575633
+  type: 'test'
+  ...
+# Subtest: R11-3: a FRESH report (requested after the claim) mid-flight still applies its verdict
+ok 429 - R11-3: a FRESH report (requested after the claim) mid-flight still applies its verdict
+  ---
+  duration_ms: 58.095349
+  type: 'test'
+  ...
+# Subtest: R11-4: verdicts apply normally once a report is requested after the attempt (no over-blocking)
+ok 430 - R11-4: verdicts apply normally once a report is requested after the attempt (no over-blocking)
+  ---
+  duration_ms: 43.255066
+  type: 'test'
+  ...
+# Subtest: R12-1: identical timestamps cannot express the ordering - the attempt SEQUENCE still skips the stale verdict
+ok 431 - R12-1: identical timestamps cannot express the ordering - the attempt SEQUENCE still skips the stale verdict
+  ---
+  duration_ms: 105.36214
+  type: 'test'
+  ...
+# Subtest: R12-2 (his a): a STALE CreditNoteProcessing arriving after a new claim must skip and log
+ok 432 - R12-2 (his a): a STALE CreditNoteProcessing arriving after a new claim must skip and log
+  ---
+  duration_ms: 90.332833
+  type: 'test'
+  ...
+# Subtest: R12-3 (his b): a STALE CreditNoteRejected during a credit-note resend must NOT re-reject after success
+ok 433 - R12-3 (his b): a STALE CreditNoteRejected during a credit-note resend must NOT re-reject after success
+  ---
+  duration_ms: 64.82403
+  type: 'test'
+  ...
+# Subtest: R13-1 (his danger scenario): a STALE "still pending" report must NOT resend an invoice whose new attempt went unknown
+ok 434 - R13-1 (his danger scenario): a STALE "still pending" report must NOT resend an invoice whose new attempt went unknown
+  ---
+  duration_ms: 101.097444
+  type: 'test'
+  ...
+# Subtest: R13-2 (control): a FRESH report still settles the same unknown document - the guard is what blocked R13-1
+ok 435 - R13-2 (control): a FRESH report still settles the same unknown document - the guard is what blocked R13-1
+  ---
+  duration_ms: 65.074372
+  type: 'test'
+  ...
+# Subtest: R13-3: a STALE CreditNotePending must NOT resubmit a credit note whose new attempt went unknown (settleUnknownDocuments)
+ok 436 - R13-3: a STALE CreditNotePending must NOT resubmit a credit note whose new attempt went unknown (settleUnknownDocuments)
+  ---
+  duration_ms: 76.234177
+  type: 'test'
+  ...
+# Subtest: R13-4: a STALE CorrectionReversal row must NOT drive a credit-note upload (processCorrections)
+ok 437 - R13-4: a STALE CorrectionReversal row must NOT drive a credit-note upload (processCorrections)
+  ---
+  duration_ms: 39.169071
+  type: 'test'
+  ...
+# Subtest: R13-5 (P1-A): allocation lives inside the claim transaction - unique, monotonic, gap-tolerant
+ok 438 - R13-5 (P1-A): allocation lives inside the claim transaction - unique, monotonic, gap-tolerant
+  ---
+  duration_ms: 23.493755
+  type: 'test'
+  ...
+# Subtest: R14-1: a STALE Correction:: row must NOT resubmit the replacement (processCorrections pass 2, standalone)
+ok 439 - R14-1: a STALE Correction:: row must NOT resubmit the replacement (processCorrections pass 2, standalone)
+  ---
+  duration_ms: 124.855878
+  type: 'test'
+  ...
+# Subtest: R14-2: proposals carry the source report generation + request time, re-stamped in place on a fresher report
+ok 440 - R14-2: proposals carry the source report generation + request time, re-stamped in place on a fresher report
+  ---
+  duration_ms: 53.444096
+  type: 'test'
+  ...
+# Subtest: R14-3: a fresher report with DIFFERENT amounts holds the approval - nothing issues from stale amounts
+ok 441 - R14-3: a fresher report with DIFFERENT amounts holds the approval - nothing issues from stale amounts
+  ---
+  duration_ms: 42.903078
+  type: 'test'
+  ...
+# Subtest: R14-4: a fresher report with MATCHING amounts lets the approval issue normally
+ok 442 - R14-4: a fresher report with MATCHING amounts lets the approval issue normally
+  ---
+  duration_ms: 41.910926
+  type: 'test'
+  ...
+# Subtest: R14-5: a fresher report that NO LONGER lists the refund event holds the approval
+ok 443 - R14-5: a fresher report that NO LONGER lists the refund event holds the approval
+  ---
+  duration_ms: 25.158419
+  type: 'test'
+  ...
+# Subtest: R14-6 (reviewer re-check): a LEGACY un-stamped proposal + divergent fresher snapshot is held, not issued
+ok 444 - R14-6 (reviewer re-check): a LEGACY un-stamped proposal + divergent fresher snapshot is held, not issued
+  ---
+  duration_ms: 25.463619
+  type: 'test'
+  ...
+# Subtest: R14-7 (reviewer re-check): a LEGACY un-stamped proposal + fresher snapshot with the event GONE is held, not issued
+ok 445 - R14-7 (reviewer re-check): a LEGACY un-stamped proposal + fresher snapshot with the event GONE is held, not issued
+  ---
+  duration_ms: 24.228202
+  type: 'test'
+  ...
+# Subtest: R15-1 (P1-A): two consecutive reports at the SAME attempt_seq - the second with DIFFERENT amounts - hold the approval
+ok 446 - R15-1 (P1-A): two consecutive reports at the SAME attempt_seq - the second with DIFFERENT amounts - hold the approval
+  ---
+  duration_ms: 89.84462
+  type: 'test'
+  ...
+# Subtest: R15-2 (P1-A): two consecutive reports at the SAME attempt_seq - the second NO LONGER listing the refund event - hold the approval
+ok 447 - R15-2 (P1-A): two consecutive reports at the SAME attempt_seq - the second NO LONGER listing the refund event - hold the approval
+  ---
+  duration_ms: 35.61885
+  type: 'test'
+  ...
+# Subtest: R15-3 (P1-B): an in-flight sync blocks the approval; storing the report lifts the block and matching data issues
+ok 448 - R15-3 (P1-B): an in-flight sync blocks the approval; storing the report lifts the block and matching data issues
+  ---
+  duration_ms: 64.219115
+  type: 'test'
+  ...
+# Subtest: R15-4 (P1-B): a FAILED sync clears the in-flight mark explicitly and the approval proceeds
+ok 449 - R15-4 (P1-B): a FAILED sync clears the in-flight mark explicitly and the approval proceeds
+  ---
+  duration_ms: 51.770901
+  type: 'test'
+  ...
+# Subtest: R15-5 (P1-B, superseded by round-20): a CRASHED sync leaves an in-flight mark; boot does NOT release it - only a successful store does
+ok 450 - R15-5 (P1-B, superseded by round-20): a CRASHED sync leaves an in-flight mark; boot does NOT release it - only a successful store does
+  ---
+  duration_ms: 33.897009
+  type: 'test'
+  ...
+# Subtest: R16-1: the download succeeds with CHANGED amounts, the next processing step fails - the old proposal can never issue
+ok 451 - R16-1: the download succeeds with CHANGED amounts, the next processing step fails - the old proposal can never issue
+  ---
+  duration_ms: 90.804965
+  type: 'test'
+  ...
+# Subtest: R16-1b: the download succeeds with the event REMOVED, processing fails - the old proposal can never issue
+ok 452 - R16-1b: the download succeeds with the event REMOVED, processing fails - the old proposal can never issue
+  ---
+  duration_ms: 35.523551
+  type: 'test'
+  ...
+# Subtest: R16-2: the store ITSELF fails after download - the block stays up, survives boot, and recovers on the next sync
+ok 453 - R16-2: the store ITSELF fails after download - the block stays up, survives boot, and recovers on the next sync
+  ---
+  duration_ms: 49.140384
+  type: 'test'
+  ...
+# Subtest: R16-3: a processing failure after the store with MATCHING amounts does not over-block - the approval issues
+ok 454 - R16-3: a processing failure after the store with MATCHING amounts does not over-block - the approval issues
+  ---
+  duration_ms: 52.238855
+  type: 'test'
+  ...
+# Subtest: R16-4: a failure BEFORE the download clears the block - the stored snapshot is genuinely the latest
+ok 455 - R16-4: a failure BEFORE the download clears the block - the stored snapshot is genuinely the latest
+  ---
+  duration_ms: 37.834736
+  type: 'test'
+  ...
+# Subtest: R16-5 (reviewer HOLD on 43a15bb): store failure, then a PRE-DOWNLOAD failure on the next sync - approval stays blocked until a successful store
+ok 456 - R16-5 (reviewer HOLD on 43a15bb): store failure, then a PRE-DOWNLOAD failure on the next sync - approval stays blocked until a successful store
+  ---
+  duration_ms: 27.424176
+  type: 'test'
+  ...
+# Subtest: R17-1 (critic round-17): crash BETWEEN downloadReport and markReportStorePending (in_flight=1, store_pending=0, old snapshot) - boot keeps approvals blocked
+ok 457 - R17-1 (critic round-17): crash BETWEEN downloadReport and markReportStorePending (in_flight=1, store_pending=0, old snapshot) - boot keeps approvals blocked
+  ---
+  duration_ms: 24.83359
+  type: 'test'
+  ...
+# Subtest: R18-1 (critic round-18 P2): manual path - a STORE failure surfaces loudly and the block stays up; a successful manual store lifts it and approval proceeds
+ok 458 - R18-1 (critic round-18 P2): manual path - a STORE failure surfaces loudly and the block stays up; a successful manual store lifts it and approval proceeds
+  ---
+  duration_ms: 41.840969
+  type: 'test'
+  ...
+# Subtest: R18-2 (cosmetic): the block message distinguishes a running sync from a previous sync that did not finish
+ok 459 - R18-2 (cosmetic): the block message distinguishes a running sync from a previous sync that did not finish
+  ---
+  duration_ms: 32.479858
+  type: 'test'
+  ...
+# Subtest: R18-3 (reviewer HOLD on 8e8471e): manual store failure with NO prior block still blocks approvals; re-upload releases
+ok 460 - R18-3 (reviewer HOLD on 8e8471e): manual store failure with NO prior block still blocks approvals; re-upload releases
+  ---
+  duration_ms: 28.766027
+  type: 'test'
+  ...
+# Subtest: R19-1 (P1): a concurrent approval DURING a slow manual VIDR is refused; the report is stored early; in_flight lifts after processing
+ok 461 - R19-1 (P1): a concurrent approval DURING a slow manual VIDR is refused; the report is stored early; in_flight lifts after processing
+  ---
+  duration_ms: 276.500599
+  type: 'test'
+  ...
+# Subtest: R19-2 (P2): an Order Report upload never replaces the stored VIDR snapshot nor releases a block
+ok 462 - R19-2 (P2): an Order Report upload never replaces the stored VIDR snapshot nor releases a block
+  ---
+  duration_ms: 102.739011
+  type: 'test'
+  ...
+# manual report store Error: disk I/O error
+#     at markReportInFlight (file:///home/sandbox/invoiceguard/src/repair.js:80:92)
+#     at beginManualVidr (file:///home/sandbox/invoiceguard/src/repair.js:500:3)
+#     at Server.<anonymous> (file:///home/sandbox/invoiceguard/src/app.js:485:29)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+#   code: 'ERR_SQLITE_ERROR',
+#   errcode: 1811,
+#   errstr: 'constraint failed'
+# }
+# Subtest: R19-3: a failed VIDR store answers 500 BEFORE issuing anything, and keeps the block
+ok 463 - R19-3: a failed VIDR store answers 500 BEFORE issuing anything, and keeps the block
+  ---
+  duration_ms: 61.613548
+  type: 'test'
+  ...
+# manual repair detection Error: disk I/O error
+#     at detectRepairs (file:///home/sandbox/invoiceguard/src/repair.js:139:19)
+#     at finishManualVidr (file:///home/sandbox/invoiceguard/src/repair.js:507:10)
+#     at Server.<anonymous> (file:///home/sandbox/invoiceguard/src/app.js:494:35)
+#     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+#   code: 'ERR_SQLITE_ERROR',
+#   errcode: 1811,
+#   errstr: 'constraint failed'
+# }
+# Subtest: R20-1 (critic round-20 P2): processReport succeeds, then proposal detection fails on a DB error - the response says the invoices WERE recorded and the report is stored; in_flight cleared; protection intact
+ok 464 - R20-1 (critic round-20 P2): processReport succeeds, then proposal detection fails on a DB error - the response says the invoices WERE recorded and the report is stored; in_flight cleared; protection intact
+  ---
+  duration_ms: 87.379846
+  type: 'test'
+  ...
+# Subtest: recovery codes: signup issues 8, one works once, password resets, sessions end, wrong codes are throttled
+ok 465 - recovery codes: signup issues 8, one works once, password resets, sessions end, wrong codes are throttled
+  ---
+  duration_ms: 354.532702
+  type: 'test'
+  ...
+# Subtest: recovery codes: new set needs the password and cancels the old set; two-step sign-in stays on after a reset
+ok 466 - recovery codes: new set needs the password and cancels the old set; two-step sign-in stays on after a reset
+  ---
+  duration_ms: 261.369002
+  type: 'test'
+  ...
+# Subtest: restore drill: backup -> validate -> stage -> apply at boot; data and audit chain survive; bad files are refused
+ok 467 - restore drill: backup -> validate -> stage -> apply at boot; data and audit chain survive; bad files are refused
+  ---
+  duration_ms: 125.931648
+  type: 'test'
+  ...
+# db-restore staging: refused: cannot read as a database: file is not a database
+# Subtest: /admin/db-restore is invisible without the operator token and stages only valid snapshots
+ok 468 - /admin/db-restore is invisible without the operator token and stages only valid snapshots
+  ---
+  duration_ms: 10.59811
+  type: 'test'
+  ...
+# Subtest: no SQL string in src uses double-quoted string literals (Node 22.23 treats them as column names and the scheduler crashed production)
+ok 469 - no SQL string in src uses double-quoted string literals (Node 22.23 treats them as column names and the scheduler crashed production)
+  ---
+  duration_ms: 3.537615
+  type: 'test'
+  ...
+# Subtest: F1: two overlapping syncs upload the same shipment exactly once
+ok 470 - F1: two overlapping syncs upload the same shipment exactly once
+  ---
+  duration_ms: 77.515319
+  type: 'test'
+  ...
+# Subtest: F1: two overlapping correction passes issue and upload exactly one credit note
+ok 471 - F1: two overlapping correction passes issue and upload exactly one credit note
+  ---
+  duration_ms: 89.582978
+  type: 'test'
+  ...
+# Subtest: F2: one failing feed never aborts polling - 404 becomes unknown+hold, transient errors skip only that feed
+ok 472 - F2: one failing feed never aborts polling - 404 becomes unknown+hold, transient errors skip only that feed
+  ---
+  duration_ms: 38.300213
+  type: 'test'
+  ...
+# Subtest: F3: a crash inside CANCELLED handling writes neither the status nor the proposal
+ok 473 - F3: a crash inside CANCELLED handling writes neither the status nor the proposal
+  ---
+  duration_ms: 18.243122
+  type: 'test'
+  ...
+# Subtest: F4: dryRun creates nothing - no document, no audit entry, no burned number
+ok 474 - F4: dryRun creates nothing - no document, no audit entry, no burned number
+  ---
+  duration_ms: 15.35044
+  type: 'test'
+  ...
+# Subtest: reviewer nitpick: locale-formatted report amounts parse correctly
+ok 475 - reviewer nitpick: locale-formatted report amounts parse correctly
+  ---
+  duration_ms: 0.720994
+  type: 'test'
+  ...
+# Subtest: N1: two interleaved recordKey-less corrections issue ONE document, ONE upload
+ok 476 - N1: two interleaved recordKey-less corrections issue ONE document, ONE upload
+  ---
+  duration_ms: 49.155753
+  type: 'test'
+  ...
+# Subtest: N1: sequential double-click is refused; a rejected first attempt may be re-issued
+ok 477 - N1: sequential double-click is refused; a rejected first attempt may be re-issued
+  ---
+  duration_ms: 47.021392
+  type: 'test'
+  ...
+# Subtest: N2: two interleaved issues for one Amazon Correction:: event yield ONE document
+ok 478 - N2: two interleaved issues for one Amazon Correction:: event yield ONE document
+  ---
+  duration_ms: 18.588961
+  type: 'test'
+  ...
+# Subtest: N3: a refused issue burns NO number in the correlative R series
+ok 479 - N3: a refused issue burns NO number in the correlative R series
+  ---
+  duration_ms: 22.799792
+  type: 'test'
+  ...
+# Subtest: N3: a rule-pack refusal (warnings) burns NO number either
+ok 480 - N3: a rule-pack refusal (warnings) burns NO number either
+  ---
+  duration_ms: 19.554216
+  type: 'test'
+  ...
+# Subtest: N4: recoverUncertainUploads never loses the hold - status write and proposal are atomic
+ok 481 - N4: recoverUncertainUploads never loses the hold - status write and proposal are atomic
+  ---
+  duration_ms: 4.788911
+  type: 'test'
+  ...
+# Subtest: newline inside buyer-tax-registration-type: the row and its fragment are both quarantined, the rows around it are untouched
+ok 482 - newline inside buyer-tax-registration-type: the row and its fragment are both quarantined, the rows around it are untouched
+  ---
+  duration_ms: 70.052935
+  type: 'test'
+  ...
+# Subtest: newline inside citation-es: the row and its fragment are both quarantined, the rows around it are untouched
+ok 483 - newline inside citation-es: the row and its fragment are both quarantined, the rows around it are untouched
+  ---
+  duration_ms: 30.315116
+  type: 'test'
+  ...
+# Subtest: the split row is the first data row and the last: still quarantined
+ok 484 - the split row is the first data row and the last: still quarantined
+  ---
+  duration_ms: 0.747575
+  type: 'test'
+  ...
+# Subtest: no harm: healthy rows, and a row whose trailing optional cell was removed, are never quarantined
+ok 485 - no harm: healthy rows, and a row whose trailing optional cell was removed, are never quarantined
+  ---
+  duration_ms: 0.704386
+  type: 'test'
+  ...
+# Subtest: no harm: a split in an EARLIER cell (billing-name) does not take down the healthy row before it
+ok 486 - no harm: a split in an EARLIER cell (billing-name) does not take down the healthy row before it
+  ---
+  duration_ms: 0.34638
+  type: 'test'
+  ...
+# Subtest: DOCUMENTED COST: a complete row followed by a stray short line that would exactly complete it is quarantined with that line (a valid row can be rejected here)
+ok 487 - DOCUMENTED COST: a complete row followed by a stray short line that would exactly complete it is quarantined with that line (a valid row can be rejected here)
+  ---
+  duration_ms: 0.251145
+  type: 'test'
+  ...
+# Subtest: loop path (parseTable): the same files are flagged as ragged by its own reader, so the import is shown as incomplete
+ok 488 - loop path (parseTable): the same files are flagged as ragged by its own reader, so the import is shown as incomplete
+  ---
+  duration_ms: 0.746876
+  type: 'test'
+  ...
+# Subtest: entry paths: processReport is called with a ready-made shipments list from one place only (src/app.js manual issue), and that list carries the parser invalidRows
+ok 489 - entry paths: processReport is called with a ready-made shipments list from one place only (src/app.js manual issue), and that list carries the parser invalidRows
+  ---
+  duration_ms: 24.364839
+  type: 'test'
+  ...
+# Subtest: option B rejoin: recovers the split row exactly (newline kept in the cell) when the join is exact
+ok 490 - option B rejoin: recovers the split row exactly (newline kept in the cell) when the join is exact
+  ---
+  duration_ms: 0.495604
+  type: 'test'
+  ...
+# Subtest: option B rejoin: would also mis-join a valid row with a stray short line (garbled last cell, no warning)
+ok 491 - option B rejoin: would also mis-join a valid row with a stray short line (garbled last cell, no warning)
+  ---
+  duration_ms: 0.413196
+  type: 'test'
+  ...
+# Subtest: newline inside billing-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+ok 492 - newline inside billing-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+  ---
+  duration_ms: 4.69421
+  type: 'test'
+  ...
+# Subtest: newline inside buyer-company-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+ok 493 - newline inside buyer-company-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+  ---
+  duration_ms: 1.699214
+  type: 'test'
+  ...
+# Subtest: newline inside buyer-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+ok 494 - newline inside buyer-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+  ---
+  duration_ms: 1.546607
+  type: 'test'
+  ...
+# Subtest: newline inside recipient-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+ok 495 - newline inside recipient-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+  ---
+  duration_ms: 1.47539
+  type: 'test'
+  ...
+# Subtest: the first piece keeps order-id, shipping-id and shipment-date (billing-name is column after them) and is STILL rejected: the check is on missing required cells, not on IDs or dates
+ok 496 - the first piece keeps order-id, shipping-id and shipment-date (billing-name is column after them) and is STILL rejected: the check is on missing required cells, not on IDs or dates
+  ---
+  duration_ms: 0.327389
+  type: 'test'
+  ...
+# Subtest: garbage input: no shipment, no throw, no stored row
+ok 497 - garbage input: no shipment, no throw, no stored row
+  ---
+  duration_ms: 1.356757
+  type: 'test'
+  ...
+# Subtest: a healthy row with an unknown flag is still HELD, next to broken rows and a healthy issuable row
+ok 498 - a healthy row with an unknown flag is still HELD, next to broken rows and a healthy issuable row
+  ---
+  duration_ms: 47.430002
+  type: 'test'
+  ...
+# Subtest: tolerance: a trailing empty optional cell removed by an editor (citation-es) is NOT rejected
+ok 499 - tolerance: a trailing empty optional cell removed by an editor (citation-es) is NOT rejected
+  ---
+  duration_ms: 0.290425
+  type: 'test'
+  ...
+# Subtest: rejected: a row missing a required cell at the end (buyer-tax-registration-type) or with an extra cell
+ok 500 - rejected: a row missing a required cell at the end (buyer-tax-registration-type) or with an extra cell
+  ---
+  duration_ms: 0.39687
+  type: 'test'
+  ...
+# Subtest: a healthy report has no invalid rows and its shipments are unchanged
+ok 501 - a healthy report has no invalid rows and its shipments are unchanged
+  ---
+  duration_ms: 0.517254
+  type: 'test'
+  ...
+# Subtest: packs: every rule has an official source and a verified date or is flagged unverified
+ok 502 - packs: every rule has an official source and a verified date or is flagged unverified
+  ---
+  duration_ms: 1.105782
+  type: 'test'
+  ...
+# Subtest: gate: ok today, holds once the review interval lapses
+ok 503 - gate: ok today, holds once the review interval lapses
+  ---
+  duration_ms: 2.153187
+  type: 'test'
+  ...
+# Subtest: hard drift (anchor text gone) holds and cannot be acknowledged; soft drift only flags
+ok 504 - hard drift (anchor text gone) holds and cannot be acknowledged; soft drift only flags
+  ---
+  duration_ms: 8.228043
+  type: 'test'
+  ...
+# Subtest: unreachable source flags but never holds
+ok 505 - unreachable source flags but never holds
+  ---
+  duration_ms: 2.380266
+  type: 'test'
+  ...
+# Subtest: legal deadline: before day 16 of the next month
+ok 506 - legal deadline: before day 16 of the next month
+  ---
+  duration_ms: 0.223758
+  type: 'test'
+  ...
+# Subtest: rectificativa window: four years
+ok 507 - rectificativa window: four years
+  ---
+  duration_ms: 0.205595
+  type: 'test'
+  ...
+# Subtest: required fields are reported
+ok 508 - required fields are reported
+  ---
+  duration_ms: 0.835807
+  type: 'test'
+  ...
+# Subtest: pipeline: a stale gate rule holds shipments, burns no invoice number, and a seller without NIF is held on required fields
+ok 509 - pipeline: a stale gate rule holds shipments, burns no invoice number, and a seller without NIF is held on required fields
+  ---
+  duration_ms: 8.656954
+  type: 'test'
+  ...
+# Subtest: pipeline: correction outside the four-year window is refused
+ok 510 - pipeline: correction outside the four-year window is refused
+  ---
+  duration_ms: 98.979861
+  type: 'test'
+  ...
+# Subtest: language layer: follows issuer pack and buyer country, no Spanish/English hardcoding
+ok 511 - language layer: follows issuer pack and buyer country, no Spanish/English hardcoding
+  ---
+  duration_ms: 0.481065
+  type: 'test'
+  ...
+# Subtest: PDF renders in every supported language and in bilingual form
+ok 512 - PDF renders in every supported language and in bilingual form
+  ---
+  duration_ms: 89.514924
+  type: 'test'
+  ...
+# Subtest: Spanish NIF control characters
+ok 513 - Spanish NIF control characters
+  ---
+  duration_ms: 0.220473
+  type: 'test'
+  ...
+# Subtest: company names compare loosely
+ok 514 - company names compare loosely
+  ---
+  duration_ms: 0.728607
+  type: 'test'
+  ...
+# Subtest: verifyBuyer: VIES name mismatch holds, census mismatch holds, outage defers, none configured is reported as not run
+ok 515 - verifyBuyer: VIES name mismatch holds, census mismatch holds, outage defers, none configured is reported as not run
+  ---
+  duration_ms: 1.728794
+  type: 'test'
+  ...
+# Subtest: pipeline: a buyer whose VIES name differs is held before any invoice number is used; release lets it through
+ok 516 - pipeline: a buyer whose VIES name differs is held before any invoice number is used; release lets it through
+  ---
+  duration_ms: 2.160003
+  type: 'test'
+  ...
+# Subtest: password rules: length, mixed case, number, symbol, not part of the email
+ok 517 - password rules: length, mixed case, number, symbol, not part of the email
+  ---
+  duration_ms: 1.168971
+  type: 'test'
+  ...
+# Subtest: TOTP matches the RFC 6238 test vector and rejects wrong, stale and malformed codes
+ok 518 - TOTP matches the RFC 6238 test vector and rejects wrong, stale and malformed codes
+  ---
+  duration_ms: 1.194234
+  type: 'test'
+  ...
+# Subtest: two-step sign-in: setup, enable, required at login, no code reuse, disable
+ok 519 - two-step sign-in: setup, enable, required at login, no code reuse, disable
+  ---
+  duration_ms: 391.266798
+  type: 'test'
+  ...
+# Subtest: password change: needs current password, enforces rules and the last-10 history, ends other sessions
+ok 520 - password change: needs current password, enforces rules and the last-10 history, ends other sessions
+  ---
+  duration_ms: 535.922388
+  type: 'test'
+  ...
+# Subtest: account locks after 8 wrong attempts (Amazon allows at most 10)
+ok 521 - account locks after 8 wrong attempts (Amazon allows at most 10)
+  ---
+  duration_ms: 395.041588
+  type: 'test'
+  ...
+# Subtest: buyer personal data is removed 30 days after shipment; non-personal fields survive; unprocessed shipments are held with a reason
+ok 522 - buyer personal data is removed 30 days after shipment; non-personal fields survive; unprocessed shipments are held with a reason
+  ---
+  duration_ms: 2.169153
+  type: 'test'
+  ...
+# Subtest: key rotation re-encrypts stored secrets, is safe to repeat, and reports what it could not open
+ok 523 - key rotation re-encrypts stored secrets, is safe to repeat, and reports what it could not open
+  ---
+  duration_ms: 5.236283
+  type: 'test'
+  ...
+# Subtest: security log records sign-in events without the email, and old entries are purged after 13 months
+ok 524 - security log records sign-in events without the email, and old entries are purged after 13 months
+  ---
+  duration_ms: 252.623582
+  type: 'test'
+  ...
+# Subtest: public pages: no scripts, no third-party requests, operator details escaped
+ok 525 - public pages: no scripts, no third-party requests, operator details escaped
+  ---
+  duration_ms: 1.798439
+  type: 'test'
+  ...
+# Subtest: landing adapts to the visitor market and every CTA says what happens
+ok 526 - landing adapts to the visitor market and every CTA says what happens
+  ---
+  duration_ms: 0.533654
+  type: 'test'
+  ...
+# Subtest: routes: / privacy contact are public once the operator is set, app moved to /app
+ok 527 - routes: / privacy contact are public once the operator is set, app moved to /app
+  ---
+  duration_ms: 80.340707
+  type: 'test'
+  ...
+# Subtest: robots.txt and sitemap.xml exist when the operator is set, 404 when not
+ok 528 - robots.txt and sitemap.xml exist when the operator is set, 404 when not
+  ---
+  duration_ms: 41.994255
+  type: 'test'
+  ...
+# Subtest: unknown public path gets the branded 404 when the operator is set, JSON otherwise
+ok 529 - unknown public path gets the branded 404 when the operator is set, JSON otherwise
+  ---
+  duration_ms: 29.498204
+  type: 'test'
+  ...
+# Subtest: public pages stay off until the operator identity is set
+ok 530 - public pages stay off until the operator identity is set
+  ---
+  duration_ms: 18.604082
+  type: 'test'
+  ...
+# Subtest: contact form: stored on our server, honeypot, validation, rate limit, admin read needs the token
+ok 531 - contact form: stored on our server, honeypot, validation, rate limit, admin read needs the token
+  ---
+  duration_ms: 30.164489
+  type: 'test'
+  ...
+# Subtest: articles: index and article pages render when the operator is set, 404 when not, unknown slug 404
+ok 532 - articles: index and article pages render when the operator is set, 404 when not, unknown slug 404
+  ---
+  duration_ms: 27.712789
+  type: 'test'
+  ...
+# Subtest: counters + landing A/B: page views, CTA clicks, signups counted; admin endpoint gated
+ok 533 - counters + landing A/B: page views, CTA clicks, signups counted; admin endpoint gated
+  ---
+  duration_ms: 75.671112
+  type: 'test'
+  ...
+# Subtest: ingest health prototype: admin-gated, aggregates events only
+ok 534 - ingest health prototype: admin-gated, aggregates events only
+  ---
+  duration_ms: 12.62619
+  type: 'test'
+  ...
+# Subtest: weekly summary: admin-gated aggregates over events, invoices, accounts and counters
+ok 535 - weekly summary: admin-gated aggregates over events, invoices, accounts and counters
+  ---
+  duration_ms: 61.125865
+  type: 'test'
+  ...
+# Subtest: sample page script handles VIES-unavailable runs honestly
+ok 536 - sample page script handles VIES-unavailable runs honestly
+  ---
+  duration_ms: 8.727111
+  type: 'test'
+  ...
+# Subtest: the all-status VIDR request uses Amazon’s documented ReportOption=All shape
+ok 537 - the all-status VIDR request uses Amazon’s documented ReportOption=All shape
+  ---
+  duration_ms: 1.574005
+  type: 'test'
+  ...
+# Subtest: the pending-only VIDR request keeps the documented pendingInvoices shape
+ok 538 - the pending-only VIDR request keeps the documented pendingInvoices shape
+  ---
+  duration_ms: 0.330673
+  type: 'test'
+  ...
+# Subtest: marketplaceFor: store codes, country codes, raw IDs; unknown stays null
+ok 539 - marketplaceFor: store codes, country codes, raw IDs; unknown stays null
+  ---
+  duration_ms: 0.257299
+  type: 'test'
+  ...
+# Subtest: POSTs that create documents are never blindly retried: 5xx fails once with unknownOutcome, 429 retries safely, GETs retry
+ok 540 - POSTs that create documents are never blindly retried: 5xx fails once with unknownOutcome, 429 retries safely, GETs retry
+  ---
+  duration_ms: 1.286855
+  type: 'test'
+  ...
+# Subtest: listFeeds paginates with nextToken ALONE and sends filters only on the first call
+ok 541 - listFeeds paginates with nextToken ALONE and sends filters only on the first call
+  ---
+  duration_ms: 1.504409
+  type: 'test'
+  ...
+# Subtest: listFeeds refuses a non-converging feed list instead of trusting a truncated one
+ok 542 - listFeeds refuses a non-converging feed list instead of trusting a truncated one
+  ---
+  duration_ms: 0.441519
+  type: 'test'
+  ...
+# Subtest: stages: explicit values are read as written (characterization)
+ok 543 - stages: explicit values are read as written (characterization)
+  ---
+  duration_ms: 14.556747
+  type: 'test'
+  ...
+# Subtest: stages: is-amazon-invoiced "" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+ok 544 - stages: is-amazon-invoiced "" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 3.219115
+  type: 'test'
+  ...
+# Subtest: stages: is-business-order "" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+ok 545 - stages: is-business-order "" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 0.532319
+  type: 'test'
+  ...
+# Subtest: stages: is-amazon-invoiced "yes" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+ok 546 - stages: is-amazon-invoiced "yes" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 2.13257
+  type: 'test'
+  ...
+# Subtest: stages: is-business-order "yes" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+ok 547 - stages: is-business-order "yes" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 0.526106
+  type: 'test'
+  ...
+# Subtest: stages: is-amazon-invoiced "maybe" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+ok 548 - stages: is-amazon-invoiced "maybe" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 1.757067
+  type: 'test'
+  ...
+# Subtest: stages: is-business-order "maybe" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+ok 549 - stages: is-business-order "maybe" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 0.847885
+  type: 'test'
+  ...
+# Subtest: stages: is-amazon-invoiced "1" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+ok 550 - stages: is-amazon-invoiced "1" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 2.323299
+  type: 'test'
+  ...
+# Subtest: stages: is-business-order "1" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+ok 551 - stages: is-business-order "1" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 1.42303
+  type: 'test'
+  ...
+# Subtest: stages: rows of one document that disagree on a flag are unknown; the first row is not enough
+ok 552 - stages: rows of one document that disagree on a flag are unknown; the first row is not enough
+  ---
+  duration_ms: 2.81045
+  type: 'test'
+  ...
+# Subtest: stages: rows that all agree are read once: TRUE on every row is TRUE
+ok 553 - stages: rows that all agree are read once: TRUE on every row is TRUE
+  ---
+  duration_ms: 0.580042
+  type: 'test'
+  ...
+# Subtest: stages: a flag that conflicts with the invoice-status is UNDETERMINED (status never decides the issuer)
+ok 554 - stages: a flag that conflicts with the invoice-status is UNDETERMINED (status never decides the issuer)
+  ---
+  duration_ms: 1.112465
+  type: 'test'
+  ...
+# Subtest: stages: an explicit business FALSE with a Pending document: no seller invoice is owed, as the report says, and not "must upload"
+ok 555 - stages: an explicit business FALSE with a Pending document: no seller invoice is owed, as the report says, and not "must upload"
+  ---
+  duration_ms: 0.44072
+  type: 'test'
+  ...
+# Subtest: stages: invoice-status is shown as an independent fact in every result, and is not offered as proof of the issuer
+ok 556 - stages: invoice-status is shown as an independent fact in every result, and is not offered as proof of the issuer
+  ---
+  duration_ms: 1.119736
+  type: 'test'
+  ...
+# Subtest: v1-59: the fixture is the original: 59 transactions in 11 affected sellers (the fixture holds 14 sellers: 3 of them carry no case in the 59), files pinned by sha256
+ok 557 - v1-59: the fixture is the original: 59 transactions in 11 affected sellers (the fixture holds 14 sellers: 3 of them carry no case in the 59), files pinned by sha256
+  ---
+  duration_ms: 1.720108
+  type: 'test'
+  ...
+# Subtest: v1-59: the files of each of the 59 contradict themselves: is-amazon-invoiced TRUE with invoice-status InvoiceUploaded (the evidence is in the file, not in generator metadata)
+ok 558 - v1-59: the files of each of the 59 contradict themselves: is-amazon-invoiced TRUE with invoice-status InvoiceUploaded (the evidence is in the file, not in generator metadata)
+  ---
+  duration_ms: 5.158904
+  type: 'test'
+  ...
+# Subtest: v1-59: none of the 59 is a BOOKS_GAP, and none is ACTION_REQUIRED in any family
+ok 559 - v1-59: none of the 59 is a BOOKS_GAP, and none is ACTION_REQUIRED in any family
+  ---
+  duration_ms: 0.217712
+  type: 'test'
+  ...
+# Subtest: v1-59: the engine shows exactly the contradicting transactions of each seller as UNDETERMINED (a count and a note, never a finding), and the 59 are among them
+ok 560 - v1-59: the engine shows exactly the contradicting transactions of each seller as UNDETERMINED (a count and a note, never a finding), and the 59 are among them
+  ---
+  duration_ms: 1.422393
+  type: 'test'
+  ...
+# Subtest: v1-59: the three other sellers of the scenario give no confident finding either; none of the 14 fixture sellers has any BOOKS_GAP
+ok 561 - v1-59: the three other sellers of the scenario give no confident finding either; none of the 14 fixture sellers has any BOOKS_GAP
+  ---
+  duration_ms: 0.729703
+  type: 'test'
+  ...
+# Subtest: P1/P2 behavior is unchanged on the vault: the same files give the same problems, keys and fingerprints as on plain storage
+ok 562 - P1/P2 behavior is unchanged on the vault: the same files give the same problems, keys and fingerprints as on plain storage
+  ---
+  duration_ms: 71.380827
+  type: 'test'
+  ...
+# Subtest: migration: legacy plaintext moves into the vault, verified, then removed; results are identical before and after
+ok 563 - migration: legacy plaintext moves into the vault, verified, then removed; results are identical before and after
+  ---
+  duration_ms: 36.055835
+  type: 'test'
+  ...
+# Subtest: migration: interrupted after the copy (delete fails halfway): the originals and the copy both exist, a rerun finishes, nothing is lost or duplicated
+ok 564 - migration: interrupted after the copy (delete fails halfway): the originals and the copy both exist, a rerun finishes, nothing is lost or duplicated
+  ---
+  duration_ms: 21.071492
+  type: 'test'
+  ...
+# Subtest: migration: a storage quota failure while copying leaves every original untouched and says so
+ok 565 - migration: a storage quota failure while copying leaves every original untouched and says so
+  ---
+  duration_ms: 19.279319
+  type: 'test'
+  ...
+# Subtest: migration: an unreadable or conflicting legacy record is reported and KEPT, never discarded
+ok 566 - migration: an unreadable or conflicting legacy record is reported and KEPT, never discarded
+  ---
+  duration_ms: 15.518444
+  type: 'test'
+  ...
+# Subtest: deletion: impact is shown first, confirmation is required, the import and its derived statements go, the other import and statements stay
+ok 567 - deletion: impact is shown first, confirmation is required, the import and its derived statements go, the other import and statements stay
+  ---
+  duration_ms: 39.120866
+  type: 'test'
+  ...
+# Subtest: deletion: whole workspace leaves no usable vault and no readable record
+ok 568 - deletion: whole workspace leaves no usable vault and no readable record
+  ---
+  duration_ms: 3.315159
+  type: 'test'
+  ...
+# Subtest: retention: the default keeps everything; automatic deletion needs explicit confirmed settings and only removes imports older than the limit
+ok 569 - retention: the default keeps everything; automatic deletion needs explicit confirmed settings and only removes imports older than the limit
+  ---
+  duration_ms: 25.558732
+  type: 'test'
+  ...
+# Subtest: backup and restore of a real store: encrypted, integrity-checked, and the restored vault gives identical results
+ok 570 - backup and restore of a real store: encrypted, integrity-checked, and the restored vault gives identical results
+  ---
+  duration_ms: 15.855978
+  type: 'test'
+  ...
+# Subtest: no network: import, projection, deletion and backup never call fetch, XHR or WebSocket (the engine has no network code)
+ok 571 - no network: import, projection, deletion and backup never call fetch, XHR or WebSocket (the engine has no network code)
+  ---
+  duration_ms: 61.866892
+  type: 'test'
+  ...
+# Subtest: static: the loop engine, the vault and the loop page contain no network API, no logging and no storage other than IndexedDB
+ok 572 - static: the loop engine, the vault and the loop page contain no network API, no logging and no storage other than IndexedDB
+  ---
+  duration_ms: 2.256366
+  type: 'test'
+  ...
+# Subtest: vault: the shipped key-derivation cost is 600000 PBKDF2-SHA256 iterations and the metadata names the algorithm
+ok 573 - vault: the shipped key-derivation cost is 600000 PBKDF2-SHA256 iterations and the metadata names the algorithm
+  ---
+  duration_ms: 19.864908
+  type: 'test'
+  ...
+# Subtest: 1: a wrong password cannot unlock; the right one can; a wrong guess leaves the vault locked
+ok 574 - 1: a wrong password cannot unlock; the right one can; a wrong guess leaves the vault locked
+  ---
+  duration_ms: 7.196919
+  type: 'test'
+  ...
+# Subtest: 2: a modified ciphertext, a modified IV and a truncated record are all rejected, never returned as data
+ok 575 - 2: a modified ciphertext, a modified IV and a truncated record are all rejected, never returned as data
+  ---
+  duration_ms: 9.951538
+  type: 'test'
+  ...
+# Subtest: 3: a record moved to another key or another vault is detected (identity and context binding)
+ok 576 - 3: a record moved to another key or another vault is detected (identity and context binding)
+  ---
+  duration_ms: 6.580521
+  type: 'test'
+  ...
+# Subtest: 4: every write uses a fresh random 96-bit IV: 2000 writes of the same value give 2000 different IVs and ciphertexts
+ok 577 - 4: every write uses a fresh random 96-bit IV: 2000 writes of the same value give 2000 different IVs and ciphertexts
+  ---
+  duration_ms: 270.929689
+  type: 'test'
+  ...
+# Subtest: 5: a locked vault exposes nothing: every read and write throws VaultLocked, also after manual lock and after the inactivity timer
+ok 578 - 5: a locked vault exposes nothing: every read and write throws VaultLocked, also after manual lock and after the inactivity timer
+  ---
+  duration_ms: 3.582644
+  type: 'test'
+  ...
+# Subtest: 6: no sensitive plaintext is in the persisted storage: not the values, not the ids, not the password, not the master secret
+ok 579 - 6: no sensitive plaintext is in the persisted storage: not the values, not the ids, not the password, not the master secret
+  ---
+  duration_ms: 2.48518
+  type: 'test'
+  ...
+# Subtest: 7: the recovery key opens the vault without the password; a wrong or malformed one does not; no escrow exists
+ok 580 - 7: the recovery key opens the vault without the password; a wrong or malformed one does not; no escrow exists
+  ---
+  duration_ms: 2.984176
+  type: 'test'
+  ...
+# Subtest: 8: change of password re-wraps only the key: old password stops, new one works, data and recovery key unchanged
+ok 581 - 8: change of password re-wraps only the key: old password stops, new one works, data and recovery key unchanged
+  ---
+  duration_ms: 4.680655
+  type: 'test'
+  ...
+# Subtest: 9: weak passwords are refused and a second vault cannot be created over the first
+ok 582 - 9: weak passwords are refused and a second vault cannot be created over the first
+  ---
+  duration_ms: 1.870036
+  type: 'test'
+  ...
+# Subtest: 10: backup is encrypted, restores into an empty workspace after validation, and every tampering or wrong password is refused
+ok 583 - 10: backup is encrypted, restores into an empty workspace after validation, and every tampering or wrong password is refused
+  ---
+  duration_ms: 10.417492
+  type: 'test'
+  ...
+# Subtest: 11: whole-workspace deletion leaves nothing that opens: no metadata, no records, the old password and recovery key are useless
+ok 584 - 11: whole-workspace deletion leaves nothing that opens: no metadata, no records, the old password and recovery key are useless
+  ---
+  duration_ms: 1.852158
+  type: 'test'
+  ...
+# Subtest: 12: a storage failure on write surfaces as an error, never as silent success, and earlier records stay readable
+ok 585 - 12: a storage failure on write surfaces as an error, never as silent success, and earlier records stay readable
+  ---
+  duration_ms: 2.291006
+  type: 'test'
+  ...
+# Subtest: 13: errors and messages never contain seller values or secrets
+ok 586 - 13: errors and messages never contain seller values or secrets
+  ---
+  duration_ms: 3.103714
+  type: 'test'
+  ...
+# Subtest: ws1: an ordinary uploaded invoice that is missing from the books is still a confident BOOKS_GAP (control)
+ok 587 - ws1: an ordinary uploaded invoice that is missing from the books is still a confident BOOKS_GAP (control)
+  ---
+  duration_ms: 21.243316
+  type: 'test'
+  ...
+# Subtest: ws1: TRUE with InvoiceCreatedByAmazon (both agree) raises nothing against the seller
+ok 588 - ws1: TRUE with InvoiceCreatedByAmazon (both agree) raises nothing against the seller
+  ---
+  duration_ms: 2.593795
+  type: 'test'
+  ...
+# Subtest: ws1: CONFLICT: field TRUE but status InvoiceUploaded is undetermined, never confident
+ok 589 - ws1: CONFLICT: field TRUE but status InvoiceUploaded is undetermined, never confident
+  ---
+  duration_ms: 4.040076
+  type: 'test'
+  ...
+# Subtest: ws1: CONFLICT: field FALSE but status InvoiceCreatedByAmazon is undetermined, never confident
+ok 590 - ws1: CONFLICT: field FALSE but status InvoiceCreatedByAmazon is undetermined, never confident
+  ---
+  duration_ms: 3.994434
+  type: 'test'
+  ...
+# Subtest: ws1: a BLANK flag is UNKNOWN: never inferred from the status, so neither a confident finding nor an Amazon-created invoice (replaces the old test that locked the fallback; see test/blank-flag-unknown.test.js)
+ok 591 - ws1: a BLANK flag is UNKNOWN: never inferred from the status, so neither a confident finding nor an Amazon-created invoice (replaces the old test that locked the fallback; see test/blank-flag-unknown.test.js)
+  ---
+  duration_ms: 13.929755
+  type: 'test'
+  ...
+# Subtest: ws1: the flag is read case-insensitively and with spaces
+ok 592 - ws1: the flag is read case-insensitively and with spaces
+  ---
+  duration_ms: 9.10255
+  type: 'test'
+  ...
+# Subtest: ws1: rows of one shipment that disagree about is-amazon-invoiced are never a confident finding
+ok 593 - ws1: rows of one shipment that disagree about is-amazon-invoiced are never a confident finding
+  ---
+  duration_ms: 2.708644
+  type: 'test'
+  ...
+# Subtest: ws1: an unreadable flag value (not TRUE or FALSE) is not treated as FALSE: no confident finding
+ok 594 - ws1: an unreadable flag value (not TRUE or FALSE) is not treated as FALSE: no confident finding
+  ---
+  duration_ms: 1.986824
+  type: 'test'
+  ...
+# Subtest: ws1 adversarial: a conflict on one shipment does not change the verdict on a clean shipment in the same file
+ok 595 - ws1 adversarial: a conflict on one shipment does not change the verdict on a clean shipment in the same file
+  ---
+  duration_ms: 6.544393
+  type: 'test'
+  ...
+# Subtest: ws1 adversarial: a conflicting shipment is never closed or reported as a seller gap even when the books hold its number
+ok 596 - ws1 adversarial: a conflicting shipment is never closed or reported as a seller gap even when the books hold its number
+  ---
+  duration_ms: 4.288188
+  type: 'test'
+  ...
+# Subtest: ws1 adversarial: three rows of one shipment, one dissenting row, is a conflict
+ok 597 - ws1 adversarial: three rows of one shipment, one dissenting row, is a conflict
+  ---
+  duration_ms: 13.677775
+  type: 'test'
+  ...
+# Subtest: ws1 adversarial: odd flag spellings are unreadable, never read as FALSE
+ok 598 - ws1 adversarial: odd flag spellings are unreadable, never read as FALSE
+  ---
+  duration_ms: 7.70535
+  type: 'test'
+  ...
+# Subtest: ws1 adversarial: pending and rejected statuses with a TRUE flag are conflicts, not seller obligations
+ok 599 - ws1 adversarial: pending and rejected statuses with a TRUE flag are conflicts, not seller obligations
+  ---
+  duration_ms: 2.154419
+  type: 'test'
+  ...
+# Subtest: ws1 adversarial: the conflict is shown as a coverage note naming both values, and as no seller action
+ok 600 - ws1 adversarial: the conflict is shown as a coverage note naming both values, and as no seller action
+  ---
+  duration_ms: 0.803681
+  type: 'test'
+  ...
+# Subtest: ws1 regression: a correct Amazon-issued shipment (TRUE + InvoiceCreatedByAmazon) is not counted as undetermined and is not a gap, with books holding anything
+ok 601 - ws1 regression: a correct Amazon-issued shipment (TRUE + InvoiceCreatedByAmazon) is not counted as undetermined and is not a gap, with books holding anything
+  ---
+  duration_ms: 0.876643
+  type: 'test'
+  ...
+# Subtest: b2b: a business order (TRUE) missing from the books is still a confident BOOKS_GAP (control)
+ok 602 - b2b: a business order (TRUE) missing from the books is still a confident BOOKS_GAP (control)
+  ---
+  duration_ms: 20.874479
+  type: 'test'
+  ...
+# Subtest: b2b: FALSE (not a business order) raises no finding and no action against the seller
+ok 603 - b2b: FALSE (not a business order) raises no finding and no action against the seller
+  ---
+  duration_ms: 2.567483
+  type: 'test'
+  ...
+# Subtest: b2b: FALSE with a pending status asks nothing of the seller
+ok 604 - b2b: FALSE with a pending status asks nothing of the seller
+  ---
+  duration_ms: 7.278112
+  type: 'test'
+  ...
+# Subtest: b2b: BLANK is not read as TRUE or FALSE: no confident finding, evidence gap stated
+ok 605 - b2b: BLANK is not read as TRUE or FALSE: no confident finding, evidence gap stated
+  ---
+  duration_ms: 3.208572
+  type: 'test'
+  ...
+# Subtest: b2b: an unreadable value is no confident finding, evidence gap stated
+ok 606 - b2b: an unreadable value is no confident finding, evidence gap stated
+  ---
+  duration_ms: 19.998286
+  type: 'test'
+  ...
+# Subtest: b2b: rows of one shipment that disagree (TRUE and FALSE) are a conflict, never confident
+ok 607 - b2b: rows of one shipment that disagree (TRUE and FALSE) are a conflict, never confident
+  ---
+  duration_ms: 2.45093
+  type: 'test'
+  ...
+# Subtest: b2b: a blank row next to a TRUE row of the same shipment is a conflict, not eligible
+ok 608 - b2b: a blank row next to a TRUE row of the same shipment is a conflict, not eligible
+  ---
+  duration_ms: 2.752786
+  type: 'test'
+  ...
+# Subtest: b2b: lower case and spaces are read (true, false)
+ok 609 - b2b: lower case and spaces are read (true, false)
+  ---
+  duration_ms: 4.924763
+  type: 'test'
+  ...
+# Subtest: b2b: a non-business shipment never changes the verdict on a business shipment in the same file
+ok 610 - b2b: a non-business shipment never changes the verdict on a business shipment in the same file
+  ---
+  duration_ms: 5.83936
+  type: 'test'
+  ...
+# Subtest: b2b: FALSE with the number present in the books or absent: no finding either way
+ok 611 - b2b: FALSE with the number present in the books or absent: no finding either way
+  ---
+  duration_ms: 2.884873
+  type: 'test'
+  ...
+# Subtest: b2b: FALSE with a different number in the books for the same order: the shipment is not judged at all
+ok 612 - b2b: FALSE with a different number in the books for the same order: the shipment is not judged at all
+  ---
+  duration_ms: 2.694559
+  type: 'test'
+  ...
+# Subtest: b2b: a non-business shipment is not counted as an invoice the seller owes (stats)
+ok 613 - b2b: a non-business shipment is not counted as an invoice the seller owes (stats)
+  ---
+  duration_ms: 2.717756
+  type: 'test'
+  ...
+# Subtest: b2b: Amazon-issued invoices are unaffected by the business flag (no change for CREATED_BY_AMAZON)
+ok 614 - b2b: Amazon-issued invoices are unaffected by the business flag (no change for CREATED_BY_AMAZON)
+  ---
+  duration_ms: 5.955541
+  type: 'test'
+  ...
+# Subtest: b2b: the BLANK / conflict state is shown as a note naming the column, not as a seller action
+ok 615 - b2b: the BLANK / conflict state is shown as a note naming the column, not as a seller action
+  ---
+  duration_ms: 1.593173
+  type: 'test'
+  ...
+# Subtest: b2b: the books document of a non-business shipment is not turned into an unmatched-document finding (by number and by order)
+ok 616 - b2b: the books document of a non-business shipment is not turned into an unmatched-document finding (by number and by order)
+  ---
+  duration_ms: 4.384707
+  type: 'test'
+  ...
+# Subtest: b2b: a books document that belongs to no shipment at all is still unmatched (control, the exclusion is narrow)
+ok 617 - b2b: a books document that belongs to no shipment at all is still unmatched (control, the exclusion is narrow)
+  ---
+  duration_ms: 0.740557
+  type: 'test'
+  ...
+# Subtest: order: number and order agree: confirmed, no finding, no note (control)
+ok 618 - order: number and order agree: confirmed, no finding, no note (control)
+  ---
+  duration_ms: 21.928823
+  type: 'test'
+  ...
+# Subtest: order: two documents with swapped order references are not confirmed and are shown, not silent
+ok 619 - order: two documents with swapped order references are not confirmed and are shown, not silent
+  ---
+  duration_ms: 4.531977
+  type: 'test'
+  ...
+# Subtest: order: one document naming another order is shown, and the other pair stays confirmed
+ok 620 - order: one document naming another order is shown, and the other pair stays confirmed
+  ---
+  duration_ms: 5.291697
+  type: 'test'
+  ...
+# Subtest: order: both sides are named in the note (document number, its order, Amazon order)
+ok 621 - order: both sides are named in the note (document number, its order, Amazon order)
+  ---
+  duration_ms: 7.230018
+  type: 'test'
+  ...
+# Subtest: order: a document with no order reference is still confirmed by number alone (no behaviour change)
+ok 622 - order: a document with no order reference is still confirmed by number alone (no behaviour change)
+  ---
+  duration_ms: 7.888701
+  type: 'test'
+  ...
+# Subtest: order: the mismatch is never closed as accepted or matched
+ok 623 - order: the mismatch is never closed as accepted or matched
+  ---
+  duration_ms: 3.429562
+  type: 'test'
+  ...
+1..623
+# tests 623
+# suites 0
+# pass 622
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 1
+# duration_ms 46558.442157

@@ -1,0 +1,11 @@
+tested commit: 87acd9decf8429bba394e6ecc0297dc90fa9b233 (clean worktree, local)
+not ok 1 - loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+ok 2 - loop, ledger side: a books document for an order whose flag is unknown (is-business-order BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+not ok 3 - loop, ledger side: a books document for an order whose flag is unknown (both BLANK) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+not ok 4 - loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced CONFLICT (TRUE with InvoiceUploaded)) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+not ok 5 - loop, ledger side: a books document for an order whose flag is unknown (is-amazon-invoiced UNREADABLE) raises no UNMATCHED_DOCUMENT, no confident finding and no closure
+ok 6 - loop: both flags BLANK is one undetermined transaction counted once, in no scope figure
+ok 7 - app route: a seller declaration that is not a real boolean (the strings "true"/"false") is ignored, so the Order Report stays held
+# tests 7
+# pass 3
+# fail 4
