@@ -1,0 +1,14 @@
+Per-document state changes caused by the issuer rule. OLD = engine at c20a5e2 (the tests-first commit, before the fix). NEW = the fix commit. One-document files built from fixtures/recon/special-r1.tsv (synthetic), flags edited as listed. Regenerate: node tools/issuer-state-table.mjs <checkout-root> in each checkout.
+
+S9701 | CreditNoteCreatedByAmazon | flag as in fixture | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9701 | CreditNoteCreatedByAmazon | flag TRUE | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state CREATED_BY_AMAZON (headline createdByAmazon 1) | unchanged
+S9701 | CreditNoteCreatedByAmazon | flag FALSE | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9701 | CreditNoteCreatedByAmazon | flag blank | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9701 | CreditNoteCreatedByAmazon | flag unreadable (yes) | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9701 | CreditNoteCreatedByAmazon | flag rows TRUE+FALSE | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9801 | InvoiceCreatedByAmazon | flag as in fixture | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state CREATED_BY_AMAZON (headline createdByAmazon 1) | unchanged
+S9801 | InvoiceCreatedByAmazon | flag TRUE | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state CREATED_BY_AMAZON (headline createdByAmazon 1) | unchanged
+S9801 | InvoiceCreatedByAmazon | flag FALSE | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9801 | InvoiceCreatedByAmazon | flag blank | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9801 | InvoiceCreatedByAmazon | flag unreadable (yes) | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
+S9801 | InvoiceCreatedByAmazon | flag rows TRUE+FALSE | OLD state CREATED_BY_AMAZON (headline createdByAmazon 1) | NEW state ISSUER_UNDETERMINED (headline createdByAmazon 0) | CHANGED: the report does not show who issued it
