@@ -1,0 +1,44 @@
+tested commit: 90e08bec2bab46f86d90c6e7189ca9a455f67c1f (clean worktree, local run, node v22.23.5)
+command: node --test --test-force-exit --no-warnings test/blank-flag-unknown.test.js test/v1-59-regression.test.js test/ws1-confident-false.test.js
+not ok 1 - loop: BLANK is-amazon-invoiced with InvoiceUploaded is UNDETERMINED, no confident finding
+not ok 2 - loop: BLANK is-amazon-invoiced with InvoicePending is UNDETERMINED, no confident finding
+not ok 3 - loop: BLANK is-amazon-invoiced with InvoiceCreatedByAmazon is UNDETERMINED, no confident finding
+not ok 4 - loop: BLANK with InvoiceCreatedByAmazon is NOT counted as an invoice Amazon created
+ok 5 - loop: explicit values are read exactly as written (characterization, passes before and after)
+ok 6 - loop: a conflict between the field and the status stays UNDETERMINED (characterization)
+not ok 7 - vidr: parseVidr keeps a blank flag as unknown (null), not false; TRUE and FALSE as written
+    false !== null
+not ok 8 - vidr: needsInvoice is false for an unknown flag whatever the status says, true for an explicit FALSE
+    true !== false
+not ok 9 - vidr: rows of one shipment that disagree about the flag are unknown, not decided by the first row
+    false !== null
+not ok 10 - manual plan, VAT Invoice Data Report: a blank flag is HELD with a reason that names the field; it is neither issued nor silently skipped
+not ok 11 - order report: no flag columns means HELD with the statement that the report does not carry the evidence; never ready, never skipped as consumer
+not ok 12 - order report: an order with no company name and no tax id is not excluded as consumer either: the business flag is unknown
+not ok 13 - order report: company name and tax id are buyer data, not proof of the business flag or of who issues the invoice
+not ok 14 - order report: a seller declaration makes it ready and is recorded as a SELLER DECLARATION, never as a fact from Amazon
+not ok 15 - order report: a partial seller declaration is not enough; the missing field stays unknown and the order is held
+not ok 16 - order report: flag columns, when the file does carry them, are read as written and recorded as coming from the report
+ok 17 - v1-59: the fixture is the original: 59 transactions, 14 sellers, files pinned by sha256
+ok 18 - v1-59: the files of each of the 59 contradict themselves: is-amazon-invoiced TRUE with invoice-status InvoiceUploaded (the evidence is in the file, not in generator metadata)
+ok 19 - v1-59: none of the 59 is a BOOKS_GAP, and none is ACTION_REQUIRED in any family
+ok 20 - v1-59: the engine shows exactly the contradicting transactions of each seller as UNDETERMINED (a count and a note, never a finding), and the 59 are among them
+ok 21 - v1-59: the three other sellers of the scenario give no confident finding either; no seller of the 14 has any BOOKS_GAP
+ok 22 - ws1: an ordinary uploaded invoice that is missing from the books is still a confident BOOKS_GAP (control)
+ok 23 - ws1: TRUE with InvoiceCreatedByAmazon (both agree) raises nothing against the seller
+ok 24 - ws1: CONFLICT: field TRUE but status InvoiceUploaded is undetermined, never confident
+ok 25 - ws1: CONFLICT: field FALSE but status InvoiceCreatedByAmazon is undetermined, never confident
+ok 26 - ws1: a blank flag falls back to the status (no behaviour change for files without the field filled)
+ok 27 - ws1: the flag is read case-insensitively and with spaces
+ok 28 - ws1: rows of one shipment that disagree about is-amazon-invoiced are never a confident finding
+ok 29 - ws1: an unreadable flag value (not TRUE or FALSE) is not treated as FALSE: no confident finding
+ok 30 - ws1 adversarial: a conflict on one shipment does not change the verdict on a clean shipment in the same file
+ok 31 - ws1 adversarial: a conflicting shipment is never closed or reported as a seller gap even when the books hold its number
+ok 32 - ws1 adversarial: three rows of one shipment, one dissenting row, is a conflict
+ok 33 - ws1 adversarial: odd flag spellings are unreadable, never read as FALSE
+ok 34 - ws1 adversarial: pending and rejected statuses with a TRUE flag are conflicts, not seller obligations
+ok 35 - ws1 adversarial: the conflict is shown as a coverage note naming both values, and as no seller action
+ok 36 - ws1 regression: a correct Amazon-issued shipment (TRUE + InvoiceCreatedByAmazon) is not counted as undetermined and is not a gap, with books holding anything
+# tests 36
+# pass 22
+# fail 14

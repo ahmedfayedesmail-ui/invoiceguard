@@ -1,0 +1,9 @@
+v1-59 regression run against the engine BEFORE the 970ded0 fix (970ded0^ = 9cd708633cabcdb5081c7ca7663e44373408deee), clean worktree, local. Shows the test discriminates.
+ok 1 - v1-59: the fixture is the original: 59 transactions, 14 sellers, files pinned by sha256
+ok 2 - v1-59: the files of each of the 59 contradict themselves: is-amazon-invoiced TRUE with invoice-status InvoiceUploaded (the evidence is in the file, not in generator metadata)
+not ok 3 - v1-59: none of the 59 is a BOOKS_GAP, and none is ACTION_REQUIRED in any family
+not ok 4 - v1-59: the engine shows exactly the contradicting transactions of each seller as UNDETERMINED (a count and a note, never a finding), and the 59 are among them
+not ok 5 - v1-59: the three other sellers of the scenario give no confident finding either; no seller of the 14 has any BOOKS_GAP
+# tests 5
+# pass 2
+# fail 3
