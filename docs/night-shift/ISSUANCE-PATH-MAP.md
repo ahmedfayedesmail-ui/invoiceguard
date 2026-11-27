@@ -37,3 +37,5 @@ Correction replacement used the first row when the rows of the correction contra
 
 ## 6. Not covered
 Refund and credit-note creation from report amounts (repair path) is not Stage 1. External documents (`addExternalDoc`) record a document the seller already issued and issue nothing.
+
+Update: WP2 71d52ae (range), WP3 7380abf (DB), 5c6b681 (repeated header columns quarantined at parse, before any allocator).

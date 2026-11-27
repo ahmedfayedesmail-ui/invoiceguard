@@ -14,3 +14,5 @@ Counts are local. This list is for Ahmed's decisions. Nothing here was changed b
 11. Production claims still wait for a complete real-seller cycle. ALLOW_MANUAL_UPLOAD stays closed.
 12. Precision limit: cells above 999,999,999.99 are held as out of range (a precision limit of the invoice builder, not a business limit).
 13. Percent-unit rates (21 instead of 0.21) are not compared, only noted.
+
+Update: 5c6b681 fixed repeated header columns (CI 46070907097 success). Header/column ambiguity beyond exact repeated names (e.g. aliases mapping to the same field) was not probed.

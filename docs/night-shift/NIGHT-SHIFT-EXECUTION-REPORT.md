@@ -10,6 +10,7 @@ Counts are local unless a CI run is named. Everything is synthetic. main (35bb98
 | 814b94f | WP1 guard tests (retry/release, concurrent evaluation) | 46068894740 | success |
 | 71d52ae | WP2 lab and precision limit AMOUNT_OUT_OF_RANGE | 46069251751 | success |
 | 7380abf | WP3 database hardening | 46069866165 | success |
+| 5c6b681 | WP2: rows with disagreeing repeated header columns are quarantined | 46070907097 | success |
 
 ## Branch research/invoiceguard-reconciliation-lab (NOT for PR #3)
 d1074b7 prototype, 869b4b3 perf script. 13 tests. Not approved for integration.
@@ -19,6 +20,8 @@ d1074b7 prototype, 869b4b3 perf script. 13 tests. Not approved for integration.
 2. Correction replacement issued from the first row when correction rows contradicted (pre-fix-run-7, 1 failing + 1 guard). This was a real bypass of the gate. That run was done in the same checkout with the source change stashed, not in a separate worktree.
 3. Gate read exact cents but invoice builder used floats: 149382714704938.26 issued as 149382714704938.28 (pre-fix-run-8, 1 failing).
 4. DB accepted invalid decision rows, evidence overwritten, ledger write not atomic (pre-fix-run-9, 4 of 7 failing).
+5. A TSV header repeating a column name let the LAST column win silently (buyer, currency or date could change the invoice). Now quarantined when cells disagree (pre-fix-run-10, 1 failing). Counts after this fix (local): non-browser 725 tests, 723 pass, 0 fail, 2 todo; browser 7+2+1+6 pass; campaign 1005 cases, 0 failures; bundle current.
+Stash disclosure: pre-fix runs 7 to 9 used git stash in the main checkout; one stash pop hit an old unrelated stash and conflicted on two files; I restored them to HEAD, nothing from it was committed (checked with git show --stat). Later pre-fix runs use a worktree. The old stash entry is still present.
 Guards that passed on the old code (no defect): retry/release cannot bypass the gate; concurrent evaluation creates one invoice set.
 
 ## Test counts at 7380abf (local)

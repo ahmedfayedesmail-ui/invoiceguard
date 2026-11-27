@@ -1,5 +1,5 @@
 # RECONCILIATION-LAB-REPORT (night mission WP6, Nov 27 2026)
-Branch: research/invoiceguard-reconciliation-lab, commit d1074b7, created from 7380abf (the Phase B head after WP3). It adds two files only: lab/reconcile/reconcile-lab.js and test/reconcile-lab.test.js (plus lab/perf/perf-night.mjs, WP7). It is not connected to issuance, the app, the database or the bundle, and it must not be merged into PR #3. Not approved for integration.  CI for 7380abf (the base) finished with success (run 46069866165).
+Branch: research/invoiceguard-reconciliation-lab, commits d1074b7 (prototype) and 869b4b3 (perf script), created from 7380abf (the Phase B head after WP3). It adds two files only: lab/reconcile/reconcile-lab.js and test/reconcile-lab.test.js (plus lab/perf/perf-night.mjs, WP7). It is not connected to issuance, the app, the database or the bundle, and it must not be merged into PR #3. Not approved for integration.  CI for 7380abf (the base) finished with success (run 46069866165).
 
 ## What it is
 A pure, deterministic prototype of docs RECONCILIATION-ARCHITECTURE.md for synthetic input: VIDR rows, order rows, our invoices and credit notes, and later Amazon status rows. Input contracts are documented at the top of the module and every amount is a raw string parsed with the Stage 1 parser (exact BigInt cents, so unreadable stays UNKNOWN and never zero).
