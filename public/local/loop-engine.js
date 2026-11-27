@@ -2691,6 +2691,12 @@ function buildCard(i) {
     }
     c2.closesWhen = "A newer file, loaded here, shows the same pair with the compared values agreeing. Saying the difference is explained records your statement and does not change what the files show.";
   } else if (i.family === "DUPLICATE_DOCUMENT") {
+    if (i.section === "LEDGER_DATA_QUALITY") {
+      c2.title = `${i.label}: ${s.number ?? ""}`;
+      c2.what = `Rows ${(e.rowNumbers ?? []).join(", ")} of the accounting file carry the document number ${s.number ?? ""}. This is information about your accounting file (Ledger Data Quality), not a finding about an Amazon invoice.`;
+      c2.why = "The order is not judged for an Amazon invoice duty. Nothing is asked of you because of Amazon. It is not called a duplicate invoice until the rows and the document level are confirmed.";
+      return c2;
+    }
     c2.title = `Document ${s.number ?? ""} appears more than once in one accounting file`;
     if (e.documentLevel === "LINE" && t === "SAME_NUMBER_DIFFERENT_CONTENT") {
       const fs = e.disagreeingFields ?? [];
@@ -2866,6 +2872,7 @@ function evaluate(prefix, events, ctx) {
   const bflag = new Map(sellerSet.map((d) => [d, businessFlag(d)]));
   const A = sellerSet.filter((d) => bflag.get(d) === "TRUE");
   const bizUndetermined = sellerSet.filter((d) => ["BLANK", "UNREADABLE", "CONFLICT"].includes(bflag.get(d)));
+  const heldOutNum = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE" && d.evidence.invoiceNumber).map((d) => d.parts["marketplace-id"] + "|" + d.evidence.invoiceNumber)), heldOutOrder = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE").map((d) => d.parts["marketplace-id"] + "|" + d.parts["order-id"]));
   const stats = { amazonInvoices: A.length, nonBusinessOrders: sellerSet.filter((d) => bflag.get(d) === "FALSE").length, businessFlagUndetermined: bizUndetermined.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length - ordinary.filter((d) => d.state === "CREATED_BY_AMAZON" && flagged.get(d) !== "TRUE").length + ordinary.filter((d) => d.state !== "CREATED_BY_AMAZON" && flagged.get(d) === "TRUE").length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   const afterAction = (key, d) => {
     const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter((e) => ms2(e.createdAt) <= (ms2(imp?.importedAt) ?? Infinity));
@@ -3028,7 +3035,8 @@ function evaluate(prefix, events, ctx) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "DUPLICATE_DOCUMENT", "L:" + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
     if (l.conflicting || l.repeatRows) {
       const rows = rowsOfIdentity(l), unknownLevel = l.level === null, sub = unknownLevel ? "SUSPECTED_DUPLICATE" : l.conflicting ? "SAME_NUMBER_DIFFERENT_CONTENT" : "EXACT_REPEAT";
-      put(key, { family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref), documentLevel: l.level, ...l.level === "LINE" && l.conflicting ? { disagreeingFields: disagreeing(l) } : {} }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : { safeAction: true } });
+      const ldq = heldOutNum.has(l.marketplace + "|" + l.number) || heldOutOrder.has(l.marketplace + "|" + l.orderRef);
+      put(key, { ...ldq ? { section: "LEDGER_DATA_QUALITY", label: sub === "SAME_NUMBER_DIFFERENT_CONTENT" ? "Conflicting records sharing the same document number (higher review priority)" : "Repeated accounting record candidate" } : {}, family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref), documentLevel: l.level, ...l.conflicting ? { disagreeingFields: disagreeing(l) } : {}, ...ldq ? { orderTie: { orderRef: l.orderRef ?? null, amazonShipments: sellerSet.filter((d) => d.parts["marketplace-id"] === l.marketplace && (d.parts["order-id"] === l.orderRef || d.evidence.invoiceNumber === l.number)).map((d) => ({ orderId: d.parts["order-id"], transactionId: d.parts["transaction-id"], isBusinessOrder: bflag.get(d) })) } } : {} }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : ldq ? { safeAction: false, note: "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed." } : { safeAction: true } });
     } else closed.set(key, { why: l.level === "LINE" ? `The file is declared by the seller as one row per line item, so repeated rows of ${l.number} are expected.` : `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
   }
   const money = (v) => /^-?\d+(\.\d{1,2})?$/.test(String(v ?? "").trim()) ? readMoney(String(v).trim(), ".", "") : null;
@@ -3136,7 +3144,6 @@ function evaluate(prefix, events, ctx) {
     }
     put(key, { family: "BOOKS_GAP", subtype: number ? "NUMBER_AT_AMAZON_NOT_IN_BOOKS" : "NOT_IN_BOOKS", status: "PRESENT", subject, evidence: { ...base, coverage: cov.import }, fingerprint: fp("BG", id, number, d.state, d.evidence.rows), safeAction: true });
   }
-  const heldOutNum = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE" && d.evidence.invoiceNumber).map((d) => d.parts["marketplace-id"] + "|" + d.evidence.invoiceNumber)), heldOutOrder = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE").map((d) => d.parts["marketplace-id"] + "|" + d.parts["order-id"]));
   for (const l of Le) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "UNMATCHED_DOCUMENT", "L:" + lk), L = ledLink.get(lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, orderRef: l.orderRef, issueDate: l.issueDate };
     const ev = { sources: [ledgerEvidence(l)], document: { number: l.number, issueDate: l.issueDate, orderRef: l.orderRef, operationDate: l.operationDate } };
@@ -3287,6 +3294,8 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
       events: goodEvents.filter((e) => e.issueKey === key).map((e) => ({ id: e.id ?? null, type: e.type, kind: e.kind ?? null, author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })),
       lapsedDeclarations: lapsed.map((e) => ({ author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })),
       declaration: declaration ? { author: declaration.author, createdAt: declaration.createdAt, reasoning: declaration.reasoning, kind: declaration.kind ?? declaration.type } : null,
+      section: shown?.section ?? null,
+      label: shown?.label ?? null,
       fingerprint: shown?.fingerprint ?? null,
       closure: final.status === "CLOSED" ? closure ?? final.closure : null,
       finding: shown ? { evidence: shown.evidence, note: shown.note ?? null } : { evidence: pastP.evidence, note: null, lastSeen: true }
@@ -3300,7 +3309,8 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
     matchedByInvoiceNumber: last.stats.matchedByInvoiceNumber ?? 0,
     inProgressAtAmazon: last.stats.processing ?? 0,
     needsActionNow: count("ACTION_REQUIRED"),
-    needsHumanReading: count("OPEN"),
+    needsHumanReading: issues.filter((i) => i.state === "OPEN" && i.section !== "LEDGER_DATA_QUALITY").length,
+    ledgerDataQuality: issues.filter((i) => i.section === "LEDGER_DATA_QUALITY").length,
     awaitingNewEvidence: count("AWAITING_NEW_EVIDENCE"),
     cannotDetermine: last.notes.reduce((n2, g) => n2 + g.count, 0),
     reportedResolvedBySeller: count("MANUALLY_REPORTED_RESOLUTION"),

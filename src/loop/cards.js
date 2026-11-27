@@ -33,6 +33,7 @@ export function buildCard(i) {
       c.action = 'Find out which side is right. This tool does not change your accounting documents or anything at Amazon. If your document needs correcting, do it in your accounting system the way your accountant advises, then export again and load the new file.'; }
     c.closesWhen = 'A newer file, loaded here, shows the same pair with the compared values agreeing. Saying the difference is explained records your statement and does not change what the files show.';
   } else if (i.family === 'DUPLICATE_DOCUMENT') {
+    if (i.section === 'LEDGER_DATA_QUALITY') { c.title = `${i.label}: ${s.number ?? ''}`; c.what = `Rows ${(e.rowNumbers ?? []).join(', ')} of the accounting file carry the document number ${s.number ?? ''}. This is information about your accounting file (Ledger Data Quality), not a finding about an Amazon invoice.`; c.why = 'The order is not judged for an Amazon invoice duty. Nothing is asked of you because of Amazon. It is not called a duplicate invoice until the rows and the document level are confirmed.'; return c; }
     c.title = `Document ${s.number ?? ''} appears more than once in one accounting file`;
     if (e.documentLevel === 'LINE' && t === 'SAME_NUMBER_DIFFERENT_CONTENT') { const fs = e.disagreeingFields ?? [];
       c.title = `The rows of document ${s.number ?? ''} disagree on data that belongs to the whole document`;
