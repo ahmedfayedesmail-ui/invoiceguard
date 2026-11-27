@@ -37,12 +37,42 @@ export const REPORT_TYPE = 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT';
 const REQUIRED_COLUMNS = ['marketplace-id', 'order-id', 'order-item-id', 'shipping-id', 'transaction-id', 'transaction-type', 'invoice-status', 'invoice-number', 'order-date'];
 const KEY_FIELDS = ['marketplace-id', 'order-id', 'shipping-id', 'transaction-id', 'transaction-type'];
 const DAY = 86400000;
-/** A real calendar day or null. Not a regex prefix: 2026-02-31 is not a date. */
-const realDay = (v) => { const m = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])/.exec(String(v ?? '').trim()); if (!m) return null; const t = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); return t.getUTCFullYear() === +m[1] && t.getUTCMonth() === +m[2] - 1 && t.getUTCDate() === +m[3] ? `${m[1]}-${m[2]}-${m[3]}` : null; };
-const isoDay = realDay;
+const validDay = (y, m, d) => { const t = new Date(Date.UTC(y, m - 1, d)); return m >= 1 && m <= 12 && d >= 1 && d <= 31 && t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d; };
+const iso3 = (y, m, d) => `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+/** DECLARED dates (the seller's own settings typed into our page, a date picker): ISO YYYY-MM-DD, whole string, real calendar day. A different parser from the file's. */
+const declaredDay = (v) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v ?? '').trim()); return m && validDay(+m[1], +m[2], +m[3]) ? iso3(+m[1], +m[2], +m[3]) : null; };
+const isoDay = declaredDay; // used for the declared range only
+/** FILE dates (Amazon's own column `order-date`). Amazon's documented example is 17/05/2018 (DD/MM/YYYY), source:
+ *  https://developer-docs.amazon/sp-api/docs/report-type-values-invoice-data . No other format is documented, so no other format is accepted.
+ *  The whole string is matched (no prefix matching). Returns the two readings; which one applies is decided per FILE, never per value. */
+const FILE_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+function fileDateReadings(v) {
+  const t = String(v ?? '').trim(); if (t === '') return { kind: 'blank' };
+  const m = FILE_DATE.exec(t); if (!m) return { kind: 'unrecognized' };
+  const a = +m[1], b = +m[2], y = +m[3];
+  const dayFirst = validDay(y, b, a) ? iso3(y, b, a) : null, monthFirst = validDay(y, a, b) ? iso3(y, a, b) : null;
+  if (!dayFirst && !monthFirst) return { kind: 'impossible' };
+  return { kind: 'ok', dayFirst, monthFirst, provesDayFirst: !!dayFirst && a > 12, provesMonthFirst: !!monthFirst && b > 12 };
+}
+/** Per-file date order: proven by a value (first field > 12 proves day-first, second field > 12 proves month-first), else Amazon's documented
+ *  day-first with the assumption labelled. Contradicting proofs, or a value that no reading can make real, never get a guess. */
+export function readFileDates(rows) {
+  const rd = rows.map(r => fileDateReadings(r['order-date']));
+  const count = (k) => rd.filter(x => x.kind === k).length;
+  const out = { blank: count('blank'), unrecognized: count('unrecognized'), impossible: count('impossible'), order: null, basis: null, days: rows.map(() => null), contradiction: false };
+  const dayProof = rd.filter(x => x.provesDayFirst).length, monthProof = rd.filter(x => x.provesMonthFirst).length;
+  if (dayProof && monthProof) { out.contradiction = true; return out; }
+  out.order = monthProof ? 'MONTH_FIRST' : 'DAY_FIRST';
+  out.basis = dayProof || monthProof ? 'proven by values in the file' : 'assumed: every date in the file is ambiguous, so the documented format DD/MM/YYYY was used';
+  out.days = rd.map(x => x.kind !== 'ok' ? null : out.order === 'DAY_FIRST' ? x.dayFirst : x.monthFirst);
+  // a value that is real in only the other order contradicts the order the file proved
+  rd.forEach((x, i) => { if (x.kind === 'ok' && out.days[i] === null) out.impossible++; });
+  return out;
+}
+const ROW_DAY = new WeakMap(); // row object -> ISO day read from the file by readFileDates
 const blank = (v) => !String(v ?? '').trim();
 /** Single exported contract version. docs/EVIDENCE-CONTRACT.md states the same string on its first line; a test fails if they differ. */
-export const CONTRACT_VERSION = 'v1.3';
+export const CONTRACT_VERSION = 'v1.4';
 export const CONTRACT_LABEL = `EVIDENCE-CONTRACT ${CONTRACT_VERSION}`;
 const ms = (v) => { const t = Date.parse(v); return Number.isNaN(t) ? null : t; };
 const uniq = (a) => [...new Set(a)];
@@ -68,16 +98,22 @@ export function classifyImport(imp, parsed) {
     else if (spanDays > 30) add('RANGE_TOO_LONG', `The declared date range is ${spanDays} days. Amazon's all-statuses report allows at most 30.`);
   }
   // Every row must carry a valid order-date, a full key, an item id and a status. A row that lacks one is never dropped: it fails the import.
-  const badDate = parsed.rows.filter(r => realDay(r['order-date']) === null).length;
-  if (badDate) add('MISSING_OR_INVALID_ORDER_DATE', `${badDate} row(s) have an order date that is empty or not a real calendar date. Every row needs one, so this file is not shown as a complete read.`);
+  const fd = readFileDates(parsed.rows); parsed.rows.forEach((r, i) => ROW_DAY.set(r, fd.days[i]));
+  if (fd.contradiction) add('DATE_ORDER_CONTRADICTION', 'The order dates in this file contradict each other: some can only be day/month/year and others only month/day/year. We do not guess. Download the report again and load it unchanged.');
+  if (fd.unrecognized) add('UNRECOGNIZED_DATE_FORMAT', `${fd.unrecognized} order date(s) in the file are not in a format we recognise. Amazon documents DD/MM/YYYY (for example 17/05/2018). This file is not shown as a complete read.`);
+  if (fd.impossible) add('MISSING_OR_INVALID_ORDER_DATE', `${fd.impossible} order date(s) are not real calendar days (for example 31/02/2018) or cannot be read in the order the rest of the file uses.`);
+  if (fd.blank) add('MISSING_OR_INVALID_ORDER_DATE', `${fd.blank} row(s) have an empty order date. Every row needs one, so this file is not shown as a complete read.`);
+  if (parsed.blankLines) add('BLANK_LINE_IN_DATA', `${parsed.blankLines} blank line(s) sit between records. A blank line can hide a broken row, so the file is not shown as a complete read. Download the report again and load it unchanged.`);
+  if (parsed.raggedRows) add('RAGGED_ROWS', `${parsed.raggedRows} row(s) have a different number of columns from the header.`);
   const noKey = parsed.rows.filter(r => KEY_FIELDS.some(k => blank(r[k]))).length;
   if (noKey) add('ROWS_WITHOUT_KEY', `${noKey} row(s) have a blank marketplace, order, shipping, transaction id or transaction type, so they cannot be tied to a document. They are not dropped: the import is incomplete.`);
   const noReq = parsed.rows.filter(r => blank(r['order-item-id']) || blank(r['invoice-status'])).length;
   if (noReq) add('MISSING_REQUIRED_VALUE', `${noReq} row(s) have a blank order-item-id or invoice-status.`);
-  const dates = parsed.rows.map(r => realDay(r['order-date'])).filter(x => x !== null).sort();
-  const outside = from && to ? parsed.rows.filter(r => { const x = realDay(r['order-date']); return x !== null && (x < from || x > to); }).length : 0;
+  const dates = fd.days.filter(x => x !== null).sort();
+  const outside = from && to ? fd.days.filter(x => x !== null && (x < from || x > to)).length : 0;
   if (outside) add('ROWS_OUTSIDE_RANGE', `${outside} row(s) have an order date outside the declared range. The range is checked against the order date, because Amazon's all-statuses report covers orders placed within the period.`);
   const warnings = [];
+  if (fd.order && fd.basis.startsWith('assumed')) warnings.push('Every order date in this file is ambiguous between day/month and month/day. We read them as DD/MM/YYYY, the format Amazon documents. If your report uses another order, load a different download.');
   const seen = new Set(parsed.rows.map(r => String(r['invoice-status'] ?? '').trim()));
   if (options === 'ALL' && parsed.rows.length && ![...seen].some(s => ['InvoiceUploaded', 'CreditNoteUploaded', 'InvoiceProcessing', 'CreditNoteProcessing', 'InvoiceCreatedByAmazon', 'CreditNoteCreatedByAmazon'].includes(s)))
     warnings.push('Declared as all statuses, but the file has only pending, rejected or other not-yet-uploaded rows. It looks like a pending-only report. Check the download.');
@@ -86,7 +122,7 @@ export function classifyImport(imp, parsed) {
     id: imp.id, fileName: imp.fileName ?? null, sha256: imp.sha256 ?? null, rows: parsed.rows.length, truncated: !!parsed.truncated,
     scope: problems.length ? 'INCOMPLETE_SOURCE' : 'COMPLETE_SCOPE', problems: problems.map(p => p.text), problemCodes: problems.map(p => p.code), warnings,
     declared: { reportType: d.reportType ?? null, options, rangeFrom: from, rangeTo: to, spanDays, marketplace: d.marketplace ?? null, createdAt: d.createdAt ?? null, downloadedAt: d.downloadedAt ?? null, createdAfterUploadConfirmed: d.createdAfterUploadConfirmed === true, obtainedHow: d.obtainedHow ?? null, labelledAs: 'declared by the seller, not verified by InvoiceGuard' },
-    fileOrderDates: dates.length ? { first: dates[0], last: dates.at(-1) } : null,
+    dateOrder: fd.order ? { order: fd.order, basis: fd.basis } : null, fileOrderDates: dates.length ? { first: dates[0], last: dates.at(-1) } : null,
     importedAt: imp.importedAt ?? null,
   };
 }
@@ -106,7 +142,7 @@ const docKey = (r) => KEY_FIELDS.map(k => r[k] ?? '').join('|');
  * Anything that does not pass is INCOMPLETE_SOURCE with the unmet checks named.
  */
 function gateAccepted({ cls, truncated, imp, row, invoiceNumber, conflicts }) {
-  const d = imp.declared ?? {}, od = isoDay(row['order-date']), pre = [];
+  const d = imp.declared ?? {}, od = ROW_DAY.get(row) ?? null, pre = [];
   pre.push(check('file was read in full', !truncated, 'from-file', truncated ? 'only part of the file was read' : 'all rows were read'));
   pre.push(check('import is complete (every import-level check passed)', cls.scope === 'COMPLETE_SCOPE', 'from-file', cls.problems.join(' ') || 'no import-level problem'));
   pre.push(check('all-status report', cls.declared.options === 'ALL', 'declared-by-seller', `declared option: ${cls.declared.options}. The file cannot prove which option was used.`));
@@ -121,7 +157,7 @@ function gateAccepted({ cls, truncated, imp, row, invoiceNumber, conflicts }) {
   pre.push(check('document number present', !!invoiceNumber, 'from-file', invoiceNumber ?? 'invoice-number is blank'));
   pre.push(check('rows agree (no conflict)', !conflicts.length, 'from-file', conflicts.join('; ') || 'all rows of the document agree'));
   const unmet = pre.filter(p => !p.ok);
-  const reasonCode = !unmet.length ? null : !truncated ? (cls.problemCodes.includes('MISSING_COLUMNS') ? 'MISSING_COLUMNS' : cls.problemCodes.includes('MISSING_OR_INVALID_ORDER_DATE') ? 'MISSING_OR_INVALID_ORDER_DATE' : unmet.some(p => p.name.startsWith('import is complete')) ? 'IMPORT_NOT_COMPLETE' : 'PRECONDITION_UNMET') : 'TRUNCATED_FILE';
+  const reasonCode = !unmet.length ? null : !truncated ? (cls.problemCodes.includes('MISSING_COLUMNS') ? 'MISSING_COLUMNS' : cls.problemCodes.includes('UNRECOGNIZED_DATE_FORMAT') ? 'UNRECOGNIZED_DATE_FORMAT' : cls.problemCodes.includes('DATE_ORDER_CONTRADICTION') ? 'DATE_ORDER_CONTRADICTION' : cls.problemCodes.includes('MISSING_OR_INVALID_ORDER_DATE') ? 'MISSING_OR_INVALID_ORDER_DATE' : unmet.some(p => p.name.startsWith('import is complete')) ? 'IMPORT_NOT_COMPLETE' : 'PRECONDITION_UNMET') : 'TRUNCATED_FILE';
   return { state: unmet.length ? 'INCOMPLETE_SOURCE' : 'ACCEPTED', preconditions: pre, unmet: unmet.map(p => p.name), unmetDetail: unmet.map(p => `${p.name} (${p.detail})`).join('; '), reasonCode };
 }
 
@@ -244,14 +280,14 @@ export function reconcile(imports) {
  *  their own line and never enter that denominator. `exceptions` counts distinct documents, so it can never exceed `documents`. */
 export function headline(docs, cycles, unkeyed, importSummaries) {
   const n = (s) => docs.filter(d => d.state === s).length, inc = (code) => docs.filter(d => d.state === 'INCOMPLETE_SOURCE' && d.reasonCode === code).length;
-  const parts = { truncatedFile: inc('TRUNCATED_FILE'), missingColumns: inc('MISSING_COLUMNS'), importNotComplete: inc('IMPORT_NOT_COMPLETE'), preconditionUnmet: inc('PRECONDITION_UNMET'), orderDateMissingOrUnreadable: inc('MISSING_OR_INVALID_ORDER_DATE'), invoiceNumberIncomplete: n('INVOICE_NUMBER_INCOMPLETE'), unmatched: n('UNMATCHED'), unknownStatus: n('UNKNOWN_STATUS'), unknownTransactionIdFormat: n('UNKNOWN_TRANSACTION_ID_FORMAT'), incompatibleStatusAndType: n('INCOMPATIBLE_STATUS_AND_TYPE') };
+  const parts = { truncatedFile: inc('TRUNCATED_FILE'), missingColumns: inc('MISSING_COLUMNS'), importNotComplete: inc('IMPORT_NOT_COMPLETE'), preconditionUnmet: inc('PRECONDITION_UNMET'), orderDateMissingOrUnreadable: inc('MISSING_OR_INVALID_ORDER_DATE'), dateFormatUnrecognized: inc('UNRECOGNIZED_DATE_FORMAT') + inc('DATE_ORDER_CONTRADICTION'), invoiceNumberIncomplete: n('INVOICE_NUMBER_INCOMPLETE'), unmatched: n('UNMATCHED'), unknownStatus: n('UNKNOWN_STATUS'), unknownTransactionIdFormat: n('UNKNOWN_TRANSACTION_ID_FORMAT'), incompatibleStatusAndType: n('INCOMPATIBLE_STATUS_AND_TYPE') };
   const cannot = Object.values(parts).reduce((a, b) => a + b, 0);
   const openCycles = cycles.filter(c => c.state !== 'ACCEPTED'), openDocKeys = new Set(openCycles.flatMap(c => c.sides));
   const EXC = ['REJECTED', 'SELLER_UPLOAD_REQUIRED', 'INCOMPLETE_SOURCE', 'UNMATCHED', 'UNKNOWN_STATUS', 'UNKNOWN_TRANSACTION_ID_FORMAT', 'INCOMPATIBLE_STATUS_AND_TYPE', 'INVOICE_NUMBER_INCOMPLETE'];
   const exceptions = docs.filter(d => EXC.includes(d.state) || openDocKeys.has(d.key)).length;
   const counts = { documents: docs.length, accepted: n('ACCEPTED'), partiallyAccepted: n('PARTIALLY_ACCEPTED'), processing: n('PROCESSING'), pending: n('PENDING'), rejected: n('REJECTED'), sellerUploadRequired: n('SELLER_UPLOAD_REQUIRED'), createdByAmazon: n('CREATED_BY_AMAZON'),
     correctionCyclesNotClosed: openCycles.length, cannotDetermine: cannot, cannotDetermineParts: parts, rowsWithoutKey: unkeyed.length };
-  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} document(s) with an exception (one document can be in more than one line below): ${counts.rejected} rejected by Amazon, ${counts.sellerUploadRequired} where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), ${counts.correctionCyclesNotClosed} correction(s) not closed on both sides, ${cannot} we cannot determine (${parts.truncatedFile} from a partly read file, ${parts.missingColumns} from a file with missing columns, ${parts.importNotComplete} from another incomplete import, ${parts.preconditionUnmet} with an unmet check, ${parts.orderDateMissingOrUnreadable} with a missing or unreadable order date, ${parts.invoiceNumberIncomplete} with an invoice number blank on some rows, ${parts.unmatched} unmatched, ${parts.unknownStatus} unknown status, ${parts.unknownTransactionIdFormat} unknown correction id format, ${parts.incompatibleStatusAndType} status that does not fit the transaction type). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} observed as accepted, ${counts.createdByAmazon} created by Amazon (nothing to upload). Separately, ${counts.rowsWithoutKey} row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.`;
+  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} document(s) with an exception (one document can be in more than one line below): ${counts.rejected} rejected by Amazon, ${counts.sellerUploadRequired} where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), ${counts.correctionCyclesNotClosed} correction(s) not closed on both sides, ${cannot} we cannot determine (${parts.truncatedFile} from a partly read file, ${parts.missingColumns} from a file with missing columns, ${parts.importNotComplete} from another incomplete import, ${parts.preconditionUnmet} with an unmet check, ${parts.orderDateMissingOrUnreadable} with a missing or unreadable order date, ${parts.dateFormatUnrecognized} with dates in a format we do not recognise or that contradict each other, ${parts.invoiceNumberIncomplete} with an invoice number blank on some rows, ${parts.unmatched} unmatched, ${parts.unknownStatus} unknown status, ${parts.unknownTransactionIdFormat} unknown correction id format, ${parts.incompatibleStatusAndType} status that does not fit the transaction type). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} observed as accepted, ${counts.createdByAmazon} created by Amazon (nothing to upload). Separately, ${counts.rowsWithoutKey} row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.`;
   return { ...counts, exceptions, accountingComparison: 'not available: needs the seller invoice export (Issued is not visible in the Amazon files)', sentence, anyCompleteImport: importSummaries.some(i => i.scope === 'COMPLETE_SCOPE') };
 }
 

@@ -48951,15 +48951,24 @@ var r22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 var MAX_ROWS = 2e4;
 function parseTable(text) {
   text = String(text ?? "").replace(/^\uFEFF/, "");
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return { head: [], rows: [] };
+  const all = text.split(/\r?\n/), isBlank = (l) => !l.trim();
+  let lo = 0, hi = all.length;
+  while (lo < hi && isBlank(all[lo])) lo++;
+  while (hi > lo && isBlank(all[hi - 1])) hi--;
+  const lines = all.slice(lo, hi);
+  if (lines.length < 2) return { head: [], rows: [], blankLines: 0, raggedRows: 0 };
   const delim = (lines[0].match(/\t/g) || []).length >= 2 ? "	" : (lines[0].match(/;/g) || []).length >= 2 ? ";" : ",";
-  if (delim !== "	") return { head: [], rows: [], unsupported: "This does not look like a tab-separated Amazon flat file. Download the report as a text (tab-delimited) file, not Excel or CSV." };
+  if (delim !== "	") return { head: [], rows: [], blankLines: 0, raggedRows: 0, unsupported: "This does not look like a tab-separated Amazon flat file. Download the report as a text (tab-delimited) file, not Excel or CSV." };
   const head = lines[0].split("	").map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""));
-  return { head, rows: lines.slice(1, MAX_ROWS + 1).map((l) => {
+  const body = lines.slice(1), kept = body.slice(0, MAX_ROWS), blankLines = kept.filter(isBlank).length;
+  const records = kept.filter((l) => !isBlank(l));
+  let raggedRows = 0;
+  const rows = records.map((l) => {
     const c = l.split("	");
+    if (c.length !== head.length) raggedRows++;
     return Object.fromEntries(head.map((h, i2) => [h, (c[i2] ?? "").trim().replace(/^"|"$/g, "")]));
-  }), truncated: lines.length - 1 > MAX_ROWS };
+  });
+  return { head, rows, truncated: body.length > MAX_ROWS, blankLines, raggedRows };
 }
 function detectFormat(head) {
   const has = (...c) => c.every((x) => head.includes(x));

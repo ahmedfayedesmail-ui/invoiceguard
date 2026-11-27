@@ -11,14 +11,22 @@ export const FORMATS = {
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const MAX_ROWS = 20000;
 
+/** Reads a tab-separated Amazon flat file. DECISION on blank lines: leading and trailing blank lines are file terminators and are ignored.
+ *  A blank line BETWEEN records is a corrupt record, never a separator: it is counted in `blankLines` (and any row with the wrong number of cells in
+ *  `raggedRows`), nothing is dropped silently, and the reconciliation treats the import as incomplete. */
 export function parseTable(text) {
   text = String(text ?? '').replace(/^\uFEFF/, '');
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return { head: [], rows: [] };
+  const all = text.split(/\r?\n/), isBlank = (l) => !l.trim();
+  let lo = 0, hi = all.length; while (lo < hi && isBlank(all[lo])) lo++; while (hi > lo && isBlank(all[hi - 1])) hi--;
+  const lines = all.slice(lo, hi);
+  if (lines.length < 2) return { head: [], rows: [], blankLines: 0, raggedRows: 0 };
   const delim = (lines[0].match(/\t/g) || []).length >= 2 ? '\t' : (lines[0].match(/;/g) || []).length >= 2 ? ';' : ',';
-  if (delim !== '\t') return { head: [], rows: [], unsupported: 'This does not look like a tab-separated Amazon flat file. Download the report as a text (tab-delimited) file, not Excel or CSV.' };
+  if (delim !== '\t') return { head: [], rows: [], blankLines: 0, raggedRows: 0, unsupported: 'This does not look like a tab-separated Amazon flat file. Download the report as a text (tab-delimited) file, not Excel or CSV.' };
   const head = lines[0].split('\t').map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
-  return { head, rows: lines.slice(1, MAX_ROWS + 1).map(l => { const c = l.split('\t'); return Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim().replace(/^"|"$/g, '')])); }), truncated: lines.length - 1 > MAX_ROWS };
+  const body = lines.slice(1), kept = body.slice(0, MAX_ROWS), blankLines = kept.filter(isBlank).length;
+  const records = kept.filter(l => !isBlank(l)); let raggedRows = 0;
+  const rows = records.map(l => { const c = l.split('\t'); if (c.length !== head.length) raggedRows++; return Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim().replace(/^"|"$/g, '')])); });
+  return { head, rows, truncated: body.length > MAX_ROWS, blankLines, raggedRows };
 }
 
 export function detectFormat(head) {
