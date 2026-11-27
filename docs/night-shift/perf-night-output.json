@@ -1,0 +1,58 @@
+[
+ {
+  "test": "one shipment, 1 rows",
+  "parseMs": 1,
+  "assessMs": 1,
+  "findings": 0,
+  "rssMb": 74
+ },
+ {
+  "test": "one shipment, 100 rows",
+  "parseMs": 4,
+  "assessMs": 4,
+  "findings": 0,
+  "rssMb": 77
+ },
+ {
+  "test": "one shipment, 1000 rows",
+  "parseMs": 29,
+  "assessMs": 26,
+  "findings": 0,
+  "rssMb": 90
+ },
+ {
+  "test": "one shipment, 5000 rows",
+  "parseMs": 150,
+  "assessMs": 96,
+  "findings": 0,
+  "rssMb": 118
+ },
+ {
+  "test": "processReport 500 shipments (25% bad amount, ~11% JPY)",
+  "firstMs": 1903,
+  "rerunMsEach": 69,
+  "uploaded": 321,
+  "held": 179,
+  "findings": 179,
+  "history1": 179,
+  "historyAfter5": 895,
+  "dbBytes1": 3178496,
+  "dbBytes5": 3518464,
+  "queryMs": 0,
+  "rssMb": 159
+ },
+ {
+  "test": "processReport 2000 shipments (25% bad amount, ~11% JPY)",
+  "firstMs": 6033,
+  "rerunMsEach": 187,
+  "uploaded": 1286,
+  "held": 714,
+  "findings": 714,
+  "history1": 714,
+  "historyAfter5": 3570,
+  "dbBytes1": 12152832,
+  "dbBytes5": 13791232,
+  "queryMs": 0,
+  "rssMb": 164
+ }
+]
