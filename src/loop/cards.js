@@ -69,21 +69,39 @@ const STEP = { PRESENT: 'found on', CLOSED: 'closed on', UNDETERMINED: 'could no
 const ident = (i) => { const s = i.subject ?? {}, p = [];
   if (s.orderId) p.push(`order ${s.orderId}`); else if (s.orderRef) p.push(`order ${s.orderRef}`); if (s.shippingId) p.push(`shipment ${s.shippingId}`); if (s.number) p.push(`document ${s.number}`);
   return p.length ? p.join(', ') : 'a problem found earlier'; };
+/** What each deleted file was responsible for, read from the record. A claim of "no longer available" is made only for what the DELETED file held. */
+function analyse(i) {
+  const rec = i.recordedBeforeDeletion ?? { history: [] }, gone = new Set((i.deletedImports ?? []).map(d => d.importId)), h = rec.history;
+  const openedBy = h.find(x => x.status === 'PRESENT')?.import ?? null, closing = h.filter(x => x.status === 'CLOSED');
+  const vidrGone = (i.deletedImports ?? []).some(d => d.kind === 'vidr');
+  const closureGone = closing.some(x => gone.has(x.import)), originGone = openedBy !== null && gone.has(openedBy);
+  const closureHeldBy = closing.filter(x => !gone.has(x.import)).at(-1)?.file ?? null;
+  return { rec, gone, h, vidrGone, closureGone, originGone, closureHeldBy, closed: i.priorRecordedState === 'VERIFIED_CLOSED' };
+}
 function historyText(i) {
-  const out = [], rec = i.recordedBeforeDeletion ?? { history: [] };
+  const out = [], A = analyse(i);
   for (const d of i.deletedImports ?? []) {
     const when = localTime(d.deletedAt, d.utcOffsetMinutes), who = d.reason === 'RETENTION_POLICY' ? 'Your retention setting deleted' : 'You deleted', why = d.reason === 'SELLER_DELETED' || d.reason === 'RETENTION_POLICY' ? '' : ` Reason: ${d.reason}.`, name = d.fileName ?? 'a file';
-    const mine = rec.history.filter(h => h.import === d.importId), first = rec.history[0]?.import === d.importId;
-    const role = d.kind === 'vidr' ? 'That file was an Amazon report, so the checks that used it can no longer be repeated here.' : mine.some(h => h.status === 'CLOSED') ? 'That file closed this problem.' : first ? 'That file is where this problem was first seen.' : 'That file was part of the checks on this problem.';
-    out.push(`${who} ${name} on ${when}.${why} ${role}`);
+    const mine = A.h.filter(x => x.import === d.importId);
+    let role = '';
+    if (d.kind === 'vidr') role = ' That file was the Amazon report, so every check that used it can no longer be repeated here.';
+    else if (A.h.length && A.h[0].import === d.importId && A.h.find(x => x.status === 'PRESENT')?.import === d.importId) role = ' That file is where this problem was first seen, so it cannot be re-derived from scratch.';
+    else if (mine.some(x => x.status === 'CLOSED')) role = '';
+    else if (mine.length) role = ' That file was one of the files this problem was checked against.';
+    else role = ' We cannot tell from the record what this file was used for on this problem.';
+    out.push(`${who} ${name} on ${when}.${why}${role}`);
   }
-  if (rec.history.length) out.push(`What we recorded before the deletion: ${rec.history.map(h => `${STEP[h.status] ?? 'recorded on'} ${h.file ?? 'a file'}`).join(', then ')}.`);
+  if (A.h.length) out.push(`Recorded before the deletion: ${A.h.map(x => `${STEP[x.status] ?? 'recorded on'} ${x.file ?? 'a file'}${A.gone.has(x.import) ? ' (deleted)' : ''}`).join(', then ')}.`);
   return out;
 }
 function historyCard(i) {
-  const closed = i.priorRecordedState === 'VERIFIED_CLOSED';
-  const now = closed ? 'It was closed by evidence before the deletion. With that file gone we can no longer re-check that, so we do not count it as closed, and we do not list it as open again either because we cannot check.' : 'With that file gone we cannot show what it said, so we cannot say whether this problem is still there.';
-  const perm = 'If you load a file that covers this document, we can show what that file says about it today. This note stays: the history will still record that earlier evidence was deleted and that we could not re-check it.';
+  const A = analyse(i), lost = A.vidrGone || A.closureGone;
+  let now;
+  if (A.closed && lost) now = 'The closure can no longer be re-checked, so we do not count it as closed and we do not list it as open either, because we cannot check.';
+  else if (A.closed && A.closureHeldBy) now = `The file that closed it, ${A.closureHeldBy}, is still loaded. It is not listed as open.`;
+  else if (A.closed) now = 'We cannot tell from the record which file closed it, so we make no claim about the closure.';
+  else now = 'With that evidence gone we cannot say whether this problem is still there.';
+  const perm = A.closed && A.closureHeldBy && !lost ? 'This note stays because the beginning of the history is gone: the history will still record that earlier evidence was deleted.' : 'If you load a file that covers this document, we can show what that file says about it today. This note stays: the history will still record that earlier evidence was deleted and that we could not re-check it.';
   return { title: `Problem on ${ident(i)}`, what: [...historyText(i), now, perm].join(' '), why: '', proof: [], action: '', closesWhen: '', stateLabel: STATE_LABEL.HISTORY_INCOMPLETE, stateNote: null, history: i.history };
 }
 export function buildCard(i) {
