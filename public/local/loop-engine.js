@@ -2834,14 +2834,37 @@ function evaluate(prefix, events, ctx) {
     const c2 = clsOf(i.id);
     return !defects.length && c2 && c2.declared.options === "ALL";
   };
-  const A = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction && d.state !== "CREATED_BY_AMAZON");
-  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
+  const noteGroup = /* @__PURE__ */ new Map();
+  const noteAdd = (reason, subject) => {
+    const k = reason;
+    if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] });
+    const g = noteGroup.get(k);
+    g.count++;
+    if (g.sample.length < 5) g.sample.push(subject);
+  };
+  const businessFlag = (d) => {
+    const v = new Set((d.evidence.rows ?? []).map((r) => String(r["is-business-order"] ?? "").trim().toUpperCase()));
+    if ([...v].some((x) => !["TRUE", "FALSE", ""].includes(x))) return "UNREADABLE";
+    if (v.size > 1) return "CONFLICT";
+    return v.has("TRUE") ? "TRUE" : v.has("FALSE") ? "FALSE" : "BLANK";
+  };
+  const sellerSet = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction && d.state !== "CREATED_BY_AMAZON");
+  const bflag = new Map(sellerSet.map((d) => [d, businessFlag(d)]));
+  const A = sellerSet.filter((d) => bflag.get(d) === "TRUE");
+  const bizUndetermined = sellerSet.filter((d) => ["BLANK", "UNREADABLE", "CONFLICT"].includes(bflag.get(d)));
+  const stats = { amazonInvoices: A.length, nonBusinessOrders: sellerSet.filter((d) => bflag.get(d) === "FALSE").length, businessFlagUndetermined: bizUndetermined.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   const afterAction = (key, d) => {
     const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter((e) => ms2(e.createdAt) <= (ms2(imp?.importedAt) ?? Infinity));
     if (!acts.length) return true;
     const t = imp ? createdMs(imp) : null;
     return t !== null && t > Math.max(...acts.map((e) => ms2(e.createdAt)));
   };
+  for (const d of bizUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
+    const why = bflag.get(d) === "BLANK" ? "the is-business-order column is empty" : bflag.get(d) === "CONFLICT" ? "the rows of this shipment disagree about is-business-order" : "the is-business-order column holds a value that is neither TRUE nor FALSE";
+    put(key, { family: "INVOICE_AMAZON_STATE", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp("IAS", id, "BIZFLAG", bflag.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}, so it cannot be told whether the order needs a seller invoice.` });
+    noteAdd(`is-business-order could not be read (${bflag.get(d)}): ${why}`, id);
+  }
   for (const d of A) {
     const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
     const ev = { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, amazonDescription: d.evidence.statusDescription ?? null, invoiceNumber: d.evidence.invoiceNumber ?? null };
@@ -3055,14 +3078,6 @@ function evaluate(prefix, events, ctx) {
       why.push(`${i.fileName ?? i.id}: ${r.join("; ")}`);
     }
     return { ok: false, why: why.length ? why : ["no Amazon report has been loaded"] };
-  };
-  const noteGroup = /* @__PURE__ */ new Map();
-  const noteAdd = (reason, subject) => {
-    const k = reason;
-    if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] });
-    const g = noteGroup.get(k);
-    g.count++;
-    if (g.sample.length < 5) g.sample.push(subject);
   };
   for (const d of A) {
     if (!["PENDING", "SELLER_UPLOAD_REQUIRED", "REJECTED", "PROCESSING", "ACCEPTED"].includes(d.state)) continue;
