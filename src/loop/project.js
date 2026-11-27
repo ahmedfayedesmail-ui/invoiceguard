@@ -17,9 +17,13 @@ const uniq = (a) => [...new Set(a)];
 const DEFECT_CODES_EXCLUDED = ['NOT_ALL_STATUSES']; // a pending-only report limits conclusions; it is not a defect
 export const issueKey = (sellerProfileId, family, identity) => sha256([KEY_VERSION, sellerProfileId, family, identity].join('\n'));
 const isLedger = (i) => i.kind === 'ledger';
+/** When the file itself was created: the VIDR's declared creation time, the ledger's declared export time. Upload time is never a substitute. Null = unknown. */
+const createdMs = (i) => isLedger(i) ? ms(i.declared?.exportedAt) : ms(i.declared?.createdAt);
+/** A full-scope import can replace or close: a complete ledger, an all-statuses report. A partial export or pending-only report only adds records. */
+const fullScope = (i) => isLedger(i) ? i.declared?.complete === true : i.declared?.options === 'ALL';
 const loopTime = (i) => { const d = i.declared ?? {}; return (isLedger(i) ? ms(d.exportedAt) : (ms(d.createdAt) ?? ms(d.downloadedAt))) ?? ms(i.importedAt) ?? 0; };
 export const orderImports = (imports) => [...imports].sort((a, b) => loopTime(a) - loopTime(b) || String(a.importedAt).localeCompare(String(b.importedAt)) || String(a.id).localeCompare(String(b.id)));
-const descriptor = (i) => { const d = i.declared ?? {}; return isLedger(i) ? ['ledger', d.sourceSystem, d.marketplace, `${d.periodFrom}..${d.periodTo}`, [...(d.documentKinds ?? [])].sort().join('+')].join('|') : ['vidr', 'amazon-vidr', d.marketplace, `${d.rangeFrom}..${d.rangeTo}`, 'all-kinds'].join('|'); };
+const descriptor = (i) => { const d = i.declared ?? {}; return isLedger(i) ? ['ledger', d.sourceSystem, d.marketplace, `${d.periodFrom}..${d.periodTo}`, [...(d.documentKinds ?? [])].sort().join('+'), `scope=${d.amazonScope?.mode ?? 'UNKNOWN'}:${[...new Set((d.amazonScope?.channelValues ?? []).map(v => String(v).trim().toLowerCase()))].sort().join(',')}`].join('|') : ['vidr', 'amazon-vidr', d.marketplace, `${d.rangeFrom}..${d.rangeTo}`, 'all-kinds'].join('|'); };
 const amazonId = (d) => ['amz', d.parts['marketplace-id'], d.parts['transaction-type'], d.parts['transaction-id'], d.parts['order-id'], d.parts['shipping-id'], 'INVOICE'].join('|');
 const ledgerKey = (l) => `${l.marketplace}|${l.identity}`;
 
@@ -54,21 +58,28 @@ function evaluate(prefix, events, ctx) {
     importDefects.set(i.id, { defects, scopeNotes });
   }
   for (const [desc, list] of groups) {
-    const latest = list[list.length - 1], { defects } = importDefects.get(latest.id), key = issueKey(ctx.seller, 'SOURCE_INCOMPLETE', desc);
-    const subject = { descriptor: desc, source: isLedger(latest) ? 'accounting export' : 'Amazon VAT invoice report', fileName: latest.fileName ?? null };
-    if (defects.length) put(key, { family: 'SOURCE_INCOMPLETE', subtype: 'DEFECTS', status: 'PRESENT', subject, evidence: { sources: [], defects, importId: latest.id, fileName: latest.fileName ?? null }, fingerprint: fp('SI', desc, defects), safeAction: true });
-    else closed.set(key, { why: 'The latest import of this scope is complete.', importId: latest.id, fileName: latest.fileName ?? null });
+    const latest = list[list.length - 1], full = list.filter(fullScope).at(-1), key = issueKey(ctx.seller, 'SOURCE_INCOMPLETE', desc);
+    const subjectOf = (x) => ({ descriptor: desc, source: isLedger(x) ? 'accounting export' : 'Amazon VAT invoice report', fileName: x.fileName ?? null });
+    const raise = (x) => { const { defects } = importDefects.get(x.id); put(key, { family: 'SOURCE_INCOMPLETE', subtype: 'DEFECTS', status: 'PRESENT', subject: subjectOf(x), evidence: { sources: [], defects, importId: x.id, fileName: x.fileName ?? null }, fingerprint: fp('SI', desc, defects), safeAction: true }); };
+    // A newer file closes this problem only if it is a complete, valid replacement of the same scope. A partial export or a pending-only report is not one: it never closes the problem.
+    if (importDefects.get(latest.id).defects.length) raise(latest);
+    else if (fullScope(latest)) closed.set(key, { why: 'The latest import of this scope is complete.', importId: latest.id, fileName: latest.fileName ?? null });
+    else if (full && importDefects.get(full.id).defects.length) raise(full);
+    else if (full) closed.set(key, { why: 'The latest complete import of this scope has no defects.', importId: full.id, fileName: full.fileName ?? null });
   }
   const usableVidr = (i) => { const { defects } = importDefects.get(i.id); const c = clsOf(i.id); return !defects.length && c && c.declared.options === 'ALL'; };
 
   // ---- Amazon side: ordinary invoices only ----
   const A = rec.docs.filter(d => d.parts['transaction-type'] === 'SHIPMENT' && !d.correction && d.state !== 'CREATED_BY_AMAZON');
   const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter(d => d.state === 'CREATED_BY_AMAZON').length, notOrdinaryInvoice: rec.docs.filter(d => d.parts['transaction-type'] !== 'SHIPMENT' || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
+  // Closure after an action: if the seller recorded ACTION_STARTED before this report was loaded, only a report CREATED after that event can close the problem. Upload time never stands in for creation time; an unknown creation time is never evidence.
+  const afterAction = (key, d) => { const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter(e => ms(e.createdAt) <= (ms(imp?.importedAt) ?? Infinity)); if (!acts.length) return true; const t = imp ? createdMs(imp) : null; return t !== null && t > Math.max(...acts.map(e => ms(e.createdAt))); };
   for (const d of A) {
     const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
     const ev = { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, amazonDescription: d.evidence.statusDescription ?? null, invoiceNumber: d.evidence.invoiceNumber ?? null };
     if (d.state === 'PENDING' || d.state === 'SELLER_UPLOAD_REQUIRED') put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'ACTION_REQUIRED', status: 'PRESENT', subject, evidence: ev, fingerprint: fp('IAS', id, d.state, d.rawStatus, d.evidence.rows), safeAction: true });
     else if (d.state === 'REJECTED') put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'REJECTED', status: 'PRESENT', subject, evidence: ev, fingerprint: fp('IAS', id, d.state, d.rawStatus, d.evidence.statusDescription, d.evidence.rows), safeAction: true });
+    else if (d.state === 'ACCEPTED' && !afterAction(key, d)) put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'ACCEPTED_BEFORE_ACTION', status: 'UNDETERMINED', subject, evidence: ev, fingerprint: fp('IAS', id, 'BEFORE', d.current.importId), note: `The report that shows this as accepted was created ${impById.get(d.current.importId)?.declared?.createdAt ?? 'at an unknown time'}, which is not after the action you recorded. It cannot show the effect of that action. Load a report created after it.` });
     else if (d.state === 'ACCEPTED') closed.set(key, { why: `A later report shows ${d.rawStatus} and every acceptance condition of the evidence contract is met.`, sources: ev.sources, importId: d.current.importId });
     else if (d.state === 'PROCESSING') { stats.processing++; put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'PROCESSING', status: 'UNDETERMINED', processing: true, subject, evidence: ev, fingerprint: fp('IAS', id, d.state), note: 'Amazon\'s report shows this as processing. Amazon says no new upload is needed while it processes.' }); }
     else { put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: ev, fingerprint: fp('IAS', id, d.state), note: `Amazon's row says ${d.rawStatus}, but the file does not allow a conclusion: ${d.explanation ?? d.state}` });
@@ -131,11 +142,14 @@ function evaluate(prefix, events, ctx) {
       const g = i.declared ?? [], r = []; const dd = i.declared ?? {};
       if (dd.marketplace !== mk) r.push(`it is declared for marketplace ${dd.marketplace}, not ${mk}`);
       if (dd.complete !== true) r.push('it is not declared as a complete export');
+      const expT = ms(dd.exportedAt), repT = imp ? (ms(imp.declared?.createdAt) ?? ms(imp.declared?.downloadedAt)) : null;
+      if (expT === null) r.push('the time this accounting export was created is not declared, so it cannot show that the invoice was missing when the Amazon report was taken');
+      else if (repT !== null && expT < repT) r.push(`it was exported at ${dd.exportedAt}, before the Amazon report was created (${imp.declared.createdAt}), so it cannot show what the books held on that day`);
       if (!['ALL', 'CHANNEL'].includes(dd.amazonScope?.mode)) r.push('it is not declared as Amazon sales');
       if (!(dd.documentKinds ?? []).includes('invoice')) r.push('it does not declare that it covers invoices');
       if (importDefects.get(i.id).defects.length) r.push('the file has defects: ' + importDefects.get(i.id).defects.join('; '));
       if (!(dd.periodFrom <= ship && dd.periodTo >= ship && dd.periodTo >= rep)) r.push(`its period ${dd.periodFrom} to ${dd.periodTo} must start on or before the shipment day ${ship} and end on or after the shipment day and the day the Amazon report was taken (${rep})`);
-      if (!r.length) return { ok: true, import: { id: i.id, fileName: i.fileName ?? null, period: `${dd.periodFrom} to ${dd.periodTo}`, sourceSystem: dd.sourceSystem } };
+      if (!r.length) return { ok: true, import: { id: i.id, fileName: i.fileName ?? null, period: `${dd.periodFrom} to ${dd.periodTo}`, sourceSystem: dd.sourceSystem, exportedAt: dd.exportedAt, exportedAtBasis: 'declared by the seller' } };
       why.push(`${i.fileName ?? i.id}: ${r.join('; ')}`); void g;
     }
     return { ok: false, why };
@@ -183,14 +197,15 @@ function evaluate(prefix, events, ctx) {
   }
   const covNotes = [...noteGroup.values()].sort((a, b) => a.reason.localeCompare(b.reason));
   const docsFine = A.filter(d => d.state === 'ACCEPTED' && link.get(amazonId(d))?.level === 'CONFIRMED').length;
-  return { findings, closed, notes: covNotes, stats: { ...stats, fine: docsFine }, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
+  return { findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
 }
 
 /** @param {{imports:object[], events?:object[], sellerProfileId?:string}} input */
 export function project({ imports, events = [], sellerProfileId = 'local' }) {
-  const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: new Map(), rowIdx: new Map() };
+  const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: new Map(), rowIdx: new Map(), actions: new Map() };
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) { const p = eventShapeProblem(e); if (p) rejectedEvents.push({ event: e, reason: p }); else goodEvents.push(e); }
+  for (const e of goodEvents) if (e.type === 'ACTION_STARTED') { if (!ctx.actions.has(e.issueKey)) ctx.actions.set(e.issueKey, []); ctx.actions.get(e.issueKey).push(e); }
   const hist = new Map(); let last = { findings: new Map(), closed: new Map(), notes: [], stats: {}, links: {}, amazonDocs: [], importDefects: new Map(), ledgerDocs: [] };
   const n = ordered.length;
   for (let k = 0; k < n; k++) {
@@ -216,7 +231,7 @@ export function project({ imports, events = [], sellerProfileId = 'local' }) {
       for (const e of decls) { const bad = declarationProblem(e, family, f.subtype); if (bad) { rejectedEvents.push({ event: e, reason: bad }); continue; } if (final.status === 'PRESENT' && e.basedOnFingerprint === f.fingerprint) declaration = e; else lapsed.push(e); }
       const started = goodEvents.filter(e => e.issueKey === key && e.type === 'ACTION_STARTED').sort((a, b) => ms(a.createdAt) - ms(b.createdAt)).at(-1);
       const relevant = (i) => f.family === 'INVOICE_AMAZON_STATE' ? !isLedger(i) && h.some(x => x.importId === i.id) : f.family === 'SOURCE_INCOMPLETE' ? descriptor(i) === f.subject.descriptor : (f.subject.marketplace ? (i.declared?.marketplace === f.subject.marketplace) : true);
-      const newer = started ? ordered.filter(i => (ms(i.importedAt) ?? 0) > ms(started.createdAt) && relevant(i)) : [];
+      const newer = started ? ordered.filter(i => createdMs(i) !== null && createdMs(i) > ms(started.createdAt) && relevant(i)) : []; // by the file's own creation time, never by when it was uploaded
       if ((final.status === 'PRESENT' || final.status === 'DECLARED_LINK') && f.declared) { state = 'MANUALLY_REPORTED_RESOLUTION'; outcome = 'declaration'; declaration = f.declared.event; }
       else if (declaration) { state = 'MANUALLY_REPORTED_RESOLUTION'; outcome = 'declaration'; }
       else if (final.status === 'UNDETERMINED' && f?.processing) { state = 'AWAITING_NEW_EVIDENCE'; awaiting = 'AMAZON_PROCESSING'; }
@@ -235,7 +250,7 @@ export function project({ imports, events = [], sellerProfileId = 'local' }) {
   }
   issues.sort((a, b) => a.key.localeCompare(b.key));
   const count = (s) => issues.filter(i => i.state === s).length;
-  const buckets = { fine: last.stats.fine ?? 0, inProgressAtAmazon: last.stats.processing ?? 0, needsActionNow: count('ACTION_REQUIRED'), needsHumanReading: count('OPEN'), awaitingNewEvidence: count('AWAITING_NEW_EVIDENCE'),
+  const buckets = { matchedByInvoiceNumber: last.stats.matchedByInvoiceNumber ?? 0, inProgressAtAmazon: last.stats.processing ?? 0, needsActionNow: count('ACTION_REQUIRED'), needsHumanReading: count('OPEN'), awaitingNewEvidence: count('AWAITING_NEW_EVIDENCE'),
     cannotDetermine: last.notes.reduce((n, g) => n + g.count, 0), reportedResolvedBySeller: count('MANUALLY_REPORTED_RESOLUTION'), closedWithEvidence: count('VERIFIED_CLOSED') };
   return { loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId, issues, buckets, coverageNotes: last.notes, stats: last.stats, rejectedEvents, notCheckedInThisVersion: NOT_CHECKED_IN_THIS_VERSION,
     imports: ordered.map(i => ({ id: i.id, kind: isLedger(i) ? 'ledger' : 'vidr', fileName: i.fileName ?? null, importedAt: i.importedAt, descriptor: descriptor(i), defects: last.importDefects.get(i.id)?.defects ?? [], scopeNotes: last.importDefects.get(i.id)?.scopeNotes ?? [] })) };

@@ -49,12 +49,12 @@ $('#lfile').addEventListener('change', async (ev) => {
   const complete = el('select', { id: 'l-complete' }, el('option', { value: '' }, '(choose)'), el('option', { value: 'yes' }, 'Complete export of that period'), el('option', { value: 'no' }, 'Partial export'));
   const kinds = el('select', { id: 'l-kinds' }, el('option', { value: '' }, '(choose)'), el('option', { value: 'invoice' }, 'Invoices only'));
   const scope = el('select', { id: 'l-scope' }, el('option', { value: '' }, '(choose)'), el('option', { value: 'ALL' }, 'Every document is an Amazon sale'), el('option', { value: 'CHANNEL' }, 'Amazon sales are marked in the channel column'), el('option', { value: 'UNKNOWN' }, 'I cannot say'));
-  const chv = inp('l-chan', 'text', 'Amazon.es');
-  box.append(el('div', { class: 'row' }, field('Accounting system name', sys), field('Marketplace id (same as in the Amazon report)', mkt), field('Period from', pf), field('Period to', pt), field('Completeness', complete), field('Document kinds', kinds), field('Amazon scope', scope), field('Channel values meaning Amazon (comma separated)', chv)));
+  const chv = inp('l-chan', 'text', 'Amazon.es'), exp = inp('l-exp', 'datetime-local');
+  box.append(el('div', { class: 'row' }, field('Accounting system name', sys), field('When this export was created (declared by you, not read from the file)', exp), field('Marketplace id (same as in the Amazon report)', mkt), field('Period from', pf), field('Period to', pt), field('Completeness', complete), field('Document kinds', kinds), field('Amazon scope', scope), field('Channel values meaning Amazon (comma separated)', chv)));
   box.append(el('button', { onclick: async () => {
     const columns = Object.fromEntries(Object.entries(sel).filter(([, s]) => s.value).map(([k, s]) => [k, s.value]));
     const profile = { delimiter: m.delimiter, columns, constantKind: kindSel.value || null, dateOrder: dates.value, decimal: dec.value, thousands: '', unknownColumnsAcknowledged: true, confirmed: true };
-    const declared = { sourceSystem: sys.value, marketplace: mkt.value, periodFrom: pf.value, periodTo: pt.value, documentKinds: kinds.value ? [kinds.value] : [], complete: complete.value === '' ? undefined : complete.value === 'yes', amazonScope: { mode: scope.value, channelValues: chv.value.split(',').map(x => x.trim()).filter(Boolean) } };
+    const declared = { exportedAt: exp.value ? new Date(exp.value + (exp.value.length === 16 ? ':00' : '') + 'Z').toISOString() : undefined, sourceSystem: sys.value, marketplace: mkt.value, periodFrom: pf.value, periodTo: pt.value, documentKinds: kinds.value ? [kinds.value] : [], complete: complete.value === '' ? undefined : complete.value === 'yes', amazonScope: { mode: scope.value, channelValues: chv.value.split(',').map(x => x.trim()).filter(Boolean) } };
     try { await store.addLedger({ text, profile, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); await render(); } catch (e) { refused(e); }
   } }, 'Confirm and store'));
   form.append(box);
@@ -84,7 +84,7 @@ function cardNode(i) {
 }
 async function render() {
   const r = await store.project(), out = $('#results'); out.replaceChildren();
-  const b = r.buckets; out.append(el('div', { class: 'card', id: 'summary' }, el('h3', {}, 'Summary'), el('p', { class: 'kv' }, `Fine: ${b.fine}. In progress at Amazon: ${b.inProgressAtAmazon}. Needs action: ${b.needsActionNow}. Needs a human reading: ${b.needsHumanReading}. Waiting for a newer file: ${b.awaitingNewEvidence}. Cannot determine: ${b.cannotDetermine}.`),
+  const b = r.buckets; out.append(el('div', { class: 'card', id: 'summary' }, el('h3', {}, 'Summary'), el('p', { class: 'kv' }, `Matched by invoice number: ${b.matchedByInvoiceNumber} (amounts, taxes and differences are not examined in this version). In progress at Amazon: ${b.inProgressAtAmazon}. Needs action: ${b.needsActionNow}. Needs a human reading: ${b.needsHumanReading}. Waiting for a newer file: ${b.awaitingNewEvidence}. Cannot determine: ${b.cannotDetermine}.`),
     el('p', { class: 'kv' }, el('b', {}, 'Closed with evidence: ' + b.closedWithEvidence), '. Reported resolved by you, not confirmed by a file: ' + b.reportedResolvedBySeller + '. These two numbers are never added.')));
   for (const [name, f] of GROUPS) { const xs = r.issues.filter(f); if (xs.length) out.append(el('details', { class: 'group', open: '' }, el('summary', {}, `${name} (${xs.length})`), ...xs.map(cardNode))); }
   if (r.coverageNotes.length) out.append(el('details', { class: 'group' }, el('summary', {}, `Cannot determine (${b.cannotDetermine})`), ...r.coverageNotes.map(g => el('p', { class: 'small' }, `${g.count} x ${g.note ?? g.reason ?? JSON.stringify(g)}`))));

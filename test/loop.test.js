@@ -13,7 +13,7 @@ import * as F from '../tools/make-loop-fixtures.mjs';
 const clock = (start = '2026-11-20T10:00:00Z') => { let t = Date.parse(start); return () => new Date(t += 60000).toISOString(); };
 const imp = (id, kind, text, declared, importedAt, profile) => ({ id, kind, text, declared, importedAt, fileName: id, sha256: sha256(text), profile });
 const R1 = () => [imp('v1', 'vidr', F.V1, F.VDECL('2026-11-20T10:00:00Z'), '2026-11-20T10:01:00Z'), imp('l1', 'ledger', F.L1, F.LDECL(), '2026-11-20T11:01:00Z', F.PROFILE)];
-const R2 = () => [imp('v2', 'vidr', F.V2, F.VDECL('2026-11-27T10:00:00Z'), '2026-11-27T10:01:00Z'), imp('l2', 'ledger', F.L2, F.LDECL(), '2026-11-27T11:01:00Z', F.PROFILE)];
+const R2 = () => [imp('v2', 'vidr', F.V2, F.VDECL('2026-11-27T10:00:00Z'), '2026-11-27T10:01:00Z'), imp('l2', 'ledger', F.L2, F.LDECL({ exportedAt: '2026-11-27T11:00:00Z' }), '2026-11-27T11:01:00Z', F.PROFILE)];
 const find = (r, fam, sub, order) => r.issues.find(i => i.family === fam && (!sub || i.subtype === sub) && (!order || JSON.stringify(i.subject).includes(F.O(order))));
 const states = (r) => r.issues.map(i => `${i.family}/${i.subtype}/${i.state}`).sort();
 const ISO = (s) => s;
@@ -81,7 +81,7 @@ test('loop: round 1 finds the problems the files show, each with its family, and
     'BOOKS_GAP/NOT_IN_BOOKS/ACTION_REQUIRED', 'BOOKS_GAP/NUMBER_AT_AMAZON_NOT_IN_BOOKS/ACTION_REQUIRED',
     'INVOICE_AMAZON_STATE/ACTION_REQUIRED/ACTION_REQUIRED', 'INVOICE_AMAZON_STATE/ACTION_REQUIRED/ACTION_REQUIRED', 'INVOICE_AMAZON_STATE/REJECTED/ACTION_REQUIRED',
     'UNMATCHED_DOCUMENT/NO_CANDIDATE/ACTION_REQUIRED', 'UNMATCHED_DOCUMENT/PROPOSED_LINK_UNCONFIRMED/ACTION_REQUIRED'].sort());
-  assert.equal(r.buckets.fine, 1); assert.equal(r.buckets.inProgressAtAmazon, 1); assert.equal(r.buckets.closedWithEvidence, 0);
+  assert.equal(r.buckets.matchedByInvoiceNumber, 1); assert.equal(r.buckets.inProgressAtAmazon, 1); assert.equal(r.buckets.closedWithEvidence, 0);
   assert.ok(r.issues.every(i => FAMILIES.includes(i.family)));
 });
 test('loop: PROCESSING is not an exception (counted as in progress, no card); a non-Amazon channel row creates no problem', () => {
@@ -110,9 +110,11 @@ test('loop: no mismatch card exists in P1: a ledger document under another numbe
 // ---- identity ----
 test('identity: the key never contains status, amount, date, file name or row: the same problem keeps its key across imports and subtype changes', () => {
   const a = project({ imports: R1() }), b = project({ imports: [...R1(), ...R2()] });
+  const fresh = project({ imports: [R1()[0], imp('l1x', 'ledger', F.L1, F.LDECL({ exportedAt: '2026-11-27T10:30:00Z' }), '2026-11-27T10:31:00Z', F.PROFILE), R2()[0]] }); // the same books, exported after the newer Amazon report
   for (const i of a.issues) assert.ok(b.issues.find(x => x.key === i.key), 'issue kept its key: ' + i.card.title);
   const sub = (r) => r.issues.find(i => JSON.stringify(i.subject).includes(F.O(4)) && i.family === 'BOOKS_GAP');
-  assert.notEqual(sub(a).subtype, sub(b).subtype, 'subtype changed (no number, then a number at Amazon)'); assert.equal(sub(a).key, sub(b).key);
+  const sf = fresh.issues.find(i => JSON.stringify(i.subject).includes(F.O(4)) && i.family === 'BOOKS_GAP');
+  assert.notEqual(sub(a).subtype, sf.subtype, 'subtype changed (no number, then a number at Amazon)'); assert.equal(sub(a).key, sf.key); assert.equal(sub(a).key, sub(b).key);
   const renamed = R1().map(i => ({ ...i, fileName: 'other-name-' + i.id, id: 'zz' + i.id, importedAt: i.importedAt.replace('2026-11-20', '2026-11-21') }));
   const c = project({ imports: renamed }); assert.deepEqual(c.issues.map(i => i.key).sort(), a.issues.map(i => i.key).sort());
 });
@@ -214,15 +216,15 @@ test('matching: a document number is confirmed only when unique: two Amazon tran
   const v = F.vidr([{ n: 1, status: 'InvoiceUploaded', num: 'DUP-1' }, { n: 2, status: 'InvoiceUploaded', num: 'DUP-1' }]);
   const l = F.ledger([F.L.row('DUP-1', '2026-11-18', '2026-11-17', F.O(1))]);
   const r = project({ imports: [imp('v', 'vidr', v, F.VDECL('2026-11-20T10:00:00Z'), '2026-11-20T10:01:00Z'), imp('l', 'ledger', l, F.LDECL(), '2026-11-20T11:00:00Z', F.PROFILE)] });
-  assert.ok(r.issues.some(i => i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'MULTIPLE_CANDIDATES' && i.state === 'OPEN')); assert.equal(r.buckets.fine, 0);
+  assert.ok(r.issues.some(i => i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'MULTIPLE_CANDIDATES' && i.state === 'OPEN')); assert.equal(r.buckets.matchedByInvoiceNumber, 0);
   const l2 = F.ledger([F.L.row('DUP-1', '2026-11-18', '2026-11-17', F.O(1)), F.L.row('DUP-1', '2026-11-19', '2026-11-17', F.O(1), 'Amazon.es', '99,00')]);
   const r2 = project({ imports: [imp('v', 'vidr', F.vidr([{ n: 1, status: 'InvoiceUploaded', num: 'DUP-1' }]), F.VDECL('2026-11-20T10:00:00Z'), '2026-11-20T10:01:00Z'), imp('l', 'ledger', l2, F.LDECL(), '2026-11-20T11:00:00Z', F.PROFILE)] });
-  assert.ok(r2.issues.some(i => i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'MULTIPLE_CANDIDATES' && /different content/.test(i.card.what))); assert.equal(r2.buckets.fine, 0);
+  assert.ok(r2.issues.some(i => i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'MULTIPLE_CANDIDATES' && /different content/.test(i.card.what))); assert.equal(r2.buckets.matchedByInvoiceNumber, 0);
 });
 test('matching: no match by amount or date even when they agree exactly', () => {
   const l = F.ledger([F.L.row('Q-1', '2026-11-18', '2026-11-17', '')]);
   const r = project({ imports: [R1()[0], imp('l', 'ledger', l, F.LDECL(), '2026-11-20T11:00:00Z', F.PROFILE)] });
-  assert.ok(find(r, 'BOOKS_GAP', 'NUMBER_AT_AMAZON_NOT_IN_BOOKS', 2)); assert.equal(r.buckets.fine, 0);
+  assert.ok(find(r, 'BOOKS_GAP', 'NUMBER_AT_AMAZON_NOT_IN_BOOKS', 2)); assert.equal(r.buckets.matchedByInvoiceNumber, 0);
 });
 // ---- coverage (edit 5 and the rule that absence needs scope) ----
 const gapCount = (r) => r.issues.filter(i => i.family === 'BOOKS_GAP').length + r.issues.filter(i => i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'NO_CANDIDATE').length;
@@ -319,4 +321,104 @@ test('structure: nothing stored carries a state, status, closed flag, issue or l
   const stored = []; for (const k of await ad.list()) stored.push(await ad.get(k));
   const names = keysOf(stored); for (const bad of ['state', 'status', 'closed', 'issues', 'links', 'outcome', 'findings']) assert.ok(!names.has(bad), 'stored key ' + bad);
   assert.deepEqual((await ad.list()).map(k => k.split(':').slice(0, 2).join(':')).filter((x, i, a) => a.indexOf(x) === i).sort(), ['loop:event', 'loop:import', 'loop:profile']);
+});
+
+// ---- review fixes after the independent review of faf56f6 ----
+const ev = (type, issueKey, createdAt, extra = {}) => ({ id: 'e-' + createdAt, type, issueKey, author: 'seller', reasoning: 'test', createdAt, ...extra });
+const badLedger = () => F.L1.replace('A-1005;Factura;2026-11-18', 'A-1005;Factura;31/02/2026');
+const siOf = (r) => r.issues.filter(i => i.family === 'SOURCE_INCOMPLETE');
+test('fix1: a newer PARTIAL ledger never closes an earlier SOURCE_INCOMPLETE of the same scope', () => {
+  const base = [R1()[0], imp('l1', 'ledger', badLedger(), F.LDECL(), '2026-11-20T11:01:00Z', F.PROFILE)];
+  const si = siOf(project({ imports: base }))[0]; assert.equal(si.state, 'ACTION_REQUIRED');
+  const partial = imp('l1p', 'ledger', F.L1, F.LDECL({ complete: false, exportedAt: '2026-11-21T09:00:00Z' }), '2026-11-21T09:01:00Z', F.PROFILE);
+  const r = project({ imports: [...base, partial] }), after = siOf(r);
+  assert.equal(after.length, 1); assert.equal(after[0].key, si.key); assert.notEqual(after[0].state, 'VERIFIED_CLOSED'); assert.equal(after[0].state, 'ACTION_REQUIRED');
+});
+test('fix1: a newer PENDING-ONLY report never closes a SOURCE_INCOMPLETE raised from an all-statuses report', () => {
+  const noHow = { ...F.VDECL('2026-11-20T10:00:00Z'), obtainedHow: '' };
+  const first = imp('v1', 'vidr', F.V1, noHow, '2026-11-20T10:01:00Z'), si = siOf(project({ imports: [first] }))[0]; assert.ok(si); assert.equal(si.state, 'ACTION_REQUIRED');
+  const pending = imp('v1p', 'vidr', F.V1, { ...F.VDECL('2026-11-21T10:00:00Z'), options: 'PENDING' }, '2026-11-21T10:01:00Z');
+  const after = siOf(project({ imports: [first, pending] }));
+  assert.equal(after.length, 1); assert.equal(after[0].key, si.key); assert.equal(after[0].state, 'ACTION_REQUIRED');
+});
+test('fix1: a COMPLETE valid replacement of the same scope does close it (ledger and report)', () => {
+  const base = [R1()[0], imp('l1', 'ledger', badLedger(), F.LDECL(), '2026-11-20T11:01:00Z', F.PROFILE)];
+  const full = imp('l1c', 'ledger', F.L1, F.LDECL({ exportedAt: '2026-11-21T09:00:00Z' }), '2026-11-21T09:01:00Z', F.PROFILE);
+  assert.equal(siOf(project({ imports: [...base, full] }))[0].state, 'VERIFIED_CLOSED');
+  const noHow = imp('v0', 'vidr', F.V1, { ...F.VDECL('2026-11-20T10:00:00Z'), obtainedHow: '' }, '2026-11-20T10:01:00Z'), good = imp('v0b', 'vidr', F.V1, F.VDECL('2026-11-21T10:00:00Z'), '2026-11-21T10:01:00Z');
+  assert.equal(siOf(project({ imports: [noHow, good] }))[0].state, 'VERIFIED_CLOSED');
+});
+const rejKey = () => find(project({ imports: R1() }), 'INVOICE_AMAZON_STATE', 'REJECTED').key;
+test('fix2: an ACCEPTED report created BEFORE ACTION_STARTED but uploaded after it does not close the problem', () => {
+  const key = rejKey(), started = ev('ACTION_STARTED', key, '2026-11-21T09:00:00Z');
+  const old = imp('v2old', 'vidr', F.V2, F.VDECL('2026-11-20T12:00:00Z'), '2026-11-21T10:00:00Z');
+  const r = project({ imports: [...R1(), old], events: [started] }), rej = r.issues.find(i => i.key === key);
+  assert.notEqual(rej.state, 'VERIFIED_CLOSED'); assert.equal(rej.state, 'AWAITING_NEW_EVIDENCE'); assert.equal(rej.awaiting, 'SELLER_REPORTED_ACTION'); assert.equal(rej.closure, null);
+  assert.ok(r.issues.filter(i => i.key !== key).some(i => i.state === 'VERIFIED_CLOSED'), 'other problems without an action still close from the same report');
+});
+test('fix2: an ACCEPTED report created AFTER ACTION_STARTED closes it when the other conditions pass', () => {
+  const key = rejKey(), started = ev('ACTION_STARTED', key, '2026-11-21T09:00:00Z');
+  const fresh = imp('v2new', 'vidr', F.V2, F.VDECL('2026-11-21T10:00:00Z'), '2026-11-21T10:01:00Z');
+  const rej = project({ imports: [...R1(), fresh], events: [started] }).issues.find(i => i.key === key);
+  assert.equal(rej.state, 'VERIFIED_CLOSED'); assert.equal(rej.outcome, 'evidence');
+});
+test('fix2: with an action recorded, an unknown creation time is never evidence; without one, closure is unchanged', () => {
+  const key = rejKey(), started = ev('ACTION_STARTED', key, '2026-11-21T09:00:00Z');
+  const unknown = imp('v2u', 'vidr', F.V2, { ...F.VDECL('2026-11-21T10:00:00Z'), createdAt: undefined, createdAfterUploadConfirmed: false }, '2026-11-21T10:01:00Z');
+  assert.notEqual(project({ imports: [...R1(), unknown], events: [started] }).issues.find(i => i.key === key).state, 'VERIFIED_CLOSED');
+  const noAction = imp('v2n', 'vidr', F.V2, F.VDECL('2026-11-20T12:00:00Z'), '2026-11-21T10:00:00Z');
+  assert.equal(project({ imports: [...R1(), noAction] }).issues.find(i => i.key === key).state, 'VERIFIED_CLOSED');
+});
+test('fix2: a report only counts as newer evidence after an action by its own creation time, not by upload time', () => {
+  const key = rejKey(), started = ev('ACTION_STARTED', key, '2026-11-21T09:00:00Z');
+  const stillRejected = imp('v1b', 'vidr', F.V1, F.VDECL('2026-11-20T12:00:00Z'), '2026-11-21T10:00:00Z');
+  const rej = project({ imports: [...R1(), stillRejected], events: [started] }).issues.find(i => i.key === key);
+  assert.equal(rej.state, 'AWAITING_NEW_EVIDENCE', 'uploaded after the action but created before it: still waiting');
+  const newer = imp('v1c', 'vidr', F.V1, F.VDECL('2026-11-21T12:00:00Z'), '2026-11-21T12:01:00Z');
+  assert.equal(project({ imports: [...R1(), newer], events: [started] }).issues.find(i => i.key === key).state, 'ACTION_REQUIRED', 'created after the action and still rejected: the action did not work');
+});
+const gapFor = (r, n) => find(r, 'BOOKS_GAP', null, n);
+test('fix3: a ledger exported before the Amazon report was created cannot prove a document is missing from the books', () => {
+  const v = imp('v1', 'vidr', F.V1, F.VDECL('2026-11-20T10:00:00Z'), '2026-11-20T10:01:00Z');
+  const stale = imp('l1', 'ledger', F.L1, F.LDECL({ exportedAt: '2026-11-12T09:00:00Z' }), '2026-11-20T11:01:00Z', F.PROFILE); // uploaded today, exported on the 12th
+  const r = project({ imports: [v, stale] }); assert.equal(gapFor(r, 4), undefined, 'no BOOKS_GAP from a stale export'); assert.ok(r.coverageNotes.some(n => /exported at 2026-11-12/.test(n.reason) || /before the Amazon report/.test(n.reason)));
+  const ok = project({ imports: [v, imp('l1', 'ledger', F.L1, F.LDECL({ exportedAt: '2026-11-20T10:00:00Z' }), '2026-11-20T11:01:00Z', F.PROFILE)] }); assert.ok(gapFor(ok, 4), 'exported at the moment the report was created is enough');
+});
+test('fix3: an unknown export time is Cannot Determine, upload time is never substituted, and the shown time is labelled as declared', () => {
+  const v = imp('v1', 'vidr', F.V1, F.VDECL('2026-11-20T10:00:00Z'), '2026-11-20T10:01:00Z');
+  const none = imp('l1', 'ledger', F.L1, (({ exportedAt, ...d }) => d)(F.LDECL()), '2026-11-25T11:01:00Z', F.PROFILE);
+  const r = project({ imports: [v, none] }); assert.equal(gapFor(r, 4), undefined); assert.ok(r.coverageNotes.some(n => /time this accounting export was created is not declared/.test(n.reason)));
+  const good = project({ imports: [v, imp('l1', 'ledger', F.L1, F.LDECL(), '2026-11-20T11:01:00Z', F.PROFILE)] }), g = gapFor(good, 4);
+  assert.equal(g.finding.evidence.coverage.exportedAtBasis, 'declared by the seller'); assert.equal(g.finding.evidence.coverage.exportedAt, '2026-11-20T11:00:00Z');
+});
+const udoc = (r, num) => r.issues.find(i => i.family === 'UNMATCHED_DOCUMENT' && i.subject.number === num);
+test('fix4: a later complete file replaces an earlier one only with the SAME scope: ALL to CHANNEL does not replace', () => {
+  const noExtra = F.L1.split('\n').filter(l => !l.startsWith('A-9999')).join('\n');
+  const a = imp('la', 'ledger', F.L1, F.LDECL({ amazonScope: { mode: 'ALL' } }), '2026-11-20T11:01:00Z', F.PROFILE);
+  const sameScope = imp('lb', 'ledger', noExtra, F.LDECL({ amazonScope: { mode: 'ALL' }, exportedAt: '2026-11-21T11:00:00Z' }), '2026-11-21T11:01:00Z', F.PROFILE);
+  const otherScope = imp('lb', 'ledger', noExtra, F.LDECL({ amazonScope: { mode: 'CHANNEL', channelValues: ['Amazon.es'] }, exportedAt: '2026-11-21T11:00:00Z' }), '2026-11-21T11:01:00Z', F.PROFILE);
+  const v = R1()[0];
+  assert.ok(udoc(project({ imports: [v, a] }), 'A-9999'), 'present in the first file');
+  assert.notEqual(udoc(project({ imports: [v, a, sameScope] }), 'A-9999')?.state, 'ACTION_REQUIRED', 'same scope: the later complete file replaces it');
+  assert.equal(udoc(project({ imports: [v, a, otherScope] }), 'A-9999').state, 'ACTION_REQUIRED', 'different Amazon scope mode: not a replacement, the record is kept');
+});
+test('fix4: changing which channel values mean Amazon changes the scope; a partial file never replaces or erases a complete one', () => {
+  const noExtra = F.L1.split('\n').filter(l => !l.startsWith('A-9999')).join('\n'), v = R1()[0];
+  const a = imp('la', 'ledger', F.L1, F.LDECL(), '2026-11-20T11:01:00Z', F.PROFILE);
+  const otherValues = imp('lb', 'ledger', noExtra, F.LDECL({ amazonScope: { mode: 'CHANNEL', channelValues: ['Amazon.es', 'Amazon.de'] }, exportedAt: '2026-11-21T11:00:00Z' }), '2026-11-21T11:01:00Z', F.PROFILE);
+  assert.equal(udoc(project({ imports: [v, a, otherValues] }), 'A-9999').state, 'ACTION_REQUIRED', 'other channel values: record kept');
+  const partial = imp('lc', 'ledger', noExtra, F.LDECL({ complete: false, exportedAt: '2026-11-21T11:00:00Z' }), '2026-11-21T11:01:00Z', F.PROFILE);
+  assert.equal(udoc(project({ imports: [v, a, partial] }), 'A-9999').state, 'ACTION_REQUIRED', 'partial never erases');
+  const d1 = project({ imports: [v, a] }), d2 = project({ imports: [v, a, otherValues] });
+  assert.ok(d1.issues.length && d2.issues.length);
+});
+test('wording: the summary bucket is "matched by invoice number" and the bundle says amounts, taxes and differences are not examined', async () => {
+  const s = createLoopStore(memoryAdapter(), { now: clock() }); await s.addVidr({ text: F.V1, declared: F.VDECL('2026-11-20T10:00:00Z') }); await s.addLedger({ text: F.L1, profile: F.PROFILE, declared: F.LDECL() });
+  const r = await s.project(), b = await s.bundle();
+  assert.ok('matchedByInvoiceNumber' in r.buckets); assert.ok(!('fine' in r.buckets)); assert.ok('matchedByInvoiceNumber' in b.headline); assert.ok(!('fine' in b.headline));
+  assert.match(r.notCheckedInThisVersion.join(' '), /amounts, tax or numbers/); assert.match(b.matchedByInvoiceNumberMeaning, /amounts, taxes and differences are not examined/i);
+});
+test('door: an export time that is not a date is refused', async () => {
+  const s = createLoopStore(memoryAdapter(), { now: clock() });
+  await assert.rejects(() => s.addLedger({ text: F.L1, profile: F.PROFILE, declared: F.LDECL({ exportedAt: 'yesterday' }) }), Refused);
 });

@@ -21,6 +21,7 @@ export function vidrDoorProblems(text, d = {}) {
 export function ledgerDoorProblems(text, profile, d = {}) {
   const p = []; if (!String(d.sourceSystem ?? '').trim()) p.push('Missing: the name of the accounting system.');
   if (!String(d.marketplace ?? '').trim()) p.push('Missing: the Amazon marketplace this export is declared for.');
+  if (d.exportedAt !== undefined && d.exportedAt !== '' && Number.isNaN(Date.parse(d.exportedAt))) p.push('The export time is not a readable date and time.');
   if (!isoDay(d.periodFrom) || !isoDay(d.periodTo)) p.push('Missing: the period of the export (from and to, as YYYY-MM-DD).');
   if (!Array.isArray(d.documentKinds) || !d.documentKinds.length || d.documentKinds.some(k => !['invoice', 'credit_note'].includes(k))) p.push('Missing: which document kinds the export contains.');
   if (typeof d.complete !== 'boolean') p.push('Missing: whether this is a complete export of that period (yes or no).');
@@ -69,9 +70,10 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
       const r = await this.project(), imports = await this.imports(), events = await this.events();
       const b = r.buckets;
       return { bundleVersion: 1, kind: 'problem-loop', loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId: r.sellerProfileId, createdAt: now(),
+        matchedByInvoiceNumberMeaning: 'Matched by invoice number means an Amazon transaction and an accounting document carry the same document number and no problem of the kinds checked in this version was found. Amounts, taxes and differences are not examined in this version.',
         note: 'State of the loaded files on the dates they were loaded. Anything marked declared was said by the seller and is not confirmed by a file. No statement here is about the legal position of any document.',
         imports: imports.map(i => ({ id: i.id, kind: i.kind, fileName: i.fileName, sha256: i.sha256, importedAt: i.importedAt, declared: i.declared, profile: i.profile ?? null, text: i.text })),
-        events, headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, fine: b.fine },
+        events, headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },
         issues: r.issues.map(i => ({ key: i.key, family: i.family, subtype: i.subtype, state: i.state, closureBasis: i.outcome, episodes: i.episodes, history: i.history, events: i.events, declaration: i.declaration, lapsedDeclarations: i.lapsedDeclarations, closure: i.closure, card: i.card })),
         coverageNotes: r.coverageNotes, rejectedEvents: r.rejectedEvents.map(x => ({ reason: x.reason, type: x.event.type })), notCheckedInThisVersion: r.notCheckedInThisVersion };
     },

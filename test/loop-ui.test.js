@@ -27,17 +27,17 @@ test('loop page: two rounds of real files in a real browser, closure only by a n
       await page.$eval('#v-after', e => { e.checked = true; });
       await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent === 'Confirm and store').click()); await sleep(800); nFiles++; await page.waitForFunction(n => document.querySelector('#results').innerText.includes('Loaded files (' + n + ')'), { timeout: 15000 }, nFiles);
     };
-    const loadLedger = async (file) => {
+    const loadLedger = async (file, exported) => {
       await page.$eval('#lfile', e => { e.value = ''; }); await (await page.$('#lfile')).uploadFile(file); await page.waitForSelector('#l-sys');
-      await setv('#l-sys', 'acme-books'); await setv('#l-mkt', 'A1RKKUPIHCS9HS'); await setv('#l-from', '2026-11-01'); await setv('#l-to', '2026-11-30'); await setv('#l-complete', 'yes'); await setv('#l-kinds', 'invoice'); await setv('#l-scope', 'CHANNEL'); await setv('#l-chan', 'Amazon.es');
+      await setv('#l-sys', 'acme-books'); if (exported) await setv('#l-exp', exported); await setv('#l-mkt', 'A1RKKUPIHCS9HS'); await setv('#l-from', '2026-11-01'); await setv('#l-to', '2026-11-30'); await setv('#l-complete', 'yes'); await setv('#l-kinds', 'invoice'); await setv('#l-scope', 'CHANNEL'); await setv('#l-chan', 'Amazon.es');
       await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent === 'Confirm and store').click()); await sleep(800); nFiles++; await page.waitForFunction(n => document.querySelector('#results').innerText.includes('Loaded files (' + n + ')'), { timeout: 15000 }, nFiles);
     };
     // a refused import stores nothing and says why
     await (await page.$('#lfile')).uploadFile('fixtures/loop/ledger-1.csv'); await page.waitForSelector('#l-sys');
     await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent === 'Confirm and store').click()); await sleep(500);
-    assert.match(await page.$eval('#msg', e => e.textContent), /Not stored.*Missing/);
+    assert.match(await page.$eval('#msg', e => e.textContent), /Not stored.*Missing/); assert.match(await page.$eval('#results', e => e.innerText), /Matched by invoice number/);
     // round 1
-    await loadVidr('fixtures/loop/vidr-1.tsv', '2026-11-20T10:00'); await loadLedger('fixtures/loop/ledger-1.csv');
+    await loadVidr('fixtures/loop/vidr-1.tsv', '2026-11-20T10:00'); await loadLedger('fixtures/loop/ledger-1.csv', '2026-11-20T11:00');
     const r1 = await page.$eval('#results', e => e.innerText); console.log('--- ROUND 1 ---\n' + r1.slice(0, 1500));
     assert.match(r1, /Needs action/); assert.ok(await page.$('[data-state="ACTION_REQUIRED"]'), 'an action card exists');
     assert.equal(await page.$('[data-state="VERIFIED_CLOSED"]'), null, 'nothing is closed after round 1');
@@ -48,7 +48,7 @@ test('loop page: two rounds of real files in a real browser, closure only by a n
     assert.equal(await page.$('[data-state="VERIFIED_CLOSED"]'), null, 'saying so closes nothing');
     // round 2: newer files
     await sleep(1500); await loadVidr('fixtures/loop/vidr-2.tsv', new Date(Date.now() - 500).toISOString().slice(0, 19)); ; // report taken after the seller's action, as in real life
-    await loadLedger('fixtures/loop/ledger-2.csv');
+    await loadLedger('fixtures/loop/ledger-2.csv', new Date().toISOString().slice(0, 19));
     await page.$$eval('details.group', ds => ds.forEach(d => { d.open = true; })); const r2 = await page.$eval('#results', e => e.innerText); console.log('--- ROUND 2 ---\n' + r2.slice(0, 1800));
     assert.ok(await page.$('[data-state="VERIFIED_CLOSED"]'), 'a newer file closes a problem by evidence');
     assert.match(r2, /Closed with evidence: [1-9]/);

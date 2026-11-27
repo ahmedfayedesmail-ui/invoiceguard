@@ -16,6 +16,12 @@ jobs:
       - name: Install lxml (offline XSD validation of FA(3) and FatturaPA tests)
         run: python3 -m pip install lxml
       - name: Test suite
-        run: npm test
+        run: |
+          npm test 2>&1 | tee test-output.log
+      - name: Test counts (printed so reviewers can read them in the log and the run summary)
+        if: always()
+        run: |
+          grep -E '^# (tests|suites|pass|fail|cancelled|skipped|todo)' test-output.log | tee -a "$GITHUB_STEP_SUMMARY"
+          for f in test/*.test.js; do printf '%s: ' "$f"; node --test --test-force-exit --no-warnings "$f" 2>&1 | grep -E '^# (tests|pass|fail)' | tr '\n' ' '; echo; done | tee -a "$GITHUB_STEP_SUMMARY"
       - name: 1005-case campaign
         run: node tools/campaign.mjs --no-live
