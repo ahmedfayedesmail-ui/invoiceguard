@@ -16,7 +16,7 @@ try {
   const loaded = requests.length; requests.length = 0;
   for (const f of FILES) { const h = await page.$('#file'); await h.uploadFile(f); await new Promise(r => setTimeout(r, 1200)); }
   const text = await page.$eval('#out', e => e.innerText);
-  ok(/ready to invoice/.test(text) && /held/.test(text), 'both real files analysed in the page');
+  ok(/ready to invoice/.test(text) && /held/.test(text), 'both synthetic fixture files analysed in the page');
   const btn = await page.$('button.sm'); ok(!!btn, 'a Sample PDF button exists');
   if (btn) await btn.click();
   await page.waitForSelector('a[download]', { timeout: 20000 }).catch(() => {});
