@@ -1,0 +1,268 @@
+TAP version 13
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+not ok 1 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 2.560244
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:19:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    heldForUnknownFlags
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:23:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+not ok 2 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceCreatedByAmazon" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.437589
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:19:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    heldForUnknownFlags
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:23:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+not ok 3 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.281822
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:19:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    heldForUnknownFlags
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:23:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+not ok 4 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceUploaded" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.32394
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:19:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    heldForUnknownFlags
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:23:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+ok 5 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 1.039359
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+ok 6 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoicePending" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.39635
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+ok 7 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.346431
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+ok 8 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "InvoiceRejected" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.267573
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+ok 9 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.444579
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+ok 10 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "NoTaxCalculated" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.500207
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+ok 11 - held: blank is-amazon-invoiced, is-business-order "TRUE", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.327429
+  type: 'test'
+  ...
+# Subtest: held: blank is-amazon-invoiced, is-business-order "", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+ok 12 - held: blank is-amazon-invoiced, is-business-order "", invoice-status "(blank)" is HELD with a reason, never skipped, never issued
+  ---
+  duration_ms: 0.242603
+  type: 'test'
+  ...
+# Subtest: held: guards that must keep working: explicit values are read as written, and a known non-business order is skipped, whatever the status
+ok 13 - held: guards that must keep working: explicit values are read as written, and a known non-business order is skipped, whatever the status
+  ---
+  duration_ms: 1.378063
+  type: 'test'
+  ...
+# Subtest: held: the pipeline (API accounts) also holds a blank is-amazon-invoiced with InvoiceCreatedByAmazon and InvoiceUploaded, and issues nothing for it
+not ok 14 - held: the pipeline (API accounts) also holds a blank is-amazon-invoiced with InvoiceCreatedByAmazon and InvoiceUploaded, and issues nothing for it
+  ---
+  duration_ms: 73.124954
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:39:1'
+  failureType: 'testCodeFailure'
+  error: 'InvoiceCreatedByAmazon [{"key":"SHIPMENT:S1003","orderId":"405-2087716-3305528","reason":"Buyer NIF ESA1234567 fails the Spanish control-character check"}]'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:46:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: vidr-only: no seller declaration, however complete, turns an Order Report into a ready invoice (API)
+not ok 15 - vidr-only: no seller declaration, however complete, turns an Order Report into a ready invoice (API)
+  ---
+  duration_ms: 1.156007
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:56:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    ready from declaration {"isBusiness":true,"isAmazonInvoiced":false}
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:58:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: vidr-only: an Order Report that itself carries explicit TRUE/FALSE columns is still not an issuing source
+not ok 16 - vidr-only: an Order Report that itself carries explicit TRUE/FALSE columns is still not an issuing source
+  ---
+  duration_ms: 0.503888
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:61:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:63:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: vidr-only: the preview says in plain words that issuing needs a VAT Invoice Data Report, for every order of the file
+ok 17 - vidr-only: the preview says in plain words that issuing needs a VAT Invoice Data Report, for every order of the file
+  ---
+  duration_ms: 0.269777
+  type: 'test'
+  ...
+# Subtest: vidr-only: the declaration pass-through is removed from the code (web entry, route, parser); the concept stays in the docs
+not ok 18 - vidr-only: the declaration pass-through is removed from the code (web entry, route, parser); the concept stays in the docs
+  ---
+  duration_ms: 0.241454
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:69:1'
+  failureType: 'testCodeFailure'
+  error: '../web/engine-entry.js still mentions sellerDeclaration'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/held-regression-and-vidr-only.test.js:70:91)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 10
+# fail 8
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 364.834337
