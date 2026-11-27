@@ -1,4 +1,4 @@
-# Every reader of is-amazon-invoiced and is-business-order (at dc24429)
+# Every reader of is-amazon-invoiced and is-business-order (reviewed at e0c7719; functional commit 721a9b3; all test counts local)
 Rule: TRUE or FALSE is read as written. Blank, unreadable or disagreeing values are UNKNOWN. Unknown is never inferred from invoice-status, company name or VAT number. Unknown is shown as undetermined or held, never issued, never skipped as consumer, never a confident finding. All test counts local. Found by grep over src, web, tools for the two column names, isAmazonInvoiced, isBusiness and the flag helpers.
 
 | # | site | blank | conflict / unreadable | explicit TRUE / FALSE | test |
