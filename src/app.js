@@ -593,7 +593,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (!process.env.NO_RULE_CHECK) { setTimeout(recheck, 30e3).unref(); setInterval(recheck, 24 * 3600e3).unref(); }
   setInterval(async () => { for (const s of db.prepare('SELECT * FROM sellers').all()) { try { await F.watchRun(db, s, validateVat); } catch (e) { console.error('watch failed', e.message); } } }, 24 * 3600e3).unref();
   setInterval(async () => { // scheduler: Amazon's report is requested every 12 h in their SLA guidance; we poll hourly
-    for (const s of db.prepare('SELECT s.*, c.mode AS conn_mode FROM sellers s JOIN amazon_conn c ON c.seller_id=s.id WHERE c.mode != "manual"').all()) {
+    let sellers; try { sellers = db.prepare('SELECT s.*, c.mode AS conn_mode FROM sellers s JOIN amazon_conn c ON c.seller_id=s.id WHERE c.mode != ?').all('manual'); } catch (e) { console.error('scheduler query failed', e.message); return; } // a failure here must never take the process down
+    for (const s of sellers) {
       // Real-data gate (critic round-8): a legacy live connection is never synced while the flag is unset.
       if (s.conn_mode === 'live' && env.ALLOW_LIVE_CONNECT !== '1') continue;
       try { await sync(s); } catch (e) { console.error('sync failed', s.id, e.message); } }

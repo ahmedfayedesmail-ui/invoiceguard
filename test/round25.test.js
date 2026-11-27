@@ -91,3 +91,13 @@ test('/admin/db-restore is invisible without the operator token and stages only 
     server.closeAllConnections(); server.close();
   } finally { delete process.env.ADMIN_TOKEN; delete process.env.DB_FILE; }
 });
+
+test('no SQL string in src uses double-quoted string literals (Node 22.23 treats them as column names and the scheduler crashed production)', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const bad = [];
+  for (const f of readdirSync(new URL('../src/', import.meta.url)).filter(x => x.endsWith('.js'))) {
+    const src = readFileSync(new URL('../src/' + f, import.meta.url), 'utf8');
+    for (const m of src.matchAll(/(?:prepare|exec)\(\s*(['`])((?:(?!\1)[^\\]|\\.)*)\1/g)) if (/(?:=|!=|<>|\bIN\b|\bLIKE\b)\s*\(?\s*"[A-Za-z_ ]+"/i.test(m[2])) bad.push(f + ': ' + m[2].slice(0, 80));
+  }
+  assert.deepEqual(bad, []);
+});
