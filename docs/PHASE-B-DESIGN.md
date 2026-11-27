@@ -1,0 +1,110 @@
+# Phase B design: Reconciliation and Invoice Integrity
+
+Status: DESIGN FOR REVIEW. Stage 1 is the only stage being built until this document is reviewed. All counts anywhere in this branch are local unless a CI run is named. Synthetic data only. No external service.
+
+## 0. Branch strategy (stacked)
+- Branch: `feat/phase-b-reconciliation-integrity`, based on `7b9f8df` (head of `fix/blank-flag-unknown`, Phase A, PR #2).
+- Phase B depends on PR #2 being merged first. A Phase B PR targets `fix/blank-flag-unknown`, not `main`, so its diff never repeats PR #2. When PR #2 merges, the Phase B PR is retargeted to `main` (the diff stays the same).
+- Review the Phase B diff as `git diff 7b9f8df..HEAD`. PR #2, `main` and deployments are not touched. No merge.
+- The GitHub token used here cannot create or edit pull requests (403), so the PR is opened by Ahmed with base `fix/blank-flag-unknown`.
+
+## 1. What is wrong today (read from the code at 7b9f8df)
+1. `num()` in `src/vidr.js` turns any unreadable amount into 0 and `parseFloat` accepts "12abc" as 12. A missing, an invalid and a real zero amount look the same.
+2. A shipment takes its currency, buyer VAT, billing data, countries and dates from its FIRST row. Rows that disagree are not noticed.
+3. Quantity blank or 0 becomes 1.
+4. Nothing checks the amounts against each other, and a repeated item row is counted twice.
+5. An issued invoice is not checked against its source again before export, and the PDF is not tied to the data.
+6. Invoice amounts are summed with floating point and rounded after each step (`r2`).
+
+## 2. Architecture and flow
+```
+VIDR text
+  -> checkTsv (Phase A row integrity: invalid rows quarantined)
+  -> parseVidr  (adds provenance: physical line and RAW tokens per row, nothing interpreted)
+  -> assessShipment(s)            pure, no database: findings[]
+  -> integrityGate(db, seller, s) ledger write + decision lookup
+       no open finding   -> existing path (flags, VIES, rules, issue)
+       open finding      -> shipment status 'held', reason in plain words, nothing issued, no number burned
+  -> issue  -> (stage 2) seal -> pack/export verifies the seal first
+```
+Both the API and the manual upload end in `processReport`, so the gate sits there. The manual preview calls `assessShipment` too, so the seller sees the same holds before issuing.
+
+Stages (each with tests before and after):
+1. Numeric model, rule catalog R1 to R10, exception ledger tables, gate wiring, decision recording. (Being built.)
+2. Document seal (data, source, PDF).
+3. Exception and cycle API and the dashboard card.
+4. The three known issues (corrected flag, loop reader versus VIDR reader, DATA_RECONCILIATION and the business flag) and report drift.
+Nothing past stage 1 starts before review.
+
+## 3. Numeric model (no floating point, no guessing)
+Each amount token is parsed exactly to one of three states:
+- MISSING: blank.
+- INVALID: not a plain decimal, or ambiguous, or more than two decimals. Examples: `8,4x`, `N/A`, `5.0.0`, `=1+1`, full-width digits, `1,234` (one separator followed by three digits: thousands or decimals, not decidable), `8.405`.
+- VALID: an exact integer number of cents (`BigInt`), including a real zero. `0.00` is VALID and is not the same as blank.
+Rules for reading a token: optional sign, ASCII digits, at most one decimal separator (`.` or `,`) with 1 or 2 digits after it; if both `.` and `,` appear, the rightmost is the decimal separator and the other must group by exactly three digits. Nothing else is accepted. The rate column is parsed exactly as a decimal fraction (`0.21`); a rate above 1 is not compared, its unit is not provable.
+Open assumption, stated and tested: all marketplaces in scope use two decimals (EUR, GBP, PLN, SEK). If a currency with another minor unit appears the amount is INVALID (more than two decimals) and held, never rounded.
+The existing invoice builder still sums floats with `r2`. It only ever receives amounts the gate has proven valid with at most two decimals. Moving the builder to integer cents is listed in stage 2 (it changes the seal's canonical form).
+
+What the checks assume about the source, and what they do not:
+- Each part (item, shipping, gift-wrap, item-promo, shipping-promo, gift-promo) carries three amounts named incl, vat and excl. The check `incl = excl + vat` is applied PER PART, on the row, as the field names state it. It is NOT applied to the shipment total, because discounts, shipping and promotions are separate parts with their own rows of amounts. No claim is made about how Amazon rounds beyond that. The check allows a difference of 1 cent per part (2 cents when quantity is above 1 and the part is the item), which is an assumption and is disclosed in the finding.
+- A difference is never "fixed". The finding says which numbers disagree and that nothing was guessed.
+
+## 4. Rule catalog (stage 1)
+Severity: BLOCK = the file contradicts itself, nothing is issued, no decision can change that, only a corrected file can. HOLD = not issued until the cause is removed. HOLD has a resolution: NEW_EVIDENCE (only a corrected or new file resolves it; a person cannot approve it) or HUMAN_DECISION (a person who can check outside evidence may release it with a recorded decision). Any check that cannot be decided from the file is HOLD, never BLOCK. A case missing essential evidence is never HUMAN_DECISION.
+
+| Rule | Detects | Reason it matters | Severity | Resolution |
+|---|---|---|---|---|
+| R1 AMOUNT_UNREADABLE | an amount cell that is INVALID | an invoice cannot be built from a number we cannot read | HOLD | NEW_EVIDENCE |
+| R2 AMOUNT_INCOMPLETE | a part with some of incl, vat, excl blank (the item part must always be complete) | the missing number would have to be guessed | HOLD | NEW_EVIDENCE |
+| R3 AMOUNT_INCONSISTENT | incl differs from excl plus vat on one part (beyond 1 cent) | the row contradicts itself, which number is right is not decidable | HOLD | NEW_EVIDENCE |
+| R4 AMOUNT_RATE_MISMATCH | vat differs from excl times the stated rate, rate between 0 and 1 | same, against the rate in the same row | HOLD | NEW_EVIDENCE |
+| R5 QUANTITY_UNREADABLE | quantity not a whole number of one or more | the old code turned it into 1 | HOLD | NEW_EVIDENCE |
+| R6 NONPOSITIVE_TOTAL | summed incl total of the shipment is zero or negative | not a normal invoice; a refund is a credit note, not a shipment invoice | HOLD | NEW_EVIDENCE |
+| R7 DATE_UNREADABLE | a shipment date that is not a complete ISO date | the due time and the operation date depend on it; day and month order is never guessed | HOLD | NEW_EVIDENCE |
+| R8 DATE_ORDER | order date later than shipment date | may be time zone noise, may be wrong data | HOLD | HUMAN_DECISION |
+| R9 SHIPMENT_FIELD_CONFLICT | rows of one shipment give different values for currency, buyer VAT, billing name or address, countries, shipment date, seller VAT, marketplace, order id, company, registration type, invoice status | the old code silently kept the first row | BLOCK | none |
+| R10a DUPLICATE_ITEM_ROW (same item id) | one non-blank order-item-id on two rows of a shipment | the same item may be counted twice, a person cannot tell from the file | HOLD | NEW_EVIDENCE |
+| R10b DUPLICATE_ITEM_ROW (identical, no id) | two rows identical in every cell with a blank order-item-id | two identical units are legitimate, a double row is not; the seller can check the order | HOLD | HUMAN_DECISION |
+| I1 SPLIT_SHIPMENT | one order with more than one shipment | information only, never merged, never held (no verified Amazon rule) | INFO | none |
+Duplicate criterion, stated: the SKU alone is never a signal. Not flagged: the same SKU on two rows with different non-blank item ids (even with identical amounts), the same SKU with a blank id but different quantity or amounts, two different SKUs. Flagged only by R10a or R10b. The tests include these false-positive cases.
+
+## 5. Exception ledger (data model)
+`integrity_findings` (one row per seller, shipment key, code and field):
+`seller_id, shipment_key, code, field, severity, resolution, status (OPEN, RESOLVED, RELEASED), fingerprint, evidence (JSON), explanation, action, first_seen, last_seen, seen_count, reopened_count, resolved_at`
+`integrity_decisions` (append-only history): `seller_id, shipment_key, code, field, fingerprint, decided_by, reason, decided_at`
+`integrity_history` (append-only): `seller_id, shipment_key, code, field, event (OPENED, RECHECKED_SAME, CHANGED, RESOLVED, REOPENED, RELEASED), fingerprint, at`
+- Idempotent: a re-evaluation of the same data updates `last_seen` and `seen_count`; it never inserts a second finding or a second history row of the same kind for the same fingerprint.
+- Fingerprint = SHA-256 of the code, field, line numbers and the exact raw values (the raw value is hashed, never stored).
+- A decision names the fingerprint. It covers exactly that evidence. If the data changes, the fingerprint changes, the finding is OPEN again and the old decision stays in history but no longer applies.
+- Resolved then reappears: the row goes RESOLVED to OPEN, `reopened_count` is incremented, a REOPENED history row is written. A RELEASED decision is not revived by a reappearance with the same fingerprint after a RESOLVED in between: the person decides again.
+- A decision needs a user (a seller account id), a reason of at least 10 characters, and a time, and is refused for BLOCK and for NEW_EVIDENCE.
+- Sensitive data: evidence holds line numbers, field names, exact numbers and countries or currencies. Names, addresses and VAT numbers appear only as "value 1, value 2" placeholders. The test dumps the whole table and looks for them.
+- Reprocessing is safe: a release does not issue anything by itself; the next processing of the file passes the gate and issues through the existing path, protected by the unique index on one invoice per shipment.
+
+## 6. Document seal (stage 2, specified now)
+What is sealed, three things: (1) the invoice data, serialized canonically (UTF-8, keys sorted, amounts as fixed two-decimal strings, no insignificant whitespace); (2) the source: SHA-256 of the exact source rows (physical line numbers and the row text) the invoice was built from, stored with the line numbers, not the rows; (3) the final PDF: SHA-256 of the PDF bytes. The PDF must be rendered deterministically (fixed metadata dates, no random identifier) so a re-render at export equals the sealed hash; if that cannot be made exact the PDF bytes are stored at issue time instead.
+Mechanism: HMAC-SHA256 over (canonical data hash, source hash, PDF hash, previous seal of the same seller), keyed with a secret held OUTSIDE the database (the environment secret the app already needs), chained per seller like the existing audit log, and anchored by the existing audit-anchor tool.
+Limits, stated plainly:
+- A plain SHA-256 stored next to the data proves nothing against someone who can edit the database: they recompute both. That is why the seal is keyed and chained.
+- With the database but without the key, an attacker cannot forge or re-chain a seal. With both, they can. A leaked key means all seals are suspect from the leak, so keys are versioned and the version is stored.
+- It is not a legal time stamp and not a qualified signature. It proves "this is what this system issued", not that the source report was authentic.
+- Export verifies the seal first. Any change to the data, the source link or the PDF blocks export of that document and raises a finding. Nothing is exported "anyway".
+
+## 7. Failure modes
+| Failure | Behaviour |
+|---|---|
+| File with a rule violation | shipment held, nothing issued, no number burned, other shipments in the file unaffected |
+| Gate throws | the shipment is held with a "could not be checked" reason; it is never issued by default |
+| Decision for old evidence | refused (fingerprint) |
+| Two processes handle the same file | the unique index and the existing atomic claim stay the backstop; finding upserts are idempotent |
+| Currency with other decimals | INVALID, held |
+| Report lacks a column | not checked is reported as `notChecked`, never as a pass |
+
+## 8. Threat model
+Assets: invoice amounts, documents and the decision to issue. Adversaries: a seller or Amazon report with hostile or broken data (formula-like cells, HTML, huge values, unicode digits); an operator error; someone with database write access. Covered here: hostile cells are never evaluated or echoed; nothing is issued from uncertain data; decisions are bound to evidence and attributed. Seal (stage 2) covers database tampering as stated above. Not covered: a compromised application host with the key, a real Amazon account compromise, legal validity of the documents, the truth of the source report.
+
+## 9. Migration strategy
+New tables are created with `CREATE TABLE IF NOT EXISTS` in `openDb`; no existing table changes in stage 1. Existing shipments and invoices are not re-evaluated retroactively and nothing already issued is changed. The gate applies from the moment of deployment (no deployment is made from this branch). Rolling back means ignoring the tables.
+
+## 10. Test strategy
+Tests first, with the failing run committed as an artefact in `audit/phase-b/`, then the fix, then the post-fix run. Normal, edge and adversarial cases per rule. Real paths: `processReport` and `planUpload`, the same code the API runs. False-positive tests for the duplicate rule. Float traps for the arithmetic. Idempotency, re-open and decision-history tests. A TODO is never a pass; characterisation guards are labelled as guards. The full suite, the 1005-case campaign and V5 are re-run before every push; V5 must stay identical to the pinned fingerprint or every difference is documented.

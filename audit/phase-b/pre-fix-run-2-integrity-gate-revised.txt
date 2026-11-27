@@ -1,0 +1,968 @@
+TAP version 13
+# Subtest: guard: the committed clean fixture has no finding on any shipment
+ok 1 - guard: the committed clean fixture has no finding on any shipment
+  ---
+  duration_ms: 3.425628
+  type: 'test'
+  ...
+# Subtest: guard: a one-cent rounding difference is not a finding
+ok 2 - guard: a one-cent rounding difference is not a finding
+  ---
+  duration_ms: 0.512365
+  type: 'test'
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8,4x"}
+not ok 3 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8,4x"}
+  ---
+  duration_ms: 0.973446
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"N/A"}
+not ok 4 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"N/A"}
+  ---
+  duration_ms: 0.374126
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipping-vat-excl-amount":"5.0.0"}
+not ok 5 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipping-vat-excl-amount":"5.0.0"}
+  ---
+  duration_ms: 0.279449
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"1,234"}
+not ok 6 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"1,234"}
+  ---
+  duration_ms: 0.247248
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8.405"}
+not ok 7 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8.405"}
+  ---
+  duration_ms: 0.272933
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_INCOMPLETE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":""}
+not ok 8 - AMOUNT_INCOMPLETE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":""}
+  ---
+  duration_ms: 0.25114
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_INCOMPLETE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.40"}
+not ok 9 - AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.40"}
+  ---
+  duration_ms: 0.362058
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_INCONSISTENT, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"60.00"}
+not ok 10 - AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"60.00"}
+  ---
+  duration_ms: 0.444057
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_INCONSISTENT, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: AMOUNT_RATE_MISMATCH (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.00","item-vat-incl-amount":"49.00"}
+not ok 11 - AMOUNT_RATE_MISMATCH (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.00","item-vat-incl-amount":"49.00"}
+  ---
+  duration_ms: 0.427626
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected AMOUNT_RATE_MISMATCH, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":""}
+not ok 12 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":""}
+  ---
+  duration_ms: 0.240271
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected QUANTITY_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"0"}
+not ok 13 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"0"}
+  ---
+  duration_ms: 0.219063
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected QUANTITY_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"1.5"}
+not ok 14 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"1.5"}
+  ---
+  duration_ms: 0.218799
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected QUANTITY_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"two"}
+not ok 15 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"two"}
+  ---
+  duration_ms: 0.199809
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected QUANTITY_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"0","item-vat-amount":"0","item-vat-excl-amoun
+not ok 16 - NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"0","item-vat-amount":"0","item-vat-excl-amoun
+  ---
+  duration_ms: 0.199324
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected NONPOSITIVE_TOTAL, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"-48.40","item-vat-amount":"-8.40","item-vat-e
+not ok 17 - NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"-48.40","item-vat-amount":"-8.40","item-vat-e
+  ---
+  duration_ms: 0.184201
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected NONPOSITIVE_TOTAL, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"yesterday"}
+not ok 18 - DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"yesterday"}
+  ---
+  duration_ms: 0.201717
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected DATE_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"1"}
+not ok 19 - DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"1"}
+  ---
+  duration_ms: 0.181925
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected DATE_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"24/11/2026"}
+not ok 20 - DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"24/11/2026"}
+  ---
+  duration_ms: 0.184036
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected DATE_UNREADABLE, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: DATE_ORDER (HOLD/HUMAN_DECISION) for {"order-date":"2026-11-26T08:00:00Z"}
+not ok 21 - DATE_ORDER (HOLD/HUMAN_DECISION) for {"order-date":"2026-11-26T08:00:00Z"}
+  ---
+  duration_ms: 0.186356
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:59:3'
+  failureType: 'testCodeFailure'
+  error: 'expected DATE_ORDER, got []'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:62:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: missing, invalid and zero are three different states: a real zero VAT with a zero rate is clean
+not ok 22 - missing, invalid and zero are three different states: a real zero VAT with a zero rate is clean
+  ---
+  duration_ms: 0.357399
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:70:1'
+  failureType: 'testCodeFailure'
+  error: 'blank is missing'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:72:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: exact decimals: evidence shows numbers as the exact decimal text, and a float trap (0.1 + 0.2) is not a finding
+not ok 23 - exact decimals: evidence shows numbers as the exact decimal text, and a float trap (0.1 + 0.2) is not a finding
+  ---
+  duration_ms: 0.432142
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:76:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading 'evidence')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:79:22)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a rate stated as a percentage (21) is not compared and is reported as not checked, never as a mismatch
+not ok 24 - a rate stated as a percentage (21) is not compared and is reported as not checked, never as a mismatch
+  ---
+  duration_ms: 8.414418
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:82:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(a.notChecked.some(n => n.check === 'vat-vs-rate' && /unit/i.test(n.reason)))
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:84:79)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on currency
+not ok 25 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on currency
+  ---
+  duration_ms: 0.424362
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:87:3'
+  failureType: 'testCodeFailure'
+  error: '[]'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:90:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on buyer-vat-number
+not ok 26 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on buyer-vat-number
+  ---
+  duration_ms: 0.247647
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:87:3'
+  failureType: 'testCodeFailure'
+  error: '[]'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:90:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on shipment-date
+not ok 27 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on shipment-date
+  ---
+  duration_ms: 0.243038
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:87:3'
+  failureType: 'testCodeFailure'
+  error: '[]'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:90:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on ship-country
+not ok 28 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on ship-country
+  ---
+  duration_ms: 0.229509
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:87:3'
+  failureType: 'testCodeFailure'
+  error: '[]'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:90:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on billing-name
+not ok 29 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on billing-name
+  ---
+  duration_ms: 0.209893
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:87:3'
+  failureType: 'testCodeFailure'
+  error: '[]'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:90:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a blank buyer VAT on one row and a value on another is a conflict, not a silent pick of the first row
+not ok 30 - a blank buyer VAT on one row and a value on another is a conflict, not a silent pick of the first row
+  ---
+  duration_ms: 0.963673
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:94:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(assessShipment(one(file(rowOf(0), rowOf(0, { 'buyer-vat-number': '', sku: 'SKU-Z' })))).findings.some(f => f.code === 'SHIPMENT_FIELD_CONFLICT' && f.evidence.field === 'buyer-vat-number'))
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:95:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R10a: one order-item-id on two rows of a shipment is HOLD/NEW_EVIDENCE
+not ok 31 - R10a: one order-item-id on two rows of a shipment is HOLD/NEW_EVIDENCE
+  ---
+  duration_ms: 0.448121
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:97:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(f)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:99:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R10b: two rows identical in every cell with a blank item id are HOLD/HUMAN_DECISION
+not ok 32 - R10b: two rows identical in every cell with a blank item id are HOLD/HUMAN_DECISION
+  ---
+  duration_ms: 0.338973
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:101:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(f)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:103:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: duplicate false positives (explicit): the same SKU is never a signal on its own
+ok 33 - duplicate false positives (explicit): the same SKU is never a signal on its own
+  ---
+  duration_ms: 0.742816
+  type: 'test'
+  ...
+# Subtest: SPLIT_SHIPMENT is information only: two shipments of one order are never merged and never held for it
+not ok 34 - SPLIT_SHIPMENT is information only: two shipments of one order are never merged and never held for it
+  ---
+  duration_ms: 0.516927
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:113:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(r.findings.some(f => f.code === 'SPLIT_SHIPMENT' && f.severity === 'INFO'))
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:115:121)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: processReport, unreadable amount: held with the reason, no invoice, no number burned, the clean sibling still issues
+not ok 35 - processReport, unreadable amount: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 66.475816
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:120:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    only the clean shipment is issued
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:122:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: processReport, inconsistent total: held with the reason, no invoice, no number burned, the clean sibling still issues
+not ok 36 - processReport, inconsistent total: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 30.190271
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:120:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    only the clean shipment is issued
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:122:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: processReport, zero quantity: held with the reason, no invoice, no number burned, the clean sibling still issues
+not ok 37 - processReport, zero quantity: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 21.015639
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:120:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    only the clean shipment is issued
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:122:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: processReport, unreadable date: held with the reason, no invoice, no number burned, the clean sibling still issues
+not ok 38 - processReport, unreadable date: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 14.2066
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:120:3'
+  failureType: 'testCodeFailure'
+  error: 'Invalid time value'
+  code: 'ERR_TEST_FAILURE'
+  name: 'RangeError'
+  stack: |-
+    Date.toISOString (<anonymous>)
+    upsertShipment (file:///home/sandbox/invoiceguard/src/pipeline.js:22:98)
+    processReport (file:///home/sandbox/invoiceguard/src/pipeline.js:147:5)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async run (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:22:58)
+    async TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:121:25)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: processReport, a BLOCK: rows that disagree on currency are held and nothing is issued for the shipment
+not ok 39 - processReport, a BLOCK: rows that disagree on currency are held and nothing is issued for the shipment
+  ---
+  duration_ms: 39.868088
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:130:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:132:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: ledger: re-evaluating the same data is idempotent (no second finding, no second history row) and counts the re-check
+not ok 40 - ledger: re-evaluating the same data is idempotent (no second finding, no second history row) and counts the re-check
+  ---
+  duration_ms: 24.155864
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:134:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: integrity_findings'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    count (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:25:31)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:136:16)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: ledger: a corrected file closes the finding (RESOLVED) and issues once; the cause coming back reopens it with a count
+not ok 41 - ledger: a corrected file closes the finding (RESOLVED) and issues once; the cause coming back reopens it with a count
+  ---
+  duration_ms: 13.784309
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:140:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:141:99)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: governance: BLOCK and NEW_EVIDENCE can never be released; HUMAN_DECISION needs user, reason of 10 or more characters and the exact fingerprint
+not ok 42 - governance: BLOCK and NEW_EVIDENCE can never be released; HUMAN_DECISION needs user, reason of 10 or more characters and the exact fingerprint
+  ---
+  duration_ms: 15.209547
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:150:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: integrity_findings'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:151:108)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: governance: a decision covers exactly its evidence; changed numbers are held again and the old decision stays in the history
+not ok 43 - governance: a decision covers exactly its evidence; changed numbers are held again and the old decision stays in the history
+  ---
+  duration_ms: 19.135985
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:167:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: integrity_findings'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:168:91)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: governance: a released decision is not revived when the cause went away and came back: the person decides again
+not ok 44 - governance: a released decision is not revived when the cause went away and came back: the person decides again
+  ---
+  duration_ms: 12.885482
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:173:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: integrity_findings'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:174:95)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: privacy: the whole ledger holds no buyer name, address, VAT number or company
+not ok 45 - privacy: the whole ledger holds no buyer name, address, VAT number or company
+  ---
+  duration_ms: 24.848581
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:184:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: integrity_findings'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:186:110
+    Array.map (<anonymous>)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:186:98)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: manual preview: the seller sees the held shipment before issuing
+not ok 46 - manual preview: the seller sees the held shipment before issuing
+  ---
+  duration_ms: 1.095732
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:189:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    one ready
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:191:64)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: hostile: a formula-like, HTML-like or full-width amount cell is unreadable, never evaluated, and not echoed anywhere
+not ok 47 - hostile: a formula-like, HTML-like or full-width amount cell is unreadable, never evaluated, and not echoed anywhere
+  ---
+  duration_ms: 0.383949
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:194:1'
+  failureType: 'testCodeFailure'
+  error: '=1+1'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/integrity-gate.test.js:196:149)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..47
+# tests 47
+# suites 0
+# pass 3
+# fail 44
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 630.162981
