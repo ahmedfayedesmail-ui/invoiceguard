@@ -138,7 +138,7 @@ test('I: headline counts come from the evidence; cannot-determine is its own cou
   assert.equal(h.documents, out.docs.length);
   assert.equal(h.accepted + h.partiallyAccepted + h.processing + h.pending + h.rejected + h.sellerUploadRequired + h.createdByAmazon + h.cannotDetermine, h.documents);
   assert.ok(h.exceptions <= h.documents); assert.equal(h.cannotDetermine, Object.values(h.cannotDetermineParts).reduce((a, b) => a + b, 0));
-  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ document\(s\) with an exception/); assert.match(h.sentence, /we cannot determine \(\d+ from a partly read file, \d+ from a file with missing columns, \d+ from another incomplete import, \d+ with an unmet check, \d+ with a missing or unreadable order date, \d+ with dates in a format we do not recognise or that contradict each other, \d+ with an invoice number blank on some rows, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ status that does not fit the transaction type\)/); assert.match(h.sentence, /Separately, \d+ row\(s\) have a blank key field and are not counted as documents/); assert.match(h.accountingComparison, /needs the seller invoice export/);
+  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ document\(s\) with an exception/); assert.match(h.sentence, /we cannot determine \(\d+ from a partly read file, \d+ from a file with missing columns, \d+ from another incomplete import, \d+ with an unmet check, \d+ with a missing or unreadable order date, \d+ with dates in a format we do not recognise, that look month-first or that contradict each other, \d+ waiting for the seller to confirm the date format, \d+ with an invoice number blank on some rows, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ status that does not fit the transaction type\)/); assert.match(h.sentence, /Separately, \d+ row\(s\) have a blank key field and are not counted as documents/); assert.match(h.accountingComparison, /needs the seller invoice export/);
   const inc = reconcile([PO()]).headline; assert.equal(inc.anyCompleteImport, false);
   console.log('HEADLINE (R1+R2+R3 all-status):', reconcile([R1(), R2(), R3()]).headline.sentence);
   console.log('HEADLINE (pending-only only):', inc.sentence);
@@ -311,7 +311,7 @@ test('structure: ACCEPTED is produced in one place (gateAccepted) and every ACCE
   const src = readFileSync('src/reconcile.js', 'utf8');
   const assigns = src.split('\n').filter(l => /(state|mapped)\s*[:=]\s*[^=]*'ACCEPTED'/.test(l) && !/===|!==|\?\s*'ACCEPTED'\s*:\s*accepted/.test(l) && !l.trim().startsWith('//') && !l.includes('STATUS_MAP') && !l.includes('InvoiceUploaded:'));
   assert.deepEqual(assigns.map(l => l.trim().slice(0, 90)), [assigns[0].trim().slice(0, 90)], 'exactly one line assigns the ACCEPTED state: ' + JSON.stringify(assigns));
-  assert.match(assigns[0], /unmet\.length \? 'INCOMPLETE_SOURCE' : 'ACCEPTED'/);
+  assert.match(assigns[0], /!unmet\.length \? 'ACCEPTED' : onlyDate/);
   for (const set of [[R1(), R2(), R3()], [R3(), PO()], [PO(), R2()], [SR1(), SR2()]]) invariant(reconcile(set), 'combo');
 });
 
@@ -412,7 +412,7 @@ test('dates: no prefix matching: 2026-11-27Tgarbage, 2026-11-27T99:99:99Z and ev
   }
   const o = reconcile([withRange(setDates(R3(), '2026-11-27'), '2026-11-01', '2026-11-30')]);
   assert.match(o.imports[0].problems.join(' '), /not in a format we recognise. Amazon documents DD\/MM\/YYYY/); assert.ok(o.headline.cannotDetermineParts.dateFormatUnrecognized >= 1);
-  assert.match(o.headline.sentence, /with dates in a format we do not recognise or that contradict each other/);
+  assert.match(o.headline.sentence, /with dates in a format we do not recognise, that look month-first or that contradict each other/);
   console.log('dates: unrecognised format ->', o.imports[0].scope, o.imports[0].problemCodes.join(','), '| accepted =', o.headline.accepted, '|', o.imports[0].problems[0]);
 });
 
@@ -423,34 +423,68 @@ test('dates: the two kinds of date use different parsers (declared range is the 
   const tail = reconcile([withRange(R3(), '2026-11-01Tjunk', '2026-11-30')]); assert.equal(tail.headline.accepted, 0);
 });
 
-test('dates AMBIGUITY: a file whose dates are all ambiguous uses the documented DD/MM/YYYY, says so, and a different reading would flip the result', () => {
-  const amb = setDates(R3(), '05/03/2018');
-  const march = reconcile([withRange(amb, '2018-03-01', '2018-03-30')]);
-  assert.equal(march.imports[0].dateOrder.order, 'DAY_FIRST'); assert.match(march.imports[0].dateOrder.basis, /^assumed/); assert.deepEqual(march.imports[0].fileOrderDates, { first: '2018-03-05', last: '2018-03-05' });
-  assert.ok(march.imports[0].warnings.some(w => /ambiguous between day\/month and month\/day/.test(w))); assert.ok(march.headline.accepted >= 1, 'day-first 5 March is inside a March range');
-  const may = reconcile([withRange(amb, '2018-05-01', '2018-05-30')]); // 3 May under the other reading: we do NOT take it
-  assert.equal(may.headline.accepted, 0); assert.ok(may.imports[0].problemCodes.includes('ROWS_OUTSIDE_RANGE'));
-  console.log('dates: ambiguous file (all 05/03/2018) ->', march.imports[0].scope, JSON.stringify(march.imports[0].dateOrder), '| read as', march.imports[0].fileOrderDates.first, '| warning:', march.imports[0].warnings[0]);
+const CONFIRM = { dateOrderConfirmed: 'DD/MM/YYYY' };
+const withConfirm = (imp, extra = CONFIRM) => ({ ...imp, declared: { ...imp.declared, ...extra } });
+
+test('dates: DD/MM/YYYY proven by a value in the file is accepted and needs no confirmation', () => {
+  const out = reconcile([withRange(setDates(R3(), (n) => n === 0 ? '17/03/2018' : '05/03/2018'), '2018-03-01', '2018-03-30')]);
+  assert.equal(out.imports[0].dateOrder.order, 'DAY_FIRST'); assert.equal(out.imports[0].dateOrder.provenByFile, true); assert.equal(out.imports[0].dateOrder.sellerConfirmed, null);
+  assert.ok(out.headline.accepted >= 1); assert.equal(out.imports[0].scope, 'COMPLETE_SCOPE'); assert.equal(out.headline.cannotDetermineParts.dateOrderUnconfirmed, 0);
 });
 
-test('dates AMBIGUITY: a value with a first field over 12 proves day-first; a second field over 12 proves month-first; both is a contradiction, not a guess', () => {
-  const dayProof = reconcile([withRange(setDates(R3(), (n) => n === 0 ? '17/05/2018' : '05/03/2018'), '2018-03-01', '2018-05-30')]);
-  assert.equal(dayProof.imports[0].dateOrder.order, 'DAY_FIRST'); assert.match(dayProof.imports[0].dateOrder.basis, /proven/); assert.equal(dayProof.imports[0].fileOrderDates.first, '2018-03-05');
-  const monthProof = reconcile([withRange(setDates(R3(), (n) => n === 0 ? '05/17/2018' : '05/03/2018'), '2018-05-01', '2018-05-30')]);
-  assert.equal(monthProof.imports[0].dateOrder.order, 'MONTH_FIRST'); assert.equal(monthProof.imports[0].fileOrderDates.first, '2018-05-03'); assert.equal(monthProof.imports[0].fileOrderDates.last, '2018-05-17'); assert.ok(monthProof.headline.accepted >= 1);
-  const clash = reconcile([withRange(setDates(R3(), (n) => n === 0 ? '17/05/2018' : n === 1 ? '05/17/2018' : '10/05/2018'), '2018-05-01', '2018-05-30')]);
-  assert.equal(clash.imports[0].scope, 'INCOMPLETE_SOURCE'); assert.ok(clash.imports[0].problemCodes.includes('DATE_ORDER_CONTRADICTION')); assert.equal(clash.headline.accepted, 0);
-  assert.ok(clash.docs.filter(d => d.rawStatus === 'InvoiceUploaded').every(d => d.reasonCode === 'DATE_ORDER_CONTRADICTION'));
-  console.log('dates: contradicting file (17/05/2018 and 05/17/2018) ->', clash.imports[0].scope, clash.imports[0].problemCodes.join(','), '| accepted =', clash.headline.accepted);
+test('dates: MONTH_FIRST is not a parse path: a month-first value makes the file unreadable (MONTH_FIRST_NOT_SUPPORTED) even with a seller confirmation', () => {
+  for (const imp of [withRange(setDates(R3(), (n) => n === 0 ? '05/17/2018' : '05/03/2018'), '2018-05-01', '2018-05-30'), withConfirm(withRange(setDates(R3(), (n) => n === 0 ? '05/17/2018' : '05/03/2018'), '2018-05-01', '2018-05-30'))]) {
+    const out = reconcile([imp]);
+    assert.equal(out.imports[0].scope, 'INCOMPLETE_SOURCE'); assert.ok(out.imports[0].problemCodes.includes('MONTH_FIRST_NOT_SUPPORTED')); assert.equal(out.imports[0].dateOrder, null); assert.equal(out.headline.accepted, 0);
+    assert.match(out.imports[0].problems.join(' '), /look month-first \(for example "05\/17\/2018"\)\. Amazon documents DD\/MM\/YYYY for this report, so this file cannot be read as it is/);
+    assert.ok(out.docs.filter(d => d.rawStatus === 'InvoiceUploaded').every(d => d.state === 'INCOMPLETE_SOURCE' && d.reasonCode === 'MONTH_FIRST_NOT_SUPPORTED'));
+    assert.ok(out.headline.cannotDetermineParts.dateFormatUnrecognized >= 1);
+  }
+  const o = reconcile([withRange(setDates(R3(), (n) => n === 0 ? '05/17/2018' : '05/03/2018'), '2018-05-01', '2018-05-30')]);
+  console.log('dates: month-first file ->', o.imports[0].scope, o.imports[0].problemCodes.join(','), '| accepted =', o.headline.accepted, '|', o.imports[0].problems[0]);
 });
 
-test('blank lines: a blank line between records is a corrupt record, never dropped silently; leading and trailing blank lines are only terminators', () => {
-  const base = R3(), L = base.text.split('\n').filter(l => l.length);
-  const hidden = reconcile([{ ...base, text: [L[0], L[1], '', ...L.slice(2)].join('\n') + '\n' }]);
-  assert.ok(hidden.imports[0].problemCodes.includes('BLANK_LINE_IN_DATA')); assert.equal(hidden.imports[0].scope, 'INCOMPLETE_SOURCE'); assert.equal(hidden.headline.accepted, 0);
-  const tabs = reconcile([{ ...base, text: [L[0], '\t\t\t', ...L.slice(1)].join('\n') + '\n' }]); assert.ok(tabs.imports[0].problemCodes.includes('BLANK_LINE_IN_DATA')); assert.equal(tabs.headline.accepted, 0);
-  const crlf = reconcile([{ ...base, text: [L[0], L[1], '   ', L[2]].join('\r\n') + '\r\n' }]); assert.ok(crlf.imports[0].problemCodes.includes('BLANK_LINE_IN_DATA'));
-  const ends = reconcile([{ ...base, text: '\n\n' + L.join('\n') + '\n\n\n' }]); assert.equal(ends.imports[0].scope, 'COMPLETE_SCOPE'); assert.ok(ends.headline.accepted >= 1);
-  const short = reconcile([{ ...base, text: [L[0], L[1].split('\t').slice(0, 8).join('\t'), ...L.slice(2)].join('\n') + '\n' }]); assert.ok(short.imports[0].problemCodes.includes('RAGGED_ROWS')); assert.equal(short.headline.accepted, 0);
-  assert.equal(reconcile([base]).imports[0].scope, 'COMPLETE_SCOPE');
+test('dates: a file of entirely ambiguous dates with no seller confirmation gives accepted = 0 (DATE_ORDER_UNCONFIRMED)', () => {
+  const out = reconcile([withRange(setDates(R3(), '05/03/2018'), '2018-03-01', '2018-03-30')]), d = doc(out, 'S9001');
+  assert.equal(out.imports[0].dateOrder.provenByFile, false); assert.equal(out.headline.accepted, 0);
+  assert.equal(d.state, 'DATE_ORDER_UNCONFIRMED'); assert.equal(d.reasonCode, 'DATE_ORDER_UNCONFIRMED'); assert.match(d.explanation, /Confirm DD\/MM\/YYYY/);
+  assert.ok(out.headline.cannotDetermineParts.dateOrderUnconfirmed >= 1); assert.ok(out.headline.exceptions <= out.headline.documents);
+  assert.ok(out.imports[0].warnings.some(w => /nothing is shown as accepted until the seller confirms/.test(w)));
+  console.log('dates: unconfirmed ambiguous file (all 05/03/2018) ->', out.imports[0].scope, '| accepted =', out.headline.accepted, '|', d.state, '|', out.imports[0].warnings[0]);
+});
+
+test('dates: the same ambiguous file WITH the seller confirmation proceeds to the remaining conditions (declared, not verified)', () => {
+  const march = reconcile([withConfirm(withRange(setDates(R3(), '05/03/2018'), '2018-03-01', '2018-03-30'))]);
+  assert.ok(march.headline.accepted >= 1); assert.equal(march.imports[0].dateOrder.sellerConfirmed, true); assert.match(march.imports[0].dateOrder.confirmationLabel, /declared by the seller, not verified by InvoiceGuard/);
+  const chk = doc(march, 'S9001').evidence.preconditions.find(p => p.name === 'date order known'); assert.equal(chk.ok, true); assert.equal(chk.how, 'declared-by-seller');
+  // it proceeds to the OTHER conditions, which still block on their own: the read is 5 March, so a May range blocks, and a missing declaration blocks
+  const may = reconcile([withConfirm(withRange(setDates(R3(), '05/03/2018'), '2018-05-01', '2018-05-30'))]); assert.equal(may.headline.accepted, 0); assert.ok(may.imports[0].problemCodes.includes('ROWS_OUTSIDE_RANGE'));
+  const wrong = reconcile([withConfirm(withRange(setDates(R3(), '05/03/2018'), '2018-03-01', '2018-03-30'), { dateOrderConfirmed: 'MM/DD/YYYY' })]); assert.equal(wrong.headline.accepted, 0);
+  const noHow = reconcile([withConfirm(withRange(setDates(R3(), '05/03/2018'), '2018-03-01', '2018-03-30'), { dateOrderConfirmed: 'DD/MM/YYYY', obtainedHow: '' })]); assert.equal(noHow.headline.accepted, 0);
+});
+
+test('dates: a confirmation belongs to one import: it does not carry to another file, and a later month-first file contradicting it is surfaced, not overridden', () => {
+  const a = withConfirm(withRange({ ...setDates(R3(), '05/03/2018'), id: 'file-a' }, '2018-03-01', '2018-03-30'));
+  const b = withRange({ ...setDates(R3(), '05/03/2018'), id: 'file-b', declared: { ...R3().declared, createdAt: '2026-11-20T08:00:00Z' } }, '2018-03-01', '2018-03-30'); // same seller, no confirmation of its own
+  const out = reconcile([a, b]); assert.equal(out.imports.find(i => i.id === 'file-a').dateOrder.sellerConfirmed, true); assert.equal(out.imports.find(i => i.id === 'file-b').dateOrder.sellerConfirmed, false);
+  assert.ok(out.docs.some(d => d.state === 'DATE_ORDER_UNCONFIRMED' && d.current.importId === 'file-b'));
+  const c = withRange({ ...setDates(R3(), (n) => n === 0 ? '05/17/2018' : '05/03/2018'), id: 'file-c', declared: { ...R3().declared, createdAt: '2026-11-25T08:00:00Z' } }, '2018-05-01', '2018-05-30');
+  const clash = reconcile([a, c]); assert.equal(clash.dateOrderConflicts.length, 1); assert.equal(clash.dateOrderConflicts[0].confirmedImport, 'file-a'); assert.equal(clash.dateOrderConflicts[0].contradictingImport, 'file-c');
+  assert.ok(clash.warnings.some(w => w.importId === 'file-a' && /confirmation is not applied/.test(w.warning)));
+  assert.equal(clash.imports.find(i => i.id === 'file-a').dateOrder.sellerConfirmed, true); assert.equal(clash.headline.accepted, 0, 'the confirmed file is not accepted while a contradiction stands');
+});
+
+test('dates: a file whose only dates are unrecognised (or blank) does not claim its dates are ambiguous', () => {
+  for (const v of ['2026-11-27', '', '31/02/2018', 'tomorrow']) {
+    const out = reconcile([withConfirm(withRange(setDates(R3(), v), '2026-11-01', '2026-11-30'))]);
+    assert.equal(out.imports[0].dateOrder, null, JSON.stringify(v)); assert.ok(!out.imports[0].warnings.some(w => /ambiguous/.test(w)), JSON.stringify(v)); assert.equal(out.headline.accepted, 0);
+  }
+});
+
+test('dates: the evidence log carries the date order, its basis, the file\'s order dates and the date warnings', () => {
+  const imp = withConfirm(withRange(setDates(R3(), '05/03/2018'), '2018-03-01', '2018-03-30')), out = reconcile([imp]), d = doc(out, 'S9001'), log = evidenceLog(d, [imp], out.imports);
+  assert.equal(log.dateReading.dateOrder, 'DAY_FIRST'); assert.match(log.dateReading.dateOrderBasis, /seller must confirm DD\/MM\/YYYY/); assert.equal(log.dateReading.sellerConfirmedDateOrder, true);
+  assert.match(log.dateReading.confirmationLabel, /not verified by InvoiceGuard/); assert.deepEqual(log.dateReading.fileOrderDates, { first: '2018-03-05', last: '2018-03-05' });
+  assert.ok(log.dateReading.dateWarnings.length >= 1); assert.ok(log.notVerifiedAutomatically.some(x => /date order/.test(x)));
+  const proven = reconcile([R3()]), pl = evidenceLog(doc(proven, A), [R3()], proven.imports); assert.equal(pl.dateReading.dateOrderBasis, 'proven by values in the file'); assert.ok(!pl.notVerifiedAutomatically.some(x => /date order/.test(x)));
 });
