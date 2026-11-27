@@ -20,4 +20,6 @@ Rule: TRUE or FALSE is read as written. Blank, unreadable or disagreeing values 
 | - | src/vidr.js bool() for is-invoice-corrected | a different field; blank is false | | | out of scope here, not tested for blank |
 
 
-Residual, named, not fixed in this round: reconcile.js classifies a document as CREATED_BY_AMAZON (doc.state, the headline createdByAmazon count and doc.explanation) from the status string Amazon reports, not from the flag. stages().expected no longer relies on it, but those other outputs still do. Same for the seller-declaration concept: kept in the design as a possible later route (per-order, audited, never shown as Amazon evidence), with no code path today.
+| 14 | src/reconcile.js doc.state, doc.explanation, headline.createdByAmazon | CREATED_BY_AMAZON only with is-amazon-invoiced explicit TRUE on every row; blank: ISSUER_UNDETERMINED | FALSE with a CreatedByAmazon status, unreadable, rows disagree: ISSUER_UNDETERMINED | TRUE agreeing with the status: CREATED_BY_AMAZON | issuer-determination.test.js (14; 13 failed before the fix), reconcile.test.js updated. rawStatus, reportedState and history keep what the report said; src/loop/project.js reads reportedState for its flag-vs-status check |
+
+Not fixed, named: the seller-declaration concept is kept in the design as a possible later route (per-order, audited, never shown as Amazon evidence), with no code path today. vidr.js bool() for is-invoice-corrected still reads a blank as false (different field, no test).
