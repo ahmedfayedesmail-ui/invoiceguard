@@ -56,46 +56,46 @@ var require_base64_js = __commonJS({
     var len;
     revLookup["-".charCodeAt(0)] = 62;
     revLookup["_".charCodeAt(0)] = 63;
-    function getLens(b64) {
-      var len2 = b64.length;
+    function getLens(b642) {
+      var len2 = b642.length;
       if (len2 % 4 > 0) {
         throw new Error("Invalid string. Length must be a multiple of 4");
       }
-      var validLen = b64.indexOf("=");
+      var validLen = b642.indexOf("=");
       if (validLen === -1) validLen = len2;
       var placeHoldersLen = validLen === len2 ? 0 : 4 - validLen % 4;
       return [validLen, placeHoldersLen];
     }
-    function byteLength(b64) {
-      var lens = getLens(b64);
+    function byteLength(b642) {
+      var lens = getLens(b642);
       var validLen = lens[0];
       var placeHoldersLen = lens[1];
       return (validLen + placeHoldersLen) * 3 / 4 - placeHoldersLen;
     }
-    function _byteLength(b64, validLen, placeHoldersLen) {
+    function _byteLength(b642, validLen, placeHoldersLen) {
       return (validLen + placeHoldersLen) * 3 / 4 - placeHoldersLen;
     }
-    function toByteArray(b64) {
+    function toByteArray(b642) {
       var tmp;
-      var lens = getLens(b64);
+      var lens = getLens(b642);
       var validLen = lens[0];
       var placeHoldersLen = lens[1];
-      var arr = new Arr(_byteLength(b64, validLen, placeHoldersLen));
+      var arr = new Arr(_byteLength(b642, validLen, placeHoldersLen));
       var curByte = 0;
       var len2 = placeHoldersLen > 0 ? validLen - 4 : validLen;
       var i2;
       for (i2 = 0; i2 < len2; i2 += 4) {
-        tmp = revLookup[b64.charCodeAt(i2)] << 18 | revLookup[b64.charCodeAt(i2 + 1)] << 12 | revLookup[b64.charCodeAt(i2 + 2)] << 6 | revLookup[b64.charCodeAt(i2 + 3)];
+        tmp = revLookup[b642.charCodeAt(i2)] << 18 | revLookup[b642.charCodeAt(i2 + 1)] << 12 | revLookup[b642.charCodeAt(i2 + 2)] << 6 | revLookup[b642.charCodeAt(i2 + 3)];
         arr[curByte++] = tmp >> 16 & 255;
         arr[curByte++] = tmp >> 8 & 255;
         arr[curByte++] = tmp & 255;
       }
       if (placeHoldersLen === 2) {
-        tmp = revLookup[b64.charCodeAt(i2)] << 2 | revLookup[b64.charCodeAt(i2 + 1)] >> 4;
+        tmp = revLookup[b642.charCodeAt(i2)] << 2 | revLookup[b642.charCodeAt(i2 + 1)] >> 4;
         arr[curByte++] = tmp & 255;
       }
       if (placeHoldersLen === 1) {
-        tmp = revLookup[b64.charCodeAt(i2)] << 10 | revLookup[b64.charCodeAt(i2 + 1)] << 4 | revLookup[b64.charCodeAt(i2 + 2)] >> 2;
+        tmp = revLookup[b642.charCodeAt(i2)] << 10 | revLookup[b642.charCodeAt(i2 + 1)] << 4 | revLookup[b642.charCodeAt(i2 + 2)] >> 2;
         arr[curByte++] = tmp >> 8 & 255;
         arr[curByte++] = tmp & 255;
       }
@@ -3501,11 +3501,357 @@ var indexedDbAdapter = (name = "invoiceguard-local") => {
 };
 var enc = new TextEncoder();
 var dec = new TextDecoder();
+
+// src/loop/vault.js
+init_buffer_shim();
+var VAULT_VERSION = 1;
+var ENVELOPE_VERSION = 1;
+var META_KEY = "vault:meta";
+var MIGRATION_KEY = "vault:migration";
+var KDF_ITERATIONS = 6e5;
+var VaultLocked = class extends Error {
+  constructor() {
+    super("The vault is locked.");
+    this.code = "VAULT_LOCKED";
+  }
+};
+var VaultError = class extends Error {
+  constructor(msg, code = "VAULT_ERROR") {
+    super(msg);
+    this.code = code;
+  }
+};
+var te = new TextEncoder();
+var td = new TextDecoder();
+var b64 = (u8) => {
+  let s = "";
+  for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode(...u8.subarray(i, i + 32768));
+  return btoa(s);
+};
+var unb64 = (s) => {
+  try {
+    return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  } catch {
+    throw new VaultError("A stored value is not valid base64.", "CORRUPT");
+  }
+};
+var b64u = (u8) => b64(u8).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+var rand = (n) => crypto.getRandomValues(new Uint8Array(n));
+var S = () => crypto.subtle;
+var kdfBits = async (password, salt, iterations) => S().deriveKey({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, await S().importKey("raw", te.encode(password), "PBKDF2", false, ["deriveKey"]), { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+var recoveryKek = async (recBytes, salt) => S().deriveKey({ name: "HKDF", hash: "SHA-256", salt, info: te.encode("ig/recovery/v1") }, await S().importKey("raw", recBytes, "HKDF", false, ["deriveKey"]), { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+var gcm = async (key, iv, aad, data) => new Uint8Array(await S().encrypt({ name: "AES-GCM", iv, additionalData: te.encode(aad) }, key, data));
+var ungcm = async (key, iv, aad, data) => new Uint8Array(await S().decrypt({ name: "AES-GCM", iv, additionalData: te.encode(aad) }, key, data));
+var B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+var recoveryToText = (u8) => {
+  let bits = "", out = "";
+  for (const x of u8) bits += x.toString(2).padStart(8, "0");
+  bits = bits.padEnd(Math.ceil(bits.length / 5) * 5, "0");
+  for (let i = 0; i + 5 <= bits.length; i += 5) out += B32[parseInt(bits.slice(i, i + 5), 2)];
+  return out.match(/.{1,4}/g).join("-");
+};
+var recoveryFromText = (t) => {
+  const s = String(t).replace(/[\s-]/g, "").toUpperCase();
+  let bits = "";
+  for (const c of s) {
+    const i = B32.indexOf(c);
+    if (i < 0) throw new VaultError("The recovery key has a character that is not allowed.", "BAD_RECOVERY");
+    bits += i.toString(2).padStart(5, "0");
+  }
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) out[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+  if (bits.length < 256) throw new VaultError("The recovery key is too short.", "BAD_RECOVERY");
+  return out;
+};
+var wrapAad = (vaultId, who) => `ig|v${VAULT_VERSION}|wrap|${vaultId}|${who}`;
+var recAad = (vaultId, sk) => `ig|v${ENVELOPE_VERSION}|rec|${vaultId}|${sk}`;
+var kindOf2 = (logical) => {
+  const i = String(logical).lastIndexOf(":");
+  return i > 0 ? String(logical).slice(0, i) : String(logical);
+};
+function createVault(raw, { iterations = KDF_ITERATIONS, now = () => Date.now(), setTimer = (f, ms3) => setTimeout(f, ms3), clearTimer = (t) => clearTimeout(t), onLock = () => {
+} } = {}) {
+  let session = null, timer = null, autoMs = 0, vaultIdCache = null;
+  const needMeta = async () => {
+    const m = await raw.get(META_KEY);
+    if (!m) throw new VaultError("No vault exists here yet.", "NO_VAULT");
+    if (m.v !== VAULT_VERSION) throw new VaultError("This vault was written by a newer version and cannot be opened here.", "UNSUPPORTED_VERSION");
+    return m;
+  };
+  const openSession = async (rawSecret, vaultId) => {
+    const hk = await S().importKey("raw", rawSecret, "HKDF", false, ["deriveKey"]);
+    rawSecret.fill(0);
+    const derive = (info, alg, usages) => S().deriveKey({ name: "HKDF", hash: "SHA-256", salt: te.encode(vaultId), info: te.encode(info) }, hk, alg, false, usages);
+    return { vaultId, encKey: await derive("ig/record/v1", { name: "AES-GCM", length: 256 }, ["encrypt", "decrypt"]), idKey: await derive("ig/id/v1", { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign"]) };
+  };
+  const arm = () => {
+    if (timer) clearTimer(timer);
+    timer = null;
+    if (session && autoMs > 0) timer = setTimer(() => api.lock("inactivity"), autoMs);
+  };
+  const live = () => {
+    if (!session) throw new VaultLocked();
+    arm();
+    return session;
+  };
+  const storageKey = async (s, logical) => `e${ENVELOPE_VERSION}:${kindOf2(logical)}:${b64u(new Uint8Array(await S().sign("HMAC", s.idKey, te.encode(logical))))}`;
+  const seal = async (s, sk, logical, value) => {
+    const iv = rand(12);
+    return { e: ENVELOPE_VERSION, iv: b64(iv), ct: b64(await gcm(s.encKey, iv, recAad(s.vaultId, sk), te.encode(JSON.stringify({ k: logical, v: value })))) };
+  };
+  const open = async (s, sk, env) => {
+    if (!env || env.e !== ENVELOPE_VERSION || typeof env.iv !== "string" || typeof env.ct !== "string") throw new VaultError("A stored record is not a valid encrypted record.", "CORRUPT");
+    let pt;
+    try {
+      pt = JSON.parse(td.decode(await ungcm(s.encKey, unb64(env.iv), recAad(s.vaultId, sk), unb64(env.ct))));
+    } catch (e) {
+      if (e instanceof VaultError) throw e;
+      throw new VaultError("A stored record failed its integrity check (changed, damaged or moved).", "CORRUPT");
+    }
+    return pt;
+  };
+  const isEnv = (k) => String(k).startsWith(`e${ENVELOPE_VERSION}:`);
+  const names = /* @__PURE__ */ new Map();
+  const api = {
+    /** Does a vault exist in this raw store? */
+    async exists() {
+      return !!await raw.get(META_KEY);
+    },
+    get unlocked() {
+      return !!session;
+    },
+    /** Creates the vault. Returns the recovery key text ONCE. Nothing about the password or the master secret is stored. */
+    async create(password) {
+      if (typeof password !== "string" || password.length < 10) throw new VaultError("Choose a password of at least 10 characters.", "WEAK_PASSWORD");
+      if (await raw.get(META_KEY)) throw new VaultError("A vault already exists here.", "EXISTS");
+      const vaultId = "v-" + b64u(rand(12)), secret = rand(32), recBytes = rand(32), salt = rand(16), recSalt = rand(16), iv1 = rand(12), iv2 = rand(12);
+      const kek = await kdfBits(password, salt, iterations), rk = await recoveryKek(recBytes, recSalt);
+      const meta = {
+        v: VAULT_VERSION,
+        vaultId,
+        createdAt: new Date(now()).toISOString(),
+        kdf: { alg: "PBKDF2-HMAC-SHA256", iterations, salt: b64(salt) },
+        pw: { iv: b64(iv1), ct: b64(await gcm(kek, iv1, wrapAad(vaultId, "pw"), secret)) },
+        rec: { salt: b64(recSalt), iv: b64(iv2), ct: b64(await gcm(rk, iv2, wrapAad(vaultId, "rec"), secret)) }
+      };
+      await raw.put(META_KEY, meta);
+      session = await openSession(secret, vaultId);
+      arm();
+      return { recoveryKey: recoveryToText(recBytes), vaultId };
+    },
+    /** Unlocks with the password (or the recovery key). A wrong secret and a damaged vault give the same answer. */
+    async unlock(password) {
+      const m = await needMeta();
+      let secret;
+      try {
+        secret = await ungcm(await kdfBits(String(password), unb64(m.kdf.salt), m.kdf.iterations), unb64(m.pw.iv), wrapAad(m.vaultId, "pw"), unb64(m.pw.ct));
+      } catch {
+        throw new VaultError("That password does not open this vault.", "WRONG_PASSWORD");
+      }
+      session = await openSession(secret, m.vaultId);
+      arm();
+      return true;
+    },
+    async unlockWithRecoveryKey(text) {
+      const m = await needMeta();
+      let secret;
+      try {
+        secret = await ungcm(await recoveryKek(recoveryFromText(text), unb64(m.rec.salt)), unb64(m.rec.iv), wrapAad(m.vaultId, "rec"), unb64(m.rec.ct));
+      } catch (e) {
+        if (e.code === "BAD_RECOVERY") throw e;
+        throw new VaultError("That recovery key does not open this vault.", "WRONG_RECOVERY");
+      }
+      session = await openSession(secret, m.vaultId);
+      arm();
+      return true;
+    },
+    /** Sets a new password. Needs the vault unlocked AND the current password (re-checked). Records are not rewritten: only the wrapper changes. */
+    async changePassword(current, next) {
+      if (!session) throw new VaultLocked();
+      if (typeof next !== "string" || next.length < 10) throw new VaultError("Choose a password of at least 10 characters.", "WEAK_PASSWORD");
+      const m = await needMeta();
+      let secret;
+      try {
+        secret = await ungcm(await kdfBits(String(current), unb64(m.kdf.salt), m.kdf.iterations), unb64(m.pw.iv), wrapAad(m.vaultId, "pw"), unb64(m.pw.ct));
+      } catch {
+        throw new VaultError("The current password is not right.", "WRONG_PASSWORD");
+      }
+      const salt = rand(16), iv = rand(12);
+      await raw.put(META_KEY, { ...m, kdf: { ...m.kdf, salt: b64(salt) }, pw: { iv: b64(iv), ct: b64(await gcm(await kdfBits(next, salt, m.kdf.iterations), iv, wrapAad(m.vaultId, "pw"), secret)) } });
+      secret.fill(0);
+    },
+    /** Manual lock, or the inactivity timer. Drops every key reference; nothing is written, so active work is not corrupted (a write in flight finishes or fails closed). */
+    lock(reason = "manual") {
+      session = null;
+      names.clear();
+      if (timer) clearTimer(timer);
+      timer = null;
+      try {
+        onLock(reason);
+      } catch {
+      }
+    },
+    /** 0 turns the inactivity lock off. Any vault operation counts as activity; the page also calls touch() on user input. */
+    setAutoLock(ms3) {
+      autoMs = Math.max(0, Number(ms3) || 0);
+      arm();
+    },
+    touch() {
+      if (session) arm();
+    },
+    get autoLockMs() {
+      return autoMs;
+    },
+    /** The adapter the loop store uses. Same put/get/list/clear surface; fails closed while locked or when anything does not verify. */
+    adapter: {
+      async put(logical, value) {
+        const s = live(), sk = await storageKey(s, logical);
+        await raw.put(sk, await seal(s, sk, logical, value));
+        names.set(sk, logical);
+      },
+      async get(logical) {
+        const s = live(), sk = await storageKey(s, logical), env = await raw.get(sk);
+        if (!env) return null;
+        const pt = await open(s, sk, env);
+        if (pt.k !== logical) throw new VaultError("A stored record does not belong to this key.", "CORRUPT");
+        return pt.v;
+      },
+      async del(logical) {
+        const s = live(), sk = await storageKey(s, logical);
+        await raw.del(sk);
+        names.delete(sk);
+      },
+      /** Logical keys. Opens each unseen record once (to learn its key) and so also verifies it: a damaged record makes list() fail rather than vanish. */
+      async list() {
+        const s = live(), out = [];
+        for (const sk of (await raw.list()).filter(isEnv)) {
+          if (!names.has(sk)) {
+            const pt = await open(s, sk, await raw.get(sk));
+            names.set(sk, pt.k);
+          }
+          out.push(names.get(sk));
+        }
+        return out;
+      },
+      /** Removes every encrypted record AND the vault metadata (the wrapped master secrets): what is left cannot be opened by anything. Legacy plaintext is handled by the migration module. */
+      async clear() {
+        live();
+        await api.destroy();
+      }
+    },
+    /** Whole-workspace deletion: encrypted records, vault metadata and the migration marker are removed; the session is dropped. */
+    async destroy() {
+      for (const k of await raw.list()) if (isEnv(k) || k === META_KEY || k === MIGRATION_KEY) await raw.del(k);
+      session = null;
+      names.clear();
+      if (timer) clearTimer(timer);
+      timer = null;
+    },
+    /** Encrypted backup: the wrapped keys plus every record envelope exactly as stored, and a manifest MAC over the sorted list. Nothing readable. */
+    async exportBackup() {
+      const s = live(), m = await needMeta(), keys = (await raw.list()).filter(isEnv).sort(), records = [];
+      for (const k of keys) {
+        const env = await raw.get(k);
+        await open(s, k, env);
+        records.push({ sk: k, env });
+      }
+      const body = { backupVersion: 1, createdAt: new Date(now()).toISOString(), meta: m, count: records.length };
+      const mac = b64(new Uint8Array(await S().sign("HMAC", s.idKey, te.encode(JSON.stringify([body.backupVersion, m.vaultId, records.map((r) => [r.sk, r.env.iv, r.env.ct])])))));
+      return { ...body, records, manifestMac: mac };
+    },
+    /** Restores a backup into an EMPTY raw store after checking it: the password opens it, every record verifies, the count and manifest match. Writes records first and the metadata last, so an interrupted restore leaves no half-vault that opens. */
+    async restoreBackup(backup, password, { replace = false } = {}) {
+      if (!backup || backup.backupVersion !== 1 || !backup.meta || !Array.isArray(backup.records)) throw new VaultError("This is not an InvoiceGuard backup.", "BAD_BACKUP");
+      if (session) throw new VaultError("Lock the current vault before restoring.", "BUSY");
+      if (!replace && (await raw.get(META_KEY) || (await raw.list()).some(isEnv))) throw new VaultError("This workspace already holds data. Delete it first, or confirm that the backup replaces it.", "NOT_EMPTY");
+      const m = backup.meta;
+      if (m.v !== VAULT_VERSION) throw new VaultError("The backup was written by another version.", "UNSUPPORTED_VERSION");
+      let secret;
+      try {
+        secret = await ungcm(await kdfBits(String(password), unb64(m.kdf.salt), m.kdf.iterations), unb64(m.pw.iv), wrapAad(m.vaultId, "pw"), unb64(m.pw.ct));
+      } catch {
+        throw new VaultError("That password does not open this backup.", "WRONG_PASSWORD");
+      }
+      const s = await openSession(secret, m.vaultId);
+      if (backup.count !== backup.records.length) throw new VaultError("The backup is incomplete: the record count does not match.", "CORRUPT");
+      const mac = b64(new Uint8Array(await S().sign("HMAC", s.idKey, te.encode(JSON.stringify([backup.backupVersion, m.vaultId, backup.records.map((r) => [r.sk, r.env?.iv, r.env?.ct])])))));
+      if (mac !== backup.manifestMac) throw new VaultError("The backup was changed or is incomplete (the manifest does not match).", "CORRUPT");
+      for (const r of backup.records) {
+        if (!isEnv(r.sk)) throw new VaultError("The backup holds an unexpected record.", "CORRUPT");
+        const pt = await open(s, r.sk, r.env);
+        if (r.sk !== await storageKey(s, pt.k)) throw new VaultError("A record in the backup does not belong to its key.", "CORRUPT");
+      }
+      if (replace) await api.destroy();
+      for (const r of backup.records) await raw.put(r.sk, r.env);
+      await raw.put(META_KEY, m);
+      return { records: backup.records.length, vaultId: m.vaultId };
+    },
+    /** For migration and tests only: the raw store is exposed read-only through these two calls so callers can see what is persisted. */
+    raw
+  };
+  void vaultIdCache;
+  return api;
+}
+
+// src/loop/migrate.js
+init_buffer_shim();
+var canon = (v) => JSON.stringify(v, (k, x) => x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((y) => [y, x[y]])) : x);
+var MigrationError = class extends Error {
+  constructor(msg, report) {
+    super(msg);
+    this.code = "MIGRATION";
+    this.report = report;
+  }
+};
+var legacyKeys = async (raw) => (await raw.list()).filter((k) => String(k).startsWith("loop:"));
+async function migrateLegacy(vault, { now = () => (/* @__PURE__ */ new Date()).toISOString() } = {}) {
+  const raw = vault.raw, keys = await legacyKeys(raw), report = { found: keys.length, migrated: 0, removed: 0, unreadable: [], conflicts: [] };
+  if (!keys.length) return report;
+  const plain = /* @__PURE__ */ new Map();
+  for (const k of keys) {
+    const v = await raw.get(k);
+    if (v && typeof v === "object" && !Array.isArray(v)) plain.set(k, v);
+    else report.unreadable.push(k);
+  }
+  try {
+    await raw.put(MIGRATION_KEY, { state: "copying", found: keys.length, at: now() });
+    for (const [k, v] of plain) {
+      const have = await vault.adapter.get(k);
+      if (have !== null && canon(have) !== canon(v)) {
+        report.conflicts.push(k);
+        continue;
+      }
+      if (have === null) await vault.adapter.put(k, v);
+    }
+    const inVault = new Set(await vault.adapter.list());
+    for (const [k, v] of plain) {
+      if (report.conflicts.includes(k)) continue;
+      if (!inVault.has(k) || canon(await vault.adapter.get(k)) !== canon(v)) throw new MigrationError("A record did not read back identically from the vault. Nothing was removed.", report);
+      report.migrated++;
+    }
+    await raw.put(MIGRATION_KEY, { state: "verified", migrated: report.migrated, at: now() });
+    for (const [k] of plain) {
+      if (report.conflicts.includes(k)) continue;
+      await raw.del(k);
+      report.removed++;
+    }
+    await raw.put(MIGRATION_KEY, { state: report.unreadable.length || report.conflicts.length ? "partial" : "done", migrated: report.migrated, removed: report.removed, unreadable: report.unreadable.length, conflicts: report.conflicts.length, at: now() });
+    return report;
+  } catch (e) {
+    if (e instanceof MigrationError) throw e;
+    throw new MigrationError("The migration stopped (" + (e?.name ?? "error") + "). The original data is still in place; run it again.", report);
+  }
+}
 export {
   FIELDS,
   Refused,
+  VaultError,
+  VaultLocked,
   createLoopStore,
+  createVault,
   detectLedgerMapping,
   indexedDbAdapter,
-  memoryAdapter
+  legacyKeys,
+  memoryAdapter,
+  migrateLegacy
 };

@@ -85,3 +85,7 @@ test('no network: import, projection, deletion and backup never call fetch, XHR 
   try { const raw = memoryAdapter(), v = createVault(raw, { iterations: ITER }); await v.create(PW); const s = await seed(v.adapter); await s.project(); await s.bundle(); await v.exportBackup(); const l = (await s.imports())[0]; await s.deletionImpact(l.id); await s.deleteImport(l.id, { confirmed: true }); await s.deleteEverything(); }
   finally { Object.assign(globalThis, keep); } assert.deepEqual(calls, []);
 });
+test('static: the loop engine, the vault and the loop page contain no network API, no logging and no storage other than IndexedDB', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs'); const files = readdirSync(new URL('../src/loop/', import.meta.url)).map(f => 'src/loop/' + f).concat(['public/local/loop.js', 'public/local/loop.html', 'src/history.js']);
+  for (const f of files) { const t = readFileSync(new URL('../' + f, import.meta.url), 'utf8').replace(/\/\/.*$/gm, ''); for (const bad of [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /sendBeacon/, /EventSource/, /\bconsole\./, /localStorage/, /sessionStorage/, /caches\./, /serviceWorker/, /document\.cookie/, /https?:\/\//]) assert.ok(!bad.test(t), `${f} matches ${bad}`); }
+});

@@ -2,3 +2,5 @@
 export { createLoopStore, Refused } from '../src/loop/store.js';
 export { detectLedgerMapping, FIELDS } from '../src/loop/ledger.js';
 export { indexedDbAdapter, memoryAdapter } from '../src/history.js';
+export { createVault, VaultError, VaultLocked } from '../src/loop/vault.js';
+export { migrateLegacy, legacyKeys } from '../src/loop/migrate.js';

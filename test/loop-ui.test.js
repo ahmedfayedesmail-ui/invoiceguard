@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 process.env.ENABLE_LOOP_PAGE = '1';
 const { createApp } = await import('../src/app.js');
+import { makeVault } from './ui-helpers.mjs';
 const CHROME = process.env.CHROME_BIN || '/usr/bin/google-chrome';
 test('loop page: two rounds of real files in a real browser, closure only by a newer file, zero network requests', { timeout: 120000, skip: !existsSync(CHROME) && process.env.CI !== 'true' && 'Chrome not found (skipped locally)' }, async () => {
   assert.ok(existsSync(CHROME), 'Chrome is required in CI at ' + CHROME);
@@ -18,7 +19,7 @@ test('loop page: two rounds of real files in a real browser, closure only by a n
     const errors = []; page.on('pageerror', e => errors.push(String(e)));
     page.on('dialog', async d => { await d.accept(d.message().includes('reasoning') ? 'checked the account' : 'Test seller'); });
     const requests = []; page.on('request', r => requests.push(r.url()));
-    await page.goto(base + '/local/loop', { waitUntil: 'networkidle0' }); await page.waitForFunction('window.__loopReady === true');
+    await page.goto(base + '/local/loop', { waitUntil: 'networkidle0' }); await makeVault(page);
     requests.length = 0;
     const setv = (sel, v) => page.$eval(sel, (e, v) => { e.value = v; }, v);
     const loadVidr = async (file, created) => {
@@ -70,7 +71,7 @@ test('loop page P2: a mismatch card, a duplicate card, the explain button, then 
     const page = await browser.newPage(); await page.setViewport({ width: 1000, height: 1400 });
     const errors = []; page.on('pageerror', e => errors.push(String(e)));
     const requests = []; page.on('request', r => requests.push(r.url()));
-    await page.goto(base + '/local/loop', { waitUntil: 'networkidle0' }); await page.waitForFunction('window.__loopReady === true'); requests.length = 0;
+    await page.goto(base + '/local/loop', { waitUntil: 'networkidle0' }); await makeVault(page); requests.length = 0;
     const setv = (sel, v) => page.$eval(sel, (e, v) => { e.value = v; }, v);
     const click = (t) => page.evaluate((t) => [...document.querySelectorAll('button')].find(b => b.textContent === t).click(), t);
     const stored = async () => { await sleep(800); nFiles++; await page.waitForFunction(n => document.querySelector('#results').innerText.includes('Loaded files (' + n + ')'), { timeout: 15000 }, nFiles); };

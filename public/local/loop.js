@@ -1,10 +1,12 @@
-import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter } from '/local/loop-engine.js';
+import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys } from '/local/loop-engine.js';
 const $ = (s) => document.querySelector(s);
 const el = (t, props = {}, ...kids) => { const e = document.createElement(t); for (const [k, v] of Object.entries(props)) k === 'class' ? (e.className = v) : k === 'onclick' ? e.addEventListener('click', v) : e.setAttribute(k, v); for (const x of kids.flat()) if (x != null) e.append(x.nodeType ? x : String(x)); return e; };
 const baseline = new Set(performance.getEntriesByType('resource').map(r => r.name));
 const net = () => { $('#netcount').textContent = String(performance.getEntriesByType('resource').filter(r => !baseline.has(r.name) && !/^(blob|data):/.test(r.name)).length); };
 setInterval(net, 500);
-const store = createLoopStore(indexedDbAdapter('invoiceguard-loop'));
+const raw = indexedDbAdapter('invoiceguard-loop');
+let store = null; // exists only while the vault is unlocked
+const vault = createVault(raw, { onLock: (reason) => lockedUi(reason) });
 const say = (t, bad) => { const m = $('#msg'); m.textContent = t; m.className = 'small' + (bad ? ' err' : ''); };
 const field = (label, node) => el('div', {}, el('label', {}, label), node);
 const inp = (id, type = 'text', value = '') => { const i = el('input', { id, type }); i.value = value; return i; };
@@ -84,16 +86,76 @@ function cardNode(i) {
   if (i.history.length > 1) n.append(el('details', {}, el('summary', { class: 'small' }, 'History'), ...i.history.map(h => el('div', { class: 'small mut' }, `${h.file ?? h.import}: ${h.status}${h.note ? ' (' + h.note + ')' : ''}`))));
   return n;
 }
+async function delImport(x) {
+  try { const m = await store.deletionImpact(x.id), n = (o) => Object.entries(o).map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
+    if (!confirm(`Delete ${x.fileName ?? x.id}?\n\nThis removes: the stored file and its declarations; problems that exist only because of it (${n(m.issuesDisappearing)}); ${m.issuesChanging} other problem(s) will change because this file no longer counts; your notes on the removed problems (${n(m.eventsRemoved)}).\nThis keeps: ${m.importsRemaining} other file(s) and your other notes. Copies you downloaded are not touched.\nIt cannot be undone unless you have a backup.`)) return;
+    await store.deleteImport(x.id, { confirmed: true }); say('Deleted ' + (x.fileName ?? x.id) + '.'); await render(); } catch (e) { refused(e); }
+}
 async function render() {
   const r = await store.project(), out = $('#results'); out.replaceChildren();
   const b = r.buckets; out.append(el('div', { class: 'card', id: 'summary' }, el('h3', {}, 'Summary'), el('p', { class: 'kv' }, `Matched by invoice number: ${b.matchedByInvoiceNumber} (currency and buyer tax id are compared for each pair; the invoice total, net, VAT, dates and lines are not compared in this version). In progress at Amazon: ${b.inProgressAtAmazon}. Needs action: ${b.needsActionNow}. Needs a human reading: ${b.needsHumanReading}. Waiting for a newer file: ${b.awaitingNewEvidence}. Cannot determine: ${b.cannotDetermine}.`),
     el('p', { class: 'kv' }, el('b', {}, 'Closed with evidence: ' + b.closedWithEvidence), '. Reported resolved by you, not confirmed by a file: ' + b.reportedResolvedBySeller + '. These two numbers are never added.')));
   for (const [name, f] of GROUPS) { const xs = r.issues.filter(f); if (xs.length) out.append(el('details', { class: 'group', open: '' }, el('summary', {}, `${name} (${xs.length})`), ...xs.map(cardNode))); }
   if (r.coverageNotes.length) out.append(el('details', { class: 'group' }, el('summary', {}, `Cannot determine (${b.cannotDetermine})`), ...r.coverageNotes.map(g => el('p', { class: 'small' }, `${g.count} x ${g.note ?? g.reason ?? JSON.stringify(g)}`))));
-  const imps = await store.imports(); out.append(el('details', { class: 'group' }, el('summary', {}, `Loaded files (${imps.length})`), el('table', {}, el('tr', {}, el('th', {}, 'File'), el('th', {}, 'Kind'), el('th', {}, 'sha256'), el('th', {}, 'Loaded')), ...imps.map(x => el('tr', {}, el('td', {}, x.fileName ?? x.id), el('td', {}, x.kind), el('td', {}, x.sha256.slice(0, 12)), el('td', {}, x.importedAt))))));
+  const imps = await store.imports(); out.append(el('details', { class: 'group' }, el('summary', {}, `Loaded files (${imps.length})`), el('table', {}, el('tr', {}, el('th', {}, 'File'), el('th', {}, 'Kind'), el('th', {}, 'sha256'), el('th', {}, 'Loaded'), el('th', {}, '')), ...imps.map(x => el('tr', {}, el('td', {}, x.fileName ?? x.id), el('td', {}, x.kind), el('td', {}, x.sha256.slice(0, 12)), el('td', {}, x.importedAt), el('td', {}, el('button', { class: 'alt', 'data-del': x.id, onclick: () => delImport(x) }, 'Delete')))))));
   $('#notchecked').textContent = r.notCheckedInThisVersion.join('; ') + '.';
   net();
 }
-$('#bundle').addEventListener('click', async () => { const b = await store.bundle(), a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' })), download: 'invoiceguard-loop-bundle.json' }); document.body.append(a); a.click(); a.remove(); });
-$('#wipe').addEventListener('click', async () => { if (confirm('Delete every file and note stored in this browser?')) { await store.deleteEverything(); await render(); } });
-await render(); window.__loopReady = true;
+$('#bundle').addEventListener('click', async () => { if (!store) return; const b = await store.bundle(), a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' })), download: 'invoiceguard-loop-bundle.json' }); document.body.append(a); a.click(); a.remove(); });
+$('#wipe').addEventListener('click', async () => {
+  if (!store) return;
+  if (!confirm('Delete the whole local workspace?\n\nThis removes every stored file, every note you wrote, the vault and its keys from this browser. It cannot be undone. Copies you downloaded (evidence bundles, backups) are not touched. The browser may keep traces of deleted data in its own files until it cleans them up; stored data is encrypted, so such traces are unreadable without your password.')) return;
+  try { await store.deleteEverything(); await raw.clear(); store = null; await showGate(); say('The workspace was deleted.'); } catch (e) { refused(e); }
+});
+
+// ---- vault gate, lock, settings, backup (P3) ----
+const download = (name, obj) => { const a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(obj)], { type: 'application/json' })), download: name }); document.body.append(a); a.click(); a.remove(); };
+const gate = $('#gate');
+function lockedUi(reason) {
+  store = null; $('#app').hidden = true; for (const id of ['#results', '#form', '#msg', '#bar', '#settings']) $(id).replaceChildren(); // decrypted values leave the page, and so does a file chosen but not stored
+  showGate(reason === 'inactivity' ? 'Locked after inactivity. A file you had chosen but not yet stored was dropped from the page; stored data is untouched.' : 'Locked.');
+}
+async function showGate(note = '') {
+  gate.hidden = false; gate.replaceChildren(); const exists = await vault.exists();
+  const msg = el('p', { class: 'small', id: 'g-msg' }, note); const bad = (t) => { msg.textContent = t; msg.className = 'small err'; };
+  if (!exists) {
+    gate.append(el('h3', {}, 'Create your local vault'), el('p', { class: 'small mut' }, 'Everything you load is encrypted in this browser with a password only you know. We cannot recover it for you: there is no account and no server copy. You get a recovery key once; keep it somewhere safe.'));
+    const pw = inp('g-pw', 'password'), pw2 = inp('g-pw2', 'password');
+    gate.append(field('Password (at least 10 characters)', pw), field('Repeat the password', pw2), msg, el('button', { onclick: async () => {
+      if (pw.value !== pw2.value) return bad('The two passwords differ.');
+      try { const { recoveryKey } = await vault.create(pw.value); gate.replaceChildren(el('h3', {}, 'Your recovery key'), el('p', { class: 'small' }, 'Write this down now. It is shown once, it is not stored anywhere, and it is the only way in if you forget the password.'), el('pre', { id: 'g-rec' }, recoveryKey), el('label', {}, (() => { const c = el('input', { type: 'checkbox', id: 'g-saved' }); return c; })(), ' I have saved the recovery key'), el('button', { onclick: async () => { if (!$('#g-saved').checked) return; await enter(); } }, 'Continue')); } catch (e) { bad(e.message); }
+    } }, 'Create vault'));
+    const rf = el('input', { type: 'file', id: 'g-restore' }); gate.append(el('h3', {}, 'Or restore an encrypted backup'), rf);
+    rf.addEventListener('change', async () => { const f = rf.files[0]; if (!f) return; const p = prompt('Password of the backup:'); if (!p) return; try { await vault.restoreBackup(JSON.parse(await readFile(f)), p); await showGate('Backup restored and checked. Unlock with its password.'); } catch (e) { bad(e.message); } });
+  } else {
+    const pw = inp('g-pw', 'password');
+    gate.append(el('h3', {}, 'Unlock'), field('Password', pw), msg, el('button', { onclick: async () => { try { await vault.unlock(pw.value); await enter(); } catch (e) { bad(e.message); } } }, 'Unlock'),
+      el('button', { class: 'alt', onclick: async () => { const k = prompt('Recovery key:'); if (!k) return; try { await vault.unlockWithRecoveryKey(k); await enter(); } catch (e) { bad(e.message); } } }, 'Use recovery key'));
+  }
+  window.__gateReady = true;
+}
+async function enter() {
+  store = createLoopStore(vault.adapter); gate.hidden = true; gate.replaceChildren();
+  let note = '';
+  try { if ((await legacyKeys(raw)).length) { const r = await migrateLegacy(vault); note = `Moved ${r.migrated} earlier unencrypted record(s) into the vault and removed the originals after checking them.` + (r.unreadable.length || r.conflicts.length ? ` ${r.unreadable.length + r.conflicts.length} could not be moved and were kept untouched.` : ''); } } catch (e) { note = 'Moving earlier data into the vault stopped: ' + e.message; }
+  const s = await store.settings(); vault.setAutoLock(s.autoLockMinutes * 60000);
+  try { const r = await store.applyRetention(); if (r.deleted.length) note += ` Retention removed ${r.deleted.length} file(s) older than your limit.`; } catch (e) { note += ' ' + e.message; }
+  $('#app').hidden = false; await bars(); await render(); if (note) say(note); window.__loopReady = true;
+}
+async function bars() {
+  const s = await store.settings();
+  $('#bar').replaceChildren(el('span', {}, 'Vault unlocked. '), el('button', { class: 'alt', id: 'lockbtn', onclick: () => vault.lock('manual') }, 'Lock now'), ' ', el('button', { class: 'alt', onclick: async () => { const a = prompt('Current password:'), b = a && prompt('New password (at least 10 characters):'); if (!b) return; try { await vault.changePassword(a, b); say('Password changed.'); } catch (e) { refused(e); } } }, 'Change password'));
+  const lock = el('select', { id: 's-lock' }, ...[[5, '5 minutes'], [15, '15 minutes'], [60, '1 hour'], [0, 'never (not recommended)']].map(([v, t]) => { const o = el('option', { value: String(v) }, t); if (v === s.autoLockMinutes) o.selected = true; return o; }));
+  lock.addEventListener('change', async () => { await store.setSettings({ autoLockMinutes: Number(lock.value) }); vault.setAutoLock(Number(lock.value) * 60000); say('Auto-lock updated.'); });
+  const ret = el('select', { id: 's-ret' }, el('option', { value: 'KEEP' }, 'Keep everything until I delete it (default)'), el('option', { value: 'AFTER_DAYS' }, 'Delete files automatically after a number of days')), days = inp('s-days', 'number', String(s.retention.days ?? 365)); ret.value = s.retention.mode;
+  const saveRet = el('button', { class: 'alt', id: 's-saveret', onclick: async () => {
+    try { if (ret.value === 'KEEP') { await store.setSettings({ retention: { mode: 'KEEP' } }); say('Nothing will be deleted automatically.'); return; }
+      const d = Number(days.value), prev = await store.setSettings.length; void prev;
+      if (!confirm(`Turn on automatic deletion?\n\nEvery file stored here that is older than ${d} days will be deleted when you unlock the vault, together with the problems that exist only because of it and the notes you wrote on them. Deleted files cannot be recovered unless you kept a backup. Nothing is deleted if you leave this off.`)) return;
+      await store.setSettings({ retention: { mode: 'AFTER_DAYS', days: d, confirmedAt: new Date().toISOString() } }); say('Automatic deletion is on: files older than ' + d + ' days are removed when you unlock.'); } catch (e) { refused(e); } } }, 'Save retention');
+  $('#settings').replaceChildren(el('h3', {}, 'Protection and data'), el('div', { class: 'row' }, field('Lock automatically after inactivity', lock), field('Retention', ret), field('Days (30 to 3650)', days)), saveRet, ' ',
+    el('button', { class: 'alt', id: 's-backup', onclick: async () => { try { download('invoiceguard-backup.json', await vault.exportBackup()); say('Encrypted backup downloaded. It opens with your password; keep it somewhere safe.'); } catch (e) { refused(e); } } }, 'Download encrypted backup'),
+    el('p', { class: 'small mut' }, 'Deleting a file removes it and what was computed from it from this browser. Browsers keep storage in their own files and may keep traces until they clean up; stored data is encrypted, so traces are unreadable without your password. Backups and evidence bundles you downloaded stay where you saved them.'));
+}
+for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => vault.touch(), true);
+await showGate();
