@@ -1,0 +1,15 @@
+tested commit: 077c903c04e0da780247ea6d717d7b27dadcfa06 (clean worktree, local)
+ok 1 - vidr business flag: TRUE and FALSE are read as written, case and spaces ignored (characterization)
+not ok 2 - vidr business flag: blank, unreadable and disagreeing rows are unknown (null), not false
+ok 3 - vidr business flag: needsInvoice is false for unknown, true only for an explicit TRUE (with an explicit FALSE amazon flag)
+not ok 4 - manual plan, VIDR: a blank or unreadable business flag is HELD, not skipped as consumer and not issued
+ok 5 - manual plan, VIDR: an explicit FALSE business flag is still a consumer skip, as written (characterization)
+not ok 6 - manual plan, VIDR: both flags unknown gives ONE hold naming both columns
+not ok 7 - pipeline: a blank business flag is held and issues nothing
+not ok 8 - wording: every held reason names the column, says it was not guessed and nothing was issued, and says what would resolve it
+not ok 9 - wording: the Order Report reason says the report type itself does not carry the columns and points to the report that does; it never says the order is a consumer order
+ok 10 - wording: the reason names only the column that is unknown (business known, amazon blank)
+ok 11 - wording: company name and VAT number are said not to prove either flag, and invoice-status is said not to be used
+# tests 11
+# pass 5
+# fail 6
