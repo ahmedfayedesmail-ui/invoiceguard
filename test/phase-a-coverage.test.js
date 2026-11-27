@@ -73,3 +73,5 @@ test('KEY: the count is by Amazon transaction, not by shipment. One shipping id 
   assert.doesNotMatch(t, /\bshipments?\b[^.]*\bunique\b|\bunique shipments\b|\d+ (business )?shipments/i, 'no number is displayed as a count of shipments');
 });
 test('KEY: the data names the key it counts by', () => { const c = project(FULL()).coverage; assert.match(c.countedBy.key, /marketplace.*transaction type.*transaction id.*order id.*shipping id/); assert.equal(c.countedBy.unit, 'TRANSACTION'); assert.equal(c.countedBy.shipmentKeyProven, false); });
+
+test('grammar: one linked-and-accepted transaction reads "1 is", not "1 ... are"', () => { const t = (n) => coverageStatement({ transactionsTotal: 5, scope: { count: 5, business: { entered: 5, matched: 3, matchedAndAccepted: n, notMatched: 2 }, nonBusiness: { count: 0 } }, undetermined: { count: 0, byReason: {} }, outsideScope: { count: 0, byReason: {} } }).join(' '); assert.match(t(1), /Of the linked ones, 1 is also shown/); assert.match(t(2), /Of the linked ones, 2 are also shown/); assert.match(t(0), /Of the linked ones, 0 are also shown/); });

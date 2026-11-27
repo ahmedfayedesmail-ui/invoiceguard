@@ -2801,11 +2801,12 @@ var list = (by, words) => Object.entries(by).filter(([, n]) => n > 0).map(([k, n
 function coverageStatement(c2) {
   if (!c2 || !c2.transactionsTotal) return ["No Amazon report is loaded, so nothing has been checked yet."];
   const s = c2.scope, b = s.business, out = [];
-  out.push(`Scope: ${s.count} unique shipments that you must invoice yourself (Amazon did not create the invoice, and the business-order field could be read).`);
-  if (s.count > 0) out.push(`${b.matched} of ${b.entered} business shipments are linked to a document in your books by invoice number, whatever Amazon's status; ${b.notMatched} are not linked. ${b.matchedAndAccepted ?? 0} of the linked ones are also shown as accepted by Amazon (the figure in the Summary below). ` + (s.nonBusiness.count > 0 ? `This figure covers business shipments only, not all ${s.count} shipments in scope.` : `This figure covers all ${s.count} shipments in scope.`));
-  if (s.nonBusiness.count > 0) out.push(`${s.nonBusiness.count} shipments in scope were NOT EVALUATED: they are marked as non-business orders, and they were not checked against your books because of the current check rule. That is not a result for them either way.`);
+  out.push(`Scope: ${s.count} unique transactions that you must invoice yourself (Amazon did not create the invoice, and the business-order field could be read).`);
+  if (s.count > 0) out.push(`${b.matched} of ${b.entered} business transactions are linked to a document in your books by invoice number, whatever Amazon's status; ${b.notMatched} are not linked. Of the linked ones, ${b.matchedAndAccepted ?? 0} ${(b.matchedAndAccepted ?? 0) === 1 ? "is" : "are"} also shown as accepted by Amazon (the figure in the Summary below). ` + (s.nonBusiness.count > 0 ? `This figure covers business transactions only, not all ${s.count} transactions in scope.` : `This figure covers all ${s.count} transactions in scope.`));
+  if (s.nonBusiness.count > 0) out.push(`${s.nonBusiness.count} transactions in scope were NOT EVALUATED: they are marked as non-business orders, and they were not checked against your books because of the current check rule. That is not a result for them either way.`);
   if (c2.undetermined.count > 0) out.push(`${c2.undetermined.count} could not be classified, so they are in none of the figures above: ${list(c2.undetermined.byReason, UND)}.`);
   if (c2.outsideScope.count > 0) out.push(`${c2.outsideScope.count} are outside the check: ${c2.outsideScope.byReason.AMAZON_INVOICED ?? 0} invoices created by Amazon, ${c2.outsideScope.byReason.NOT_ORDINARY_INVOICE ?? 0} corrections or non-shipment rows.`);
+  out.push("Counted by Amazon transaction (marketplace, transaction type, transaction id, order id and shipping id together). A shipment with several transactions counts once per transaction: a shipment key is not proven yet, so no figure here is a count of shipments.");
   out.push(`Total: ${c2.transactionsTotal} unique transactions = ${s.count} in scope + ${c2.undetermined.count} undetermined + ${c2.outsideScope.count} outside the check.`);
   return out;
 }
@@ -3268,12 +3269,13 @@ function evaluate(prefix, events, ctx) {
   const byFlag = (f) => sellerSet.filter((d) => bflag.get(d) === f).length, matchedBiz = A.filter((d) => link.get(amazonId(d))?.level === "CONFIRMED").length, nonOrdinary = rec.docs.length - ordinary.length, amazonInv = ordinary.filter((d) => flagged.get(d) === "TRUE").length;
   const coverage = {
     transactionsTotal: rec.docs.length,
-    totalMeans: "every unique transaction in the loaded Amazon reports (one shipment counts once however many item rows it has)",
+    totalMeans: "every unique transaction in the loaded Amazon reports (one transaction counts once however many item rows it has)",
+    countedBy: { unit: "TRANSACTION", key: "marketplace, transaction type, transaction id, order id and shipping id together (the same key the engine uses to identify an Amazon document)", shipmentKeyProven: false, note: "A shipment with several transactions counts once per transaction. No figure here is a count of shipments until a shipment key is proven (programme item six, split shipments)." },
     scope: {
       count: A.length + byFlag("FALSE"),
-      means: "unique shipments that the seller must invoice (is-amazon-invoiced FALSE) and whose is-business-order field is readable",
-      business: { entered: A.length, matched: matchedBiz, matchedAndAccepted: docsFine, notMatched: A.length - matchedBiz, matchedMeans: "the shipment is linked to a document in the books by its invoice number; denominator = business shipments in scope" },
-      nonBusiness: { count: byFlag("FALSE"), status: "NOT_EVALUATED", reason: "These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result for them either way." }
+      means: "unique transactions that the seller must invoice (is-amazon-invoiced FALSE) and whose is-business-order field is readable",
+      business: { entered: A.length, matched: matchedBiz, matchedAndAccepted: docsFine, notMatched: A.length - matchedBiz, matchedMeans: "the transaction is linked to a document in the books by its invoice number; denominator = business transactions in scope" },
+      nonBusiness: { count: byFlag("FALSE"), status: "NOT_EVALUATED", reason: "These transactions are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result for them either way." }
     },
     undetermined: {
       count: bizUndetermined.length + flagUndetermined.length,
@@ -3300,7 +3302,7 @@ function project({ imports, events = [], sellerProfileId = "local", deletions: a
   }
   const hist = /* @__PURE__ */ new Map();
   let last = { findings: /* @__PURE__ */ new Map(), closed: /* @__PURE__ */ new Map(), notes: [], stats: {}, coverage: (() => {
-    const c2 = { transactionsTotal: 0, scope: { count: 0, business: { entered: 0, matched: 0, matchedAndAccepted: 0, notMatched: 0 }, nonBusiness: { count: 0, status: "NOT_EVALUATED" } }, undetermined: { count: 0, byReason: { BUSINESS_FLAG_BLANK: 0, BUSINESS_FLAG_CONFLICT: 0, BUSINESS_FLAG_UNREADABLE: 0, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 0 } }, outsideScope: { count: 0, byReason: { AMAZON_INVOICED: 0, NOT_ORDINARY_INVOICE: 0 } } };
+    const c2 = { transactionsTotal: 0, countedBy: { unit: "TRANSACTION", shipmentKeyProven: false }, scope: { count: 0, business: { entered: 0, matched: 0, matchedAndAccepted: 0, notMatched: 0 }, nonBusiness: { count: 0, status: "NOT_EVALUATED" } }, undetermined: { count: 0, byReason: { BUSINESS_FLAG_BLANK: 0, BUSINESS_FLAG_CONFLICT: 0, BUSINESS_FLAG_UNREADABLE: 0, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 0 } }, outsideScope: { count: 0, byReason: { AMAZON_INVOICED: 0, NOT_ORDINARY_INVOICE: 0 } } };
     c2.statement = coverageStatement(c2);
     return c2;
   })(), links: {}, amazonDocs: [], importDefects: /* @__PURE__ */ new Map(), ledgerDocs: [] };

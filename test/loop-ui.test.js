@@ -39,7 +39,7 @@ test('loop page: two rounds of real files in a real browser, closure only by a n
     assert.match(await page.$eval('#stage', e => e.innerText), /Blocked/); assert.equal(await page.$eval('#st-store', e => e.disabled), true); assert.match(await page.$eval('#results', e => e.innerText), /Matched by invoice number/);
     // round 1
     await loadVidr('fixtures/loop/vidr-1.tsv', '2026-11-20T10:00'); await loadLedger('fixtures/loop/ledger-1.csv', '2026-11-20T11:00');
-    const cov = await page.$eval('#coverage', e => e.innerText); assert.match(cov, /What this check covered/); assert.match(cov, /Scope: \d+ unique shipments/); assert.match(cov, /business shipments/); assert.match(cov, /Total: \d+ unique transactions = \d+ in scope \+ \d+ undetermined \+ \d+ outside the check/); assert.doesNotMatch(cov, /undefined|NaN/);
+    const cov = await page.$eval('#coverage', e => e.innerText); assert.match(cov, /What this check covered/); assert.match(cov, /Scope: \d+ unique transactions/); assert.match(cov, /business transactions/); assert.match(cov, /Counted by Amazon transaction/); assert.match(cov, /Total: \d+ unique transactions = \d+ in scope \+ \d+ undetermined \+ \d+ outside the check/); assert.doesNotMatch(cov, /undefined|NaN/);
     const r1 = await page.$eval('#results', e => e.innerText); console.log('--- ROUND 1 ---\n' + r1.slice(0, 1500));
     assert.match(r1, /Needs action/); assert.ok(await page.$('[data-state="ACTION_REQUIRED"]'), 'an action card exists');
     assert.equal(await page.$('[data-state="VERIFIED_CLOSED"]'), null, 'nothing is closed after round 1');
