@@ -101,8 +101,8 @@ var require_base64_js = __commonJS({
       }
       return arr;
     }
-    function tripletToBase64(num) {
-      return lookup[num >> 18 & 63] + lookup[num >> 12 & 63] + lookup[num >> 6 & 63] + lookup[num & 63];
+    function tripletToBase64(num2) {
+      return lookup[num2 >> 18 & 63] + lookup[num2 >> 12 & 63] + lookup[num2 >> 6 & 63] + lookup[num2 & 63];
     }
     function encodeChunk(uint8, start, end) {
       var tmp;
@@ -173,7 +173,7 @@ var require_ieee754 = __commonJS({
       return (s ? -1 : 1) * m * Math.pow(2, e - mLen);
     };
     exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
-      var e, m, c;
+      var e, m, c2;
       var eLen = nBytes * 8 - mLen - 1;
       var eMax = (1 << eLen) - 1;
       var eBias = eMax >> 1;
@@ -187,24 +187,24 @@ var require_ieee754 = __commonJS({
         e = eMax;
       } else {
         e = Math.floor(Math.log(value) / Math.LN2);
-        if (value * (c = Math.pow(2, -e)) < 1) {
+        if (value * (c2 = Math.pow(2, -e)) < 1) {
           e--;
-          c *= 2;
+          c2 *= 2;
         }
         if (e + eBias >= 1) {
-          value += rt / c;
+          value += rt / c2;
         } else {
           value += rt * Math.pow(2, 1 - eBias);
         }
-        if (value * c >= 2) {
+        if (value * c2 >= 2) {
           e++;
-          c /= 2;
+          c2 /= 2;
         }
         if (e + eBias >= eMax) {
           m = 0;
           e = eMax;
         } else if (e + eBias >= 1) {
-          m = (value * c - 1) * Math.pow(2, mLen);
+          m = (value * c2 - 1) * Math.pow(2, mLen);
           e = e + eBias;
         } else {
           m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen);
@@ -1766,13 +1766,13 @@ var require_buffer = __commonJS({
       return byteArray;
     }
     function utf16leToBytes(str, units) {
-      let c, hi, lo;
+      let c2, hi, lo;
       const byteArray = [];
       for (let i = 0; i < str.length; ++i) {
         if ((units -= 2) < 0) break;
-        c = str.charCodeAt(i);
-        hi = c >> 8;
-        lo = c % 256;
+        c2 = str.charCodeAt(i);
+        hi = c2 >> 8;
+        lo = c2 % 256;
         byteArray.push(lo);
         byteArray.push(hi);
       }
@@ -1870,9 +1870,9 @@ function parseTable(text) {
   const records = kept.filter((l) => !isBlank(l));
   let raggedRows = 0;
   const rows = records.map((l) => {
-    const c = l.split("	");
-    if (c.length !== head.length) raggedRows++;
-    return Object.fromEntries(head.map((h, i) => [h, (c[i] ?? "").trim().replace(/^"|"$/g, "")]));
+    const c2 = l.split("	");
+    if (c2.length !== head.length) raggedRows++;
+    return Object.fromEntries(head.map((h, i) => [h, (c2[i] ?? "").trim().replace(/^"|"$/g, "")]));
   });
   return { head, rows, truncated: body.length > MAX_ROWS, blankLines, raggedRows };
 }
@@ -1967,7 +1967,7 @@ var uniq = (a) => [...new Set(a)];
 var check = (name, ok, how, detail) => ({ name, ok, how, detail });
 function classifyImport(imp, parsed) {
   const d = imp.declared ?? {}, head = parsed.head ?? [], problems = [], add = (code, text) => problems.push({ code, text });
-  const missingCols = REQUIRED_COLUMNS.filter((c) => !head.includes(c));
+  const missingCols = REQUIRED_COLUMNS.filter((c2) => !head.includes(c2));
   if (parsed.unsupported) add("UNSUPPORTED_FORMAT", parsed.unsupported);
   if (missingCols.length) add("MISSING_COLUMNS", `Columns missing from the file: ${missingCols.join(", ")}`);
   if (parsed.truncated) add("TRUNCATED_FILE", "Only part of the file was read: the reader stops after a fixed number of rows and this file has more. Nothing from a partly read file can be shown as accepted.");
@@ -2116,19 +2116,19 @@ function observe(imp, cls, parsed) {
 }
 var EXPLAIN = {
   // Wording rule: a report shows the state it shows on the day it was made. It never shows when that state began, so there is no "accepted on".
-  ACCEPTED: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}. Amazon's report shows the final successful state. It does not show when that state began.`,
-  PROCESSING: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon has the upload and is still processing it.`,
-  PENDING: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon is waiting for the seller's upload.`,
-  SELLER_UPLOAD_REQUIRED: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}. Amazon did not calculate the tax for this transaction, so the seller must upload the invoice. Nothing has been uploaded as far as this report shows. This is an exception.`,
-  REJECTED: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon found errors in the upload. Amazon says the seller must upload this document again.`,
-  CREATED_BY_AMAZON: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon made this document itself. The seller has nothing to upload for it.`,
-  INCOMPLETE_SOURCE: (c) => `The file says ${c.raw}, but it is not shown as accepted. ${c.why}`,
-  UNMATCHED: (c) => `We could not tie this to one document with confidence: ${c.why}`,
-  UNKNOWN_STATUS: (c) => `The file has a status we do not recognise (${JSON.stringify(c.raw)}). We did not guess. This is counted as cannot determine.`,
-  UNKNOWN_TRANSACTION_ID_FORMAT: (c) => `The transaction id starts with "Correction" but is not one of the known shapes (${c.why}). We did not treat it as a correction and did not treat it as an ordinary transaction. This is counted as cannot determine.`,
-  DATE_ORDER_UNCONFIRMED: (c) => `The file says ${c.raw}, but it is not shown as accepted: nothing in the file proves whether its dates are day/month or month/day. ${c.why} Confirm DD/MM/YYYY (the format Amazon documents) when importing, and the other checks will run.`,
-  INVOICE_NUMBER_INCOMPLETE: (c) => `The rows of this document do not agree on the invoice number. ${c.why} It is not shown as accepted and it is counted as cannot determine.`,
-  INCOMPATIBLE_STATUS_AND_TYPE: (c) => `The status ${c.raw} cannot go with this transaction type: ${c.why}. The row is refused. It is not shown as accepted, rejected or pending, and it is counted as cannot determine.`,
+  ACCEPTED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}. Amazon's report shows the final successful state. It does not show when that state began.`,
+  PROCESSING: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon has the upload and is still processing it.`,
+  PENDING: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon is waiting for the seller's upload.`,
+  SELLER_UPLOAD_REQUIRED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}. Amazon did not calculate the tax for this transaction, so the seller must upload the invoice. Nothing has been uploaded as far as this report shows. This is an exception.`,
+  REJECTED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon found errors in the upload. Amazon says the seller must upload this document again.`,
+  CREATED_BY_AMAZON: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon made this document itself. The seller has nothing to upload for it.`,
+  INCOMPLETE_SOURCE: (c2) => `The file says ${c2.raw}, but it is not shown as accepted. ${c2.why}`,
+  UNMATCHED: (c2) => `We could not tie this to one document with confidence: ${c2.why}`,
+  UNKNOWN_STATUS: (c2) => `The file has a status we do not recognise (${JSON.stringify(c2.raw)}). We did not guess. This is counted as cannot determine.`,
+  UNKNOWN_TRANSACTION_ID_FORMAT: (c2) => `The transaction id starts with "Correction" but is not one of the known shapes (${c2.why}). We did not treat it as a correction and did not treat it as an ordinary transaction. This is counted as cannot determine.`,
+  DATE_ORDER_UNCONFIRMED: (c2) => `The file says ${c2.raw}, but it is not shown as accepted: nothing in the file proves whether its dates are day/month or month/day. ${c2.why} Confirm DD/MM/YYYY (the format Amazon documents) when importing, and the other checks will run.`,
+  INVOICE_NUMBER_INCOMPLETE: (c2) => `The rows of this document do not agree on the invoice number. ${c2.why} It is not shown as accepted and it is counted as cannot determine.`,
+  INCOMPATIBLE_STATUS_AND_TYPE: (c2) => `The status ${c2.raw} cannot go with this transaction type: ${c2.why}. The row is refused. It is not shown as accepted, rejected or pending, and it is counted as cannot determine.`,
   PARTIALLY_ACCEPTED: () => `One side of this correction was observed as accepted and the other was not. The correction counts as open until both sides are.`
 };
 function reconcile(imports) {
@@ -2222,9 +2222,9 @@ function reconcile(imports) {
     }
   }
   for (const d of docs) {
-    const c = d.ctx;
+    const c2 = d.ctx;
     delete d.ctx;
-    d.explanation = (EXPLAIN[d.state] ?? (() => d.state))(c);
+    d.explanation = (EXPLAIN[d.state] ?? (() => d.state))(c2);
     if (d.correction && d.state === "PARTIALLY_ACCEPTED") d.explanation += d.correction.missingSides?.length ? ` Not in the loaded files: ${d.correction.missingSides.join(", ")}.` : "";
   }
   docs.sort((a, b) => a.key.localeCompare(b.key));
@@ -2234,7 +2234,7 @@ function headline(docs, cycles, unkeyed, importSummaries) {
   const n = (s) => docs.filter((d) => d.state === s).length, inc = (code) => docs.filter((d) => d.state === "INCOMPLETE_SOURCE" && d.reasonCode === code).length;
   const parts = { truncatedFile: inc("TRUNCATED_FILE"), missingColumns: inc("MISSING_COLUMNS"), importNotComplete: inc("IMPORT_NOT_COMPLETE"), preconditionUnmet: inc("PRECONDITION_UNMET"), orderDateMissingOrUnreadable: inc("MISSING_OR_INVALID_ORDER_DATE"), dateFormatUnrecognized: inc("UNRECOGNIZED_DATE_FORMAT") + inc("DATE_ORDER_CONTRADICTION") + inc("MONTH_FIRST_NOT_SUPPORTED"), dateOrderUnconfirmed: n("DATE_ORDER_UNCONFIRMED"), invoiceNumberIncomplete: n("INVOICE_NUMBER_INCOMPLETE"), unmatched: n("UNMATCHED"), unknownStatus: n("UNKNOWN_STATUS"), unknownTransactionIdFormat: n("UNKNOWN_TRANSACTION_ID_FORMAT"), incompatibleStatusAndType: n("INCOMPATIBLE_STATUS_AND_TYPE") };
   const cannot = Object.values(parts).reduce((a, b) => a + b, 0);
-  const openCycles = cycles.filter((c) => c.state !== "ACCEPTED"), openDocKeys = new Set(openCycles.flatMap((c) => c.sides));
+  const openCycles = cycles.filter((c2) => c2.state !== "ACCEPTED"), openDocKeys = new Set(openCycles.flatMap((c2) => c2.sides));
   const EXC = ["REJECTED", "SELLER_UPLOAD_REQUIRED", "INCOMPLETE_SOURCE", "UNMATCHED", "UNKNOWN_STATUS", "UNKNOWN_TRANSACTION_ID_FORMAT", "INCOMPATIBLE_STATUS_AND_TYPE", "INVOICE_NUMBER_INCOMPLETE", "DATE_ORDER_UNCONFIRMED"];
   const exceptions = docs.filter((d) => EXC.includes(d.state) || openDocKeys.has(d.key)).length;
   const counts = {
@@ -2288,19 +2288,19 @@ function splitLine(line, d) {
   const out = [];
   let cur = "", q = false;
   for (let i = 0; i < line.length; i++) {
-    const c = line[i];
+    const c2 = line[i];
     if (q) {
-      if (c === '"') {
+      if (c2 === '"') {
         if (line[i + 1] === '"') {
           cur += '"';
           i++;
         } else q = false;
-      } else cur += c;
-    } else if (c === '"' && cur === "") q = true;
-    else if (c === d) {
+      } else cur += c2;
+    } else if (c2 === '"' && cur === "") q = true;
+    else if (c2 === d) {
       out.push(cur);
       cur = "";
-    } else cur += c;
+    } else cur += c2;
   }
   out.push(cur);
   return out.map((x) => x.trim());
@@ -2313,8 +2313,8 @@ function readDelimited(text, delimiter = null) {
   while (hi > lo && isBlank(all[hi - 1])) hi--;
   const lines = all.slice(lo, hi);
   if (lines.length < 2) return { ok: false, error: "The file has no header and data rows." };
-  const count = (c) => splitLine(lines[0], c).length;
-  const d = delimiter ?? ["	", ";", ","].map((c) => [c, count(c)]).sort((a, b) => b[1] - a[1] || "	;,".indexOf(a[0]) - "	;,".indexOf(b[0]))[0][0];
+  const count = (c2) => splitLine(lines[0], c2).length;
+  const d = delimiter ?? ["	", ";", ","].map((c2) => [c2, count(c2)]).sort((a, b) => b[1] - a[1] || "	;,".indexOf(a[0]) - "	;,".indexOf(b[0]))[0][0];
   const head = splitLine(lines[0], d);
   if (head.length < 2) return { ok: false, error: "The file does not look like a table with columns." };
   const body = lines.slice(1), kept = body.slice(0, LEDGER_MAX_ROWS);
@@ -2353,7 +2353,7 @@ function readDate(v, order) {
 function readMoney(v, decimal, thousands = "") {
   let s = String(v ?? "").trim();
   if (s === "") return null;
-  const dec2 = decimal === "," ? "," : ".", esc = (c) => c.replace(/[.\-\\^$*+?()[\]{}|]/g, "\\$&");
+  const dec2 = decimal === "," ? "," : ".", esc = (c2) => c2.replace(/[.\-\\^$*+?()[\]{}|]/g, "\\$&");
   const grp = thousands ? `(?:\\d{1,3}(?:${esc(thousands)}\\d{3})+|\\d+)` : "\\d+";
   const m = new RegExp(`^(-?)(${grp})(?:${esc(dec2)}(\\d{1,2}))?$`).exec(s);
   if (!m) return NaN;
@@ -2420,9 +2420,9 @@ function detectLedgerMapping(text) {
   let comma = 0, point = 0, both = 0, mn = 0;
   for (const i of moneyCols) for (const v of cols(i)) {
     mn++;
-    const c = /,\d{1,2}$/.test(v), p = /\.\d{1,2}$/.test(v), thC = /,\d{3}/.test(v), thP = /\.\d{3}($|[^\d])/.test(v);
-    if (c && !p && !thC) comma++;
-    else if (p && !c && !thP) point++;
+    const c2 = /,\d{1,2}$/.test(v), p = /\.\d{1,2}$/.test(v), thC = /,\d{3}/.test(v), thP = /\.\d{3}($|[^\d])/.test(v);
+    if (c2 && !p && !thC) comma++;
+    else if (p && !c2 && !thP) point++;
     else if (/^-?\d+$/.test(v)) {
     } else both++;
   }
@@ -2552,28 +2552,28 @@ function sha256(str) {
   dv.setUint32(n - 8, Math.floor(l * 8 / 4294967296));
   dv.setUint32(n - 4, l * 8 >>> 0);
   const H = new Uint32Array([1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225]), w = new Uint32Array(64);
-  const rr = (x, c) => x >>> c | x << 32 - c;
+  const rr = (x, c2) => x >>> c2 | x << 32 - c2;
   for (let o = 0; o < n; o += 64) {
     for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
     for (let i = 16; i < 64; i++) {
       const a2 = rr(w[i - 15], 7) ^ rr(w[i - 15], 18) ^ w[i - 15] >>> 3, b2 = rr(w[i - 2], 17) ^ rr(w[i - 2], 19) ^ w[i - 2] >>> 10;
       w[i] = w[i - 16] + a2 + w[i - 7] + b2 >>> 0;
     }
-    let [a, b, c, d, e, f, g, h] = H;
+    let [a, b, c2, d, e, f, g, h] = H;
     for (let i = 0; i < 64; i++) {
-      const t1 = h + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + (e & f ^ ~e & g) + K[i] + w[i] >>> 0, t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + (a & b ^ a & c ^ b & c) >>> 0;
+      const t1 = h + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + (e & f ^ ~e & g) + K[i] + w[i] >>> 0, t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + (a & b ^ a & c2 ^ b & c2) >>> 0;
       h = g;
       g = f;
       f = e;
       e = d + t1 >>> 0;
-      d = c;
-      c = b;
+      d = c2;
+      c2 = b;
       b = a;
       a = t1 + t2 >>> 0;
     }
     H[0] += a;
     H[1] += b;
-    H[2] += c;
+    H[2] += c2;
     H[3] += d;
     H[4] += e;
     H[5] += f;
@@ -2622,110 +2622,110 @@ var STATE_LABEL = { OPEN: "Needs a human reading", ACTION_REQUIRED: "Action requ
 var mkt = (s) => s?.marketplace ?? "the declared marketplace";
 function buildCard(i) {
   const s = i.subject ?? {}, e = i.finding?.evidence ?? {}, t = i.subtype;
-  const c = { title: "", what: "", why: "", proof: [], action: "", closesWhen: "", stateLabel: STATE_LABEL[i.state] ?? i.state, stateNote: null, history: i.history };
-  c.proof = (e.sources ?? []).map((src) => ({ file: src.fileName ?? src.importId, role: src.role === "amazon" ? "Amazon VAT invoice report" : "Your accounting export", rows: src.rows }));
+  const c2 = { title: "", what: "", why: "", proof: [], action: "", closesWhen: "", stateLabel: STATE_LABEL[i.state] ?? i.state, stateNote: null, history: i.history };
+  c2.proof = (e.sources ?? []).map((src) => ({ file: src.fileName ?? src.importId, role: src.role === "amazon" ? "Amazon VAT invoice report" : "Your accounting export", rows: src.rows }));
   if (i.family === "INVOICE_AMAZON_STATE") {
     const ord = `order ${s.orderId}, shipment ${s.shippingId}`;
     if (t === "REJECTED") {
-      c.title = `Amazon rejected the invoice for ${ord}`;
-      c.what = `The report shows the status ${e.statusAsShown}${e.amazonDescription ? ` with Amazon's description: "${e.amazonDescription}"` : ""}.`;
-      c.why = "The status comes straight from the Amazon report row shown below.";
-      c.action = "Correct the problem Amazon names in its description, then upload the invoice again. Amazon says the seller must upload the document again after a rejection.";
+      c2.title = `Amazon rejected the invoice for ${ord}`;
+      c2.what = `The report shows the status ${e.statusAsShown}${e.amazonDescription ? ` with Amazon's description: "${e.amazonDescription}"` : ""}.`;
+      c2.why = "The status comes straight from the Amazon report row shown below.";
+      c2.action = "Correct the problem Amazon names in its description, then upload the invoice again. Amazon says the seller must upload the document again after a rejection.";
     } else {
-      c.title = `Amazon is waiting for an invoice for ${ord}`;
-      c.what = `The report shows the status ${e.statusAsShown}${e.invoiceNumber ? "" : " and no invoice number"}.`;
-      c.why = "The status comes straight from the Amazon report row shown below.";
-      c.action = "Upload the invoice for this transaction to Amazon. If you have not created it yet, create it in your accounting system first.";
+      c2.title = `Amazon is waiting for an invoice for ${ord}`;
+      c2.what = `The report shows the status ${e.statusAsShown}${e.invoiceNumber ? "" : " and no invoice number"}.`;
+      c2.why = "The status comes straight from the Amazon report row shown below.";
+      c2.action = "Upload the invoice for this transaction to Amazon. If you have not created it yet, create it in your accounting system first.";
     }
-    c.closesWhen = "A newer Amazon report, loaded here, shows this transaction as InvoiceUploaded and all conditions of the evidence contract are met. Telling us you uploaded it does not close this.";
-    if (i.awaiting === "AMAZON_PROCESSING") c.stateNote = "The latest report shows this as processing. Amazon says no new upload is needed while it processes. Load a newer report to see the result.";
+    c2.closesWhen = "A newer Amazon report, loaded here, shows this transaction as InvoiceUploaded and all conditions of the evidence contract are met. Telling us you uploaded it does not close this.";
+    if (i.awaiting === "AMAZON_PROCESSING") c2.stateNote = "The latest report shows this as processing. Amazon says no new upload is needed while it processes. Load a newer report to see the result.";
   } else if (i.family === "BOOKS_GAP") {
     const ord = `order ${s.orderId}, shipment ${s.shippingId}`;
     if (t === "NUMBER_AT_AMAZON_NOT_IN_BOOKS") {
-      c.title = `Amazon shows invoice ${e.invoiceNumberAtAmazon} for ${ord}, but your accounting export does not contain it`;
-      c.what = `Amazon's report shows the document number ${e.invoiceNumberAtAmazon} (state ${e.amazonState}). No document with that number is in the accounting export described below.`;
-      c.action = "Check your accounting system for this document. If it exists there, export again so that it is included. If it does not exist there, tell your accountant: Amazon holds a document with this number that your books do not.";
+      c2.title = `Amazon shows invoice ${e.invoiceNumberAtAmazon} for ${ord}, but your accounting export does not contain it`;
+      c2.what = `Amazon's report shows the document number ${e.invoiceNumberAtAmazon} (state ${e.amazonState}). No document with that number is in the accounting export described below.`;
+      c2.action = "Check your accounting system for this document. If it exists there, export again so that it is included. If it does not exist there, tell your accountant: Amazon holds a document with this number that your books do not.";
     } else {
-      c.title = `No invoice found in your books for ${ord}`;
-      c.what = `Amazon's report shows no invoice number for this transaction (state ${e.amazonState}) and your accounting export has no document for it.`;
-      c.action = "Create the invoice in your accounting system, then upload it to Amazon. If it already exists in your books, make sure its Amazon order id is exported.";
+      c2.title = `No invoice found in your books for ${ord}`;
+      c2.what = `Amazon's report shows no invoice number for this transaction (state ${e.amazonState}) and your accounting export has no document for it.`;
+      c2.action = "Create the invoice in your accounting system, then upload it to Amazon. If it already exists in your books, make sure its Amazon order id is exported.";
     }
-    c.why = e.coverage ? `The accounting export "${e.coverage.fileName ?? e.coverage.id}" is declared as a complete export of ${e.coverage.sourceSystem ?? "your system"} Amazon sales for ${e.coverage.period}. If this invoice was issued after that period, load a newer export.` : "See the declared period of your accounting export.";
-    c.closesWhen = "A newer accounting export, loaded here, contains a document whose number equals the one Amazon shows, and it is the only one. A statement from you alone does not close this.";
-    if (e.declaredLink) c.stateNote = `You declared this document as the match (${e.declaredLink.document}). No file confirms it.`;
-    if (i.state === "OPEN" && i.finding?.note) c.stateNote = i.finding.note;
+    c2.why = e.coverage ? `The accounting export "${e.coverage.fileName ?? e.coverage.id}" is declared as a complete export of ${e.coverage.sourceSystem ?? "your system"} Amazon sales for ${e.coverage.period}. If this invoice was issued after that period, load a newer export.` : "See the declared period of your accounting export.";
+    c2.closesWhen = "A newer accounting export, loaded here, contains a document whose number equals the one Amazon shows, and it is the only one. A statement from you alone does not close this.";
+    if (e.declaredLink) c2.stateNote = `You declared this document as the match (${e.declaredLink.document}). No file confirms it.`;
+    if (i.state === "OPEN" && i.finding?.note) c2.stateNote = i.finding.note;
   } else if (i.family === "UNMATCHED_DOCUMENT") {
     const d = e.document ?? {};
     const lead = `accounting document ${s.number ?? ""}`;
     if (t === "PROPOSED_LINK_UNCONFIRMED") {
-      c.title = `Is ${lead} the one Amazon shows for order ${s.orderRef}?`;
-      c.what = `Your document names Amazon order ${s.orderRef}, and exactly one Amazon transaction of that order has no invoice number yet. That is a candidate, not a match: an order id alone does not confirm that two documents are the same.`;
-      c.why = "The accounting export carries the Amazon order id. The Amazon report has no invoice number for the candidate yet, so the numbers cannot be compared.";
-      c.action = "Look at both rows below. If they are the same sale, confirm the link. If not, reject it.";
-      c.closesWhen = "A newer Amazon report shows an invoice number equal to this document's number. Your confirmation only records your decision; it does not close this.";
+      c2.title = `Is ${lead} the one Amazon shows for order ${s.orderRef}?`;
+      c2.what = `Your document names Amazon order ${s.orderRef}, and exactly one Amazon transaction of that order has no invoice number yet. That is a candidate, not a match: an order id alone does not confirm that two documents are the same.`;
+      c2.why = "The accounting export carries the Amazon order id. The Amazon report has no invoice number for the candidate yet, so the numbers cannot be compared.";
+      c2.action = "Look at both rows below. If they are the same sale, confirm the link. If not, reject it.";
+      c2.closesWhen = "A newer Amazon report shows an invoice number equal to this document's number. Your confirmation only records your decision; it does not close this.";
     } else if (t === "MULTIPLE_CANDIDATES") {
-      c.title = `Cannot tell which document ${s.number ?? ""} belongs to`;
-      c.what = `${e.why ?? "More than one candidate exists"}.`;
-      c.why = "We link documents only when the match is unique. We do not pick one.";
-      c.action = "Check which transaction this document belongs to and correct the order id or document number in your accounting export, then load it again.";
-      c.closesWhen = "A newer export in which the document is unique and its number equals the number Amazon shows.";
+      c2.title = `Cannot tell which document ${s.number ?? ""} belongs to`;
+      c2.what = `${e.why ?? "More than one candidate exists"}.`;
+      c2.why = "We link documents only when the match is unique. We do not pick one.";
+      c2.action = "Check which transaction this document belongs to and correct the order id or document number in your accounting export, then load it again.";
+      c2.closesWhen = "A newer export in which the document is unique and its number equals the number Amazon shows.";
     } else {
-      c.title = `${lead.charAt(0).toUpperCase() + lead.slice(1)} is not visible in Amazon`;
-      c.what = `Your accounting export has this document (issued ${d.issueDate}, operation date ${d.operationDate}). A complete all-statuses Amazon report for ${mkt(s)} covering that date has no transaction that matches it.`;
-      c.why = e.coverage ? `Checked against the Amazon report "${e.coverage.fileName ?? e.coverage.id}" covering ${e.coverage.range}.` : "";
-      c.action = "If this was an Amazon sale, ask your accountant why Amazon has no matching transaction (wrong marketplace, order id or date). If it was not an Amazon sale, you can declare that, with your reason.";
-      c.closesWhen = "A newer Amazon report that shows a transaction with this document number. Declaring it is not an Amazon sale records your statement and does not change what the files show.";
+      c2.title = `${lead.charAt(0).toUpperCase() + lead.slice(1)} is not visible in Amazon`;
+      c2.what = `Your accounting export has this document (issued ${d.issueDate}, operation date ${d.operationDate}). A complete all-statuses Amazon report for ${mkt(s)} covering that date has no transaction that matches it.`;
+      c2.why = e.coverage ? `Checked against the Amazon report "${e.coverage.fileName ?? e.coverage.id}" covering ${e.coverage.range}.` : "";
+      c2.action = "If this was an Amazon sale, ask your accountant why Amazon has no matching transaction (wrong marketplace, order id or date). If it was not an Amazon sale, you can declare that, with your reason.";
+      c2.closesWhen = "A newer Amazon report that shows a transaction with this document number. Declaring it is not an Amazon sale records your statement and does not change what the files show.";
     }
   } else if (i.family === "DATA_MISMATCH") {
     const ds = e.differences ?? [], nc = e.notCompared ?? [];
-    c.title = `Amazon and your books show different values for document ${s.number ?? ""} (order ${s.orderId})`;
+    c2.title = `Amazon and your books show different values for document ${s.number ?? ""} (order ${s.orderId})`;
     if (t === "CANNOT_CONFIRM") {
-      c.title = `Cannot confirm that the difference for document ${s.number ?? ""} is gone`;
-      c.what = "The difference is no longer shown, but a field that differed can no longer be compared.";
-      c.why = nc.map((x) => `${x.field}: ${x.reason}`).join("; ") + ".";
-      c.action = "Load files that state that field exactly on both sides.";
+      c2.title = `Cannot confirm that the difference for document ${s.number ?? ""} is gone`;
+      c2.what = "The difference is no longer shown, but a field that differed can no longer be compared.";
+      c2.why = nc.map((x) => `${x.field}: ${x.reason}`).join("; ") + ".";
+      c2.action = "Load files that state that field exactly on both sides.";
     } else {
-      c.what = ds.map((d) => `${d.label}: Amazon shows ${d.amazon}, your accounting export shows ${d.books}${d.difference ? ` (difference ${d.difference})` : ""}`).join(". ") + ".";
-      c.why = "Both values are read exactly from the rows shown below. No tolerance is applied: any difference, including one cent, is shown. " + (nc.length ? "Not compared: " + nc.map((x) => `${x.field} (${x.reason})`).join("; ") + "." : "");
-      c.action = "Find out which side is right. This tool does not change your accounting documents or anything at Amazon. If your document needs correcting, do it in your accounting system the way your accountant advises, then export again and load the new file.";
+      c2.what = ds.map((d) => `${d.label}: Amazon shows ${d.amazon}, your accounting export shows ${d.books}${d.difference ? ` (difference ${d.difference})` : ""}`).join(". ") + ".";
+      c2.why = "Both values are read exactly from the rows shown below. No tolerance is applied: any difference, including one cent, is shown. " + (nc.length ? "Not compared: " + nc.map((x) => `${x.field} (${x.reason})`).join("; ") + "." : "");
+      c2.action = "Find out which side is right. This tool does not change your accounting documents or anything at Amazon. If your document needs correcting, do it in your accounting system the way your accountant advises, then export again and load the new file.";
     }
-    c.closesWhen = "A newer file, loaded here, shows the same pair with the compared values agreeing. Saying the difference is explained records your statement and does not change what the files show.";
+    c2.closesWhen = "A newer file, loaded here, shows the same pair with the compared values agreeing. Saying the difference is explained records your statement and does not change what the files show.";
   } else if (i.family === "DUPLICATE_DOCUMENT") {
-    c.title = `Document ${s.number ?? ""} appears more than once in one accounting file`;
+    c2.title = `Document ${s.number ?? ""} appears more than once in one accounting file`;
     if (e.documentLevel === "LINE" && t === "SAME_NUMBER_DIFFERENT_CONTENT") {
       const fs = e.disagreeingFields ?? [];
-      c.title = `The rows of document ${s.number ?? ""} disagree on data that belongs to the whole document`;
-      c.what = `You declared that each row of this export is one line item of a document. Rows ${(e.rowNumbers ?? []).join(", ")} share the document number ${s.number ?? ""}, but they do not agree on ` + (fs.length ? fs.map((f) => `the ${f.label} (${f.values.map((v) => `${v.row}: ${v.value ?? "empty"}`).join("; ")})`).join("; ") : "a document-level field") + ".";
-      c.why = "Line items may differ from each other, but the issue date, operation date, currency, order reference and buyer tax id are supposed to be the same on every line of one document. The rows shown here mark where they differ. We do not pick one of the rows.";
-      c.action = "Check these rows in your accounting system and make the document-level data the same on every line of the document, if that is what the document says. Nothing in this message means that a row should be deleted.";
-      c.closesWhen = "A newer complete accounting export of the same scope in which the document-level data agrees across the lines.";
-      return c;
+      c2.title = `The rows of document ${s.number ?? ""} disagree on data that belongs to the whole document`;
+      c2.what = `You declared that each row of this export is one line item of a document. Rows ${(e.rowNumbers ?? []).join(", ")} share the document number ${s.number ?? ""}, but they do not agree on ` + (fs.length ? fs.map((f) => `the ${f.label} (${f.values.map((v) => `${v.row}: ${v.value ?? "empty"}`).join("; ")})`).join("; ") : "a document-level field") + ".";
+      c2.why = "Line items may differ from each other, but the issue date, operation date, currency, order reference and buyer tax id are supposed to be the same on every line of one document. The rows shown here mark where they differ. We do not pick one of the rows.";
+      c2.action = "Check these rows in your accounting system and make the document-level data the same on every line of the document, if that is what the document says. Nothing in this message means that a row should be deleted.";
+      c2.closesWhen = "A newer complete accounting export of the same scope in which the document-level data agrees across the lines.";
+      return c2;
     }
     if (t === "SUSPECTED_DUPLICATE") {
-      c.title = `Document ${s.number ?? ""} is on several rows: cannot tell if it is a duplicate`;
-      c.what = `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document number.`;
-      c.why = "The file does not say what one row is. If each row is one line of the document, the repetition is normal; if each row is a whole document, it is a duplicate.";
-      c.action = "Load the file again and state what one row is: a whole document or one line item of a document. Do not remove rows from your accounting system because of this message.";
-      c.closesWhen = "A complete export of the same scope that states what one row is. If one row is one document, a repeated number then becomes a duplicate; if one row is one line item, the repetition is expected.";
-      return c;
+      c2.title = `Document ${s.number ?? ""} is on several rows: cannot tell if it is a duplicate`;
+      c2.what = `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document number.`;
+      c2.why = "The file does not say what one row is. If each row is one line of the document, the repetition is normal; if each row is a whole document, it is a duplicate.";
+      c2.action = "Load the file again and state what one row is: a whole document or one line item of a document. Do not remove rows from your accounting system because of this message.";
+      c2.closesWhen = "A complete export of the same scope that states what one row is. If one row is one document, a repeated number then becomes a duplicate; if one row is one line item, the repetition is expected.";
+      return c2;
     }
-    c.what = t === "SAME_NUMBER_DIFFERENT_CONTENT" ? `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document identity with different content.` : `Rows ${(e.rowNumbers ?? []).join(", ")} are identical copies of the same document.`;
-    c.why = "A document identity can hold one document. We do not pick one of the rows.";
-    c.action = "You declared that one row of this export is a whole document, so the same document number on several rows is a problem in the export. Check the rows shown below in your accounting system. Do not delete anything that is correct; if a row is a line item of a document, load the file again and declare that one row is one line item.";
-    c.closesWhen = "A newer accounting export, loaded here, in which this document appears once. A later export of the same document is a re-export, not a duplicate.";
+    c2.what = t === "SAME_NUMBER_DIFFERENT_CONTENT" ? `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document identity with different content.` : `Rows ${(e.rowNumbers ?? []).join(", ")} are identical copies of the same document.`;
+    c2.why = "A document identity can hold one document. We do not pick one of the rows.";
+    c2.action = "You declared that one row of this export is a whole document, so the same document number on several rows is a problem in the export. Check the rows shown below in your accounting system. Do not delete anything that is correct; if a row is a line item of a document, load the file again and declare that one row is one line item.";
+    c2.closesWhen = "A newer accounting export, loaded here, in which this document appears once. A later export of the same document is a re-export, not a duplicate.";
   } else if (i.family === "SOURCE_INCOMPLETE") {
-    c.title = `A file is not complete: ${s.source ?? "import"} ${s.fileName ?? ""}`.trim();
-    c.what = `This file cannot be used as a complete source: ${(e.defects ?? []).join("; ")}.`;
-    c.why = `Scope of the file: ${s.descriptor}.`;
-    c.action = "Fix what is listed (download or export the file again, or declare what is missing) and load it again.";
-    c.closesWhen = "A newer import for the same scope that is complete. A declaration alone cannot close this.";
+    c2.title = `A file is not complete: ${s.source ?? "import"} ${s.fileName ?? ""}`.trim();
+    c2.what = `This file cannot be used as a complete source: ${(e.defects ?? []).join("; ")}.`;
+    c2.why = `Scope of the file: ${s.descriptor}.`;
+    c2.action = "Fix what is listed (download or export the file again, or declare what is missing) and load it again.";
+    c2.closesWhen = "A newer import for the same scope that is complete. A declaration alone cannot close this.";
   }
-  if (i.state === "AWAITING_NEW_EVIDENCE" && i.awaiting === "SELLER_REPORTED_ACTION") c.stateNote = "You told us you started the action. That is recorded. It proves nothing about Amazon or your books until a newer file shows it.";
-  if (i.state === "MANUALLY_REPORTED_RESOLUTION" && i.declaration) c.stateNote = `${i.declaration.author} reported this resolved on ${i.declaration.createdAt}: "${i.declaration.reasoning}". No file confirms it.`;
-  if (i.state === "VERIFIED_CLOSED") c.stateNote = `Closed by evidence: ${i.closure?.why ?? ""}`;
-  if (i.reopened) c.stateNote = (c.stateNote ? c.stateNote + " " : "") + "This problem was closed by evidence earlier and a newer file shows it again. Both pieces of evidence are kept in the history.";
-  if (i.lapsedDeclarations?.length) c.stateNote = (c.stateNote ? c.stateNote + " " : "") + "An earlier declaration no longer applies because the evidence it was based on changed.";
-  return c;
+  if (i.state === "AWAITING_NEW_EVIDENCE" && i.awaiting === "SELLER_REPORTED_ACTION") c2.stateNote = "You told us you started the action. That is recorded. It proves nothing about Amazon or your books until a newer file shows it.";
+  if (i.state === "MANUALLY_REPORTED_RESOLUTION" && i.declaration) c2.stateNote = `${i.declaration.author} reported this resolved on ${i.declaration.createdAt}: "${i.declaration.reasoning}". No file confirms it.`;
+  if (i.state === "VERIFIED_CLOSED") c2.stateNote = `Closed by evidence: ${i.closure?.why ?? ""}`;
+  if (i.reopened) c2.stateNote = (c2.stateNote ? c2.stateNote + " " : "") + "This problem was closed by evidence earlier and a newer file shows it again. Both pieces of evidence are kept in the history.";
+  if (i.lapsedDeclarations?.length) c2.stateNote = (c2.stateNote ? c2.stateNote + " " : "") + "An earlier declaration no longer applies because the evidence it was based on changed.";
+  return c2;
 }
 
 // src/loop/project.js
@@ -2801,13 +2801,13 @@ function evaluate(prefix, events, ctx) {
       if (d.complete !== true) scopeNotes.push("declared as a partial export: it can show that a document exists, never that one is missing");
       if ((d.amazonScope?.mode ?? "UNKNOWN") === "UNKNOWN") scopeNotes.push("not declared as Amazon sales, so nothing can be concluded about missing documents");
     } else {
-      const c = clsOf(i.id);
-      if (c) {
-        c.problemCodes.forEach((code, n) => {
-          if (DEFECT_CODES_EXCLUDED.includes(code)) scopeNotes.push(c.problems[n]);
-          else defects.push(c.problems[n]);
+      const c2 = clsOf(i.id);
+      if (c2) {
+        c2.problemCodes.forEach((code, n) => {
+          if (DEFECT_CODES_EXCLUDED.includes(code)) scopeNotes.push(c2.problems[n]);
+          else defects.push(c2.problems[n]);
         });
-        if (c.dateOrder && !c.dateOrder.provenByFile && c.dateOrder.sellerConfirmed !== true) defects.push("the order of the dates (day first or month first) is not proven by the file and was not confirmed by the seller");
+        if (c2.dateOrder && !c2.dateOrder.provenByFile && c2.dateOrder.sellerConfirmed !== true) defects.push("the order of the dates (day first or month first) is not proven by the file and was not confirmed by the seller");
       }
       if (d.reportType !== REPORT_TYPE) defects.push("the report type was not declared");
       if (!String(d.marketplace ?? "").trim()) defects.push("the marketplace was not declared");
@@ -2831,8 +2831,8 @@ function evaluate(prefix, events, ctx) {
   }
   const usableVidr = (i) => {
     const { defects } = importDefects.get(i.id);
-    const c = clsOf(i.id);
-    return !defects.length && c && c.declared.options === "ALL";
+    const c2 = clsOf(i.id);
+    return !defects.length && c2 && c2.declared.options === "ALL";
   };
   const A = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction && d.state !== "CREATED_BY_AMAZON");
   const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
@@ -2877,12 +2877,12 @@ function evaluate(prefix, events, ctx) {
         continue;
       }
       const level = i.declared?.documentLevel === "DOCUMENT" || i.declared?.documentLevel === "LINE" ? i.declared.documentLevel : null;
-      const l = { ...doc, marketplace: mk, conflicting: false, level }, k = ledgerKey(l), c = JSON.stringify(level === "LINE" ? [doc.issueDate, doc.operationDate, doc.currency, doc.orderRef, doc.buyerTaxId] : [doc.issueDate, doc.operationDate, doc.currency, doc.gross, doc.net, doc.vat, doc.orderRef, doc.buyerTaxId]);
+      const l = { ...doc, marketplace: mk, conflicting: false, level }, k = ledgerKey(l), c2 = JSON.stringify(level === "LINE" ? [doc.issueDate, doc.operationDate, doc.currency, doc.orderRef, doc.buyerTaxId] : [doc.issueDate, doc.operationDate, doc.currency, doc.gross, doc.net, doc.vat, doc.orderRef, doc.buyerTaxId]);
       if (seen.has(k)) {
-        if (seen.get(k).c === c) {
+        if (seen.get(k).c === c2) {
           if (level !== "LINE") seen.get(k).l.repeatRows = [...seen.get(k).l.repeatRows ?? [seen.get(k).l.row], doc.row];
         }
-        if (seen.get(k).c !== c) {
+        if (seen.get(k).c !== c2) {
           seen.get(k).l.conflicting = true;
           seen.get(k).l.conflictRows = [...seen.get(k).l.conflictRows ?? [seen.get(k).l.row], doc.row];
         }
@@ -2890,7 +2890,7 @@ function evaluate(prefix, events, ctx) {
       }
       const prev = merged.get(k);
       if (prev && (prev.conflicting || prev.repeatRows)) continue;
-      seen.set(k, { c, l });
+      seen.set(k, { c: c2, l });
       merged.set(k, l);
     }
   }
@@ -2915,8 +2915,8 @@ function evaluate(prefix, events, ctx) {
   }
   const link = /* @__PURE__ */ new Map(), ledLink = /* @__PURE__ */ new Map();
   const setA = (d, v) => link.set(amazonId(d), v), addL = (l, v) => {
-    const c = ledLink.get(ledgerKey(l)) ?? { level: null, amazon: [], note: null };
-    ledLink.set(ledgerKey(l), { ...c, ...v, amazon: uniq2([...c.amazon ?? [], ...v.amazon ?? []]) });
+    const c2 = ledLink.get(ledgerKey(l)) ?? { level: null, amazon: [], note: null };
+    ledLink.set(ledgerKey(l), { ...c2, ...v, amazon: uniq2([...c2.amazon ?? [], ...v.amazon ?? []]) });
   };
   for (const d of A) {
     const n = d.evidence.invoiceNumber, mk = d.parts["marketplace-id"];
@@ -3045,13 +3045,13 @@ function evaluate(prefix, events, ctx) {
     if (!l.operationDate) return { ok: false, why: ["the document has no operation date, so we cannot tell which Amazon report would show it"] };
     const why = [];
     for (const i of vidr) {
-      const c = clsOf(i.id), dd = i.declared ?? {}, r = [];
+      const c2 = clsOf(i.id), dd = i.declared ?? {}, r = [];
       if (dd.marketplace !== l.marketplace) r.push(`it is for marketplace ${dd.marketplace}`);
       if (!usableVidr(i)) r.push("it is not a complete all-statuses report");
-      else if (!(c.declared.rangeFrom <= l.operationDate && l.operationDate <= c.declared.rangeTo)) r.push(`its range ${c.declared.rangeFrom} to ${c.declared.rangeTo} does not contain the operation date ${l.operationDate}`);
+      else if (!(c2.declared.rangeFrom <= l.operationDate && l.operationDate <= c2.declared.rangeTo)) r.push(`its range ${c2.declared.rangeFrom} to ${c2.declared.rangeTo} does not contain the operation date ${l.operationDate}`);
       const rep = day(dd.createdAt) ?? day(dd.downloadedAt);
       if (!rep || rep < l.issueDate) r.push("it was not taken on or after the issue date of the document");
-      if (!r.length) return { ok: true, import: { id: i.id, fileName: i.fileName ?? null, range: `${c.declared.rangeFrom} to ${c.declared.rangeTo}` } };
+      if (!r.length) return { ok: true, import: { id: i.id, fileName: i.fileName ?? null, range: `${c2.declared.rangeFrom} to ${c2.declared.rangeTo}` } };
       why.push(`${i.fileName ?? i.id}: ${r.join("; ")}`);
     }
     return { ok: false, why: why.length ? why : ["no Amazon report has been loaded"] };
@@ -3154,9 +3154,9 @@ function project({ imports, events = [], sellerProfileId = "local" }) {
       if (!hist.has(key)) hist.set(key, []);
       hist.get(key).push({ k, importId: imp.id, fileName: imp.fileName ?? null, status: f.status, subtype: f.subtype, family: f.family, subject: f.subject, evidence: f.evidence, fingerprint: f.fingerprint, note: f.note ?? null });
     }
-    for (const [key, c] of ev.closed) {
+    for (const [key, c2] of ev.closed) {
       seen.add(key);
-      if (hist.has(key)) hist.get(key).push({ k, importId: imp.id, fileName: imp.fileName ?? null, status: "CLOSED", closure: c });
+      if (hist.has(key)) hist.get(key).push({ k, importId: imp.id, fileName: imp.fileName ?? null, status: "CLOSED", closure: c2 });
     }
     for (const [key, h] of hist) if (!seen.has(key) && h.at(-1).k !== k) h.push({ k, importId: imp.id, fileName: imp.fileName ?? null, status: "UNDETERMINED", note: "Not evaluated in this set of files." });
     for (const [key, fs] of ev.mismatchFields ?? []) ctx.prevMismatch.set(key, fs);
@@ -3531,7 +3531,7 @@ var b64 = (u8) => {
 };
 var unb64 = (s) => {
   try {
-    return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+    return Uint8Array.from(atob(s), (c2) => c2.charCodeAt(0));
   } catch {
     throw new VaultError("A stored value is not valid base64.", "CORRUPT");
   }
@@ -3554,8 +3554,8 @@ var recoveryToText = (u8) => {
 var recoveryFromText = (t) => {
   const s = String(t).replace(/[\s-]/g, "").toUpperCase();
   let bits = "";
-  for (const c of s) {
-    const i = B32.indexOf(c);
+  for (const c2 of s) {
+    const i = B32.indexOf(c2);
     if (i < 0) throw new VaultError("The recovery key has a character that is not allowed.", "BAD_RECOVERY");
     bits += i.toString(2).padStart(5, "0");
   }
@@ -3843,16 +3843,137 @@ async function migrateLegacy(vault, { now = () => (/* @__PURE__ */ new Date()).t
     throw new MigrationError("The migration stopped (" + (e?.name ?? "error") + "). The original data is still in place; run it again.", report);
   }
 }
+
+// src/loop/pilot.js
+init_buffer_shim();
+var isoDay3 = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+var days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5) + 1;
+var PILOT_MAX_DAYS = 92;
+var c = (id, status, detail) => ({ id, status, detail });
+function preflight({ vidrText, vidrDeclared = {}, ledgerText, profile, ledgerDeclared = {}, maxDays = PILOT_MAX_DAYS }) {
+  const checks = [], vd = vidrDeclared, ld = ledgerDeclared;
+  const t = parseTable(String(vidrText ?? ""));
+  checks.push(t.unsupported || !t.rows?.length ? c("SOURCE_TYPE", "FAIL", "The Amazon file is not a readable VAT invoice (VIDR) report, or it has no data rows.") : vd.reportType !== REPORT_TYPE ? c("SOURCE_TYPE", "FAIL", "It was not declared that this is the Amazon VAT invoice data report.") : c("SOURCE_TYPE", "PASS", `Amazon VAT invoice report with ${t.rows.length} data rows.`));
+  checks.push(vd.options === "ALL" ? c("REPORT_OPTIONS", "PASS", "Declared: all statuses.") : c("REPORT_OPTIONS", "FAIL", "The pilot needs the all-status report; pending-only or undeclared hides problems."));
+  let per;
+  if (!isoDay3(vd.rangeFrom) || !isoDay3(vd.rangeTo) || vd.rangeFrom > vd.rangeTo) per = c("PERIOD", "FAIL", "The Amazon report period is missing or reversed.");
+  else if (days(vd.rangeFrom, vd.rangeTo) > maxDays) per = c("PERIOD", "FAIL", `The period is ${days(vd.rangeFrom, vd.rangeTo)} days; the pilot is bounded to ${maxDays}.`);
+  else per = c("PERIOD", "PASS", `One period of ${days(vd.rangeFrom, vd.rangeTo)} days.`);
+  checks.push(per);
+  checks.push(isoDay3(ld.periodFrom) && isoDay3(ld.periodTo) && isoDay3(vd.rangeFrom) && isoDay3(vd.rangeTo) && ld.periodFrom <= vd.rangeFrom && ld.periodTo >= vd.rangeTo ? c("PERIOD_COVERAGE", "PASS", "The accounting export period covers the Amazon report period.") : c("PERIOD_COVERAGE", "FAIL", "The accounting export period is missing or does not cover the Amazon report period."));
+  checks.push(vd.marketplace && vd.marketplace === ld.marketplace ? c("MARKETPLACE", "PASS", "Both files are declared for the same marketplace.") : c("MARKETPLACE", "FAIL", "The marketplace is missing or differs between the two files."));
+  checks.push(ld.complete === true ? c("LEDGER_COMPLETE", "PASS", "Declared by the seller as a complete export of the period (not verified by this tool).") : c("LEDGER_COMPLETE", "FAIL", "The accounting export is not declared complete; missing-invoice findings would not be reliable."));
+  checks.push(vd.createdAfterUploadConfirmed === true && vd.createdAt ? c("REPORT_FRESH", "PASS", "Declared as created after the uploads, with its creation time.") : c("REPORT_FRESH", "WARN", "Not declared as created after the uploads; closure by evidence will not be possible."));
+  checks.push(ld.amazonScope?.mode === "UNKNOWN" ? c("AMAZON_SCOPE", "WARN", "It is not declared which accounting documents are Amazon sales.") : ["ALL", "CHANNEL"].includes(ld.amazonScope?.mode) ? c("AMAZON_SCOPE", "PASS", `Amazon scope declared (${ld.amazonScope.mode}).`) : c("AMAZON_SCOPE", "FAIL", "The Amazon scope of the accounting export is missing."));
+  const vp = vidrDoorProblems(String(vidrText ?? ""), vd), lp = ledgerDoorProblems(String(ledgerText ?? ""), profile, ld);
+  checks.push(vp.length || lp.length ? c("COMPATIBILITY", "FAIL", `${vp.length + lp.length} requirement(s) of the import door are not met (the door lists them when you import).`) : c("COMPATIBILITY", "PASS", "Both files pass the import door."));
+  if (!lp.length) {
+    const r = readLedger(String(ledgerText ?? ""), profile, {});
+    const n = r.documents?.length ?? 0, rej = r.rejected?.length ?? 0;
+    checks.push(!r.ok ? c("LEDGER_ROWS", "FAIL", "The accounting export could not be read with this column mapping.") : n + rej > LEDGER_MAX_ROWS ? c("LEDGER_ROWS", "FAIL", `More than ${LEDGER_MAX_ROWS} rows.`) : rej ? c("LEDGER_ROWS", "WARN", `${n} documents read, ${rej} rows rejected by the parser.`) : c("LEDGER_ROWS", "PASS", `${n} documents read, 0 rejected.`));
+  }
+  return { ready: !checks.some((x) => x.status === "FAIL"), checks, note: "Counts and fixed wording only. Declarations are the seller's, not verified." };
+}
+var ADJUDICATIONS = Object.freeze(["CONFIRMED_REAL", "FALSE_POSITIVE", "COULD_NOT_CONFIRM"]);
+var num = (v) => v === void 0 || v === null || v === "" ? null : Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v) * 10) / 10 : NaN;
+var KEY = "loop:pilot";
+function createPilotRecord(adapter, { now = () => (/* @__PURE__ */ new Date()).toISOString() } = {}) {
+  const read = async () => await adapter.get(KEY) ?? { v: 1, times: {}, adjudications: {}, missedBySeller: 0 };
+  const save = (r) => adapter.put(KEY, r);
+  return {
+    read,
+    async setTimes({ manualMinutesBefore, toolMinutesWith }) {
+      const a = num(manualMinutesBefore), b = num(toolMinutesWith);
+      if (Number.isNaN(a) || Number.isNaN(b)) throw new Error("Minutes must be numbers, zero or more.");
+      const r = await read();
+      r.times = { manualMinutesBefore: a, toolMinutesWith: b, basis: "SELLER_REPORTED", at: now() };
+      await save(r);
+    },
+    async adjudicate(issueKey2, outcome) {
+      if (!ADJUDICATIONS.includes(outcome)) throw new Error("Unknown outcome.");
+      if (!/^[0-9a-f]{64}$/.test(String(issueKey2))) throw new Error("Unknown finding.");
+      const r = await read();
+      r.adjudications[issueKey2] = outcome;
+      await save(r);
+    },
+    async setMissed(n) {
+      const m = num(n);
+      if (m === null || Number.isNaN(m) || !Number.isInteger(m)) throw new Error("Missed findings must be a whole number, zero or more.");
+      const r = await read();
+      r.missedBySeller = m;
+      await save(r);
+    }
+  };
+}
+var STR_OK = /* @__PURE__ */ new Set(["SELLER_REPORTED", "MACHINE_VERIFIED_BY_LATER_FILE", "aggregate-only", "pilot-1"]);
+function assertAggregateOnly(o, allowed = /* @__PURE__ */ new Set()) {
+  const walk = (x, path) => {
+    if (x === null || typeof x === "number" || typeof x === "boolean") return;
+    if (typeof x === "string") {
+      if (!(STR_OK.has(x) || allowed.has(x))) throw new Error(`Aggregate export refused: free text at ${path}`);
+      return;
+    }
+    if (Array.isArray(x)) return x.forEach((v, i) => walk(v, `${path}[${i}]`));
+    for (const [k, v] of Object.entries(x)) {
+      if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(k)) throw new Error(`Aggregate export refused: odd key at ${path}`);
+      walk(v, `${path}.${k}`);
+    }
+  };
+  walk(o, "$");
+  return true;
+}
+function aggregateMetrics({ projection, record, imports = [] }) {
+  const issues = projection.issues, adj = record.adjudications ?? {}, keys = new Set(issues.map((i) => i.key));
+  const by = (f) => issues.reduce((m, i) => {
+    const k = f(i);
+    m[k] = (m[k] ?? 0) + 1;
+    return m;
+  }, {});
+  const mine = Object.entries(adj).filter(([k]) => keys.has(k)).map(([, v]) => v), n = (v) => mine.filter((x) => x === v).length;
+  const real = n("CONFIRMED_REAL"), fp = n("FALSE_POSITIVE"), cnc = n("COULD_NOT_CONFIRM"), judged = real + fp;
+  const confirmedGaps = issues.filter((i) => adj[i.key] === "CONFIRMED_REAL" && ["BOOKS_GAP", "UNMATCHED_DOCUMENT"].includes(i.family)).length;
+  const t = record.times ?? {};
+  const out = {
+    pilotExportVersion: "pilot-1",
+    kind: "aggregate-only",
+    findings: { total: issues.length, byFamily: by((i) => i.family), byState: by((i) => i.state) },
+    sellerAdjudication: {
+      basis: "SELLER_REPORTED",
+      confirmedReal: real,
+      falsePositive: fp,
+      couldNotConfirm: cnc,
+      notYetReviewed: issues.length - mine.length,
+      precisionAmongReviewed: judged ? { value: Math.round(real / judged * 1e3) / 1e3, reviewed: judged } : null,
+      confirmedMissingInvoiceOrAccountingGap: confirmedGaps,
+      missedBySeller: record.missedBySeller ?? 0,
+      recallComputable: false
+    },
+    cannotDetermine: (projection.buckets?.cannotDetermine ?? 0) + (projection.buckets?.needsHumanReading ?? 0),
+    resolvedBySubsequentImports: { basis: "MACHINE_VERIFIED_BY_LATER_FILE", count: projection.buckets?.closedWithEvidence ?? 0 },
+    sellerReportedResolved: { basis: "SELLER_REPORTED", count: projection.buckets?.reportedResolvedBySeller ?? 0 },
+    time: t.basis ? { basis: "SELLER_REPORTED", manualMinutesBefore: t.manualMinutesBefore, toolMinutesWith: t.toolMinutesWith, minutesSaved: Math.round((t.manualMinutesBefore - t.toolMinutesWith) * 10) / 10 } : null,
+    imports: { amazonReports: imports.filter((i) => i.kind === "vidr").length, accountingExports: imports.filter((i) => i.kind === "ledger").length },
+    sampleSize: { sellers: 1, note: "one seller, one period; no market-wide claim" }
+  };
+  out.sampleSize.note = "SELLER_REPORTED";
+  const allowed = /* @__PURE__ */ new Set([...Object.keys(out.findings.byFamily), ...Object.keys(out.findings.byState)]);
+  assertAggregateOnly(out, allowed);
+  return out;
+}
 export {
+  ADJUDICATIONS,
   FIELDS,
   Refused,
   VaultError,
   VaultLocked,
+  aggregateMetrics,
   createLoopStore,
+  createPilotRecord,
   createVault,
   detectLedgerMapping,
   indexedDbAdapter,
   legacyKeys,
   memoryAdapter,
-  migrateLegacy
+  migrateLegacy,
+  preflight
 };

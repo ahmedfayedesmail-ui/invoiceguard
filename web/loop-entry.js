@@ -4,3 +4,4 @@ export { detectLedgerMapping, FIELDS } from '../src/loop/ledger.js';
 export { indexedDbAdapter, memoryAdapter } from '../src/history.js';
 export { createVault, VaultError, VaultLocked } from '../src/loop/vault.js';
 export { migrateLegacy, legacyKeys } from '../src/loop/migrate.js';
+export { preflight, createPilotRecord, aggregateMetrics, ADJUDICATIONS } from '../src/loop/pilot.js';

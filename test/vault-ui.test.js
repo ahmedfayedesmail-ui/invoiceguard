@@ -120,3 +120,24 @@ test('vault page: delete one import (with impact shown), encrypted backup, delet
     assert.deepEqual(t.errors, []);
   } finally { await t.close(); }
 });
+
+test('pilot panel in real Chrome: preflight, seller-reported numbers stay in the vault, aggregate file has no sensitive value, still zero network', { timeout: 150000, skip }, async () => {
+  const t = await boot(); nFiles = 0;
+  try {
+    const { page } = t; await makeVault(page); await load(page, 'fixtures/loop/p2-vidr.tsv', 'fixtures/loop/p2-ledger-1.csv'); t.requests.length = 0;
+    await page.waitForSelector('#p-runpre'); await click(page, 'Run preflight on the loaded files');
+    const pre = await page.$eval('#p-pre', e => e.innerText); console.log('PILOT PREFLIGHT (UI):', pre.replace(/\n+/g, ' | ').slice(0, 400));
+    for (const s of SECRETS) assert.ok(!pre.includes(s), 'preflight shows a file value: ' + s);
+    assert.ok(/PASS/.test(pre) && /Amazon VAT invoice report/.test(pre), 'preflight ran');
+    await setv(page, '#p-before', '180'); await setv(page, '#p-with', '25'); await setv(page, '#p-missed', '1'); await click(page, 'Save times and count');
+    const sel = await page.$('select[data-adj]'); await page.select('select[data-adj]', 'CONFIRMED_REAL'); await sleep(500);
+    await click(page, 'Create aggregate results file'); await sleep(500);
+    const agg = await page.$eval('#p-out', e => e.textContent), m = JSON.parse(agg);
+    console.log('PILOT AGGREGATE (UI):', JSON.stringify(m).slice(0, 500));
+    assert.equal(m.kind, 'aggregate-only'); assert.equal(m.time.minutesSaved, 155); assert.equal(m.sellerAdjudication.confirmedReal, 1); assert.equal(m.time.basis, 'SELLER_REPORTED');
+    for (const s of [...SECRETS, 'imp-', 'fileName']) assert.ok(!agg.includes(s), 'aggregate leaks: ' + s); void sel;
+    const keys = await idb(page); assert.ok(!JSON.stringify(keys).includes('manualMinutesBefore') && !JSON.stringify(keys).includes('SELLER_REPORTED'), 'pilot numbers readable in real IndexedDB');
+    const stray = t.requests.filter(u => !u.startsWith('blob:') && !u.startsWith('data:')); assert.equal(stray.length, 0, 'network during pilot panel: ' + stray.join(','));
+    assert.deepEqual(t.errors, []);
+  } finally { await t.close(); }
+});

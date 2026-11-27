@@ -1,4 +1,4 @@
-import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys } from '/local/loop-engine.js';
+import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflight, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
 const $ = (s) => document.querySelector(s);
 const el = (t, props = {}, ...kids) => { const e = document.createElement(t); for (const [k, v] of Object.entries(props)) k === 'class' ? (e.className = v) : k === 'onclick' ? e.addEventListener('click', v) : e.setAttribute(k, v); for (const x of kids.flat()) if (x != null) e.append(x.nodeType ? x : String(x)); return e; };
 const baseline = new Set(performance.getEntriesByType('resource').map(r => r.name));
@@ -26,7 +26,7 @@ $('#vfile').addEventListener('change', async (ev) => {
   box.append(el('button', { onclick: async () => {
     const iso = (v) => v ? new Date(v + (v.length === 16 ? ':00' : '') + 'Z').toISOString() : '';
     const declared = { reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', options: $('#v-opt').value, marketplace: $('#v-mkt').value, rangeFrom: $('#v-from').value, rangeTo: $('#v-to').value, createdAt: iso($('#v-created').value), createdAfterUploadConfirmed: cb.checked, downloadedAt: iso($('#v-down').value), obtainedHow: $('#v-how').value, dateOrderConfirmed: 'DD/MM/YYYY' };
-    try { await store.addVidr({ text, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); await render(); } catch (e) { refused(e); }
+    try { await store.addVidr({ text, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); await render(); await pilotPanel(); } catch (e) { refused(e); }
   } }, 'Confirm and store'));
   form.append(box);
 });
@@ -58,7 +58,7 @@ $('#lfile').addEventListener('change', async (ev) => {
     const columns = Object.fromEntries(Object.entries(sel).filter(([, s]) => s.value).map(([k, s]) => [k, s.value]));
     const profile = { delimiter: m.delimiter, columns, constantKind: kindSel.value || null, dateOrder: dates.value, decimal: dec.value, thousands: '', unknownColumnsAcknowledged: true, confirmed: true };
     const declared = { exportedAt: exp.value ? new Date(exp.value + (exp.value.length === 16 ? ':00' : '') + 'Z').toISOString() : undefined, sourceSystem: sys.value, marketplace: mkt.value, periodFrom: pf.value, periodTo: pt.value, documentKinds: kinds.value ? [kinds.value] : [], documentLevel: level.value === 'DOCUMENT' || level.value === 'LINE' ? level.value : undefined, complete: complete.value === '' ? undefined : complete.value === 'yes', amazonScope: { mode: scope.value, channelValues: chv.value.split(',').map(x => x.trim()).filter(Boolean) } };
-    try { await store.addLedger({ text, profile, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); await render(); } catch (e) { refused(e); }
+    try { await store.addLedger({ text, profile, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); await render(); await pilotPanel(); } catch (e) { refused(e); }
   } }, 'Confirm and store'));
   form.append(box);
 });
@@ -66,7 +66,7 @@ $('#lfile').addEventListener('change', async (ev) => {
 const GROUPS = [['Needs action', i => i.state === 'ACTION_REQUIRED'], ['Needs a human reading', i => i.state === 'OPEN'], ['In progress, waiting for a newer file', i => i.state === 'AWAITING_NEW_EVIDENCE'], ['Reported resolved by you, not confirmed by a file', i => i.state === 'MANUALLY_REPORTED_RESOLUTION'], ['Closed, with evidence from a newer file', i => i.state === 'VERIFIED_CLOSED']];
 async function ask(issue, type, extra = {}) {
   const author = prompt('Your name or role (any name you choose):'); if (!author) return; const reasoning = prompt('Your reasoning, in words:'); if (!reasoning) return;
-  try { await store.addEvent({ type, issueKey: issue.key, author, reasoning, ...extra }); await render(); } catch (e) { refused(e); }
+  try { await store.addEvent({ type, issueKey: issue.key, author, reasoning, ...extra }); await render(); await pilotPanel(); } catch (e) { refused(e); }
 }
 function cardNode(i) {
   const c = i.card, n = el('div', { class: 'card', 'data-state': i.state, 'data-family': i.family, 'data-key': i.key });
@@ -77,7 +77,7 @@ function cardNode(i) {
   if (i.state !== 'VERIFIED_CLOSED') {
     const b = el('div', {});
     if (i.state === 'ACTION_REQUIRED') b.append(el('button', { class: 'alt', onclick: () => ask(i, 'ACTION_STARTED') }, 'I started this'), ' ');
-    if (i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'PROPOSED_LINK_UNCONFIRMED') for (const d of ['CONFIRM', 'REJECT']) b.append(el('button', { class: 'alt', onclick: async () => { const author = prompt('Your name or role:'), reasoning = author && prompt('Your reasoning, in words:'); if (!reasoning) return; try { await store.addEvent({ type: 'LINK_DECISION', ledgerKey: i.subject.ledgerKey, amazonId: i.finding.evidence.candidate.amazonId, decision: d, author, reasoning }); await render(); } catch (e) { refused(e); } } }, d === 'CONFIRM' ? 'Confirm link' : 'Reject link'), ' ');
+    if (i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'PROPOSED_LINK_UNCONFIRMED') for (const d of ['CONFIRM', 'REJECT']) b.append(el('button', { class: 'alt', onclick: async () => { const author = prompt('Your name or role:'), reasoning = author && prompt('Your reasoning, in words:'); if (!reasoning) return; try { await store.addEvent({ type: 'LINK_DECISION', ledgerKey: i.subject.ledgerKey, amazonId: i.finding.evidence.candidate.amazonId, decision: d, author, reasoning }); await render(); await pilotPanel(); } catch (e) { refused(e); } } }, d === 'CONFIRM' ? 'Confirm link' : 'Reject link'), ' ');
     if (i.family === 'DATA_MISMATCH' && i.subtype === 'FIELDS_DIFFER') b.append(el('button', { class: 'alt', onclick: () => ask(i, 'DIFFERENCE_EXPLAINED') }, 'Declare: difference explained'));
     const kind = i.family === 'UNMATCHED_DOCUMENT' ? 'NOT_AN_AMAZON_SALE' : i.family === 'BOOKS_GAP' ? 'RESOLUTION_DECLARED' : null;
     if (kind && !(i.family === 'UNMATCHED_DOCUMENT' && i.subtype !== 'NO_CANDIDATE')) b.append(el('button', { class: 'alt', onclick: () => ask(i, 'RESOLUTION_DECLARED', { kind }) }, kind === 'NOT_AN_AMAZON_SALE' ? 'Declare: not an Amazon sale' : 'Declare: resolved'));
@@ -89,7 +89,7 @@ function cardNode(i) {
 async function delImport(x) {
   try { const m = await store.deletionImpact(x.id), n = (o) => Object.entries(o).map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
     if (!confirm(`Delete ${x.fileName ?? x.id}?\n\nThis removes: the stored file and its declarations; problems that exist only because of it (${n(m.issuesDisappearing)}); ${m.issuesChanging} other problem(s) will change because this file no longer counts; your notes on the removed problems (${n(m.eventsRemoved)}).\nThis keeps: ${m.importsRemaining} other file(s) and your other notes. Copies you downloaded are not touched.\nIt cannot be undone unless you have a backup.`)) return;
-    await store.deleteImport(x.id, { confirmed: true }); say('Deleted ' + (x.fileName ?? x.id) + '.'); await render(); } catch (e) { refused(e); }
+    await store.deleteImport(x.id, { confirmed: true }); say('Deleted ' + (x.fileName ?? x.id) + '.'); await render(); await pilotPanel(); } catch (e) { refused(e); }
 }
 async function render() {
   const r = await store.project(), out = $('#results'); out.replaceChildren();
@@ -134,13 +134,30 @@ async function showGate(note = '') {
   }
   window.__gateReady = true;
 }
+async function pilotPanel() {
+  const rec = createPilotRecord(vault.adapter), r0 = await rec.read(), imps = await store.imports(), proj = await store.project(), box = $('#pilot');
+  const t = r0.times ?? {}, mi = inp('p-before', 'number', t.manualMinutesBefore ?? ''), wi = inp('p-with', 'number', t.toolMinutesWith ?? ''), ms = inp('p-missed', 'number', String(r0.missedBySeller ?? 0));
+  const pre = el('div', { id: 'p-pre', class: 'small' });
+  const runPre = el('button', { class: 'alt', id: 'p-runpre', onclick: () => { const v = [...imps].reverse().find(i => i.kind === 'vidr'), l = [...imps].reverse().find(i => i.kind === 'ledger');
+    if (!v || !l) { pre.replaceChildren(el('p', { class: 'err' }, 'Load one Amazon report and one accounting export first.')); return; }
+    const x = preflight({ vidrText: v.text, vidrDeclared: v.declared, ledgerText: l.text, profile: l.profile, ledgerDeclared: l.declared });
+    pre.replaceChildren(el('p', {}, el('span', { class: 'badge ' + (x.ready ? 'b-ok' : 'b-bad') }, x.ready ? 'Ready for the pilot' : 'Not ready: fix the FAIL lines')), ...x.checks.map(c => el('p', { class: 'kv' }, el('span', { class: 'badge ' + (c.status === 'PASS' ? 'b-ok' : c.status === 'WARN' ? 'b-warn' : 'b-bad') }, c.status), ' ' + c.detail))); } }, 'Run preflight on the loaded files');
+  const saveT = el('button', { class: 'alt', id: 'p-savet', onclick: async () => { try { await rec.setTimes({ manualMinutesBefore: mi.value, toolMinutesWith: wi.value }); await rec.setMissed(ms.value); say('Pilot numbers saved (encrypted, in the vault).'); } catch (e) { say(e.message, true); } } }, 'Save times and count');
+  const rows = proj.issues.map(i => { const sel = el('select', { 'data-adj': i.key }, el('option', { value: '' }, 'not reviewed'), ...[['CONFIRMED_REAL', 'confirmed real'], ['FALSE_POSITIVE', 'false positive'], ['COULD_NOT_CONFIRM', 'could not confirm']].map(([v, tx]) => { const o = el('option', { value: v }, tx); if (r0.adjudications?.[i.key] === v) o.selected = true; return o; }));
+    sel.addEventListener('change', async () => { if (sel.value) await rec.adjudicate(i.key, sel.value); say('Saved. This is your statement, shown as seller-reported.'); }); return el('tr', {}, el('td', {}, `${i.family} / ${i.subtype}`), el('td', {}, i.subject?.number ?? i.subject?.orderId ?? ''), el('td', {}, sel)); });
+  const out = el('pre', { id: 'p-out', class: 'small' });
+  const mk = el('button', { class: 'alt', id: 'p-export', onclick: async () => { try { const m = aggregateMetrics({ projection: await store.project(), record: await rec.read(), imports: await store.imports() }); const txt = JSON.stringify(m, null, 2); out.textContent = txt; download('invoiceguard-pilot-aggregate.json', m); say('Aggregate file created. It holds numbers and fixed words only. Read it before you send it to anyone.'); } catch (e) { say(e.message, true); } } }, 'Create aggregate results file');
+  box.replaceChildren(el('h3', {}, 'Pilot measurement'), el('p', { class: 'small mut' }, 'Everything here stays in this vault. The results file has numbers only: no order ids, document numbers, dates or file names. Times and adjudications are your statements and are labelled seller-reported.'),
+    runPre, pre, el('div', { class: 'row' }, field('Minutes of manual investigation before', mi), field('Minutes with InvoiceGuard', wi), field('Real problems you found another way that the tool did not show', ms)), saveT,
+    proj.issues.length ? el('table', {}, el('tr', {}, el('th', {}, 'Finding'), el('th', {}, 'Reference'), el('th', {}, 'Your check')), ...rows) : el('p', { class: 'small mut' }, 'No findings to review yet.'), mk, out);
+}
 async function enter() {
   store = createLoopStore(vault.adapter); gate.hidden = true; gate.replaceChildren();
   let note = '';
   try { if ((await legacyKeys(raw)).length) { const r = await migrateLegacy(vault); note = `Moved ${r.migrated} earlier unencrypted record(s) into the vault and removed the originals after checking them.` + (r.unreadable.length || r.conflicts.length ? ` ${r.unreadable.length + r.conflicts.length} could not be moved and were kept untouched.` : ''); } } catch (e) { note = 'Moving earlier data into the vault stopped: ' + e.message; }
   const s = await store.settings(); vault.setAutoLock(s.autoLockMinutes * 60000);
   try { const r = await store.applyRetention(); if (r.deleted.length) note += ` Retention removed ${r.deleted.length} file(s) older than your limit.`; } catch (e) { note += ' ' + e.message; }
-  $('#app').hidden = false; await bars(); await render(); if (note) say(note); window.__loopReady = true;
+  $('#app').hidden = false; await bars(); await render(); await pilotPanel(); if (note) say(note); window.__loopReady = true;
 }
 async function bars() {
   const s = await store.settings();
