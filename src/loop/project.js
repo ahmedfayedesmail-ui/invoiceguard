@@ -69,16 +69,22 @@ function evaluate(prefix, events, ctx) {
   }
   const usableVidr = (i) => { const { defects } = importDefects.get(i.id); const c = clsOf(i.id); return !defects.length && c && c.declared.options === 'ALL'; };
 
-  const noteGroup = new Map(); const noteAdd = (reason, subject) => { const k = reason; if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] }); const g = noteGroup.get(k); g.count++; if (g.sample.length < 5) g.sample.push(subject); };
   // ---- Amazon side: ordinary invoices only ----
+  const noteGroup = new Map(); const noteAdd = (reason, subject) => { const k = reason; if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] }); const g = noteGroup.get(k); g.count++; if (g.sample.length < 5) g.sample.push(subject); };
   // is-amazon-invoiced is read from the field itself, never inferred from invoice-status. Rows of one shipment that disagree, or a value that is not TRUE or FALSE, are shown as undetermined and never become a confident finding.
   const amazonFlag = (d) => { const v = new Set((d.evidence.rows ?? []).map(r => String(r['is-amazon-invoiced'] ?? '').trim().toUpperCase())); if ([...v].some(x => !['TRUE', 'FALSE', ''].includes(x))) return 'UNREADABLE'; if (v.has('TRUE')) return v.size > 1 ? 'CONFLICT' : 'TRUE'; return v.has('FALSE') ? 'FALSE' : 'BLANK'; };
   // The field and invoice-status must agree. Field TRUE with a status other than InvoiceCreatedByAmazon, or field FALSE with InvoiceCreatedByAmazon, is a CONFLICT: shown as undetermined, never confident. A blank field falls back to the status.
   const ordinary = rec.docs.filter(d => d.parts['transaction-type'] === 'SHIPMENT' && !d.correction);
   const flagVsStatus = new Set(), flagged = new Map(ordinary.map(d => { const f = amazonFlag(d), byAmazon = d.state === 'CREATED_BY_AMAZON'; if ((f === 'TRUE' && !byAmazon) || (f === 'FALSE' && byAmazon)) flagVsStatus.add(d); return [d, f === 'TRUE' ? (byAmazon ? 'TRUE' : 'CONFLICT') : f === 'FALSE' ? (byAmazon ? 'CONFLICT' : 'FALSE') : f === 'BLANK' ? (byAmazon ? 'TRUE' : 'FALSE') : f]; }));
-  const A = ordinary.filter(d => flagged.get(d) === 'FALSE');
+  const A0 = ordinary.filter(d => flagged.get(d) === 'FALSE');
   const flagUndetermined = ordinary.filter(d => ['CONFLICT', 'UNREADABLE'].includes(flagged.get(d)));
-  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter(d => d.state === 'CREATED_BY_AMAZON').length - ordinary.filter(d => d.state === 'CREATED_BY_AMAZON' && flagged.get(d) !== 'TRUE').length + ordinary.filter(d => d.state !== 'CREATED_BY_AMAZON' && flagged.get(d) === 'TRUE').length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter(d => d.parts['transaction-type'] !== 'SHIPMENT' || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
+  // is-business-order is read from the field. TRUE: the order is eligible. FALSE: no judgment and no action against the seller. BLANK, an unreadable value, or rows of one shipment that disagree: no confident judgment, shown as undetermined with the missing evidence stated.
+  const businessFlag = (d) => { const v = new Set((d.evidence.rows ?? []).map(r => String(r['is-business-order'] ?? '').trim().toUpperCase())); if ([...v].some(x => !['TRUE', 'FALSE', ''].includes(x))) return 'UNREADABLE'; if (v.size > 1) return 'CONFLICT'; return v.has('TRUE') ? 'TRUE' : v.has('FALSE') ? 'FALSE' : 'BLANK'; };
+  const sellerSet = A0;
+  const bflag = new Map(sellerSet.map(d => [d, businessFlag(d)]));
+  const A = sellerSet.filter(d => bflag.get(d) === 'TRUE');
+  const bizUndetermined = sellerSet.filter(d => ['BLANK', 'UNREADABLE', 'CONFLICT'].includes(bflag.get(d)));
+  const stats = { amazonInvoices: A.length, nonBusinessOrders: sellerSet.filter(d => bflag.get(d) === 'FALSE').length, businessFlagUndetermined: bizUndetermined.length, createdByAmazon: rec.docs.filter(d => d.state === 'CREATED_BY_AMAZON').length - ordinary.filter(d => d.state === 'CREATED_BY_AMAZON' && flagged.get(d) !== 'TRUE').length + ordinary.filter(d => d.state !== 'CREATED_BY_AMAZON' && flagged.get(d) === 'TRUE').length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter(d => d.parts['transaction-type'] !== 'SHIPMENT' || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   // Closure after an action: if the seller recorded ACTION_STARTED before this report was loaded, only a report CREATED after that event can close the problem. Upload time never stands in for creation time; an unknown creation time is never evidence.
   const afterAction = (key, d) => { const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter(e => ms(e.createdAt) <= (ms(imp?.importedAt) ?? Infinity)); if (!acts.length) return true; const t = imp ? createdMs(imp) : null; return t !== null && t > Math.max(...acts.map(e => ms(e.createdAt))); };
   for (const d of flagUndetermined) {
@@ -86,6 +92,12 @@ function evaluate(prefix, events, ctx) {
     const why = flagVsStatus.has(d) ? `the is-amazon-invoiced column (${[...new Set((d.evidence.rows ?? []).map(r => String(r['is-amazon-invoiced'] ?? '').trim().toUpperCase()))].join('/')}) and invoice-status (${d.rawStatus}) disagree about whether Amazon issued the invoice` : flagged.get(d) === 'CONFLICT' ? 'the rows of this shipment disagree about whether Amazon issued the invoice' : 'the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE';
     put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp('IAS', id, 'AMZFLAG', flagged.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}.` });
     noteAdd(`Amazon invoice flag could not be read (${flagged.get(d)}): ${why}`, id);
+  }
+  for (const d of bizUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
+    const why = bflag.get(d) === 'BLANK' ? 'the is-business-order column is empty' : bflag.get(d) === 'CONFLICT' ? 'the rows of this shipment disagree about is-business-order' : 'the is-business-order column holds a value that is neither TRUE nor FALSE';
+    put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp('IAS', id, 'BIZFLAG', bflag.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}, so it cannot be told whether the order needs a seller invoice.` });
+    noteAdd(`is-business-order could not be read (${bflag.get(d)}): ${why}`, id);
   }
   for (const d of A) {
     const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
@@ -231,11 +243,13 @@ function evaluate(prefix, events, ctx) {
     if (!cov.ok) { put(key, { family: 'BOOKS_GAP', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: base, fingerprint: fp('BG', id, 'NOCOV', cov.why), note: 'Absence from the books cannot be concluded: ' + cov.why.join(' | ') }); noteAdd('Absence from the books cannot be concluded: ' + cov.why[0].replace(/^[^:]*: /, ''), id); continue; }
     put(key, { family: 'BOOKS_GAP', subtype: number ? 'NUMBER_AT_AMAZON_NOT_IN_BOOKS' : 'NOT_IN_BOOKS', status: 'PRESENT', subject, evidence: { ...base, coverage: cov.import }, fingerprint: fp('BG', id, number, d.state, d.evidence.rows), safeAction: true });
   }
+  const heldOutNum = new Set(sellerSet.filter(d => bflag.get(d) !== 'TRUE' && d.evidence.invoiceNumber).map(d => d.parts['marketplace-id'] + '|' + d.evidence.invoiceNumber)), heldOutOrder = new Set(sellerSet.filter(d => bflag.get(d) !== 'TRUE').map(d => d.parts['marketplace-id'] + '|' + d.parts['order-id']));
   // ---- UNMATCHED_DOCUMENT (ledger side) ----
   for (const l of Le) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, 'UNMATCHED_DOCUMENT', 'L:' + lk), L = ledLink.get(lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, orderRef: l.orderRef, issueDate: l.issueDate };
     const ev = { sources: [ledgerEvidence(l)], document: { number: l.number, issueDate: l.issueDate, orderRef: l.orderRef, operationDate: l.operationDate } };
     if (l.conflicting) continue; // reported as DUPLICATE_DOCUMENT
+    if (!ledLink.get(lk)?.level && (heldOutNum.has(l.marketplace + '|' + l.number) || heldOutOrder.has(l.marketplace + '|' + l.orderRef))) { noteAdd('This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing', lk); continue; }
     if (L?.level === 'CONFIRMED') { const a = A.find(x => amazonId(x) === L.amazon[0]); closed.set(key, { why: `Amazon shows the same number (${l.number}) on one transaction.`, sources: a ? [vidrEvidence(a)] : [], importId: a?.current.importId }); continue; }
     if (L?.level === 'DECLARED') { put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'PROPOSED_LINK_UNCONFIRMED', status: 'PRESENT', declared: { event: L.event }, subject, evidence: ev, fingerprint: fp('UD', lk, 'DECLARED', L.amazon, L.event.id ?? L.event.createdAt), safeAction: true }); continue; }
     if (L?.level === 'PROPOSED') { const a = A.find(x => amazonId(x) === L.amazon[0]); put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'PROPOSED_LINK_UNCONFIRMED', status: 'PRESENT', subject, evidence: { ...ev, candidate: { amazonId: L.amazon[0], sources: a ? [vidrEvidence(a)] : [] } }, fingerprint: fp('UD', lk, 'PROPOSED', l.raw, L.amazon, a?.evidence.rows), safeAction: true }); continue; }
