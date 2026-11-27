@@ -16,3 +16,5 @@ Counts are local. This list is for Ahmed's decisions. Nothing here was changed b
 13. Percent-unit rates (21 instead of 0.21) are not compared, only noted.
 
 Update: 5c6b681 fixed repeated header columns (CI 46070907097 success). Header/column ambiguity beyond exact repeated names (e.g. aliases mapping to the same field) was not probed.
+
+Flake note (00:35, local): vault-ui.test.js repeated 3 more times with a 30 s outer limit: 2 passed (6/6), 1 hit the outer 30 s limit with no result read (the file's normal run time is close to that limit, so this proves nothing either way). Risk 8 stays open, cause unproven.
