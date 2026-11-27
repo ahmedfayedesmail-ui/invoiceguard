@@ -33,9 +33,9 @@ export function ledgerDoorProblems(text, profile, d = {}) {
 
 /** A seller statement is orphaned when the problem it is about is gone, or (a link decision) when taking it away changes nothing in the results. */
 const sig = (r) => JSON.stringify(r.issues.map(i => [i.key, i.state, i.fingerprint]).sort());
-function orphanedEvents(events, after, imports, pid) {
+function orphanedEvents(events, after, imports, pid, deletions = []) {
   const keys = new Set(after.issues.map(i => i.key)), base = sig(after);
-  return events.filter(e => e.type === 'LINK_DECISION' ? sig(project({ imports, events: events.filter(x => x !== e), sellerProfileId: pid })) === base : !keys.has(e.issueKey));
+  return events.filter(e => e.type === 'LINK_DECISION' ? sig(project({ imports, events: events.filter(x => x !== e), sellerProfileId: pid, deletions })) === base : !keys.has(e.issueKey));
 }
 export function createLoopStore(adapter, { now = () => new Date().toISOString() } = {}) {
   const key = (k, id) => `loop:${k}:${id}`;
@@ -55,7 +55,9 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
     },
     async imports() { return list('import'); },
     async events() { return list('event'); },
-    async project() { return project({ imports: await this.imports(), events: await this.events(), sellerProfileId: await this.profileId() }); },
+    /** The permanent record of deleted imports: which file, when, why, and which problems it touched. It never holds file content. */
+    async deletions() { return list('deletion'); },
+    async project() { return project({ imports: await this.imports(), events: await this.events(), sellerProfileId: await this.profileId(), deletions: await this.deletions() }); },
     /** Records what the seller said. It checks the event against the current projection and refuses what the problem does not accept. It never writes a state. */
     async addEvent(e) {
       const ev = { ...e, createdAt: e.createdAt ?? now() }, bad = eventShapeProblem(ev); if (bad) throw new Refused([bad]);
@@ -65,6 +67,7 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
         if (!hit) throw new Refused(['There is no open proposal for that pair of documents, so there is nothing to confirm or reject.']);
       } else {
         const issue = r.issues.find(i => i.key === ev.issueKey); if (!issue) throw new Refused(['That problem is not in the current results.']);
+        if (issue.placeholder) throw new Refused(['The history of that problem is incomplete because a file was deleted, so no new statement can be attached to it.']);
         if (issue.state === 'VERIFIED_CLOSED') throw new Refused(['That problem is already closed by evidence.']);
         if (DECLARATION_TYPES.includes(ev.type)) { const d = declarationProblem(ev, issue.family, issue.subtype); if (d) throw new Refused([d]); ev.basedOnFingerprint = issue.fingerprint; }
         else ev.basedOnFingerprint = issue.fingerprint;
@@ -73,14 +76,14 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
     },
     /** Evidence bundle: inputs, events, and the projection with what each closure rests on. No field adds declared resolutions to evidence-closed ones. */
     async bundle() {
-      const r = await this.project(), imports = await this.imports(), events = await this.events();
+      const r = await this.project(), imports = await this.imports(), events = await this.events(), deletions = await this.deletions();
       const b = r.buckets;
       return { bundleVersion: 1, kind: 'problem-loop', loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId: r.sellerProfileId, createdAt: now(),
         matchedByInvoiceNumberMeaning: 'Matched by invoice number means an Amazon transaction and an accounting document carry the same document number. For each such pair the currency and the buyer tax id are compared where both sides state them exactly, and all differences of a pair are shown in one problem. The invoice total (the Amazon report states the item price, not the invoice total), net and VAT amounts, dates, line items and tax rates are not compared in this version.',
         note: 'State of the loaded files on the dates they were loaded. Anything marked declared was said by the seller and is not confirmed by a file. No statement here is about the legal position of any document.',
         imports: imports.map(i => ({ id: i.id, kind: i.kind, fileName: i.fileName, sha256: i.sha256, importedAt: i.importedAt, declared: i.declared, profile: i.profile ?? null, text: i.text })),
-        events, headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },
-        issues: r.issues.map(i => ({ key: i.key, family: i.family, subtype: i.subtype, state: i.state, closureBasis: i.outcome, episodes: i.episodes, history: i.history, events: i.events, declaration: i.declaration, lapsedDeclarations: i.lapsedDeclarations, closure: i.closure, card: i.card })),
+        events, deletions, headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },
+        issues: r.issues.map(i => ({ key: i.key, family: i.family, subtype: i.subtype, state: i.state, closureBasis: i.outcome, episodes: i.episodes, history: i.history, events: i.events, declaration: i.declaration, lapsedDeclarations: i.lapsedDeclarations, closure: i.closure, historyIncomplete: i.historyIncomplete ?? false, priorRecordedState: i.priorRecordedState ?? null, deletedImports: i.deletedImports ?? [], recordedBeforeDeletion: i.recordedBeforeDeletion ?? null, card: i.card })),
         coverageNotes: r.coverageNotes, rejectedEvents: r.rejectedEvents.map(x => ({ reason: x.reason, type: x.event.type })), notCheckedInThisVersion: r.notCheckedInThisVersion };
     },
     async deleteEverything() { await adapter.clear(); },
@@ -96,25 +99,30 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
     },
     /** What deleting this import would do, computed from the data, nothing is changed. */
     async deletionImpact(importId) {
-      const imports = await this.imports(), events = await this.events(), target = imports.find(i => i.id === importId); if (!target) throw new Refused(['That import is not stored.']);
-      const pid = await this.profileId(), before = project({ imports, events, sellerProfileId: pid }), rest = imports.filter(i => i.id !== importId), after = project({ imports: rest, events, sellerProfileId: pid });
-      const orphans = orphanedEvents(events, after, rest, pid), ak = new Map(after.issues.map(i => [i.key, i]));
+      const imports = await this.imports(), events = await this.events(), deletions = await this.deletions(), target = imports.find(i => i.id === importId); if (!target) throw new Refused(['That import is not stored.']);
+      const pid = await this.profileId(), before = project({ imports, events, sellerProfileId: pid, deletions }), rest = imports.filter(i => i.id !== importId), after = project({ imports: rest, events, sellerProfileId: pid, deletions });
+      const ak = new Map(after.issues.map(i => [i.key, i]));
+      const touched = before.issues.filter(i => !i.placeholder && (i.history.some(h => h.import === importId) || !ak.has(i.key) || ak.get(i.key).state !== i.state || ak.get(i.key).fingerprint !== i.fingerprint));
       const gone = before.issues.filter(i => !ak.has(i.key)), changed = before.issues.filter(i => ak.has(i.key) && (ak.get(i.key).state !== i.state || ak.get(i.key).fingerprint !== i.fingerprint));
       const tally = (xs, f) => xs.reduce((m, x) => { const k = f(x); m[k] = (m[k] ?? 0) + 1; return m; }, {});
-      return { import: { id: target.id, kind: target.kind, fileName: target.fileName, importedAt: target.importedAt, sha256: target.sha256 }, issuesDisappearing: tally(gone, i => i.family), issuesChanging: changed.length, eventsRemoved: tally(orphans, e => e.type), eventsKept: events.length - orphans.length, importsRemaining: rest.length,
-        removes: ['the stored file text and its declarations and mapping profile', 'every problem that exists only because of this file (computed, not stored, so nothing else to erase)', 'the seller statements attached to those problems (listed above)'], keeps: ['all other imports', 'seller statements on problems that still exist', 'any copy you downloaded (evidence bundle or backup) outside this page'] };
+      const record = { import: { id: target.id, kind: target.kind, fileName: target.fileName ?? null, importedAt: target.importedAt, sha256: target.sha256 },
+        affected: touched.map(i => ({ key: i.key, family: i.family, subtype: i.subtype, subject: i.subject, recordedState: i.state, recordedEpisodes: i.episodes.map(e => ({ from: e.from, fromFile: e.fromFile, to: e.to })), recordedHistory: i.history.map(h => ({ import: h.import, file: h.file, status: h.status, note: h.note })) })) };
+      return { import: record.import, issuesDisappearing: tally(gone, i => i.family), issuesChanging: changed.length, findingsMarkedHistoryIncomplete: touched.length, importsRemaining: rest.length, record,
+        removes: ['the stored file text and its declarations and mapping profile'], keeps: ['a permanent record of this deletion: file name, kind, hash, time, reason and the problems it touched (never the file content)', 'every problem that existed because of this file, shown as HISTORY_INCOMPLETE with what was recorded before', 'the seller statements attached to those problems', 'all other imports', 'any copy you downloaded (evidence bundle or backup) outside this page'] };
     },
-    /** Deletes the import, then the seller statements that no longer attach to anything. Needs {confirmed:true}. Import first: an interruption leaves orphaned statements, never a lost import and never a half-deleted file. */
-    async deleteImport(importId, { confirmed = false } = {}) {
+    /** Records the deletion permanently, deletes the import, then the seller statements that no longer attach to anything. Needs {confirmed:true}. The record is written first: an interruption leaves a record for a file that is still there, never a lost trace. */
+    async deleteImport(importId, { confirmed = false, reason = 'SELLER_DELETED' } = {}) {
       if (confirmed !== true) throw new Refused(['Deleting needs your confirmation after you have seen what it removes.']); if (!adapter.del) throw new Refused(['This storage cannot delete single records.']);
-      const impact = await this.deletionImpact(importId); await adapter.del(key('import', importId));
-      const imports = await this.imports(), events = await this.events(), pid = await this.profileId(), after = project({ imports, events, sellerProfileId: pid });
-      let removed = 0; for (const e of orphanedEvents(events, after, imports, pid)) { await adapter.del(key('event', e.id)); removed++; }
-      return { ...impact, deleted: true, eventsDeleted: removed };
+      if (typeof reason !== 'string' || !reason.trim() || reason.length > 200) throw new Refused(['The reason for a deletion is a short text of at most 200 characters.']);
+      const impact = await this.deletionImpact(importId), at = now(), rec = { id: `del-${at.replace(/\D/g, '').slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, deletedAt: at, reason: reason.trim(), ...impact.record };
+      await adapter.put(key('deletion', rec.id), rec); await adapter.del(key('import', importId));
+      const imports = await this.imports(), events = await this.events(), pid = await this.profileId(), deletions = await this.deletions(), after = project({ imports, events, sellerProfileId: pid, deletions });
+      let removed = 0; for (const e of orphanedEvents(events, after, imports, pid, deletions)) { await adapter.del(key('event', e.id)); removed++; }
+      return { ...impact, deleted: true, deletionId: rec.id, eventsDeleted: removed };
     },
     /** Imports older than the retention days. Only ever acts when the seller turned retention on and confirmed. */
     async retentionPreview(asOf = now()) { const s = await this.settings(); if (s.retention.mode !== 'AFTER_DAYS') return { enabled: false, due: [] }; const cut = Date.parse(asOf) - s.retention.days * 86400000; return { enabled: true, days: s.retention.days, due: (await this.imports()).filter(i => Date.parse(i.importedAt) < cut).map(i => ({ id: i.id, kind: i.kind, fileName: i.fileName, importedAt: i.importedAt })) }; },
-    async applyRetention(asOf = now()) { const p = await this.retentionPreview(asOf), done = []; for (const i of p.due) { await this.deleteImport(i.id, { confirmed: true }); done.push(i.id); } return { enabled: p.enabled, deleted: done }; },
+    async applyRetention(asOf = now()) { const p = await this.retentionPreview(asOf), done = []; for (const i of p.due) { await this.deleteImport(i.id, { confirmed: true, reason: 'RETENTION_POLICY' }); done.push(i.id); } return { enabled: p.enabled, deleted: done }; },
   };
   return api;
 }

@@ -58,8 +58,11 @@ test('deletion: impact is shown first, confirmation is required, the import and 
   await assert.rejects(() => s.deleteImport(ledger.id), Refused); await assert.rejects(() => s.deleteImport(ledger.id, { confirmed: 'yes' }), Refused);
   const done = await s.deleteImport(ledger.id, { confirmed: true }); assert.equal(done.deleted, true);
   assert.deepEqual((await s.imports()).map(i => i.id), [vidr.id]); const rest = JSON.stringify(await s.project());
-  assert.ok(!rest.includes(ledger.sha256) && !rest.includes('acme-books'), 'nothing derived from the deleted file remains in the results');
-  const all = JSON.stringify(await Promise.all((await v.adapter.list()).map(k => v.adapter.get(k)))); assert.ok(!all.includes(ledger.sha256) && !all.includes('acme-books'), 'nor in any stored record');
+  // Changed with the import-deletion-history fix: the CONTENT of the deleted file is gone everywhere; a permanent deletion record keeps only metadata (file name, kind, hash, time, reason, affected problems) so the past cannot be forged.
+  const body = ledger.text.split('\n').filter(l => l.trim()).at(-1);
+  assert.ok(!rest.includes(body), 'no content of the deleted file remains in the results');
+  const all = JSON.stringify(await Promise.all((await v.adapter.list()).map(k => v.adapter.get(k)))); assert.ok(!all.includes(body), 'nor in any stored record');
+  const rec = (await s.deletions()); assert.equal(rec.length, 1); assert.equal(rec[0].import.sha256, ledger.sha256); assert.ok(!('text' in rec[0].import) && !('declared' in rec[0].import));
   for (const k of (await v.adapter.list())) assert.ok(!k.startsWith('loop:import:' + ledger.id), 'record gone');
   await assert.rejects(() => s.deletionImpact('imp-nope'), Refused);
 });

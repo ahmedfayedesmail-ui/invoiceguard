@@ -1,5 +1,5 @@
 // Action cards. Every sentence is built from a template and values taken from the evidence. No wording states the legal position of a document or of the seller.
-const STATE_LABEL = { OPEN: 'Needs a human reading', ACTION_REQUIRED: 'Action required', AWAITING_NEW_EVIDENCE: 'Waiting for new evidence', VERIFIED_CLOSED: 'Closed, with evidence', MANUALLY_REPORTED_RESOLUTION: 'Reported resolved by you, not confirmed by the files' };
+const STATE_LABEL = { HISTORY_INCOMPLETE: 'History incomplete (a file was deleted)', OPEN: 'Needs a human reading', ACTION_REQUIRED: 'Action required', AWAITING_NEW_EVIDENCE: 'Waiting for new evidence', VERIFIED_CLOSED: 'Closed, with evidence', MANUALLY_REPORTED_RESOLUTION: 'Reported resolved by you, not confirmed by the files' };
 const mkt = (s) => s?.marketplace ?? 'the declared marketplace';
 export function buildCard(i) {
   const s = i.subject ?? {}, e = i.finding?.evidence ?? {}, t = i.subtype;

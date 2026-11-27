@@ -271,7 +271,7 @@ function evaluate(prefix, events, ctx) {
 }
 
 /** @param {{imports:object[], events?:object[], sellerProfileId?:string}} input */
-export function project({ imports, events = [], sellerProfileId = 'local' }) {
+export function project({ imports, events = [], sellerProfileId = 'local', deletions = [] }) {
   const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: new Map(), rowIdx: new Map(), actions: new Map(), prevMismatch: new Map() };
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) { const p = eventShapeProblem(e); if (p) rejectedEvents.push({ event: e, reason: p }); else goodEvents.push(e); }
@@ -319,10 +319,26 @@ export function project({ imports, events = [], sellerProfileId = 'local' }) {
     issue.card = buildCard(issue);
     issues.push(issue);
   }
+  // ---- Deleted imports: the content may be gone, the trace is not. Every finding whose history passed through a deleted import carries a permanent marker; none silently reverts, none silently disappears. ----
+  const byKey = new Map();
+  for (const d of [...deletions].sort((a, b) => String(a.deletedAt).localeCompare(String(b.deletedAt)) || String(a.id).localeCompare(String(b.id)))) for (const a of d.affected ?? []) { if (!byKey.has(a.key)) byKey.set(a.key, []); byKey.get(a.key).push({ d, a }); }
+  for (const [key, list] of byKey) {
+    const first = list[0].a, deletedImports = list.map(({ d }) => ({ deletionId: d.id, importId: d.import.id, fileName: d.import.fileName ?? null, kind: d.import.kind, deletedAt: d.deletedAt, reason: d.reason }));
+    const recorded = { state: first.recordedState, episodes: first.recordedEpisodes ?? [], history: first.recordedHistory ?? [] }, wasClosed = list.some(({ a }) => a.recordedState === 'VERIFIED_CLOSED');
+    let issue = issues.find(i => i.key === key);
+    if (!issue) {
+      issue = { key, family: first.family, subtype: first.subtype, state: 'HISTORY_INCOMPLETE', outcome: null, awaiting: null, subject: first.subject, reopened: false, episodes: [], history: [], events: goodEvents.filter(e => e.issueKey === key).map(e => ({ id: e.id ?? null, type: e.type, kind: e.kind ?? null, author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })), lapsedDeclarations: [], declaration: null, section: null, label: null, fingerprint: null, closure: null, placeholder: true, finding: { evidence: null, note: null, lastSeen: true } };
+      issues.push(issue);
+    }
+    Object.assign(issue, { historyIncomplete: true, deletedImports, priorRecordedState: first.recordedState, recordedBeforeDeletion: recorded });
+    if (wasClosed && issue.state !== 'VERIFIED_CLOSED') { issue.priorRecordedState = 'VERIFIED_CLOSED'; issue.state = 'HISTORY_INCOMPLETE'; issue.outcome = null; issue.awaiting = null; }
+    issue.card = buildCard(issue);
+    issue.card.stateNote = `History incomplete: ${deletedImports.map(x => `${x.fileName ?? x.importId} was deleted on ${x.deletedAt} (${x.reason})`).join('; ')}. Before the deletion this problem was recorded as ${first.recordedState}${recorded.history.length ? ' with history ' + recorded.history.map(h => `${h.status}@${h.file ?? h.import}`).join(', ') : ''}. What the file showed is no longer available, so the earlier state cannot be re-checked.` + (issue.card.stateNote ? ' ' + issue.card.stateNote : '');
+  }
   issues.sort((a, b) => a.key.localeCompare(b.key));
   const count = (s) => issues.filter(i => i.state === s).length;
   const buckets = { matchedByInvoiceNumber: last.stats.matchedByInvoiceNumber ?? 0, inProgressAtAmazon: last.stats.processing ?? 0, needsActionNow: count('ACTION_REQUIRED'), needsHumanReading: issues.filter(i => i.state === 'OPEN' && i.section !== 'LEDGER_DATA_QUALITY').length, ledgerDataQuality: issues.filter(i => i.section === 'LEDGER_DATA_QUALITY').length, awaitingNewEvidence: count('AWAITING_NEW_EVIDENCE'),
-    cannotDetermine: last.notes.reduce((n, g) => n + g.count, 0), reportedResolvedBySeller: count('MANUALLY_REPORTED_RESOLUTION'), closedWithEvidence: count('VERIFIED_CLOSED') };
+    historyIncomplete: issues.filter(i => i.historyIncomplete).length, cannotDetermine: last.notes.reduce((n, g) => n + g.count, 0), reportedResolvedBySeller: count('MANUALLY_REPORTED_RESOLUTION'), closedWithEvidence: count('VERIFIED_CLOSED') };
   return { loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId, issues, buckets, coverageNotes: last.notes, stats: last.stats, rejectedEvents, notCheckedInThisVersion: NOT_CHECKED_IN_THIS_VERSION,
     imports: ordered.map(i => ({ id: i.id, kind: isLedger(i) ? 'ledger' : 'vidr', fileName: i.fileName ?? null, importedAt: i.importedAt, descriptor: descriptor(i), defects: last.importDefects.get(i.id)?.defects ?? [], scopeNotes: last.importDefects.get(i.id)?.scopeNotes ?? [] })) };
 }

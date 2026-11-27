@@ -75,7 +75,7 @@ $('#lfile').addEventListener('change', async (ev) => {
   form.append(box);
 });
 
-const GROUPS = [['Needs action', i => i.state === 'ACTION_REQUIRED'], ['Needs a human reading', i => i.state === 'OPEN'], ['In progress, waiting for a newer file', i => i.state === 'AWAITING_NEW_EVIDENCE'], ['Reported resolved by you, not confirmed by a file', i => i.state === 'MANUALLY_REPORTED_RESOLUTION'], ['Closed, with evidence from a newer file', i => i.state === 'VERIFIED_CLOSED']];
+const GROUPS = [['Needs action', i => i.state === 'ACTION_REQUIRED'], ['Needs a human reading', i => i.state === 'OPEN'], ['In progress, waiting for a newer file', i => i.state === 'AWAITING_NEW_EVIDENCE'], ['Reported resolved by you, not confirmed by a file', i => i.state === 'MANUALLY_REPORTED_RESOLUTION'], ['Closed, with evidence from a newer file', i => i.state === 'VERIFIED_CLOSED'], ['History incomplete, a file was deleted', i => i.state === 'HISTORY_INCOMPLETE']];
 async function ask(issue, type, extra = {}) {
   const author = prompt('Your name or role (any name you choose):'); if (!author) return; const reasoning = prompt('Your reasoning, in words:'); if (!reasoning) return;
   try { await store.addEvent({ type, issueKey: issue.key, author, reasoning, ...extra }); await render(); await pilotPanel(); } catch (e) { refused(e); }
@@ -100,7 +100,7 @@ function cardNode(i) {
 }
 async function delImport(x) {
   try { const m = await store.deletionImpact(x.id), n = (o) => Object.entries(o).map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
-    if (!confirm(`Delete ${x.fileName ?? x.id}?\n\nThis removes: the stored file and its declarations; problems that exist only because of it (${n(m.issuesDisappearing)}); ${m.issuesChanging} other problem(s) will change because this file no longer counts; your notes on the removed problems (${n(m.eventsRemoved)}).\nThis keeps: ${m.importsRemaining} other file(s) and your other notes. Copies you downloaded are not touched.\nIt cannot be undone unless you have a backup.`)) return;
+    if (!confirm(`Delete ${x.fileName ?? x.id}?\n\nThis removes: the stored file and its declarations. This keeps: a permanent record of this deletion (file name, time, hash, never the content); ${m.findingsMarkedHistoryIncomplete} problem(s) it touched will stay listed and be marked history incomplete; ${m.importsRemaining} other file(s) and your notes. Copies you downloaded are not touched.\nThe deletion cannot be undone unless you have a backup.`)) return;
     await store.deleteImport(x.id, { confirmed: true }); say('Deleted ' + (x.fileName ?? x.id) + '.'); await render(); await pilotPanel(); } catch (e) { refused(e); }
 }
 async function render() {
