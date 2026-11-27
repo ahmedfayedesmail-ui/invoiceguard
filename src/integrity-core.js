@@ -44,10 +44,11 @@ const upper = new Set(['currency', 'ship-country', 'ship-from-country', 'bill-co
 
 export function assessShipment(s) {
   const findings = [], notChecked = [], rows = s.src ?? [];
+  // One finding per (code, field) because that is the ledger key. Rows that share it are AGGREGATED, never dropped: every physical line keeps its own evidence entry in evidence.rows (its lines, amounts and reason, never raw tokens), and the explanation names every line.
   const add = (code, severity, resolution, field, lines, evidence, explanation, action, raw) => {
-    const key = code + '|' + field; let f = findings.find(x => x.k === key);
-    if (f) { for (const l of lines) if (!f.evidence.lines.includes(l)) f.evidence.lines.push(l); f.evidence.lines.sort((a, b) => a - b); f.raw.push(...raw); return; }
-    findings.push({ k: key, code, severity, resolution, evidence: { field, lines: [...new Set(lines)].sort((a, b) => a - b), ...evidence }, explanation, action, raw: [...raw] });
+    const key = code + '|' + field, entry = { lines: [...new Set(lines)].sort((a, b) => a - b), ...evidence}; let f = findings.find(x => x.k === key);
+    if (f) { for (const l of lines) if (!f.evidence.lines.includes(l)) f.evidence.lines.push(l); f.evidence.lines.sort((a, b) => a - b); f.evidence.rows.push(entry); if (!f.explanations.includes(explanation)) { f.explanations.push(explanation); f.explanation = f.explanations.join(' '); } f.raw.push(...raw); return; }
+    findings.push({ k: key, code, severity, resolution, evidence: { field, lines: [...entry.lines], ...evidence, rows: [entry] }, explanation, explanations: [explanation], action, raw: [...raw] });
   };
   const ln = (r) => r.line ?? 0;
   const NEW = 'Download the report again, or correct the value in your own copy, and upload it. Nothing can be approved for this by hand.';
@@ -113,7 +114,7 @@ export function assessShipment(s) {
   for (const [id, g] of byId) if (g.length > 1) add('DUPLICATE_ITEM_ROW', 'HOLD', 'NEW_EVIDENCE', 'order-item-id', g.map(ln), {}, `The same order-item-id appears on ${g.length} rows of this shipment (lines ${g.map(ln).join(', ')}), so the same item may be counted twice. Nothing was issued.`, NEW, [id]);
   for (const g of bySig.values()) if (g.length > 1) add('DUPLICATE_ITEM_ROW', 'HOLD', 'HUMAN_DECISION', 'row', g.map(ln), {}, `Lines ${g.map(ln).join(', ')} are identical in every cell and have no order-item-id. Two identical units can be legitimate, a repeated row is not, and the file cannot tell which.`, 'Check the order in Seller Central. If the order really has these identical units, record a decision with your reason. If not, upload a corrected report.', [g[0].sig, String(g.length)]);
   if ((s.orderShipments ?? 1) > 1) findings.push({ k: 'SPLIT', code: 'SPLIT_SHIPMENT', severity: 'INFO', resolution: null, evidence: { field: 'order-id', lines: rows.map(ln), shipments: s.orderShipments }, explanation: `This order has ${s.orderShipments} shipments in the file. They are kept separate and never merged.`, action: 'No action needed.', raw: [] });
-  const out = findings.map(({ k, raw, sentences, ...f }) => ({ ...f, fingerprint: sha([f.code, f.evidence.field, f.evidence.lines, raw]) }));
+  const out = findings.map(({ k, raw, sentences, explanations, ...f }) => ({ ...f, fingerprint: sha([f.code, f.evidence.field, f.evidence.lines, raw]) }));
   const verdict = out.some(f => f.severity === 'BLOCK') ? 'BLOCK' : out.some(f => f.severity === 'HOLD') ? 'HOLD' : 'CLEAR';
   return { verdict, findings: out, notChecked };
 }

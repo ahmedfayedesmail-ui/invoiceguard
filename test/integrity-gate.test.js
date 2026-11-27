@@ -298,3 +298,33 @@ test('review 7, append-only at the SQLite level: a recorded decision (and the hi
   await run(file(rowOf(0), rowOf(0)), db); await run(file(rowOf(0), rowOf(0, { sku: 'SKU-Z' })), db); // normal re-evaluation still works: history is only ever appended
   assert.ok(count(db, "SELECT count(*) c FROM integrity_history") >= 3);
 });
+
+// ---- Ahmed's review of PR #3 (22:47): multi-row aggregation of every finding keeps independent evidence per physical line. Written BEFORE the fix ----
+const MR = (n, over) => rowOf(0, { 'quantity-purchased': '1', 'order-item-id': String(700 + n), sku: 'SKU-M' + n, ...over });
+const evidenceOf = (db, code) => { const r = db.prepare('SELECT evidence, explanation, status FROM integrity_findings WHERE code=?').all(code); assert.equal(r.length, 1, code + ': one ledger row'); return { ev: JSON.parse(r[0].evidence), explanation: r[0].explanation, status: r[0].status }; };
+test('review 8, AMOUNT_INCONSISTENT on several rows through processReport: one finding, independent evidence per line, all visible in the held reason, the ledger and the preview', async () => {
+  const text = file(MR(1, { 'item-vat-incl-amount': '60.00' }), MR(2, { 'item-vat-incl-amount': '70.00' }), MR(3, { 'item-vat-incl-amount': '80.00' }));
+  const { db, out } = await run(text); assert.equal(out.errors.length, 0, JSON.stringify(out.errors)); assert.equal(out.uploaded, 0); assert.equal(out.held.length, 1); assert.equal(count(db, "SELECT count(*) c FROM invoices"), 0);
+  const { ev, explanation } = evidenceOf(db, 'AMOUNT_INCONSISTENT'); assert.equal(ev.rows.length, 3); assert.equal(new Set(ev.rows.map(r => r.lines[0])).size, 3, 'three physical lines');
+  assert.deepEqual(ev.rows.map(r => r.values.incl), ['60.00', '70.00', '80.00']); assert.ok(ev.rows.every(r => r.values.vat === '8.40' && r.values.excl === '40.00' && r.toleranceCents >= 1));
+  for (const r of ev.rows) { assert.ok(out.held[0].reason.includes(`line ${r.lines[0]}`), 'held reason names line ' + r.lines[0]); assert.ok(explanation.includes(`line ${r.lines[0]}`), 'stored explanation names line ' + r.lines[0]); }
+  const p = planUpload(text); assert.equal(p.held.length, 1); for (const r of ev.rows) assert.ok(p.held[0].reason.includes(`line ${r.lines[0]}`), 'preview names line ' + r.lines[0]);
+  await run(text, db); assert.equal(count(db, "SELECT count(*) c FROM integrity_findings WHERE code='AMOUNT_INCONSISTENT'"), 1, 'a re-run keeps one row'); assert.equal(evidenceOf(db, 'AMOUNT_INCONSISTENT').ev.rows.length, 3);
+});
+test('review 9, AMOUNT_RATE_MISMATCH on several rows through processReport: each line keeps its own VAT, net and rate', async () => {
+  const text = file(MR(1, { 'item-vat-amount': '5.00', 'item-vat-incl-amount': '45.00' }), MR(2, { 'item-vat-amount': '6.00', 'item-vat-incl-amount': '46.00' }));
+  const { db, out } = await run(text); assert.equal(out.errors.length, 0); assert.equal(out.uploaded, 0);
+  const { ev, explanation } = evidenceOf(db, 'AMOUNT_RATE_MISMATCH'); assert.equal(ev.rows.length, 2); assert.deepEqual(ev.rows.map(r => r.values.vat), ['5.00', '6.00']); assert.ok(ev.rows.every(r => r.values.excl === '40.00' && r.values.rate === '0.21'));
+  for (const r of ev.rows) assert.ok(explanation.includes(`line ${r.lines[0]}`) && out.held[0].reason.includes(`line ${r.lines[0]}`));
+});
+test('review 10, unreadable amounts on several rows: every line is kept, with the reason, and no raw token or personal value reaches the ledger', async () => {
+  const text = file(MR(1, { 'item-vat-amount': '8,4x' }), MR(2, { 'item-vat-amount': 'SECRET-ABC' }), MR(3, { 'item-vat-amount': '1,234' }));
+  const { db, out } = await run(text); assert.equal(out.uploaded, 0);
+  const { ev } = evidenceOf(db, 'AMOUNT_UNREADABLE'); assert.equal(ev.rows.length, 3); assert.ok(ev.rows.every(r => r.reason && r.lines.length === 1));
+  const dump = JSON.stringify(['integrity_findings', 'integrity_history'].map(t => db.prepare(`SELECT * FROM ${t}`).all())) + JSON.stringify(db.prepare("SELECT detail FROM events WHERE type='integrity' OR type='held'").all()); assert.ok(!/8,4x|SECRET-ABC|1,234/.test(dump), 'no raw token');
+});
+test('review 11, any finding merged over several rows keeps one evidence entry per line (quantity, date, duplicate ids)', () => {
+  const a = assessShipment(one(file(MR(1, { 'quantity-purchased': '0' }), MR(2, { 'quantity-purchased': 'x' }), MR(3, { 'shipment-date': '' }), MR(4, { 'shipment-date': '' })))); // note: shipment-date blank on two rows also conflicts, which is a BLOCK and is expected
+  const q = a.findings.find(f => f.code === 'QUANTITY_UNREADABLE'); assert.equal(q.evidence.rows.length, 2); assert.deepEqual(q.evidence.rows.map(r => r.lines[0]).sort(), [...q.evidence.lines].sort());
+  const d = a.findings.find(f => f.code === 'DATE_MISSING'); assert.equal(d.evidence.rows.length, 2);
+});
