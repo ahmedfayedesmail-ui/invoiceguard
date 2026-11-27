@@ -10,7 +10,7 @@ Layout
 - `gen.mjs`, `scenarios.mjs`: build sellers and the expected problems. They import nothing from `src/`, so the expected results do not depend on the engine.
 - `run.mjs`: loads each seller's files through the real engine (`detectLedgerMapping`, `preflight`, `createLoopStore`, `project`) and compares to the injected problems. Matching is by order id or document number.
 - `aggregate.py`, `analyze.py`: totals and drill-down.
-- `out/results.jsonl`: raw result per seller. `out/aggregate.txt`: totals. `out/failing-ids.json`: seller ids per failure category.
+- `out/results.jsonl`: raw result per seller. `out/aggregate.txt`: totals. `out/failing-ids.json`: seller ids per failure category, generated from results.jsonl by `python3 sim/failing-ids.py sim/out/results.jsonl > sim/out/failing-ids.json` (v1 file kept as failing-ids-v1.json, it does not match v2).
 
 Metric definitions (denominators are always stated)
 - Recall = detected injected problems / injected in-scope problems (normal cohort, excluding sellers whose own declaration is wrong).
@@ -28,3 +28,8 @@ Limits
 - The v1 aggregate's 85 of 926 mixed commercial findings with SOURCE_INCOMPLETE. 85 = 59 (Amazon-issued scenario) + 11 ambiguous-dates (harness defect: order dates outside the declared range, fixed) + 11 long-period + 4 malformed (SOURCE_INCOMPLETE source-state notices). The "93.6%" divided the commercial 59 by a denominator that included source notices. Now each confident finding is in exactly one bucket and every ratio prints its numerator, denominator and formula.
 - v1 files are kept: sim/out/results-v1.jsonl, aggregate-v1.txt, aggregate-v1.py. Same seed (0), same 500 sellers.
 - Stale-report round 2 is inconclusive by design and is not part of the closed-wrong headline.
+
+### Precision, three figures (v2)
+- Strict: confirmed-true / all confident commercial = 930/1135 = 81.9%.
+- Scored: true / (true + false) = 930/930 = 100%. It leaves out declaration-dependent (80), conflicting-evidence (28) and non-B2B (97) findings. Not quotable alone.
+- Decided: true / (true + false + conflicting) = 930/958 = 97.1%. The 28 conflicting-evidence findings count as errors. This is the figure that must be quoted.

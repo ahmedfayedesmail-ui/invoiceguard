@@ -6,6 +6,7 @@ CONFIDENT COMMERCIAL findings (state ACTION_REQUIRED, family other than SOURCE_I
   = true 930 + false 0 + declaration-dependent 80 + on conflicting evidence 28 + unscored non-B2B 97   (sum check: 1135 )
   precision, strict   = true / total                            = 930/1135 = 81.9%
   precision, scored   = true / (true + false)                   = 930/930 = 100.0%  (leaves out declaration-dependent, conflicting-evidence, non-B2B)
+  precision, decided  = true / (true + false + conflicting)      = 930/958 = 97.1%  (the 28 conflicting-evidence findings counted as errors; leaves out only declaration-dependent and non-B2B)
   false-confident rate on conflicting evidence =  28/28 = 100.0% (every confident finding there is wrong by definition)
 CONFIDENT SOURCE_INCOMPLETE findings (the file was refused or is unusable): 13 = expected 13 + unexpected 0 . These are data-quality results, not commercial claims, and are not in the precision above.
 per scenario, non-zero false / declaration-dependent / conflict / unexpected-source:

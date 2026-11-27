@@ -15,6 +15,7 @@ print('\nCONFIDENT COMMERCIAL findings (state ACTION_REQUIRED, family other than
 print('  = true', ctrue, '+ false', cfalse, '+ declaration-dependent', dd, '+ on conflicting evidence', ce, '+ unscored non-B2B', un, '  (sum check:', ctrue+cfalse+dd+ce+un, ')')
 print('  precision, strict   = true / total                            =', pct(ctrue, ct))
 print('  precision, scored   = true / (true + false)                   =', pct(ctrue, ctrue+cfalse), ' (leaves out declaration-dependent, conflicting-evidence, non-B2B)')
+print('  precision, decided  = true / (true + false + conflicting)      =', pct(ctrue, ctrue+cfalse+ce), ' (the 28 conflicting-evidence findings counted as errors; leaves out only declaration-dependent and non-B2B)')
 print('  false-confident rate on conflicting evidence = ', pct(ce, ce), '(every confident finding there is wrong by definition)')
 st_t, st_e, st_u = S(('source','total')), S(('source','expected')), S(('source','unexpected'))
 print('CONFIDENT SOURCE_INCOMPLETE findings (the file was refused or is unusable):', st_t, '= expected', st_e, '+ unexpected', st_u, '. These are data-quality results, not commercial claims, and are not in the precision above.')
