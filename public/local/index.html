@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>InvoiceGuard - check your Amazon report on this page only</title>
+<style>
+:root{--ink:#17202a;--mut:#5d6b78;--line:#dde3ea;--ok:#0b7a43;--bad:#b42318;--warn:#8a5a00;--bg:#f6f8fa}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+main{max-width:860px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;margin:8px 0}h2{font-size:18px;margin:24px 0 8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}.mut{color:var(--mut)}.small{font-size:14px}
+.badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:13px;font-weight:600}
+.b-ok{background:#e6f4ec;color:var(--ok)}.b-bad{background:#fdecea;color:var(--bad)}.b-warn{background:#fff4dc;color:var(--warn)}
+#drop{border:2px dashed #9fb0c0;border-radius:12px;padding:28px 16px;text-align:center;background:#fff;cursor:pointer}#drop.over{background:#eef5ff;border-color:#2563eb}
+#drop button{font:inherit;padding:10px 18px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-weight:600}
+.net{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.net b{font-size:22px}
+button.sm{font:inherit;font-size:13px;padding:3px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.err{color:var(--bad)}details{margin-top:6px}code{background:#eef1f4;padding:1px 5px;border-radius:4px}
+</style></head><body><main>
+<h1>Check your Amazon report on this page</h1>
+<p class="mut">Drop your Order Report or VAT Invoice Data Report (tab-delimited text). It is read by your browser only. This page is built so it cannot send anything out.</p>
+<div class="card net" id="netcard"><span class="badge b-ok">Stays on this page</span><span>Network requests made since the page loaded: <b id="netcount">0</b></span><details><summary class="small">How you can check this yourself</summary>
+<p class="small">The server sends this page with a rule (Content-Security-Policy: <code>connect-src 'none'</code>) that makes your browser refuse any network call from it. Open your browser's developer tools, Network tab, load a file, and nothing new appears. The counter above reads your browser's own request log.</p><div class="small" id="loaded"></div></details></div>
+<div id="drop" tabindex="0" role="button" aria-label="Choose report files"><p><b>Drop a report file here</b></p><p class="mut small">or</p><button type="button" id="pick">Choose file</button><input id="file" type="file" multiple accept=".txt,.tsv,.csv,text/plain,text/tab-separated-values" hidden></div>
+<div class="card small"><b>What this page does not do.</b> It does not check the buyer VAT number with the EU VIES service: the EU service does not accept calls from web pages, so that check needs a server and is switched off here. It does not see your seller invoices, so it cannot tell whether you already issued an invoice. It checks the file's own data (format, Spanish NIF control character, required fields). Invoices it renders are marked SAMPLE and are not valid documents.</div>
+<div id="out"></div>
+</main><script type="module" src="/local/page.js"></script></body></html>
