@@ -416,7 +416,7 @@ test('wording: the summary bucket is "matched by invoice number" and the bundle 
   const s = createLoopStore(memoryAdapter(), { now: clock() }); await s.addVidr({ text: F.V1, declared: F.VDECL('2026-11-20T10:00:00Z') }); await s.addLedger({ text: F.L1, profile: F.PROFILE, declared: F.LDECL() });
   const r = await s.project(), b = await s.bundle();
   assert.ok('matchedByInvoiceNumber' in r.buckets); assert.ok(!('fine' in r.buckets)); assert.ok('matchedByInvoiceNumber' in b.headline); assert.ok(!('fine' in b.headline));
-  assert.match(r.notCheckedInThisVersion.join(' '), /net and VAT amounts/); assert.match(b.matchedByInvoiceNumberMeaning, /Net and VAT amounts, dates, line items and tax rates are not examined/);
+  assert.match(r.notCheckedInThisVersion.join(' '), /the invoice total, net and VAT amounts/); assert.match(b.matchedByInvoiceNumberMeaning, /The invoice total .*net and VAT amounts, dates, line items and tax rates are not compared/);
 });
 test('door: an export time that is not a date is refused', async () => {
   const s = createLoopStore(memoryAdapter(), { now: clock() });
