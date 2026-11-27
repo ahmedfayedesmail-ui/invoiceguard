@@ -1,0 +1,44 @@
+base commit d4c17f523113cdd39b49cf943b4a5bad48cc44de. Each mutation is made in a throwaway worktree whose node_modules is a symlink, so each worktree is first rebuilt (node tools/build-local.mjs) to make bundle paths consistent, THEN mutated. The tests must FAIL on every mutation and PASS on the control. Local.
+== control: rebuilt, unmodified
+ok 1 - bundles: public/local/engine.js and loop-engine.js are exactly what node tools/build-local.mjs builds from the current sources
+ok 2 - web/engine-entry.js (source): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 3 - web/engine-entry.js (source): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 4 - web/engine-entry.js (source): a partial declaration still holds the order and names the missing column
+ok 5 - public/local/engine.js (committed bundle): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 6 - public/local/engine.js (committed bundle): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 7 - public/local/engine.js (committed bundle): a partial declaration still holds the order and names the missing column
+# pass 7
+# fail 0
+== M1: source behaviour edited (first UNDETERMINED literal in src/loop/project.js changed), bundle NOT rebuilt
+not ok 1 - bundles: public/local/engine.js and loop-engine.js are exactly what node tools/build-local.mjs builds from the current sources
+  error: 'STALE BUNDLE. STALE BUNDLE(S): public/local/loop-engine.js. Run: node tools/build-local.mjs, then commit the rebuilt files.'
+ok 2 - web/engine-entry.js (source): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 3 - web/engine-entry.js (source): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 4 - web/engine-entry.js (source): a partial declaration still holds the order and names the missing column
+ok 5 - public/local/engine.js (committed bundle): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 6 - public/local/engine.js (committed bundle): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 7 - public/local/engine.js (committed bundle): a partial declaration still holds the order and names the missing column
+# pass 6
+# fail 1
+== M2: web/engine-entry.js stops passing the declaration (bundle not rebuilt)
+not ok 1 - bundles: public/local/engine.js and loop-engine.js are exactly what node tools/build-local.mjs builds from the current sources
+  error: 'STALE BUNDLE. STALE BUNDLE(S): public/local/engine.js. Run: node tools/build-local.mjs, then commit the rebuilt files.'
+ok 2 - web/engine-entry.js (source): an Order Report without a declaration is HELD with the reason; nothing is ready
+not ok 3 - web/engine-entry.js (source): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 4 - web/engine-entry.js (source): a partial declaration still holds the order and names the missing column
+ok 5 - public/local/engine.js (committed bundle): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 6 - public/local/engine.js (committed bundle): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 7 - public/local/engine.js (committed bundle): a partial declaration still holds the order and names the missing column
+# pass 5
+# fail 2
+== M3: the committed bundle itself stops passing the declaration
+not ok 1 - bundles: public/local/engine.js and loop-engine.js are exactly what node tools/build-local.mjs builds from the current sources
+  error: 'STALE BUNDLE. STALE BUNDLE(S): public/local/engine.js. Run: node tools/build-local.mjs, then commit the rebuilt files.'
+ok 2 - web/engine-entry.js (source): an Order Report without a declaration is HELD with the reason; nothing is ready
+ok 3 - web/engine-entry.js (source): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 4 - web/engine-entry.js (source): a partial declaration still holds the order and names the missing column
+ok 5 - public/local/engine.js (committed bundle): an Order Report without a declaration is HELD with the reason; nothing is ready
+not ok 6 - public/local/engine.js (committed bundle): the seller declaration option reaches the engine: the same order becomes ready, with no hold
+ok 7 - public/local/engine.js (committed bundle): a partial declaration still holds the order and names the missing column
+# pass 5
+# fail 2
