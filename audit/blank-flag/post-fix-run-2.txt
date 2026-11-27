@@ -1,0 +1,12 @@
+fix commit: dc244293cfca6df8d2cb701df7225364df343e00 (local run)
+== non-browser
+# tests 551
+# pass 550
+# fail 0
+# todo 1
+== browser files individually after node tools/build-local.mjs: vault-ui 6/6, loop-ui 2/2, local-engine 7/7, history-idb 1/1
+== open spec outside the suite (fails by design)
+not ok 1 - stages: is-amazon-invoiced TRUE with invoice-status InvoicePending is a conflict; it must not be explained as "the seller must upload"
+not ok 2 - stages: a BLANK is-amazon-invoiced with InvoiceCreatedByAmazon must not be explained as "Amazon made this document"
+# pass 0
+# fail 2

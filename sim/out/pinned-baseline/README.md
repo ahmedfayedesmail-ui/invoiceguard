@@ -19,3 +19,4 @@ The golden hashes over four synthetic scenarios (test/golden) remain a separate 
 
 ## Added for the blank-flag fix
 - 982e3bd6ec94 (fix/blank-flag-unknown): rowsSha256 989762af..., aggregateSha256 b33e101e..., identical to 23d7e0f0c6c0 and 8665d523629a. Run with tools/repro-v5.sh from a clean checkout. The V5 harness has no scenario with a blank is-amazon-invoiced, so identity shows there is no collateral change, not that the blank fix works (the new tests do that).
+- dc244293cfca (fix/blank-flag-unknown, second round): rowsSha256 989762af..., aggregateSha256 b33e101e..., identical to 982e3bd6ec94, 23d7e0f0c6c0 and 8665d523629a. Same caveat: the V5 harness has no blank-flag scenario, so the identity shows no collateral change only.
