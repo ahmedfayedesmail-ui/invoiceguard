@@ -1,6 +1,6 @@
-# InvoiceGuard Problem Loop: audit, architecture, data model, phases (design v0.2, no code)
+# InvoiceGuard Problem Loop: audit, architecture, data model, phases (design v0.3)
 
-Status: proposal for review, merged with the critic's independent design. Nothing here is implemented. The Evidence Engine and docs/EVIDENCE-CONTRACT.md v1.5 are not changed by it.
+Status: v0.3 = v0.2 plus the critic's five edits, his D2 allowlist and his decisions on X1, X2, D4, D5, D6 and O1 (section 0.1). P1 is implemented against this document; later phases are not. The Evidence Engine and docs/EVIDENCE-CONTRACT.md v1.5 are not changed by it.
 
 ## 0. What changed from v0.1, and where this document disagrees with the critic
 
@@ -23,6 +23,22 @@ Disagreements, kept visible:
 - X3. Ledger-side absence. His 12 types have no type for "a document in the books that Amazon does not show", which Ahmed listed. I keep it, as a sub-type of UNMATCHED_DOCUMENT (no candidate), not as a separate family.
 - X4. Slice scope. I add SOURCE_INCOMPLETE and UNMATCHED_DOCUMENT to his first slice. Without them the slice would state absence from partial files.
 - X5. Seller identity in the key. He includes seller_id. A local-first store has no account. Section 8 proposes a local profile id and states the limit.
+
+### 0.1 v0.3 changes (critic's decisions and five edits)
+- E1. LINK_DECISION is named in 9.2: if a closing depends on a link the seller declared and no inspectable file confirms it, the result is MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED.
+- E2. The SOURCE_INCOMPLETE closure no longer accepts a declaration. A declaration can record something about a file's scope; it cannot prove that data we cannot see is absent. Closure needs a replacement import that is complete over the same scope.
+- E3. A document number match is confirmed only when it is unique and consistent with the source scope and the document kind. More than one candidate stays UNMATCHED_DOCUMENT.
+- E4. SOURCE_INCOMPLETE identity is the stable scope descriptor (source kind, source system, marketplace, period, document kinds), never the import hash, so a replacement import closes the same issue.
+- E5. An accounting document is treated as an Amazon sale only when the file or the record is declared as Amazon sales for the marketplace (a whole-file declaration, or a channel column with declared Amazon values). Without that, no books-gap or no-candidate conclusion is drawn: the result is cannot determine.
+- D2 allowlist (fixed): UNMATCHED_DOCUMENT takes NOT_AN_AMAZON_SALE (manual outcome only). BOOKS_GAP takes RESOLUTION_DECLARED (manual outcome only, until the document appears in a later accounting import). DATA_MISMATCH takes DIFFERENCE_EXPLAINED from P2 (manual outcome only). IDENTITY_ALIAS is a separate identity event. INVOICE_AMAZON_STATE, SOURCE_INCOMPLETE, CREDIT_NOTE_AMAZON_STATE and CORRECTION_PAIR_OPEN accept no human declaration. VERIFIED_CLOSED is an evidence-only outcome everywhere. (P1 implementation is stricter on one point: NOT_AN_AMAZON_SALE is accepted only for the NO_CANDIDATE sub-type.)
+- X1: cache allowed only if keyed by the fingerprint of all inputs plus engine and parser versions, a rebuild from zero equals the cached result, and it is never the reference for a closure decision.
+- X2: no review, note or screenshot produces VERIFIED_CLOSED. Evidence closes only if it is a file the engine reads, trustworthy data is extracted from it, and the closure predicate passes.
+- D4: zero tolerance through P3, minor units, both values and the difference shown; where the currency or comparison basis is unknown the result is Cannot Determine. Mismatch is not in P1.
+- D5: IDENTITY_ALIAS is allowed from the phase that needs it, append-only, keeping both identities with source and reason, shown as seller-declared, never merging two known permanent identities on the seller's word alone, no cycles, no conflict with a known identity, conflicting or unverifiable aliases stop for review, and an alias never closes a problem. P1 has no temporary identities, so P1 has no alias.
+- D6: no public deployment in P1. Local testing and redacted real files only. Any later deploy states that credit notes and correction pairs are not checked in that version.
+- O1: a new TransactionId does not close the old problem. Where order id and shipping id match, a possible replacement candidate may be shown without merging identities or closing anything. The architecture makes no claim about Amazon's behaviour here.
+- P1 narrowed: ordinary invoices only; no credit notes, no correction pairs, no mismatch. A comparison that would give a mismatch finding in P1 produces no card.
+- A derived AWAITING_NEW_EVIDENCE: for INVOICE_AMAZON_STATE, when the latest report shows the document as processing, the issue is AWAITING_NEW_EVIDENCE with basis "Amazon report shows processing". It rests on a report, not on a seller event.
 
 ## 1. Goal and non-goals
 
@@ -102,17 +118,18 @@ Finding           { family, subtype, subject, evidence[], safeAction?, closurePr
 Issue             { key, family, subject, episodes[], state, outcome }                      // derived
 ```
 
-Coverage (what a source may conclude): declared period, marketplaces, series, document kinds, and for VIDR the all-statuses declaration and non-truncation, as the engine already enforces. Rule, in the critic's words kept: presence in a partial file may prove presence; absence proves absence only when the source is complete, covers the relevant scope and covers the document kinds in question. An import with rejected rows, truncation, or an ambiguous mapping is not complete for any absence conclusion.
+Coverage (what a source may conclude): declared period, marketplaces, series, document kinds, and for VIDR the all-statuses declaration and non-truncation, as the engine already enforces. Amazon-sales proof (E5): a ledger import carries `amazonScope`: ALL (the seller declares every row is an Amazon sale for the declared marketplace), CHANNEL (a mapped channel column plus the declared values that mean Amazon; other rows are excluded and counted), or UNKNOWN. UNKNOWN allows presence-based linking but no absence conclusion about the ledger or about its documents.
+Rule, in the critic's words kept: presence in a partial file may prove presence; absence proves absence only when the source is complete, covers the relevant scope and covers the document kinds in question. An import with rejected rows, truncation, or an ambiguous mapping is not complete for any absence conclusion.
 
 ## 6. Matching
 
 No fuzzy matching. Ladder, each link records its method and level:
-1. Document number equality (trim whitespace only) against the VIDR invoice number: CONFIRMED.
+1. Document number equality (trim whitespace only) against the VIDR invoice number. CONFIRMED only when the match is unique (one ledger document with that number, one Amazon document with that number) and consistent with the source scope (ledger marketplace equals the Amazon document's marketplace, ledger declared as Amazon sales) and the document kind (ledger kind is invoice). More than one candidate on either side is UNMATCHED_DOCUMENT (multiple candidates), naming them.
 2. Amazon order id equality with the ledger order reference, one candidate on each side: PROPOSED. An order id match alone does not confirm a link. The seller confirms the proposal with a LINK_DECISION event (bulk confirmation of a listed set is one event naming each pair). A confirmed decision is a human declaration of identity, displayed as declared: a link that exists only by LINK_DECISION lets later findings run on it, marks them "declared link", and any closure that depends on it is MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED.
 3. Several candidates: UNMATCHED_DOCUMENT (multiple candidates), naming them.
 4. No match by amount, date or buyer, ever.
 
-Findings that need a link run on CONFIRMED links only. A subject with only a PROPOSED link is not reported as missing in books or as mismatched; it is reported as UNMATCHED_DOCUMENT with the candidate named and the action "confirm or reject this link".
+If a ledger document for the same order exists under a different number than Amazon shows, P1 draws no books-gap or no-candidate conclusion and records a coverage note, because the comparison belongs to a later phase (mismatch). Findings that need a link run on CONFIRMED links only. A subject with only a PROPOSED link is not reported as missing in books or as mismatched; it is reported as UNMATCHED_DOCUMENT with the candidate named and the action "confirm or reject this link".
 
 Field comparison on a confirmed pair: number (when linked by order id), gross, net, vat, currency, buyer tax id when both sides carry it. Equality in minor units, no tolerance in P1 to P3.
 
@@ -122,7 +139,7 @@ Eight families. The sub-type may change between imports without changing the iss
 
 | Family (critic's types it holds) | Sub-types | Closure predicate |
 |---|---|---|
-| SOURCE_INCOMPLETE (SOURCE_INCOMPLETE) | unreadable, truncated, rejected rows, ambiguous mapping, scope not declared, blank line in data | A complete replacement import for the same scope, or the declaration the contract allows. |
+| SOURCE_INCOMPLETE (SOURCE_INCOMPLETE) | unreadable, truncated, rejected rows, ambiguous mapping, scope not declared, blank line in data | A replacement import that is complete over the same scope descriptor (8). No declaration closes it. |
 | UNMATCHED_DOCUMENT (UNMATCHED_DOCUMENT; v0.1 LEDGER_DOC_NOT_IN_AMAZON, AMBIGUOUS_LINK) | no candidate (needs all-status VIDR covering the date and marketplace), proposed link unconfirmed, multiple candidates | A later import that supplies a number-equal link (closed with evidence). A seller's LINK_DECISION alone gives MANUALLY_REPORTED_RESOLUTION (9.2). |
 | DUPLICATE_DOCUMENT (DUPLICATE_DOCUMENT) | same identity twice with different content, true duplicate | A corrected source in which one document holds the identity. |
 | INVOICE_AMAZON_STATE (INVOICE_ACTION_REQUIRED, INVOICE_REJECTED) | action required (InvoicePending, NoTaxCalculated), rejected (with Amazon's description verbatim) | A newer all-status report where the engine reaches ACCEPTED for the subject through its gate. Reviews cannot close it. PROCESSING is not a sub-type. |
@@ -137,11 +154,17 @@ Not exceptions: PROCESSING (Amazon states no new action; shown in an "in progres
 
 Card content, from templates filled only with evidence values: what the problem is; why it appeared (the rule and the values compared); proof (file name, row numbers, raw cells); the safe action for the seller or accountant (plain instruction, no Seller Central path we have not verified); the evidence that will confirm it is solved; history. No wording that states the legal position of a document or of the seller.
 
+### 7.1 Coverage rules used by P1 (to be checked by the critic)
+- Import door: an import without its scope fields (VIDR: marketplace, range, options; ledger: source system, marketplace, period, document kinds, amazonScope, completeness declaration, confirmed mapping) is refused with the missing names and is not stored. Hence every stored import has a scope descriptor.
+- SOURCE_INCOMPLETE is raised only for defects: unreadable or unmapped columns, rejected rows, truncation, blank line in data, ragged rows, row dates outside the declared range, and missing declarations the engine needs for acceptance. A seller-declared partial export (completeness not declared) or a pending-only VIDR is not a defect: it limits what can be concluded and appears as a coverage note.
+- BOOKS_GAP for an Amazon document needs one ledger import that: has a confirmed mapping, no defects, completeness declared, amazonScope ALL or CHANNEL, the document's marketplace, kind invoice, period start on or before the shipment day and period end on or after both the shipment day and the day the VIDR report was taken. The card states that period.
+- UNMATCHED_DOCUMENT NO_CANDIDATE for a ledger document needs its operation date, and one complete all-status VIDR for the same marketplace whose declared range contains that date and whose report day is on or after the document's issue date. Without them: cannot determine.
+
 ## 8. Issue identity
 
 `issue_key = sha256(keyVersion + sellerProfileId + issueFamily + subjectIdentity)`
 
-subjectIdentity, Amazon side: marketplace, transaction type, transaction id verbatim, order id, shipping id, document role. Ledger side: source system plus source document id, or the composite issuer tax id, kind, series, number. Mismatch: the Amazon subject plus the ledger composite. Nothing else enters: no status, sub-type, amount, row number, file name, import date, description or order of display.
+subjectIdentity, Amazon side: marketplace, transaction type, transaction id verbatim, order id, shipping id, document role. Ledger side: source system plus source document id, or the composite issuer tax id, kind, series, number. SOURCE_INCOMPLETE: the scope descriptor `source kind | source system | marketplace | period | document kinds`, never the import hash. Mismatch: the Amazon subject plus the ledger composite. Nothing else enters: no status, sub-type, amount, row number, file name, import date, description or order of display.
 
 Temporary identity: a document without a reliable identifier (no number or source id, or a number that is not unique and cannot be told apart) is not given a permanent key. It receives a temporary key `tmp|importSha|rowHash`, marked TEMPORARY, shown as "unidentified document in file X", never as a named document. When reliable evidence later determines identity, an alias record (from temporary key, to permanent key, evidence) is written as derived or as a SellerEvent IDENTITY_ALIAS, the projection follows aliases, and the issue keeps its episodes and events. Stated limit: a temporary key is import-specific, so the same unidentified row in a re-exported file is a new temporary issue until aliased. That is the cost of not inventing an identity.
 
@@ -165,7 +188,7 @@ Rules: no button writes a state. The seller's controls write SellerEvents or imp
 Events order by their time; imports by effective time. A SellerEvent applies to the evidence recorded in `basedOn`. If a later import changes the rows that evidence names, the event no longer applies to the current evidence, stays in the history, and is shown as such.
 
 ### 9.2 MANUALLY_REPORTED_RESOLUTION (fifth outcome)
-Used when a RESOLUTION_DECLARED event exists for an issue whose closure predicate is not met by evidence, and the family allows a declared resolution (UNMATCHED_DOCUMENT no candidate, for example "not an Amazon sale"; DATA_MISMATCH with DIFFERENCE_EXPLAINED; SOURCE_INCOMPLETE where the contract allows a declaration). It means: the seller states this is resolved, here is the reasoning. It never means verified. Families that describe Amazon's state (INVOICE_AMAZON_STATE, CREDIT_NOTE_AMAZON_STATE, CORRECTION_PAIR_OPEN) accept no declared resolution at all.
+Used when a seller event exists that declares the issue resolved or its subject identified, the closure predicate is not met by evidence, and the family allows it by the D2 allowlist: RESOLUTION_DECLARED (BOOKS_GAP; NOT_AN_AMAZON_SALE for UNMATCHED_DOCUMENT; DIFFERENCE_EXPLAINED for DATA_MISMATCH from P2) and LINK_DECISION. LINK_DECISION is a declaration of identity: if a closing depends on a link the seller declared and no inspectable file confirms it, the result is MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED. It means: the seller states this is resolved, here is the reasoning. It never means verified. INVOICE_AMAZON_STATE, SOURCE_INCOMPLETE, CREDIT_NOTE_AMAZON_STATE and CORRECTION_PAIR_OPEN accept no declared resolution at all.
 Lapse: the declaration covers the rows it names. If a later import changes those rows, it lapses and the issue returns to ACTION_REQUIRED with the declaration kept.
 X2 stated: a human review with supporting evidence closes with evidence only when the supporting file is something the engine reads and a predicate evaluates. A note typed by a person, or a screenshot, is a declaration.
 UI: a separate count and separate wording ("reported resolved by you, not confirmed by files"), never added to "closed with evidence". Bundle: each issue carries `closureBasis` = `evidence` | `declaration` | null; the bundle headline lists verifiedClosed and manuallyReportedResolution as two separate numbers and no field sums them; each declaration is exported with author, time, reasoning, and the evidence it was based on.
@@ -179,7 +202,7 @@ One local page: drop files; the seller sees detected columns and confirms them; 
 Each phase ends with runnable code, tests, failure scenarios, evidence that results are right, and a statement of what was and was not done. No phase changes the Evidence Engine or its contract.
 
 - P0: this document.
-- P1, the critic's loop on ordinary invoices, read-only: all-status VIDR and an accounting invoice export; mapping profile with preview and confirmation; canonical model; matching (number confirmed, order id proposed); families SOURCE_INCOMPLETE, UNMATCHED_DOCUMENT, INVOICE_AMAZON_STATE, BOOKS_GAP; keys; derived lifecycle; SellerEvents ACTION_STARTED, RESOLUTION_DECLARED, LINK_DECISION; page; the loop end to end through "seller starts action, uploads a newer report, system closes only on evidence". Boundary: no credit notes, no corrections, no mismatch, no support files, no hosted route.
+- P1 (implemented), the critic's loop on ordinary invoices, read-only: all-status VIDR and an accounting invoice export; mapping profile with preview and confirmation; canonical model; matching (number confirmed, order id proposed); families SOURCE_INCOMPLETE, UNMATCHED_DOCUMENT, INVOICE_AMAZON_STATE, BOOKS_GAP; keys; derived lifecycle; SellerEvents ACTION_STARTED, RESOLUTION_DECLARED, LINK_DECISION; page; the loop end to end through "seller starts action, uploads a newer report, system closes only on evidence". Boundary: no credit notes, no corrections, no mismatch, no support files, no hosted route.
 - P2: DATA_MISMATCH and DUPLICATE_DOCUMENT; DIFFERENCE_EXPLAINED.
 - P3: credit notes and rectificativas: BOOKS_GAP and mismatch for credit notes, CREDIT_NOTE_AMAZON_STATE, DocumentLine for partial refunds.
 - P4: CORRECTION_PAIR_OPEN across books and engine cycles; comparison and export polish; performance at the 20,000-row cap.
@@ -203,9 +226,9 @@ Test classes:
 ## 13. Decisions and their status
 
 D1 OPEN versus ACTION_REQUIRED: settled by the critic's definition, adopted (9). Cannot-determine leaves the lifecycle.
-D2 Which declarations may close: settled that none closes with evidence; remaining open: the list of declaration kinds per family and their wording.
-D3 Order id linking before VIDR carries an invoice number: settled that it is a proposal and needs the seller's confirmation (6). Remaining open: whether agreement of gross and currency may ever replace the confirmation. Recommendation: no.
-D4 Amount tolerance: open. Recommendation: none in P1 to P3, difference shown with its size; line-level rounding rules decided with DocumentLine in P3.
-D5 Renumbering: partly settled by the temporary identity and alias rule; remaining open: whether a seller-declared IDENTITY_ALIAS is allowed. Recommendation: yes, displayed as declared, both numbers present in imports.
-D6 Static page deploy in P1: open. Settled only that P1 is read-only and local. Recommendation: no deploy until Main decides, and any deploy carries the "not checked in this version" line.
-Open question O1: after an INVOICE_REJECTED, if the replacement is uploaded under a different TransactionId, the subject identity changes. The closure predicate "same transaction" cannot be applied until a real file shows what Amazon does. Not guessed; P1 closes only when the same subject reaches ACCEPTED.
+D2 settled: the allowlist in 0.1.
+D3 settled: order-id linking is a proposal and needs the seller's confirmation (6). Agreement of gross and currency never replaces it.
+D4 settled: zero tolerance through P3 (0.1).
+D5 settled: IDENTITY_ALIAS with the controls in 0.1.
+D6 settled: no public deployment in P1 (0.1).
+O1 settled: VERIFIED_CLOSED only when the same subject reaches ACCEPTED. A different TransactionId does not close the old problem; with matching order id and shipping id it may be shown as a possible replacement, without merging or closing.
