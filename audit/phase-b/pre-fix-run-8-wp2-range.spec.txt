@@ -1,0 +1,41 @@
+✔ parseAmount property: random tokens never become a number by guessing (13.101881ms)
+✔ parseAmount property: every formatted amount reads back to exactly the same cents (separators, grouping, sign, huge values) (25.09313ms)
+✔ parseAmount: named hostile tokens are INVALID, a blank is MISSING, a real 0.00 is VALID zero (unknown never becomes zero) (0.692792ms)
+✔ property: one hostile amount in a random cell of a random row never issues (HOLD or INFO only), never changes the number, and is recorded in the ledger (280.2537ms)
+✔ property: combinations of several independent defects: any blocking defect means no invoice; the ledger holds one record per (code, field) and every evidence entry names one line (187.152459ms)
+✔ hostile text in personal fields never reaches the ledger, history or events and never crashes processing (23.892358ms)
+✔ reprocessing the same hostile or good report is idempotent: same ledger records, same invoices, no new uploads (40.959906ms)
+✔ a corrected file resolves the finding and issues once; the bad file coming back reopens it and holds again (evidence never disappears) (17.690065ms)
+✔ a human decision on one version of the evidence does not release a changed version (17.203363ms)
+✔ one shipment never gets two ordinary invoices across repeated, reordered and split-up reports (13.016912ms)
+✖ an amount beyond the exact-arithmetic limit is held (AMOUNT_OUT_OF_RANGE), never issued with a different number (0.820026ms)
+✔ fidelity property: every amount at or under the limit is issued with exactly the file gross, to the cent (554.591523ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1381.996185
+
+✖ failing tests:
+
+test at test/financial-adversarial.test.js:111:1
+✖ an amount beyond the exact-arithmetic limit is held (AMOUNT_OUT_OF_RANGE), never issued with a different number (0.820026ms)
+  AssertionError [ERR_ASSERTION]: []
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/financial-adversarial.test.js:113:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -135,3 +135,6 @@ Tests first, with the failing run committed as an artefact in `audit/phase-b/`, 
 
 ## 16. The correction replacement goes through the same gate (night mission WP1, Nov 27 23:12)
 `processCorrections` builds the replacement invoice of a billing-data correction from the buyer name, VAT number and address of the correction row. If the rows of that correction contradicted each other, the first row was used (found by a probe, reproduced by test/issuance-paths.test.js). The replacement is now held by `integrityGate` before anything is issued, with the same ledger and the same BLOCK. Credit notes (reversals) are built from the stored original invoice, not from the report amounts, and are unchanged. The refund/repair path is outside Stage 1 and is listed in the risks document.
+
+## 17. Precision limit (night mission WP2, Nov 27 23:16)
+The gate reads exact cents, the invoice builder adds in floating point. The lab showed that a gross of 149382714704938.26 was issued and uploaded as 149382714704938.28. Any cell above 999,999,999.99 is now held as AMOUNT_OUT_OF_RANGE (HOLD/NEW_EVIDENCE). This is a precision limit, not a business rule. Known gap left for a decision: a negative item/shipping amount in a shipment with a positive total is consistent and still issued (proposal R11, a todo test).

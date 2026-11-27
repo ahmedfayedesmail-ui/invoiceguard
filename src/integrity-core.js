@@ -37,6 +37,7 @@ const parseRate = (token) => { const t = String(token ?? '').trim(); const m = /
 const ISO = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/; // YYYY-MM-DD, or an ISO date-time with an explicit time zone. Nothing else (no DMY, no MDY, no zone-less time) until a source-specific format is documented and tested.
 export const SUPPORTED_CURRENCIES = Object.freeze(['EUR', 'GBP', 'PLN', 'SEK']); // two minor units each (ISO 4217). A fixed list, not a rule: any other currency is held until its minor units are verified and this list is widened on purpose.
 const isoMs = (v) => { const m = ISO.exec(String(v ?? '').trim()); if (!m) return null; const [y, mo, d] = [+m[1], +m[2], +m[3]], t = Date.UTC(y, mo - 1, d); const dt = new Date(t); if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null; const p = Date.parse(String(v).trim()); return Number.isNaN(p) ? null : p; };
+const MAX_CENTS = 99999999999n; // 999,999,999.99 per cell
 const QTY = /^[1-9]\d{0,8}$/;
 const PLAIN = new Set(['currency', 'shipment-date', 'ship-country', 'ship-from-country', 'bill-country', 'marketplace-id', 'invoice-status', 'buyer-tax-registration-type', 'order-id']); // everything else is buyer or seller data and is shown only as "value 1, value 2"
 const clean = (v) => String(v).replace(/[^\w:.+\- ]/g, '').slice(0, 40);
@@ -76,6 +77,9 @@ export function assessShipment(s) {
       }
       const rt = String(t.rate ?? '').trim(), rate = rt ? parseRate(rt) : null;
       if (rt && !rate) add('AMOUNT_UNREADABLE', 'HOLD', 'NEW_EVIDENCE', `${p}-vat-rate`, [ln(r)], { reason: 'not a plain decimal number' }, `The ${p}-vat-rate cell on line ${ln(r)} could not be read as a rate, so nothing was issued. It is never read as 0%.`, NEW, [rt]);
+      if (!ok) { totalKnown = false; continue; }
+      // Precision limit, not a business rule: the invoice builder adds in floating point, which is exact to the cent only far below this. A larger amount is held, never issued with a different number.
+      for (const k of ['incl', 'vat', 'excl']) { const c = A[k].cents; if ((c < 0n ? -c : c) > MAX_CENTS) { ok = false; add('AMOUNT_OUT_OF_RANGE', 'HOLD', 'NEW_EVIDENCE', names[k], [ln(r)], { reason: 'beyond the exact-arithmetic limit', limit: fmt(MAX_CENTS) }, `The ${names[k]} cell on line ${ln(r)} is larger than ${fmt(MAX_CENTS)}, which is beyond what this tool adds exactly to the cent, so nothing was issued.`, NEW, [String(c)]); } }
       if (!ok) { totalKnown = false; continue; }
       const incl = A.incl.cents, vat = A.vat.cents, excl = A.excl.cents; totalCents += incl; rowTot.set(ln(r), (rowTot.get(ln(r)) ?? 0n) + incl);
       const tol = p === 'item' && qty > 1 ? 2n : 1n, diff = incl - (excl + vat);

@@ -48939,6 +48939,7 @@ var isoMs = (v) => {
   const p = Date.parse(String(v).trim());
   return Number.isNaN(p) ? null : p;
 };
+var MAX_CENTS = 99999999999n;
 var QTY = /^[1-9]\d{0,8}$/;
 var PLAIN = /* @__PURE__ */ new Set(["currency", "shipment-date", "ship-country", "ship-from-country", "bill-country", "marketplace-id", "invoice-status", "buyer-tax-registration-type", "order-id"]);
 var clean = (v) => String(v).replace(/[^\w:.+\- ]/g, "").slice(0, 40);
@@ -48992,6 +48993,17 @@ function assessShipment(s) {
       }
       const rt = String(t.rate ?? "").trim(), rate = rt ? parseRate(rt) : null;
       if (rt && !rate) add("AMOUNT_UNREADABLE", "HOLD", "NEW_EVIDENCE", `${p}-vat-rate`, [ln(r)], { reason: "not a plain decimal number" }, `The ${p}-vat-rate cell on line ${ln(r)} could not be read as a rate, so nothing was issued. It is never read as 0%.`, NEW, [rt]);
+      if (!ok) {
+        totalKnown = false;
+        continue;
+      }
+      for (const k of ["incl", "vat", "excl"]) {
+        const c = A[k].cents;
+        if ((c < 0n ? -c : c) > MAX_CENTS) {
+          ok = false;
+          add("AMOUNT_OUT_OF_RANGE", "HOLD", "NEW_EVIDENCE", names[k], [ln(r)], { reason: "beyond the exact-arithmetic limit", limit: fmt(MAX_CENTS) }, `The ${names[k]} cell on line ${ln(r)} is larger than ${fmt(MAX_CENTS)}, which is beyond what this tool adds exactly to the cent, so nothing was issued.`, NEW, [String(c)]);
+        }
+      }
       if (!ok) {
         totalKnown = false;
         continue;
