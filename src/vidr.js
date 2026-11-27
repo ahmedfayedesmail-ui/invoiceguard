@@ -16,18 +16,35 @@ const bool = (x) => String(x).toUpperCase() === 'TRUE';
 export const readFlag = (values) => { const v = new Set([].concat(values).map(x => String(x ?? '').trim().toUpperCase())); return v.size === 1 && v.has('TRUE') ? true : v.size === 1 && v.has('FALSE') ? false : null; };
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-export function parseTsv(text) {
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
-  if (!lines.length) return [];
-  const head = lines[0].split('\t').map(h => h.trim().toLowerCase());
-  return lines.slice(1).map(l => { const c = l.split('\t'); return Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim()])); });
+// Row integrity. A raw newline inside a text cell splits one report row into physical lines, and each piece looks like a row. A piece is accepted only when it is complete by the file's OWN header:
+// exactly as many cells as the header, or fewer where every missing cell is a trailing OPTIONAL column (an editor may drop a trailing empty tab). Anything else (a missing required cell, an extra cell)
+// is an invalid row: quarantined, never read as a shipment. IDs and dates alone are not enough: the first piece of a split row keeps them.
+const OPTIONAL_TRAILING = new Set(['citation-en', 'citation-es']);
+export function checkTsv(text) {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => [l, i + 1]).filter(([l]) => l.trim());
+  if (!lines.length) return { rows: [], invalid: [], head: [] };
+  const head = lines[0][0].split('\t').map(h => h.trim().toLowerCase());
+  const rows = [], invalid = [];
+  for (const [l, no] of lines.slice(1)) {
+    const c = l.split('\t');
+    const missing = c.length < head.length ? head.slice(c.length).filter(h => !OPTIONAL_TRAILING.has(h)) : [];
+    if (c.length > head.length || missing.length) { invalid.push({ line: no, cells: c.length, expected: head.length, missing, reason: c.length > head.length ? 'more cells than the header' : 'required cells are missing (the row is cut off or split)' }); continue; }
+    rows.push(Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim()])));
+  }
+  return { rows, invalid, head };
 }
+export function parseTsv(text) { return checkTsv(text).rows; }
 
 const PARTS = ['item', 'shipping', 'gift-wrap', 'item-promo', 'shipping-promo', 'gift-promo'];
 
 /** Group item rows into shipments (an invoice is due per shipment, not per order). */
 export function parseVidr(text) {
-  const rows = parseTsv(text);
+  const checked = checkTsv(text); let { rows, invalid } = checked;
+  // A file whose header does not identify shipments (no order-id, or neither shipping-id nor transaction-id) is not a VAT Invoice Data Report: every row of it is invalid, because a row count can only be checked against a header that means something.
+  if (checked.head.length && (!checked.head.includes('order-id') || !(checked.head.includes('shipping-id') || checked.head.includes('transaction-id')))) {
+    const n = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim()).length - 1;
+    invalid = Array.from({ length: Math.max(n, 0) }, (_, i) => ({ line: i + 2, cells: 0, expected: checked.head.length, missing: ['order-id', 'shipping-id or transaction-id'], reason: 'the header does not identify shipments, so this is not a VAT Invoice Data Report' })); rows = [];
+  }
   const map = new Map();
   for (const r of rows) {
     const key = `${r['transaction-type'] || 'SHIPMENT'}:${r['transaction-id'] || r['shipping-id']}`;
@@ -57,7 +74,9 @@ export function parseVidr(text) {
       extras: PARTS.slice(1).map(p => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter(x => x.excl || x.vat),
     });
   }
-  return [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  list.invalidRows = invalid; // rows rejected by the integrity check: never shipments
+  return list;
 }
 
 /** Shipments the seller still has to invoice themselves. */

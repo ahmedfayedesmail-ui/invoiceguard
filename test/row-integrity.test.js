@@ -4,13 +4,17 @@
 // a row is complete when it has exactly the header's cell count, or fewer cells where every missing cell is a trailing optional column (citation-en, citation-es), for example a trailing tab removed by an editor.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as F from '../tools/make-loop-fixtures.mjs';
+import { readFileSync } from 'node:fs';
 import { parseVidr } from '../src/vidr.js';
 import { openDb } from '../src/db.js';
 import { processReport } from '../src/pipeline.js';
 import { planUpload } from '../src/manual.js';
 
-const mk = (n = 1) => F.vidr(Array.from({ length: n }, (_, i) => ({ n: i + 1, status: 'InvoicePending' })));
+const FX = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8').trim().split('\n');
+// n data rows of the committed 38-column fixture, one shipment each (distinct shipping and transaction ids), every row a business order not invoiced by Amazon, status InvoicePending.
+const mk = (n = 1) => { const h = FX[0].split('\t'); const ix = (k) => h.indexOf(k); const rows = [];
+  for (let i = 0; i < n; i++) { const c = FX[1].split('\t'); while (c.length < h.length) c.push(''); c[ix('shipping-id')] = 'S' + (1001 + i); c[ix('transaction-id')] = 'S' + (1001 + i); c[ix('order-id')] = `405-33188${i}2-7710365`; c[ix('is-business-order')] = 'TRUE'; c[ix('is-amazon-invoiced')] = 'FALSE'; c[ix('invoice-status')] = 'InvoicePending'; rows.push(c.join('\t')); }
+  return [FX[0], ...rows].join('\n') + '\n'; };
 const head = () => mk().split('\n')[0].split('\t');
 const col = (name) => head().indexOf(name);
 const setCols = (text, o, line = 1) => text.split('\n').map((l, k) => { if (k !== line) return l; const c = l.split('\t'); for (const [n, v] of Object.entries(o)) c[col(n)] = v; return c.join('\t'); }).join('\n');

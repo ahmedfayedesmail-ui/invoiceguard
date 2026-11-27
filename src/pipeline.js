@@ -38,6 +38,9 @@ export async function processReport(db, seller, reportText, { api, validate = va
   const reportSeq = reportAttemptSeq ?? null;
   const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
   const list = shipments ?? parseVidr(reportText);
+  // Row integrity: rows cut off or split by a raw newline were already rejected by the parser. They are quarantined here, counted and logged by line number only (no cell content), and never processed.
+  out.invalidRows = list.invalidRows ?? [];
+  if (out.invalidRows.length) logEvent(db, seller.id, 'invalid_rows', { count: out.invalidRows.length, lines: out.invalidRows.slice(0, 50).map(r => ({ line: r.line, cells: r.cells, expected: r.expected })) });
   // Friction fix: without this, N shipments meant N SEQUENTIAL VIES round-trips (the loop awaits each
   // check), so a big report could outlive the request timeout. Pre-warm the unique buyer VATs in
   // parallel; the cached validator caps real parallelism and serves the loop below instantly.

@@ -1,0 +1,8 @@
+part1 done 500 cases, 0 failures 5331 ms
+part2 done 800 cases, 0 failures 10012 ms
+part3 done 950 cases, 0 failures 13020 ms
+part4 done 964 cases, 0 failures 13506 ms
+part5 done 1005 cases, 0 failures 16864 ms
+  "cases": 1005,
+  "assertions": 10488,
+  "failures": 0,

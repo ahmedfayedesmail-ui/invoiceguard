@@ -48872,18 +48872,32 @@ var readFlag = (values) => {
   return v.size === 1 && v.has("TRUE") ? true : v.size === 1 && v.has("FALSE") ? false : null;
 };
 var r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-function parseTsv(text) {
-  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
-  if (!lines.length) return [];
-  const head = lines[0].split("	").map((h) => h.trim().toLowerCase());
-  return lines.slice(1).map((l) => {
+var OPTIONAL_TRAILING = /* @__PURE__ */ new Set(["citation-en", "citation-es"]);
+function checkTsv(text) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l, i2) => [l, i2 + 1]).filter(([l]) => l.trim());
+  if (!lines.length) return { rows: [], invalid: [], head: [] };
+  const head = lines[0][0].split("	").map((h) => h.trim().toLowerCase());
+  const rows = [], invalid = [];
+  for (const [l, no] of lines.slice(1)) {
     const c = l.split("	");
-    return Object.fromEntries(head.map((h, i2) => [h, (c[i2] ?? "").trim()]));
-  });
+    const missing = c.length < head.length ? head.slice(c.length).filter((h) => !OPTIONAL_TRAILING.has(h)) : [];
+    if (c.length > head.length || missing.length) {
+      invalid.push({ line: no, cells: c.length, expected: head.length, missing, reason: c.length > head.length ? "more cells than the header" : "required cells are missing (the row is cut off or split)" });
+      continue;
+    }
+    rows.push(Object.fromEntries(head.map((h, i2) => [h, (c[i2] ?? "").trim()])));
+  }
+  return { rows, invalid, head };
 }
 var PARTS = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
 function parseVidr(text) {
-  const rows = parseTsv(text);
+  const checked = checkTsv(text);
+  let { rows, invalid } = checked;
+  if (checked.head.length && (!checked.head.includes("order-id") || !(checked.head.includes("shipping-id") || checked.head.includes("transaction-id")))) {
+    const n = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim()).length - 1;
+    invalid = Array.from({ length: Math.max(n, 0) }, (_, i2) => ({ line: i2 + 2, cells: 0, expected: checked.head.length, missing: ["order-id", "shipping-id or transaction-id"], reason: "the header does not identify shipments, so this is not a VAT Invoice Data Report" }));
+    rows = [];
+  }
   const map = /* @__PURE__ */ new Map();
   for (const r of rows) {
     const key = `${r["transaction-type"] || "SHIPMENT"}:${r["transaction-id"] || r["shipping-id"]}`;
@@ -48945,7 +48959,9 @@ function parseVidr(text) {
       extras: PARTS.slice(1).map((p) => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter((x) => x.excl || x.vat)
     });
   }
-  return [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  list.invalidRows = invalid;
+  return list;
 }
 var needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness === true && s.isAmazonInvoiced === false && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
 var unknownFlags = (s) => [s.isBusiness == null && "is-business-order", s.isAmazonInvoiced == null && "is-amazon-invoiced"].filter(Boolean);
@@ -49038,7 +49054,8 @@ function planUpload(text, opts = {}) {
   if (format === "allorders") return { ok: false, format, error: "The All Orders Report has no buyer name, address or VAT number, so it cannot make an invoice. Use the Order Report with the buyer columns switched on." };
   if (format === "vidr") {
     const kept = [], skipped = [], held = [];
-    for (const s of parseVidr(text)) {
+    const parsed = parseVidr(text);
+    for (const s of parsed) {
       if (heldForUnknownFlags(s)) {
         held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) });
         continue;
@@ -49047,7 +49064,7 @@ function planUpload(text, opts = {}) {
       if (why) skipped.push({ orderId: s.orderId, why });
       else kept.push(s);
     }
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, truncated: !!t.truncated };
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: parsed.invalidRows ?? [], truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };

@@ -87,8 +87,9 @@ export function planUpload(text, opts = {}) {
     // Same honesty as the Order Report: rows that cannot produce an invoice are counted as skipped up front,
     // so the preview's "Ready to invoice" matches what issue will actually attempt.
     const kept = [], skipped = [], held = [];
-    for (const s of parseVidr(text)) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) skipped.push({ orderId: s.orderId, why }); else kept.push(s); }
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, truncated: !!t.truncated };
+    const parsed = parseVidr(text);
+    for (const s of parsed) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) skipped.push({ orderId: s.orderId, why }); else kept.push(s); }
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: parsed.invalidRows ?? [], truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };
