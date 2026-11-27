@@ -38,9 +38,11 @@ export function vidrText(s, { delim = '\t', rows = s.txs } = {}) {
 }
 const money = (v, d, thou) => { let s = Math.abs(v).toFixed(2); if (thou) s = s.replace(/\B(?=(\d{3})+(?!\d))/g, ',').replace(/\.(\d\d)$/, '.$1'); if (d.dec === ',') s = s.replace(/\./g, '#').replace(/,/g, '.').replace('#', ','); return (v < 0 ? '-' : '') + s; };
 const q = (v, d, quote) => (quote || String(v).includes(d.delim) ? `"${v}"` : String(v));
+/** Uneven split of a multi-line document: each line has its own amount (weights 1, 2, 3, ...), the lines sum to the document total. A one-line document keeps its total. */
+const lineAmount = (t, l) => { if (t.lines <= 1) return t.bamt; const w = Array.from({ length: t.lines }, (_, i) => i + 1), sum = w.reduce((a, b) => a + b, 0); if (l < t.lines - 1) return Math.round(t.bamt * w[l] / sum * 100) / 100; let acc = 0; for (let i = 0; i < t.lines - 1; i++) acc += Math.round(t.bamt * w[i] / sum * 100) / 100; return Math.round((t.bamt - acc) * 100) / 100; };
 export function ledgerFile(s, { skipKind = false, skipChannel = false, skipOrder = false, skipBuyer = true, bom = false, crlf = false, quote = false, rows = null } = {}) {
   const d = s.dia, docs = []; const rowsT = rows ?? s.txs;
-  for (const t of rowsT) if (t.books) for (let l = 0; l < t.lines; l++) docs.push({ num: t.bnum ?? t.num, kind: t.kind, date: t.bdate, op: t.od, cur: t.bcur, amt: t.bamt / t.lines, order: t.bOrder ?? t.order, chan: t.bchan, bvat: t.bbvat });
+  for (const t of rowsT) if (t.books) for (let l = 0; l < t.lines; l++) docs.push({ num: t.bnum ?? t.num, kind: t.kind, date: t.bdate, op: t.od, cur: t.bcur, amt: lineAmount(t, l), order: t.bOrder ?? t.order, chan: t.bchan, bvat: t.bbvat });
   for (const e of s.extraDocs) docs.push(e);
   const head = d.h.filter((_, i) => !((i === 1 && skipKind) || (i === 9 && skipChannel) || (i === 8 && skipOrder) || (i === 10 && skipBuyer)));
   const lines = [head.map(h => q(h, d, quote)).join(d.delim)];

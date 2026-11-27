@@ -1,0 +1,11 @@
+{
+ "sellers": 500,
+ "rowsSha256": "ffd6cdabd05806a231bca80577c52575bead7672efe4616237d9ed0c7ff97662",
+ "aggregateSha256": "b33e101e9b200a18f80c92dbd74b0e6da250906974b980660618e6782b93817e",
+ "ignoredFields": [
+  "heapMB",
+  "projectMs",
+  "totalMs"
+ ],
+ "ignoredAggregateLine": "projection ms"
+}
