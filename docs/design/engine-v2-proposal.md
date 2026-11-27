@@ -93,7 +93,13 @@ Stored as events with author, time and text. Shown next to the finding they rela
 ### 4.4 Stable finding identity and deltas (principle 1 kept, with limits)
 Finding identity is not a function of the current data. Today it is `key = sha256(KEY_VERSION, sellerProfileId, family, identity)` (src/loop/project.js, issueKey), where identity is the subject's own identifier (an order and transaction, a document number, a ledger identity, a source descriptor). It contains no status, amount, date, file name, row or import id, so a new import cannot change it. "Resolved" and "reopened" are also already derived without a stored ledger: project() replays the ordered imports one prefix at a time (imports 1..k for each k), records per key whether the finding was PRESENT, CLOSED or not evaluated at each step, and builds episodes from that history (an `episodes` list and a `reopened` flag exist today). A delta between two imports is therefore a comparison of two prefix states, not a stored record.
 Conditions that keep this honest, which the design makes explicit:
-1. Retention: replay needs every import kept. If a seller deletes an import, history changes. The rule: deleting an import is an event that is recorded, and findings whose history depended on it show "history incomplete". Without this, deletion silently rewrites "resolved".
+1. Retention: replay needs every import kept. If a seller deletes an import, history changes. Verified behaviour today (evidence/import-deletion/characterize.mjs and result-at-4be64e7.json, run on the 4be64e7 engine, one Amazon report with two shipments and two books exports where the second closes the gap found by the first):
+   - deleteImport exists, refuses without an explicit confirmation, and a deletionImpact preview is computed first from the data (issues that would disappear, issues that would change).
+   - Deleting the closing export (books2): the finding goes from VERIFIED_CLOSED back to ACTION_REQUIRED with reopened false and a history that shows no trace of the deleted closure.
+   - Deleting the export that first showed the finding (books1): the finding disappears completely from the projection, including its closed history. The preview warned beforehand (BOOKS_GAP 1 disappearing), but after the deletion nothing in the result says a history ever existed.
+   - Deleting the Amazon report: the finding disappears and a coverage note says no Amazon report is loaded.
+   - No marker of incomplete history exists anywhere in the result after any of the three deletions.
+   So the earlier proposal was not describing existing behaviour. What exists is the pre-deletion preview. What the design adds, and what is not implemented: deleting an import is recorded as an event, and every finding whose history passed through that import is marked "history incomplete", so a finding can neither silently disappear nor silently revert from resolved to open. First test of phase A: the three cases above, expected after the change: findings are never silently resolved or removed, each carries the marker, and the delete event is listed.
 2. Identity continuity: the key includes family, so a finding that moves family when more evidence arrives (for example an unmatched document that becomes a proposed link) is a different key. The model adds a successor relation (key A is succeeded by key B, with the evidence for the succession) so the delta shows "changed" rather than "resolved and new". The successor relation is derived, never stored.
 3. Identity changes with the subject: a renumbered document or a corrected order id is a new subject. The engine shows two findings and says the identity changed; it never merges them on similarity.
 4. Versioning: any change to how identity is built bumps KEY_VERSION, and deltas across versions are not computed (they are marked not comparable).
@@ -171,8 +177,8 @@ Actionability is set by the policy table in 7.4, per domain and defect type. It 
 
 ### 7.3 Effect on the 49 and the 124
 - is-business-order FALSE sets B2B_OBLIGATION NOT_APPLICABLE for the shipment. LEDGER_INTEGRITY and DATA_RECONCILIATION remain APPLIES.
-- The 11 DATA_MISMATCH return as DATA_RECONCILIATION, Observation PRESENT, Actionability REVIEW. No B2B accusation.
-- The 38 BOOKS_GAP: B2B NOT_APPLICABLE. As reconciliation facts they apply only if the declared scope of the books includes the order's channel and period; then Observation PRESENT, REVIEW, low priority, with the fact, context and date kept. If the scope does not cover them, Applicability UNDETERMINED and the output is a coverage item. Decision 3 in section 15.
+- The 11 DATA_MISMATCH return as DATA_RECONCILIATION, Observation PRESENT, Actionability SELLER_ACTION (row R1), worded as an accounting discrepancy between the books and Amazon's record and never as a tax or B2B obligation. The flag does not change the action: if the books say 100 and Amazon says 120, the seller has a reason to act on their own accounting whether or not a B2B invoice is owed.
+- The 38 BOOKS_GAP: B2B NOT_APPLICABLE. As reconciliation facts they apply when the declared scope of the books includes the document's channel and period (a declaration about the books, independent of the business flag). Then Observation PRESENT and the row is R4: SELLER_ACTION worded as "Amazon shows document N for order O dated D and your books do not contain it", never as an obligation to issue an invoice, with the fact, context and date kept. If the scope does not cover them, Applicability is UNDETERMINED and the output is a coverage item (row R6). Decision 3 in section 15.
 - Duplicates (all in LEDGER_INTEGRITY, independent of the business flag):
 | Case | Severity | Review priority | Meaning |
 |---|---|---|---|
@@ -187,7 +193,7 @@ Never worded as a B2B violation or a confirmed duplicate invoice without the evi
 How to read it. Rows are defect types, grouped by check domain. Columns: the Applicability precondition; the Observation state that triggers the row; the Actionability and priority; the certainty of the row.
 Certainty codes: R = recorded ruling by Ahmed (source named); E = existing engine behaviour kept unchanged; P = my proposal, needs his confirmation; P? = my proposal and I am not sure, so it is flagged for him to decide.
 Actionability meanings: NONE (nothing is shown as a finding; the case appears only in counts and the coverage map); REVIEW (a person should look; no deadline; never described as a violation); SELLER_ACTION (a concrete step the seller can take); WAIT (time or a later file resolves it).
-General rules that override any row: (a) SELLER_ACTION in B2B_OBLIGATION needs Applicability APPLIES; (b) NOT_OBSERVABLE never produces a finding, only a coverage item with the file or range that would settle it; (c) a manual declaration changes no cell of this table; (d) nothing is worded as a violation unless a SOURCE-labelled rule supports the word.
+General rules that override any row: (a) SELLER_ACTION in B2B_OBLIGATION needs Applicability APPLIES; (b) NOT_OBSERVABLE never produces a finding, only a coverage item with the file or range that would settle it; (c) a manual declaration changes no cell of this table; (d) nothing is worded as a violation unless a SOURCE-labelled rule supports the word; (e) is-business-order is read only by the B2B_OBLIGATION rows. No row in any other domain may take its Actionability from the business flag. Reconciliation wording names the accounting discrepancy and never a tax or B2B obligation. Where two cases in a domain differ in action, the difference comes from whether the discrepancy is provable (comparable, covered, homogeneous) and from the priority bands below, never from the flag.
 
 B2B_OBLIGATION (precondition for every row: is-business-order TRUE read from the field, is-amazon-invoiced FALSE read from the field, shipment in scope)
 | # | Defect type | Observation | Actionability | Priority | Certainty |
@@ -203,13 +209,13 @@ B2B_OBLIGATION (precondition for every row: is-business-order TRUE read from the
 DATA_RECONCILIATION (Amazon records versus the seller's books; precondition: shipment matched or matchable, comparable quantities, coverage sufficient)
 | # | Defect type | Observation | Actionability | Priority | Certainty |
 |---|---|---|---|---|---|
-| R1 | DATA_MISMATCH, a comparable field differs (total, currency, date, tax id), order with B2B APPLIES | PRESENT | SELLER_ACTION (find which side is right; the tool changes nothing) | high | E |
-| R2 | Same, order with B2B NOT_APPLICABLE (the 11) | PRESENT | REVIEW | normal | R (17:42 asks they be examined for retention) and P for the priority |
+| R1 | DATA_MISMATCH, a comparable field differs (total, currency, date, tax id), any order, comparable and covered | PRESENT | SELLER_ACTION (find out which side is right; the tool changes nothing); wording: accounting discrepancy, not an obligation | high for total, currency, tax id; normal for a date field | E for orders that were already judged; R (17:42, the 11 examined for retention) and the principle in 7.3 for non-business orders; the priority bands are P? |
+| R2 | (merged into R1: the same defect has the same action whatever the business flag) | | | | |
 | R3 | DATA_MISMATCH, field not comparable (not homogeneous, missing column, different currency without rate) | NOT_COMPARABLE | NONE as a finding; listed in the coverage map with the reason | none | P |
-| R4 | Amazon shows a document number the books do not carry (BOOKS_GAP NUMBER_AT_AMAZON_NOT_IN_BOOKS), books scope and period cover the shipment, B2B APPLIES | PRESENT | SELLER_ACTION (check or export the document into the books; it is not an invoice-issuance duty) | high | E |
-| R5 | Same, B2B NOT_APPLICABLE (the 38), scope and period cover | PRESENT | REVIEW | low | P? (Ahmed 17:42: keep fact, context and date; not an issuance duty) |
+| R4 | Amazon shows a document number the books do not carry (BOOKS_GAP NUMBER_AT_AMAZON_NOT_IN_BOOKS), any order, the declared books scope and period cover the document | PRESENT | SELLER_ACTION (check whether it belongs in the books and export it if so; wording is about the books, never an invoice-issuance duty) | high | E for business orders; for non-business orders (the 38) R (17:42: keep fact, context, date; not an issuance duty) and P? for the action level |
+| R5 | (merged into R4. A lower action level for the 38 could only be defended on materiality, and the only materiality available is the provability of the fact, which is the same for both: scope and period cover the document. I found no defensible materiality difference, so none is used) | | | | |
 | R6 | Same, scope or period does not cover the shipment | NOT_OBSERVABLE | WAIT with the settle-it instruction (the export through the report day) | none | R (17:42 item 4) |
-| R7 | Shipment with neither an Amazon invoice number nor a books document, B2B NOT_APPLICABLE | nothing expected | NONE (deliberate) | none | P |
+| R7 | A shipment with no document on either side | nothing to compare | NONE (deliberate; for a business order the missing seller invoice is B2 in the B2B domain) | none | P |
 | R8 | Books document with no Amazon shipment (UNMATCHED_DOCUMENT NO_CANDIDATE), Amazon scope covers it | PRESENT (orphan) | REVIEW | normal | P |
 | R9 | Same, Amazon report range or scope does not cover the document's date | NOT_OBSERVABLE | WAIT, settle-it instruction | none | P |
 | R10 | Document linked only by corroborating signals (PROPOSED_LINK_UNCONFIRMED) | PROPOSED | REVIEW, the seller confirms or corrects; never SELLER_ACTION; never promoted by the engine | low | E |
@@ -244,8 +250,8 @@ COVERAGE, SOURCE and PERIOD
 | T3 | A correction falls in a different tax period from its original | observation | REVIEW | low | P |
 
 Cases where the policy deliberately says NONE: B4, B6, R3, R7, L4. Each stays visible in counts and in the coverage map with its reason, so "not shown" never means "not looked at".
-Rows still uncertain, for Ahmed to decide: B5, R2 priority, R5, R13, R14, L9. The seller-facing priority labels (high, normal, low) are a proposal with no external source.
-Open question on R1 versus R2: the same defect (a mismatch) has SELLER_ACTION on a business order and REVIEW on a non-business one. This follows the rule "action implies a duty or a concrete reason for this seller to act" and it is the row where the difference between the two policies is largest.
+Rows still uncertain, for Ahmed to decide: B5, R1 priority bands, R4 action level for the 38, R13, R14, L9. The seller-facing priority labels (high, normal, low) are a proposal with no external source.
+Resolved after review: R1 versus R2 and R4 versus R5 are no longer different rows. Principle 2 says Applicability belongs to the check domain, so reconciliation Actionability cannot depend on the business flag; the flag is read only in the B2B rows.
 
 ## 8. Falsifiable findings
 
@@ -419,7 +425,7 @@ The first phase that touches behaviour is phase A, and its improvement is visibl
 
 | Phase | Content | Depends on | Visible result and proof | Main risks |
 |---|---|---|---|---|
-| A | Axes (domain, applicability, observation, actionability) as fields on current findings, policy table 7.4 as data; restore the 11 DATA_MISMATCH as DATA_RECONCILIATION REVIEW; duplicate severity and priority; the 38 BOOKS_GAP as R5/R6 items | none | The 11 listed by seller, order, field: absent before, present after; negative control: no SELLER_ACTION on any non-business order; old tests keep passing as projections | the R5 scope judgement; priority labels have no external source |
+| A | Axes (domain, applicability, observation, actionability) as fields on current findings, policy table 7.4 as data; restore the 11 DATA_MISMATCH as DATA_RECONCILIATION R1; duplicate severity and priority; the 38 BOOKS_GAP as R4/R6 items; import deletion recorded and history marked incomplete | none | The 11 listed by seller, order, field: absent before, present after as accounting-discrepancy SELLER_ACTION; negative control: no B2B_OBLIGATION finding on any non-business order and no wording of a tax obligation; first test of the phase: the import-deletion behaviour (4.4); old tests keep passing as projections | the R4 action level for the 38; priority labels have no external source |
 | B | Mutation harness with mechanical expectations, negative controls, collateral-damage test, dumb reference checker; baseline exact recall of the CURRENT engine and of phase A, published | A (the policy table is the lookup) | An honest exact-recall number per defect type, and a list of reference-checker disagreements | harness identity matching; shared misreading (stated in section 10) |
 | C | Relationship statuses and components, orphans, relation multiplicity observation (R12, R13), wrong-order promotion if the diagnosis of the 20 supports it | A | Components shown for swapped pairs as one conflict; the 20 diagnosed first | component size; PROPOSED shown as confirmed |
 | D | Tax period assignment and the correction chain | C | PERIOD_AMBIGUOUS and chain observations on synthetic corrections | unsourced tax rules: only candidates and ambiguity until a SOURCE exists |
@@ -432,9 +438,9 @@ Each phase ends with: branch, head SHA, test names and counts, what fails before
 
 ## 15. Decisions needed from Ahmed
 
-1. The policy table in 7.4, row by row. Most important: the uncertain rows B5, R2 priority, R5, R13, R14, L9, and R1 versus R2 (SELLER_ACTION on a business order, REVIEW on a non-business one).
+1. The policy table in 7.4, row by row. The business flag no longer affects any action outside the B2B domain. Uncertain rows: B5, the R1 priority bands, the R4 action level for the 38, R13, R14, L9.
 2. Confirm the three axes with five check domains, and Applicability per domain replacing the single business-flag verdict.
-3. The 38 non-business BOOKS_GAP as R5/R6 (reconciliation facts only when declared scope covers them).
+3. The 38 non-business BOOKS_GAP as R4/R6 (SELLER_ACTION worded about the books when the declared scope covers the document; a coverage item otherwise).
 4. The deltas decision in 4.4: replay without a persisted ledger now, and a rebuildable snapshot cache only if the measured cost requires it. Does he accept that exception in advance?
 5. Tax period: accept that the engine reports candidate periods and ambiguity only, and states no return assignment, until a verified SOURCE exists per country. Who verifies the country rules?
 6. The cardinality rule for any claim of violation (one invoice per shipment or consolidation allowed): I will not decide it from memory.

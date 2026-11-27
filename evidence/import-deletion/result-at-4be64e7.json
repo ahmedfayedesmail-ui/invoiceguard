@@ -1,0 +1,91 @@
+{
+ "baseline_all_three_imports": [
+  {
+   "state": "VERIFIED_CLOSED",
+   "reopened": false,
+   "episodes": 1,
+   "history": [
+    "PRESENT@books1.csv",
+    "CLOSED@books2.csv"
+   ]
+  }
+ ],
+ "delete_l2": {
+  "previewIssuesDisappearing": {},
+  "previewIssuesChanging": 1,
+  "withoutConfirmationRefused": "Deleting needs your confirmation after you have seen what it removes.",
+  "deleted": true,
+  "importsRemaining": 2,
+  "bookGapBefore": [
+   {
+    "state": "VERIFIED_CLOSED",
+    "reopened": false,
+    "episodes": 1,
+    "history": [
+     "PRESENT@books1.csv",
+     "CLOSED@books2.csv"
+    ]
+   }
+  ],
+  "bookGapAfter": [
+   {
+    "state": "ACTION_REQUIRED",
+    "reopened": false,
+    "episodes": 1,
+    "history": [
+     "PRESENT@books1.csv"
+    ]
+   }
+  ],
+  "anyMarkerOfIncompleteHistory": false,
+  "notesAfter": []
+ },
+ "delete_l1": {
+  "previewIssuesDisappearing": {
+   "BOOKS_GAP": 1
+  },
+  "previewIssuesChanging": 0,
+  "withoutConfirmationRefused": "Deleting needs your confirmation after you have seen what it removes.",
+  "deleted": true,
+  "importsRemaining": 2,
+  "bookGapBefore": [
+   {
+    "state": "VERIFIED_CLOSED",
+    "reopened": false,
+    "episodes": 1,
+    "history": [
+     "PRESENT@books1.csv",
+     "CLOSED@books2.csv"
+    ]
+   }
+  ],
+  "bookGapAfter": [],
+  "anyMarkerOfIncompleteHistory": false,
+  "notesAfter": []
+ },
+ "delete_v": {
+  "previewIssuesDisappearing": {
+   "BOOKS_GAP": 1
+  },
+  "previewIssuesChanging": 0,
+  "withoutConfirmationRefused": "Deleting needs your confirmation after you have seen what it removes.",
+  "deleted": true,
+  "importsRemaining": 2,
+  "bookGapBefore": [
+   {
+    "state": "VERIFIED_CLOSED",
+    "reopened": false,
+    "episodes": 1,
+    "history": [
+     "PRESENT@books1.csv",
+     "CLOSED@books2.csv"
+    ]
+   }
+  ],
+  "bookGapAfter": [],
+  "anyMarkerOfIncompleteHistory": false,
+  "notesAfter": [
+   "Absence from Amazon cannot be concluded: no Amazon report has been loaded"
+  ]
+ }
+}
