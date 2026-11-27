@@ -61,3 +61,12 @@ test('aggregate metrics change when a later file closes a finding (machine-verif
   await s.addVidr({ text: F.PV, declared: vd() }); await s.addLedger({ text: F.PL1, profile: F.PROFILE, declared: ld() });
   const m0 = aggregateMetrics({ projection: await s.project(), record: await rec.read(), imports: await s.imports() }); assert.equal(m0.resolvedBySubsequentImports.count, 0); void raw;
 });
+
+test('correction 2: both times must be present, finite and non-negative; empty is never zero; incomplete stays unavailable', async () => {
+  const { rec, p, imports } = await setup();
+  for (const bad of [{}, { manualMinutesBefore: '', toolMinutesWith: '' }, { manualMinutesBefore: '10', toolMinutesWith: '' }, { manualMinutesBefore: '', toolMinutesWith: '5' }, { manualMinutesBefore: null, toolMinutesWith: 5 }, { manualMinutesBefore: 10, toolMinutesWith: undefined }, { manualMinutesBefore: 'x', toolMinutesWith: 5 }, { manualMinutesBefore: -1, toolMinutesWith: 5 }, { manualMinutesBefore: Infinity, toolMinutesWith: 5 }, { manualMinutesBefore: 10, toolMinutesWith: NaN }]) await assert.rejects(rec.setTimes(bad), JSON.stringify(bad));
+  assert.equal(aggregateMetrics({ projection: p, record: await rec.read(), imports }).time, null);
+  await rec.setTimes({ manualMinutesBefore: 0, toolMinutesWith: 0 }); assert.equal(aggregateMetrics({ projection: p, record: await rec.read(), imports }).time.minutesSaved, 0);
+  await rec.setTimes({ manualMinutesBefore: '30', toolMinutesWith: '12.5' }); assert.equal(aggregateMetrics({ projection: p, record: await rec.read(), imports }).time.minutesSaved, 17.5);
+  assert.equal(aggregateMetrics({ projection: p, record: { times: { basis: 'SELLER_REPORTED', manualMinutesBefore: 5, toolMinutesWith: null } }, imports }).time, null);
+});

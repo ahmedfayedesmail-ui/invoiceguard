@@ -1,4 +1,4 @@
-import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflight, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
+import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflight, preflightStored, pilotScope, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
 const $ = (s) => document.querySelector(s);
 const el = (t, props = {}, ...kids) => { const e = document.createElement(t); for (const [k, v] of Object.entries(props)) k === 'class' ? (e.className = v) : k === 'onclick' ? e.addEventListener('click', v) : e.setAttribute(k, v); for (const x of kids.flat()) if (x != null) e.append(x.nodeType ? x : String(x)); return e; };
 const baseline = new Set(performance.getEntriesByType('resource').map(r => r.name));
@@ -14,6 +14,20 @@ const readFile = (f) => new Promise((res, rej) => { const r = new FileReader(); 
 const refused = (e) => { if (e instanceof Refused) { say('Not stored. ' + e.reasons.join(' '), true); return; } say('Something went wrong: ' + (e?.message ?? e), true); };
 const nowLocal = () => new Date().toISOString().slice(0, 16);
 
+// Staged import: the file is read and checked in memory; nothing is stored until the preflight decision is complete.
+async function stage(kind, text, declared, profile, store1, after) {
+  const imps = await store.imports(), sc = pilotScope(imps), other = [...imps].reverse().find(i => i.kind === (kind === 'vidr' ? 'ledger' : 'vidr'));
+  const args = kind === 'vidr' ? { vidrText: text, vidrDeclared: declared, ledgerText: other?.text, profile: other?.profile, ledgerDeclared: other?.declared } : { vidrText: other?.text, vidrDeclared: other?.declared, ledgerText: text, profile, ledgerDeclared: declared };
+  const x = preflight({ ...args, scope: sc }), box = $('#stage'); box.replaceChildren();
+  const ticks = [], go = el('button', { id: 'st-store' }, 'Store this file');
+  box.append(el('h3', {}, 'Preflight (nothing is stored yet)'), el('p', {}, el('span', { class: 'badge ' + (x.ready ? 'b-ok' : 'b-bad') }, x.ready ? 'No blocking problem' : 'Blocked: fix the FAIL lines, then check again')));
+  for (const c of x.checks) { const row = el('p', { class: 'kv' }, el('span', { class: 'badge ' + (c.status === 'PASS' ? 'b-ok' : c.status === 'WARN' ? 'b-warn' : 'b-bad') }, c.status), ' ' + c.detail);
+    if (c.status === 'WARN') { const t = el('input', { type: 'checkbox', 'data-warn': c.id }); ticks.push(t); row.append(el('label', {}, t, ' I understand this and want to continue')); } box.append(row); }
+  const sync = () => { go.disabled = !x.ready || ticks.some(t => !t.checked); }; ticks.forEach(t => t.addEventListener('change', sync)); sync();
+  go.addEventListener('click', async () => { try { await store1(); box.replaceChildren(); await after(); } catch (e) { refused(e); } });
+  box.append(go);
+}
+
 $('#vfile').addEventListener('change', async (ev) => {
   const f = ev.target.files[0]; if (!f) return; const text = await readFile(f); const form = $('#form'); form.replaceChildren(); say('');
   const box = el('div', { class: 'card' }, el('h3', {}, 'Declare this Amazon report: ' + f.name));
@@ -26,8 +40,8 @@ $('#vfile').addEventListener('change', async (ev) => {
   box.append(el('button', { onclick: async () => {
     const iso = (v) => v ? new Date(v + (v.length === 16 ? ':00' : '') + 'Z').toISOString() : '';
     const declared = { reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', options: $('#v-opt').value, marketplace: $('#v-mkt').value, rangeFrom: $('#v-from').value, rangeTo: $('#v-to').value, createdAt: iso($('#v-created').value), createdAfterUploadConfirmed: cb.checked, downloadedAt: iso($('#v-down').value), obtainedHow: $('#v-how').value, dateOrderConfirmed: 'DD/MM/YYYY' };
-    try { await store.addVidr({ text, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); await render(); await pilotPanel(); } catch (e) { refused(e); }
-  } }, 'Confirm and store'));
+    try { await stage('vidr', text, declared, null, async () => { await store.addVidr({ text, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); }, async () => { await render(); await pilotPanel(); }); } catch (e) { refused(e); }
+  } }, 'Check before storing'));
   form.append(box);
 });
 
@@ -58,8 +72,8 @@ $('#lfile').addEventListener('change', async (ev) => {
     const columns = Object.fromEntries(Object.entries(sel).filter(([, s]) => s.value).map(([k, s]) => [k, s.value]));
     const profile = { delimiter: m.delimiter, columns, constantKind: kindSel.value || null, dateOrder: dates.value, decimal: dec.value, thousands: '', unknownColumnsAcknowledged: true, confirmed: true };
     const declared = { exportedAt: exp.value ? new Date(exp.value + (exp.value.length === 16 ? ':00' : '') + 'Z').toISOString() : undefined, sourceSystem: sys.value, marketplace: mkt.value, periodFrom: pf.value, periodTo: pt.value, documentKinds: kinds.value ? [kinds.value] : [], documentLevel: level.value === 'DOCUMENT' || level.value === 'LINE' ? level.value : undefined, complete: complete.value === '' ? undefined : complete.value === 'yes', amazonScope: { mode: scope.value, channelValues: chv.value.split(',').map(x => x.trim()).filter(Boolean) } };
-    try { await store.addLedger({ text, profile, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); await render(); await pilotPanel(); } catch (e) { refused(e); }
-  } }, 'Confirm and store'));
+    try { await stage('ledger', text, declared, profile, async () => { await store.addLedger({ text, profile, declared, fileName: f.name }); form.replaceChildren(); ev.target.value = ''; say('Stored: ' + f.name); }, async () => { await render(); await pilotPanel(); }); } catch (e) { refused(e); }
+  } }, 'Check before storing'));
   form.append(box);
 });
 
@@ -138,10 +152,9 @@ async function pilotPanel() {
   const rec = createPilotRecord(vault.adapter), r0 = await rec.read(), imps = await store.imports(), proj = await store.project(), box = $('#pilot');
   const t = r0.times ?? {}, mi = inp('p-before', 'number', t.manualMinutesBefore ?? ''), wi = inp('p-with', 'number', t.toolMinutesWith ?? ''), ms = inp('p-missed', 'number', String(r0.missedBySeller ?? 0));
   const pre = el('div', { id: 'p-pre', class: 'small' });
-  const runPre = el('button', { class: 'alt', id: 'p-runpre', onclick: () => { const v = [...imps].reverse().find(i => i.kind === 'vidr'), l = [...imps].reverse().find(i => i.kind === 'ledger');
-    if (!v || !l) { pre.replaceChildren(el('p', { class: 'err' }, 'Load one Amazon report and one accounting export first.')); return; }
-    const x = preflight({ vidrText: v.text, vidrDeclared: v.declared, ledgerText: l.text, profile: l.profile, ledgerDeclared: l.declared });
-    pre.replaceChildren(el('p', {}, el('span', { class: 'badge ' + (x.ready ? 'b-ok' : 'b-bad') }, x.ready ? 'Ready for the pilot' : 'Not ready: fix the FAIL lines')), ...x.checks.map(c => el('p', { class: 'kv' }, el('span', { class: 'badge ' + (c.status === 'PASS' ? 'b-ok' : c.status === 'WARN' ? 'b-warn' : 'b-bad') }, c.status), ' ' + c.detail))); } }, 'Run preflight on the loaded files');
+  const runPre = el('button', { class: 'alt', id: 'p-runpre', onclick: () => { if (!imps.some(i => i.kind === 'vidr') || !imps.some(i => i.kind === 'ledger')) { pre.replaceChildren(el('p', { class: 'err' }, 'Load one Amazon report and one accounting export first.')); return; }
+    const x = preflightStored(imps);
+    pre.replaceChildren(el('p', {}, el('span', { class: 'badge ' + (x.ready ? 'b-ok' : 'b-bad') }, x.ready ? 'Ready for the pilot (this is the same check the aggregate file records)' : 'Not ready: fix the FAIL lines')), ...x.checks.map(c => el('p', { class: 'kv' }, el('span', { class: 'badge ' + (c.status === 'PASS' ? 'b-ok' : c.status === 'WARN' ? 'b-warn' : 'b-bad') }, c.status), ' ' + c.detail))); } }, 'Re-check the stored files');
   const saveT = el('button', { class: 'alt', id: 'p-savet', onclick: async () => { try { await rec.setTimes({ manualMinutesBefore: mi.value, toolMinutesWith: wi.value }); await rec.setMissed(ms.value); say('Pilot numbers saved (encrypted, in the vault).'); } catch (e) { say(e.message, true); } } }, 'Save times and count');
   const rows = proj.issues.map(i => { const sel = el('select', { 'data-adj': i.key }, el('option', { value: '' }, 'not reviewed'), ...[['CONFIRMED_REAL', 'confirmed real'], ['FALSE_POSITIVE', 'false positive'], ['COULD_NOT_CONFIRM', 'could not confirm']].map(([v, tx]) => { const o = el('option', { value: v }, tx); if (r0.adjudications?.[i.key] === v) o.selected = true; return o; }));
     sel.addEventListener('change', async () => { if (sel.value) await rec.adjudicate(i.key, sel.value); say('Saved. This is your statement, shown as seller-reported.'); }); return el('tr', {}, el('td', {}, `${i.family} / ${i.subtype}`), el('td', {}, i.subject?.number ?? i.subject?.orderId ?? ''), el('td', {}, sel)); });

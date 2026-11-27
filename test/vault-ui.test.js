@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { makeVault, PAGE_PW } from './ui-helpers.mjs';
+import { makeVault, PAGE_PW, storeStep } from './ui-helpers.mjs';
 import { createLoopStore } from '../src/loop/store.js';
 import { memoryAdapter } from '../src/history.js';
 import * as F from '../tools/make-loop-fixtures.mjs';
@@ -33,8 +33,8 @@ const idb = (page) => page.evaluate(() => new Promise((res, rej) => { const r = 
 let nFiles = 0;
 async function load(page, vidr, ledger, exportedAt = '2026-11-20T11:00') {
   const stored = async () => { await sleep(700); nFiles++; await page.waitForFunction(n => document.querySelector('#results').innerText.includes('Loaded files (' + n + ')'), { timeout: 15000 }, nFiles); };
-  await (await page.$('#vfile')).uploadFile(vidr); await page.waitForSelector('#v-mkt'); await setv(page, '#v-from', '2026-11-01'); await setv(page, '#v-to', '2026-11-30'); await setv(page, '#v-created', '2026-11-20T10:00'); await setv(page, '#v-down', '2026-11-20T10:00'); await page.$eval('#v-after', e => { e.checked = true; }); await click(page, 'Confirm and store'); await stored();
-  await (await page.$('#lfile')).uploadFile(ledger); await page.waitForSelector('#l-sys'); await setv(page, '#l-sys', 'acme-books'); await setv(page, '#l-exp', exportedAt); await setv(page, '#l-mkt', 'A1RKKUPIHCS9HS'); await setv(page, '#l-from', '2026-11-01'); await setv(page, '#l-to', '2026-11-30'); await setv(page, '#l-complete', 'yes'); await setv(page, '#l-kinds', 'invoice'); await setv(page, '#l-scope', 'CHANNEL'); await setv(page, '#l-chan', 'Amazon.es'); await setv(page, '#l-level', 'DOCUMENT'); await click(page, 'Confirm and store'); await stored();
+  await (await page.$('#vfile')).uploadFile(vidr); await page.waitForSelector('#v-mkt'); await setv(page, '#v-from', '2026-11-01'); await setv(page, '#v-to', '2026-11-30'); await setv(page, '#v-created', '2026-11-20T10:00'); await setv(page, '#v-down', '2026-11-20T10:00'); await page.$eval('#v-after', e => { e.checked = true; }); await storeStep(page); await stored();
+  await (await page.$('#lfile')).uploadFile(ledger); await page.waitForSelector('#l-sys'); await setv(page, '#l-sys', 'acme-books'); await setv(page, '#l-exp', exportedAt); await setv(page, '#l-mkt', 'A1RKKUPIHCS9HS'); await setv(page, '#l-from', '2026-11-01'); await setv(page, '#l-to', '2026-11-30'); await setv(page, '#l-complete', 'yes'); await setv(page, '#l-kinds', 'invoice'); await setv(page, '#l-scope', 'CHANNEL'); await setv(page, '#l-chan', 'Amazon.es'); await setv(page, '#l-level', 'DOCUMENT'); await storeStep(page); await stored();
 }
 
 test('vault page: real IndexedDB holds no seller plaintext, wrong password stays locked, lock empties the page, nothing touches the network', { timeout: 150000, skip }, async () => {
@@ -125,7 +125,7 @@ test('pilot panel in real Chrome: preflight, seller-reported numbers stay in the
   const t = await boot(); nFiles = 0;
   try {
     const { page } = t; await makeVault(page); await load(page, 'fixtures/loop/p2-vidr.tsv', 'fixtures/loop/p2-ledger-1.csv'); t.requests.length = 0;
-    await page.waitForSelector('#p-runpre'); await click(page, 'Run preflight on the loaded files');
+    await page.waitForSelector('#p-runpre'); await click(page, 'Re-check the stored files');
     const pre = await page.$eval('#p-pre', e => e.innerText); console.log('PILOT PREFLIGHT (UI):', pre.replace(/\n+/g, ' | ').slice(0, 400));
     for (const s of SECRETS) assert.ok(!pre.includes(s), 'preflight shows a file value: ' + s);
     assert.ok(/PASS/.test(pre) && /Amazon VAT invoice report/.test(pre), 'preflight ran');
