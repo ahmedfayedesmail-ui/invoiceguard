@@ -9,10 +9,13 @@ Reason: the engine compares only currency and buyer tax id today. Amazon's repor
 ## Business flag and DATA_RECONCILIATION: deferred architectural work, not solved
 Non-business shipments (is-business-order FALSE) are not linked to the books and not reconciled. The spec `the business flag must not affect DATA_RECONCILIATION` in `test/phase-a-materiality.test.js` is an incomplete TODO and is never reported as a passing test. Fixing it changes every current number and needs its own decision.
 
-## Coverage metric (new, independent)
-`project().coverage` states what the check looked at and what it did not, counting unique shipments, never rows:
-- business shipments: entered, matched, not matched (matched = linked to a document in the books by its invoice number)
-- non-business shipments: count, status NOT_EVALUATED because of the current check rule, never "unmatched"
-- blank, unreadable or conflicting flag: counted apart as undetermined, in no denominator
-- outside the check: Amazon-created invoices, corrections and non-shipment rows
-It feeds no finding. `test/golden/engine-output-before-coverage.json` holds hashes of the engine output taken BEFORE the change; the test proves issues, buckets, stats, notes and imports are byte-identical for four synthetic scenarios (this is not the 500-seller V5 run).
+## Coverage metric (new, independent; feeds no finding)
+One model over ALL unique transactions in the loaded Amazon reports (one shipment counts once however many item rows it has):
+transactions total = scope + undetermined + outside the check. The invariant is a test.
+- scope: shipments determined to need a seller invoice (is-amazon-invoiced FALSE and is-business-order readable). Business and non-business are subsets of it.
+  - business: entered, linked to a document in the books by invoice number (any Amazon status), not linked; plus, apart, how many of the linked are also shown as accepted by Amazon (this equals the Summary's "Matched by invoice number")
+  - non-business: count, status NOT_EVALUATED because of the current check rule, never "unmatched"
+- undetermined (own count, own reasons, in no scope figure): business-order blank, neither TRUE nor FALSE, or conflicting between rows; the is-amazon-invoiced field unreadable or contradicting the status
+- outside the check: invoices created by Amazon; corrections and non-shipment rows
+The page shows the block "What this check covered" above the Summary, the export carries the same numbers and words (`coverage`), and the words never present the business-only figure as covering every shipment.
+Regression: `test/golden/engine-output-before-coverage.json` holds hashes of the engine output taken BEFORE coverage existed, for four synthetic scenarios. The 500-seller simulation (sim/v3-forensics harness) was re-run on this branch and its aggregate is identical to the published V5 aggregate apart from the timing line.

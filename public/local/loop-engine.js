@@ -482,24 +482,24 @@ var require_buffer = __commonJS({
           return false;
       }
     };
-    Buffer3.concat = function concat(list, length) {
-      if (!Array.isArray(list)) {
+    Buffer3.concat = function concat(list2, length) {
+      if (!Array.isArray(list2)) {
         throw new TypeError('"list" argument must be an Array of Buffers');
       }
-      if (list.length === 0) {
+      if (list2.length === 0) {
         return Buffer3.alloc(0);
       }
       let i;
       if (length === void 0) {
         length = 0;
-        for (i = 0; i < list.length; ++i) {
-          length += list[i].length;
+        for (i = 0; i < list2.length; ++i) {
+          length += list2[i].length;
         }
       }
       const buffer = Buffer3.allocUnsafe(length);
       let pos = 0;
-      for (i = 0; i < list.length; ++i) {
-        let buf = list[i];
+      for (i = 0; i < list2.length; ++i) {
+        let buf = list2[i];
         if (isInstance(buf, Uint8Array)) {
           if (pos + buf.length > buffer.length) {
             if (!Buffer3.isBuffer(buf)) buf = Buffer3.from(buf);
@@ -2159,8 +2159,8 @@ function reconcile(imports) {
   }
   const docs = [];
   const snap = (o) => ({ importId: o.importId, rawStatus: o.raw, mapped: o.mapped, times: o.times, rows: o.rows, invoiceNumber: o.invoiceNumber, transactionId: o.parts["transaction-id"], statusDescription: o.statusDescription });
-  for (const [key, list] of byDoc) {
-    const sorted = [...list].sort((a, b) => (a.et.t ?? -Infinity) - (b.et.t ?? -Infinity) || String(a.importId).localeCompare(String(b.importId)));
+  for (const [key, list2] of byDoc) {
+    const sorted = [...list2].sort((a, b) => (a.et.t ?? -Infinity) - (b.et.t ?? -Infinity) || String(a.importId).localeCompare(String(b.importId)));
     const last = sorted.at(-1), sameTime = sorted.filter((o) => o.et.t !== null && o.et.t === last.et.t);
     let cur = last, why = null;
     if (sameTime.length > 1 && uniq(sameTime.map((o) => o.mapped + "|" + o.raw)).length > 1) {
@@ -2794,6 +2794,22 @@ function buildCard(i) {
   return c2;
 }
 
+// src/loop/coverage.js
+init_buffer_shim();
+var UND = { BUSINESS_FLAG_BLANK: "the business-order field is blank", BUSINESS_FLAG_CONFLICT: "the rows of one shipment disagree about the business-order field", BUSINESS_FLAG_UNREADABLE: "the business-order field is neither TRUE nor FALSE", AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: "who issues the invoice could not be read, or the fields that say so disagree" };
+var list = (by, words) => Object.entries(by).filter(([, n]) => n > 0).map(([k, n]) => `${n} where ${words[k] ?? k}`).join("; ");
+function coverageStatement(c2) {
+  if (!c2 || !c2.transactionsTotal) return ["No Amazon report is loaded, so nothing has been checked yet."];
+  const s = c2.scope, b = s.business, out = [];
+  out.push(`Scope: ${s.count} unique shipments that you must invoice yourself (Amazon did not create the invoice, and the business-order field could be read).`);
+  if (s.count > 0) out.push(`${b.matched} of ${b.entered} business shipments are linked to a document in your books by invoice number, whatever Amazon's status; ${b.notMatched} are not linked. ${b.matchedAndAccepted ?? 0} of the linked ones are also shown as accepted by Amazon (the figure in the Summary below). ` + (s.nonBusiness.count > 0 ? `This figure covers business shipments only, not all ${s.count} shipments in scope.` : `This figure covers all ${s.count} shipments in scope.`));
+  if (s.nonBusiness.count > 0) out.push(`${s.nonBusiness.count} shipments in scope were NOT EVALUATED: they are marked as non-business orders, and they were not checked against your books because of the current check rule. That is not a result for them either way.`);
+  if (c2.undetermined.count > 0) out.push(`${c2.undetermined.count} could not be classified, so they are in none of the figures above: ${list(c2.undetermined.byReason, UND)}.`);
+  if (c2.outsideScope.count > 0) out.push(`${c2.outsideScope.count} are outside the check: ${c2.outsideScope.byReason.AMAZON_INVOICED ?? 0} invoices created by Amazon, ${c2.outsideScope.byReason.NOT_ORDINARY_INVOICE ?? 0} corrections or non-shipment rows.`);
+  out.push(`Total: ${c2.transactionsTotal} unique transactions = ${s.count} in scope + ${c2.undetermined.count} undetermined + ${c2.outsideScope.count} outside the check.`);
+  return out;
+}
+
 // src/loop/project.js
 var LOOP_VERSION = "loop-1.0";
 var KEY_VERSION = "k1";
@@ -2883,8 +2899,8 @@ function evaluate(prefix, events, ctx) {
     }
     importDefects.set(i.id, { defects, scopeNotes });
   }
-  for (const [desc, list] of groups) {
-    const latest = list[list.length - 1], full = list.filter(fullScope).at(-1), key = issueKey(ctx.seller, "SOURCE_INCOMPLETE", desc);
+  for (const [desc, list2] of groups) {
+    const latest = list2[list2.length - 1], full = list2.filter(fullScope).at(-1), key = issueKey(ctx.seller, "SOURCE_INCOMPLETE", desc);
     const subjectOf = (x) => ({ descriptor: desc, source: isLedger(x) ? "accounting export" : "Amazon VAT invoice report", fileName: x.fileName ?? null });
     const raise = (x) => {
       const { defects } = importDefects.get(x.id);
@@ -3249,15 +3265,24 @@ function evaluate(prefix, events, ctx) {
   }
   const covNotes = [...noteGroup.values()].sort((a, b) => a.reason.localeCompare(b.reason));
   const docsFine = A.filter((d) => d.state === "ACCEPTED" && link.get(amazonId(d))?.level === "CONFIRMED").length;
-  const byFlag = (f) => sellerSet.filter((d) => bflag.get(d) === f).length, matchedBiz = A.filter((d) => link.get(amazonId(d))?.level === "CONFIRMED").length;
+  const byFlag = (f) => sellerSet.filter((d) => bflag.get(d) === f).length, matchedBiz = A.filter((d) => link.get(amazonId(d))?.level === "CONFIRMED").length, nonOrdinary = rec.docs.length - ordinary.length, amazonInv = ordinary.filter((d) => flagged.get(d) === "TRUE").length;
   const coverage = {
-    shipmentsInScope: sellerSet.length,
-    scopeMeans: "unique shipments the seller must invoice themselves (is-amazon-invoiced FALSE); one shipment is counted once however many item rows it has",
-    business: { entered: A.length, matched: matchedBiz, notMatched: A.length - matchedBiz, matchedMeans: "the shipment is linked to a document in the books by its invoice number" },
-    nonBusiness: { count: byFlag("FALSE"), status: "NOT_EVALUATED", reason: "These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result: they are neither matched nor unmatched." },
-    undetermined: { count: bizUndetermined.length, byReason: { BLANK: byFlag("BLANK"), CONFLICT: byFlag("CONFLICT"), UNREADABLE: byFlag("UNREADABLE") }, reason: "The is-business-order column is blank, holds a value that is neither TRUE nor FALSE, or the rows of one shipment disagree. They sit in no denominator." },
-    outsideScope: { createdByAmazon: stats.createdByAmazon, amazonFlagUndetermined: stats.amazonFlagUndetermined, notOrdinaryInvoice: stats.notOrdinaryInvoice, reason: "Invoices created by Amazon are not the seller's to issue; corrections and non-shipment rows are not ordinary invoices; an unreadable is-amazon-invoiced field is not judged. None of them is in the scope above." }
+    transactionsTotal: rec.docs.length,
+    totalMeans: "every unique transaction in the loaded Amazon reports (one shipment counts once however many item rows it has)",
+    scope: {
+      count: A.length + byFlag("FALSE"),
+      means: "unique shipments that the seller must invoice (is-amazon-invoiced FALSE) and whose is-business-order field is readable",
+      business: { entered: A.length, matched: matchedBiz, matchedAndAccepted: docsFine, notMatched: A.length - matchedBiz, matchedMeans: "the shipment is linked to a document in the books by its invoice number; denominator = business shipments in scope" },
+      nonBusiness: { count: byFlag("FALSE"), status: "NOT_EVALUATED", reason: "These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result for them either way." }
+    },
+    undetermined: {
+      count: bizUndetermined.length + flagUndetermined.length,
+      byReason: { BUSINESS_FLAG_BLANK: byFlag("BLANK"), BUSINESS_FLAG_CONFLICT: byFlag("CONFLICT"), BUSINESS_FLAG_UNREADABLE: byFlag("UNREADABLE"), AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: flagUndetermined.length },
+      reason: "The business-order field is blank or holds a value that is neither TRUE nor FALSE, or the rows of one shipment disagree, or the field that says who issues the invoice could not be read. They sit in no figure of the scope."
+    },
+    outsideScope: { count: nonOrdinary + amazonInv, byReason: { AMAZON_INVOICED: amazonInv, NOT_ORDINARY_INVOICE: nonOrdinary }, reason: "Invoices created by Amazon are not the seller's to issue. Corrections and non-shipment rows are not ordinary invoices. None of them is in the scope." }
   };
+  coverage.statement = coverageStatement(coverage);
   return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, coverage, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
 }
 function project({ imports, events = [], sellerProfileId = "local", deletions: allDeletions = [] }) {
@@ -3274,7 +3299,11 @@ function project({ imports, events = [], sellerProfileId = "local", deletions: a
     ctx.actions.get(e.issueKey).push(e);
   }
   const hist = /* @__PURE__ */ new Map();
-  let last = { findings: /* @__PURE__ */ new Map(), closed: /* @__PURE__ */ new Map(), notes: [], stats: {}, coverage: { shipmentsInScope: 0, business: { entered: 0, matched: 0, notMatched: 0 }, nonBusiness: { count: 0, status: "NOT_EVALUATED" }, undetermined: { count: 0, byReason: { BLANK: 0, CONFLICT: 0, UNREADABLE: 0 } }, outsideScope: { createdByAmazon: 0, amazonFlagUndetermined: 0, notOrdinaryInvoice: 0 } }, links: {}, amazonDocs: [], importDefects: /* @__PURE__ */ new Map(), ledgerDocs: [] };
+  let last = { findings: /* @__PURE__ */ new Map(), closed: /* @__PURE__ */ new Map(), notes: [], stats: {}, coverage: (() => {
+    const c2 = { transactionsTotal: 0, scope: { count: 0, business: { entered: 0, matched: 0, matchedAndAccepted: 0, notMatched: 0 }, nonBusiness: { count: 0, status: "NOT_EVALUATED" } }, undetermined: { count: 0, byReason: { BUSINESS_FLAG_BLANK: 0, BUSINESS_FLAG_CONFLICT: 0, BUSINESS_FLAG_UNREADABLE: 0, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 0 } }, outsideScope: { count: 0, byReason: { AMAZON_INVOICED: 0, NOT_ORDINARY_INVOICE: 0 } } };
+    c2.statement = coverageStatement(c2);
+    return c2;
+  })(), links: {}, amazonDocs: [], importDefects: /* @__PURE__ */ new Map(), ledgerDocs: [] };
   const n = ordered.length;
   for (let k = 0; k < n; k++) {
     const horizon = k < n - 1 ? Math.min(...ordered.slice(k + 1).map((i) => ms2(i.importedAt) ?? Infinity)) : Infinity;
@@ -3378,9 +3407,9 @@ function project({ imports, events = [], sellerProfileId = "local", deletions: a
     if (!byKey.has(a.key)) byKey.set(a.key, []);
     byKey.get(a.key).push({ d, a });
   }
-  for (const [key, list] of byKey) {
-    const first = list[0].a, deletedImports = list.map(({ d }) => ({ deletionId: d.id, importId: d.import.id, fileName: d.import.fileName ?? null, kind: d.import.kind, deletedAt: d.deletedAt, utcOffsetMinutes: d.utcOffsetMinutes ?? null, reason: d.reason }));
-    const recorded = { state: first.recordedState, episodes: first.recordedEpisodes ?? [], history: first.recordedHistory ?? [] }, wasClosed = list.some(({ a }) => a.recordedState === "VERIFIED_CLOSED");
+  for (const [key, list2] of byKey) {
+    const first = list2[0].a, deletedImports = list2.map(({ d }) => ({ deletionId: d.id, importId: d.import.id, fileName: d.import.fileName ?? null, kind: d.import.kind, deletedAt: d.deletedAt, utcOffsetMinutes: d.utcOffsetMinutes ?? null, reason: d.reason }));
+    const recorded = { state: first.recordedState, episodes: first.recordedEpisodes ?? [], history: first.recordedHistory ?? [] }, wasClosed = list2.some(({ a }) => a.recordedState === "VERIFIED_CLOSED");
     let issue = issues.find((i) => i.key === key);
     if (!issue) {
       issue = { key, family: first.family, subtype: first.subtype, state: "HISTORY_INCOMPLETE", outcome: null, awaiting: null, subject: first.subject, reopened: false, episodes: [], history: [], events: goodEvents.filter((e) => e.issueKey === key).map((e) => ({ id: e.id ?? null, type: e.type, kind: e.kind ?? null, author: e.author, createdAt: e.createdAt, reasoning: e.reasoning })), lapsedDeclarations: [], declaration: null, section: null, label: null, fingerprint: null, closure: null, placeholder: true, finding: { evidence: null, note: null, lastSeen: true } };
@@ -3468,14 +3497,14 @@ function orphanedEvents(events, after, imports, pid, deletions = []) {
 }
 function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toISOString(), offsetMinutes = () => -(/* @__PURE__ */ new Date()).getTimezoneOffset() } = {}) {
   const key = (k, id) => `loop:${k}:${id}`;
-  const list = async (k) => {
+  const list2 = async (k) => {
     const out = [];
     for (const x of (await adapter.list()).filter((x2) => String(x2).startsWith(`loop:${k}:`)).sort()) out.push(await adapter.get(x));
     return out;
   };
   let seq = 0;
   const pruneOrphans = async () => {
-    const imports = await list("import"), events = await list("event"), pid = await api.profileId(), deletions = (await list("deletion")).filter((d) => (d.status ?? "COMMITTED") === "COMMITTED"), after = project({ imports, events, sellerProfileId: pid, deletions });
+    const imports = await list2("import"), events = await list2("event"), pid = await api.profileId(), deletions = (await list2("deletion")).filter((d) => (d.status ?? "COMMITTED") === "COMMITTED"), after = project({ imports, events, sellerProfileId: pid, deletions });
     let n = 0;
     for (const e of orphanedEvents(events, after, imports, pid, deletions)) {
       await adapter.del(key("event", e.id));
@@ -3507,22 +3536,22 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
       return rec.id;
     },
     async imports() {
-      return list("import");
+      return list2("import");
     },
     async events() {
-      return list("event");
+      return list2("event");
     },
     /** The permanent record of deleted imports: which file, when, why, and which problems it touched. It never holds file content. */
     async deletions() {
-      return list("deletion");
+      return list2("deletion");
     },
     async committedDeletions() {
-      return (await list("deletion")).filter((d) => (d.status ?? "COMMITTED") === "COMMITTED");
+      return (await list2("deletion")).filter((d) => (d.status ?? "COMMITTED") === "COMMITTED");
     },
     /** Settles every PENDING deletion record by looking at whether its file is really gone. File gone: the record is completed (COMMITTED), once, under its own id. File present: the record is KEPT, however old, and counts as no deletion (it is invisible to project()); a retry reuses it under the same id. There is no time-based discard: a stalled tab could still delete the file later, and a discarded record would then be lost. Only the file's absence moves a record forward. The file is looked up by its import id, never by name or hash. Idempotent. */
     async recoverDeletions() {
       const out = { committed: [], pending: [] };
-      for (const rec of (await list("deletion")).filter((d) => d.status === "PENDING")) {
+      for (const rec of (await list2("deletion")).filter((d) => d.status === "PENDING")) {
         if (!await adapter.get(key("import", rec.import.id))) {
           await adapter.put(key("deletion", rec.id), { ...rec, status: "COMMITTED", committedAt: now() });
           out.committed.push(rec.id);
@@ -3577,6 +3606,7 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
         deletionRecordNotice: DELETION_EXPORT_NOTICE,
         headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },
         issues: r.issues.map((i) => ({ key: i.key, family: i.family, subtype: i.subtype, state: i.state, closureBasis: i.outcome, episodes: i.episodes, history: i.history, events: i.events, declaration: i.declaration, lapsedDeclarations: i.lapsedDeclarations, closure: i.closure, historyIncomplete: i.historyIncomplete ?? false, priorRecordedState: i.priorRecordedState ?? null, deletedImports: i.deletedImports ?? [], recordedBeforeDeletion: i.recordedBeforeDeletion ?? null, card: i.card })),
+        coverage: r.coverage,
         coverageNotes: r.coverageNotes,
         rejectedEvents: r.rejectedEvents.map((x) => ({ reason: x.reason, type: x.event.type })),
         notCheckedInThisVersion: r.notCheckedInThisVersion
@@ -3631,7 +3661,7 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
       if (!adapter.del) throw new Refused(["This storage cannot delete single records."]);
       if (typeof reason !== "string" || !reason.trim() || reason.length > 200) throw new Refused(["The reason for a deletion is a short text of at most 200 characters."]);
       await this.recoverDeletions();
-      const impact = await this.deletionImpact(importId), at = now(), prior = (await list("deletion")).find((d) => d.status === "PENDING" && d.import.id === importId);
+      const impact = await this.deletionImpact(importId), at = now(), prior = (await list2("deletion")).find((d) => d.status === "PENDING" && d.import.id === importId);
       const rec = { id: prior?.id ?? `del-${at.replace(/\D/g, "").slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, status: "PENDING", attemptedAt: at, deletedAt: at, utcOffsetMinutes: offsetMinutes(), reason: reason.trim(), ...impact.record };
       await adapter.put(key("deletion", rec.id), rec);
       try {

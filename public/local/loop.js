@@ -105,6 +105,7 @@ async function delImport(x) {
 }
 async function render() {
   const r = await store.project(), out = $('#results'); out.replaceChildren();
+  out.append(el('div', { class: 'card', id: 'coverage' }, el('h3', {}, 'What this check covered'), ...r.coverage.statement.map(t => el('p', { class: 'kv' }, t))));
   const b = r.buckets; out.append(el('div', { class: 'card', id: 'summary' }, el('h3', {}, 'Summary'), el('p', { class: 'kv' }, `Matched by invoice number: ${b.matchedByInvoiceNumber} (currency and buyer tax id are compared for each pair; the invoice total, net, VAT, dates and lines are not compared in this version). In progress at Amazon: ${b.inProgressAtAmazon}. Needs action: ${b.needsActionNow}. Needs a human reading: ${b.needsHumanReading}. Waiting for a newer file: ${b.awaitingNewEvidence}. Cannot determine: ${b.cannotDetermine}.`),
     el('p', { class: 'kv' }, el('b', {}, 'Closed with evidence: ' + b.closedWithEvidence), '. Reported resolved by you, not confirmed by a file: ' + b.reportedResolvedBySeller + '. These two numbers are never added.')));
   for (const [name, f] of GROUPS) { const xs = r.issues.filter(f); if (xs.length) out.append(el('details', { class: 'group', open: '' }, el('summary', {}, `${name} (${xs.length})`), ...xs.map(cardNode))); }

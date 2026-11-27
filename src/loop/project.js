@@ -7,6 +7,7 @@ import { sha256 } from './sha256.js';
 import { eventShapeProblem, declarationProblem, DECLARATION_TYPES } from './events.js';
 import { buildCard } from './cards.js';
 
+import { coverageStatement } from './coverage.js';
 export const LOOP_VERSION = 'loop-1.0';
 export const KEY_VERSION = 'k1';
 export const FAMILIES = Object.freeze(['SOURCE_INCOMPLETE', 'UNMATCHED_DOCUMENT', 'INVOICE_AMAZON_STATE', 'BOOKS_GAP', 'DATA_MISMATCH', 'DUPLICATE_DOCUMENT']); // P1 and P2, ordinary invoices only
@@ -267,13 +268,16 @@ function evaluate(prefix, events, ctx) {
   }
   const covNotes = [...noteGroup.values()].sort((a, b) => a.reason.localeCompare(b.reason));
   const docsFine = A.filter(d => d.state === 'ACCEPTED' && link.get(amazonId(d))?.level === 'CONFIRMED').length;
-  // Coverage: what the check looked at and what it did not. A separate metric: it feeds no finding and changes no number above. Unique shipments, never rows.
-  const byFlag = (f) => sellerSet.filter(d => bflag.get(d) === f).length, matchedBiz = A.filter(d => link.get(amazonId(d))?.level === 'CONFIRMED').length;
-  const coverage = { shipmentsInScope: sellerSet.length, scopeMeans: 'unique shipments the seller must invoice themselves (is-amazon-invoiced FALSE); one shipment is counted once however many item rows it has',
-    business: { entered: A.length, matched: matchedBiz, notMatched: A.length - matchedBiz, matchedMeans: 'the shipment is linked to a document in the books by its invoice number' },
-    nonBusiness: { count: byFlag('FALSE'), status: 'NOT_EVALUATED', reason: 'These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result: they are neither matched nor unmatched.' },
-    undetermined: { count: bizUndetermined.length, byReason: { BLANK: byFlag('BLANK'), CONFLICT: byFlag('CONFLICT'), UNREADABLE: byFlag('UNREADABLE') }, reason: 'The is-business-order column is blank, holds a value that is neither TRUE nor FALSE, or the rows of one shipment disagree. They sit in no denominator.' },
-    outsideScope: { createdByAmazon: stats.createdByAmazon, amazonFlagUndetermined: stats.amazonFlagUndetermined, notOrdinaryInvoice: stats.notOrdinaryInvoice, reason: 'Invoices created by Amazon are not the seller\'s to issue; corrections and non-shipment rows are not ordinary invoices; an unreadable is-amazon-invoiced field is not judged. None of them is in the scope above.' } };
+  // Coverage: what the check looked at and what it did not. A separate metric: it feeds no finding and changes no number above. One model over ALL unique transactions: scope + undetermined + outside the check.
+  const byFlag = (f) => sellerSet.filter(d => bflag.get(d) === f).length, matchedBiz = A.filter(d => link.get(amazonId(d))?.level === 'CONFIRMED').length, nonOrdinary = rec.docs.length - ordinary.length, amazonInv = ordinary.filter(d => flagged.get(d) === 'TRUE').length;
+  const coverage = { transactionsTotal: rec.docs.length, totalMeans: 'every unique transaction in the loaded Amazon reports (one shipment counts once however many item rows it has)',
+    scope: { count: A.length + byFlag('FALSE'), means: 'unique shipments that the seller must invoice (is-amazon-invoiced FALSE) and whose is-business-order field is readable',
+      business: { entered: A.length, matched: matchedBiz, matchedAndAccepted: docsFine, notMatched: A.length - matchedBiz, matchedMeans: 'the shipment is linked to a document in the books by its invoice number; denominator = business shipments in scope' },
+      nonBusiness: { count: byFlag('FALSE'), status: 'NOT_EVALUATED', reason: 'These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result for them either way.' } },
+    undetermined: { count: bizUndetermined.length + flagUndetermined.length, byReason: { BUSINESS_FLAG_BLANK: byFlag('BLANK'), BUSINESS_FLAG_CONFLICT: byFlag('CONFLICT'), BUSINESS_FLAG_UNREADABLE: byFlag('UNREADABLE'), AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: flagUndetermined.length },
+      reason: 'The business-order field is blank or holds a value that is neither TRUE nor FALSE, or the rows of one shipment disagree, or the field that says who issues the invoice could not be read. They sit in no figure of the scope.' },
+    outsideScope: { count: nonOrdinary + amazonInv, byReason: { AMAZON_INVOICED: amazonInv, NOT_ORDINARY_INVOICE: nonOrdinary }, reason: 'Invoices created by Amazon are not the seller\'s to issue. Corrections and non-shipment rows are not ordinary invoices. None of them is in the scope.' } };
+  coverage.statement = coverageStatement(coverage);
   return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, coverage, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
 }
 
@@ -284,7 +288,7 @@ export function project({ imports, events = [], sellerProfileId = 'local', delet
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) { const p = eventShapeProblem(e); if (p) rejectedEvents.push({ event: e, reason: p }); else goodEvents.push(e); }
   for (const e of goodEvents) if (e.type === 'ACTION_STARTED') { if (!ctx.actions.has(e.issueKey)) ctx.actions.set(e.issueKey, []); ctx.actions.get(e.issueKey).push(e); }
-  const hist = new Map(); let last = { findings: new Map(), closed: new Map(), notes: [], stats: {}, coverage: { shipmentsInScope: 0, business: { entered: 0, matched: 0, notMatched: 0 }, nonBusiness: { count: 0, status: 'NOT_EVALUATED' }, undetermined: { count: 0, byReason: { BLANK: 0, CONFLICT: 0, UNREADABLE: 0 } }, outsideScope: { createdByAmazon: 0, amazonFlagUndetermined: 0, notOrdinaryInvoice: 0 } }, links: {}, amazonDocs: [], importDefects: new Map(), ledgerDocs: [] };
+  const hist = new Map(); let last = { findings: new Map(), closed: new Map(), notes: [], stats: {}, coverage: (() => { const c = { transactionsTotal: 0, scope: { count: 0, business: { entered: 0, matched: 0, matchedAndAccepted: 0, notMatched: 0 }, nonBusiness: { count: 0, status: 'NOT_EVALUATED' } }, undetermined: { count: 0, byReason: { BUSINESS_FLAG_BLANK: 0, BUSINESS_FLAG_CONFLICT: 0, BUSINESS_FLAG_UNREADABLE: 0, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 0 } }, outsideScope: { count: 0, byReason: { AMAZON_INVOICED: 0, NOT_ORDINARY_INVOICE: 0 } } }; c.statement = coverageStatement(c); return c; })(), links: {}, amazonDocs: [], importDefects: new Map(), ledgerDocs: [] };
   const n = ordered.length;
   for (let k = 0; k < n; k++) {
     const horizon = k < n - 1 ? Math.min(...ordered.slice(k + 1).map(i => ms(i.importedAt) ?? Infinity)) : Infinity;

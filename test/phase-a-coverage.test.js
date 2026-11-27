@@ -26,6 +26,10 @@ test('business and non-business are subsets of the scope; matched and not matche
   assert.equal(s.business.matched + s.business.notMatched, s.business.entered); assert.equal(s.nonBusiness.count, 2); assert.equal(s.nonBusiness.status, 'NOT_EVALUATED');
   assert.match(s.business.matchedMeans, /invoice number/);
 });
+test('the coverage figure and the Summary figure cannot contradict: linked (any Amazon status) is stated apart from linked AND accepted, and the second is exactly the Summary number', () => {
+  for (const [k, v] of Object.entries({ ...SCENARIOS(), full: FULL() })) { const p = project(v), b = p.coverage.scope.business; assert.equal(b.matchedAndAccepted, p.stats.matchedByInvoiceNumber, k); assert.ok(b.matchedAndAccepted <= b.matched, k); }
+  assert.match(coverageStatement(project(FULL()).coverage).join(' '), /whatever Amazon's status/); assert.match(coverageStatement(project(FULL()).coverage).join(' '), /also shown as accepted by Amazon/);
+});
 test('undetermined is a separate bucket with its own reasons and is in no denominator', () => {
   const u = project(FULL()).coverage.undetermined;
   assert.deepEqual(u.byReason, { BUSINESS_FLAG_BLANK: 1, BUSINESS_FLAG_CONFLICT: 1, BUSINESS_FLAG_UNREADABLE: 1, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 1 });
