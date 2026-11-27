@@ -1,0 +1,2705 @@
+[
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-22",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S583253200"
+  ],
+  "orderIds": [
+   "721-7684570-2000154"
+  ],
+  "shippingIds": [
+   "S583253200"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 23",
+    "row 24",
+    "row 25"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-31",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S938637223"
+  ],
+  "orderIds": [
+   "505-7684579-2000217"
+  ],
+  "shippingIds": [
+   "S938637223"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 34",
+    "row 35",
+    "row 36"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-34",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S730546687"
+  ],
+  "orderIds": [
+   "613-7684582-2000240"
+  ],
+  "shippingIds": [
+   "S730546687"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 39",
+    "row 40"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-53",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S445971103"
+  ],
+  "orderIds": [
+   "694-7684601-2000373"
+  ],
+  "shippingIds": [
+   "S445971103"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 59",
+    "row 60"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-60",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S943236036"
+  ],
+  "orderIds": [
+   "921-7684608-2000424"
+  ],
+  "shippingIds": [
+   "S943236036"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 67",
+    "row 68"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-61",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S424270391"
+  ],
+  "orderIds": [
+   "122-7684609-2000431"
+  ],
+  "shippingIds": [
+   "S424270391"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 69",
+    "row 70"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-65",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S364010883"
+  ],
+  "orderIds": [
+   "580-7684613-2000455"
+  ],
+  "shippingIds": [
+   "S364010883"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 74",
+    "row 75",
+    "row 76"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-67",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S905975722"
+  ],
+  "orderIds": [
+   "553-7684615-2000473"
+  ],
+  "shippingIds": [
+   "S905975722"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 78",
+    "row 79",
+    "row 80"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 24,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026-70",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S518447589"
+  ],
+  "orderIds": [
+   "856-7684618-2000494"
+  ],
+  "shippingIds": [
+   "S518447589"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 83",
+    "row 84",
+    "row 85"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 59,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100001",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S141051749"
+  ],
+  "orderIds": [
+   "987-8045218-2000007"
+  ],
+  "shippingIds": [
+   "S141051749"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 2",
+    "row 3",
+    "row 4"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 59,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100002",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S780559008"
+  ],
+  "orderIds": [
+   "153-8045219-2000014"
+  ],
+  "shippingIds": [
+   "S780559008"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 5",
+    "row 6"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 59,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100005",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S614657889"
+  ],
+  "orderIds": [
+   "761-8045222-2000037"
+  ],
+  "shippingIds": [
+   "S614657889"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 9",
+    "row 10"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100002",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S522081773"
+  ],
+  "orderIds": [
+   "649-8567644-2000016"
+  ],
+  "shippingIds": [
+   "S522081773"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 3",
+    "row 4"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100006",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S216485887"
+  ],
+  "orderIds": [
+   "647-8567648-2000045"
+  ],
+  "shippingIds": [
+   "S216485887"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 8",
+    "row 9",
+    "row 10"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100007",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S218850767"
+  ],
+  "orderIds": [
+   "296-8567649-2000049"
+  ],
+  "shippingIds": [
+   "S218850767"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 11",
+    "row 12",
+    "row 13"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100008",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S408318791"
+  ],
+  "orderIds": [
+   "966-8567650-2000059"
+  ],
+  "shippingIds": [
+   "S408318791"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 14",
+    "row 15"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100014",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S287221334"
+  ],
+  "orderIds": [
+   "737-8567656-2000101"
+  ],
+  "shippingIds": [
+   "S287221334"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 21",
+    "row 22"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100017",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S952674514"
+  ],
+  "orderIds": [
+   "933-8567659-2000121"
+  ],
+  "shippingIds": [
+   "S952674514"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 25",
+    "row 26",
+    "row 27"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100020",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S337572304"
+  ],
+  "orderIds": [
+   "105-8567662-2000142"
+  ],
+  "shippingIds": [
+   "S337572304"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 30",
+    "row 31",
+    "row 32"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100021",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S497682311"
+  ],
+  "orderIds": [
+   "540-8567663-2000147"
+  ],
+  "shippingIds": [
+   "S497682311"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 33",
+    "row 34"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100023",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S132775838"
+  ],
+  "orderIds": [
+   "187-8567665-2000165"
+  ],
+  "shippingIds": [
+   "S132775838"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 36",
+    "row 37",
+    "row 38"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100029",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S167439795"
+  ],
+  "orderIds": [
+   "280-8567671-2000205"
+  ],
+  "shippingIds": [
+   "S167439795"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 44",
+    "row 45"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 94,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100031",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S079389367"
+  ],
+  "orderIds": [
+   "566-8567673-2000221"
+  ],
+  "shippingIds": [
+   "S079389367"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 47",
+    "row 48",
+    "row 49"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 129,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00005",
+  "marketplace": "A1RKKUPIHCS9HS",
+  "amazonTransactionIds": [
+   "S620700285"
+  ],
+  "orderIds": [
+   "610-8077691-2000037"
+  ],
+  "shippingIds": [
+   "S620700285"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 6",
+    "row 7"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 129,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00011",
+  "marketplace": "A1RKKUPIHCS9HS",
+  "amazonTransactionIds": [
+   "S149785201"
+  ],
+  "orderIds": [
+   "283-8077697-2000080"
+  ],
+  "shippingIds": [
+   "S149785201"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 13",
+    "row 14",
+    "row 15"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 129,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00012",
+  "marketplace": "A1RKKUPIHCS9HS",
+  "amazonTransactionIds": [
+   "S889557116"
+  ],
+  "orderIds": [
+   "330-8077698-2000087"
+  ],
+  "shippingIds": [
+   "S889557116"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 16",
+    "row 17",
+    "row 18"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 129,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00023",
+  "marketplace": "A1RKKUPIHCS9HS",
+  "amazonTransactionIds": [
+   "S597442481"
+  ],
+  "orderIds": [
+   "722-8077709-2000162"
+  ],
+  "shippingIds": [
+   "S597442481"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 29",
+    "row 30"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 164,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A11",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S984266330"
+  ],
+  "orderIds": [
+   "612-2376753-2000080"
+  ],
+  "shippingIds": [
+   "S984266330"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 13",
+    "row 14",
+    "row 15"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 164,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A23",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S203738989"
+  ],
+  "orderIds": [
+   "609-2376765-2000164"
+  ],
+  "shippingIds": [
+   "S203738989"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 27",
+    "row 28",
+    "row 29"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 164,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A52",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S241487032"
+  ],
+  "orderIds": [
+   "925-2376794-2000366"
+  ],
+  "shippingIds": [
+   "S241487032"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 58",
+    "row 59"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 164,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A54",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S531732448"
+  ],
+  "orderIds": [
+   "258-2376796-2000380"
+  ],
+  "shippingIds": [
+   "S531732448"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 61",
+    "row 62",
+    "row 63"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 164,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A58",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S689235819"
+  ],
+  "orderIds": [
+   "142-2376800-2000410"
+  ],
+  "shippingIds": [
+   "S689235819"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 67",
+    "row 68"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 164,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A9",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S080901836"
+  ],
+  "orderIds": [
+   "691-2376751-2000067"
+  ],
+  "shippingIds": [
+   "S080901836"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 10",
+    "row 11"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 199,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000001",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S552245039"
+  ],
+  "orderIds": [
+   "776-5396973-2000009"
+  ],
+  "shippingIds": [
+   "S552245039"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 2",
+    "row 3",
+    "row 4"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 199,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000002",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S853675516"
+  ],
+  "orderIds": [
+   "822-5396974-2000016"
+  ],
+  "shippingIds": [
+   "S853675516"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 5",
+    "row 6",
+    "row 7"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 199,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000003",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S196346950"
+  ],
+  "orderIds": [
+   "125-5396975-2000025"
+  ],
+  "shippingIds": [
+   "S196346950"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 8",
+    "row 9"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 199,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000004",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S080685424"
+  ],
+  "orderIds": [
+   "378-5396976-2000028"
+  ],
+  "shippingIds": [
+   "S080685424"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 10",
+    "row 11",
+    "row 12"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100019",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S679764078"
+  ],
+  "orderIds": [
+   "617-3392434-2000134"
+  ],
+  "shippingIds": [
+   "S679764078"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 20",
+    "row 21",
+    "row 22"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100021",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S792779256"
+  ],
+  "orderIds": [
+   "120-3392436-2000151"
+  ],
+  "shippingIds": [
+   "S792779256"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 24",
+    "row 25",
+    "row 26"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100028",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S570365353"
+  ],
+  "orderIds": [
+   "301-3392443-2000200"
+  ],
+  "shippingIds": [
+   "S570365353"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 33",
+    "row 34"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100030",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S693198503"
+  ],
+  "orderIds": [
+   "870-3392445-2000212"
+  ],
+  "shippingIds": [
+   "S693198503"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 36",
+    "row 37"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100034",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S243601565"
+  ],
+  "orderIds": [
+   "431-3392449-2000239"
+  ],
+  "shippingIds": [
+   "S243601565"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 41",
+    "row 42",
+    "row 43"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100037",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S269215938"
+  ],
+  "orderIds": [
+   "443-3392452-2000259"
+  ],
+  "shippingIds": [
+   "S269215938"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 46",
+    "row 47",
+    "row 48"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100041",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S825954896"
+  ],
+  "orderIds": [
+   "825-3392456-2000291"
+  ],
+  "shippingIds": [
+   "S825954896"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 52",
+    "row 53"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100042",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S870948968"
+  ],
+  "orderIds": [
+   "277-3392457-2000297"
+  ],
+  "shippingIds": [
+   "S870948968"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 54",
+    "row 55"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100046",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S258006502"
+  ],
+  "orderIds": [
+   "241-3392461-2000324"
+  ],
+  "shippingIds": [
+   "S258006502"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 59",
+    "row 60",
+    "row 61"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100048",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S058681754"
+  ],
+  "orderIds": [
+   "747-3392463-2000336"
+  ],
+  "shippingIds": [
+   "S058681754"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 63",
+    "row 64",
+    "row 65"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 234,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100050",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S478394347"
+  ],
+  "orderIds": [
+   "263-3392465-2000354"
+  ],
+  "shippingIds": [
+   "S478394347"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 67",
+    "row 68",
+    "row 69"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 269,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "FA-2026-0001",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S710583639"
+  ],
+  "orderIds": [
+   "795-2878219-2000009"
+  ],
+  "shippingIds": [
+   "S710583639"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 2",
+    "row 3",
+    "row 4"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 269,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "FA-2026-0003",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S010943935"
+  ],
+  "orderIds": [
+   "158-2878221-2000021"
+  ],
+  "shippingIds": [
+   "S010943935"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 6",
+    "row 7",
+    "row 8"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 269,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "FA-2026-0005",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S727787231"
+  ],
+  "orderIds": [
+   "312-2878223-2000039"
+  ],
+  "shippingIds": [
+   "S727787231"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 10",
+    "row 11",
+    "row 12"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 269,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "FA-2026-0008",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S457105338"
+  ],
+  "orderIds": [
+   "219-2878226-2000060"
+  ],
+  "shippingIds": [
+   "S457105338"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 15",
+    "row 16"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 269,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "FA-2026-0009",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S523354233"
+  ],
+  "orderIds": [
+   "854-2878227-2000067"
+  ],
+  "shippingIds": [
+   "S523354233"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 17",
+    "row 18",
+    "row 19"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 269,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "FA-2026-0010",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S434155983"
+  ],
+  "orderIds": [
+   "943-2878228-2000070"
+  ],
+  "shippingIds": [
+   "S434155983"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 20",
+    "row 21",
+    "row 22"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 269,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "FA-2026-0011",
+  "marketplace": "A1PA6795UKMFR9",
+  "amazonTransactionIds": [
+   "S019993381"
+  ],
+  "orderIds": [
+   "478-2878229-2000081"
+  ],
+  "shippingIds": [
+   "S019993381"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 23",
+    "row 24",
+    "row 25"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000003",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S973736326"
+  ],
+  "orderIds": [
+   "303-2685538-2000021"
+  ],
+  "shippingIds": [
+   "S973736326"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 4",
+    "row 5",
+    "row 6"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000004",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S235114063"
+  ],
+  "orderIds": [
+   "137-2685539-2000029"
+  ],
+  "shippingIds": [
+   "S235114063"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 7",
+    "row 8",
+    "row 9"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000005",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S109308484"
+  ],
+  "orderIds": [
+   "559-2685540-2000035"
+  ],
+  "shippingIds": [
+   "S109308484"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 10",
+    "row 11",
+    "row 12"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000007",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S402427215"
+  ],
+  "orderIds": [
+   "267-2685542-2000053"
+  ],
+  "shippingIds": [
+   "S402427215"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 14",
+    "row 15"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000009",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S953031471"
+  ],
+  "orderIds": [
+   "469-2685544-2000067"
+  ],
+  "shippingIds": [
+   "S953031471"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 17",
+    "row 18",
+    "row 19"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000011",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S157953958"
+  ],
+  "orderIds": [
+   "499-2685546-2000081"
+  ],
+  "shippingIds": [
+   "S157953958"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 21",
+    "row 22"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000015",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S147541532"
+  ],
+  "orderIds": [
+   "224-2685550-2000107"
+  ],
+  "shippingIds": [
+   "S147541532"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 26",
+    "row 27"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000016",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S987853936"
+  ],
+  "orderIds": [
+   "405-2685551-2000114"
+  ],
+  "shippingIds": [
+   "S987853936"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 28",
+    "row 29",
+    "row 30"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 304,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "F000017",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S697543244"
+  ],
+  "orderIds": [
+   "388-2685552-2000123"
+  ],
+  "shippingIds": [
+   "S697543244"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 31",
+    "row 32",
+    "row 33"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 339,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100001",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S389776481"
+  ],
+  "orderIds": [
+   "154-1351137-2000009"
+  ],
+  "shippingIds": [
+   "S389776481"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 2",
+    "row 3",
+    "row 4"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 339,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100004",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S241185130"
+  ],
+  "orderIds": [
+   "502-1351140-2000030"
+  ],
+  "shippingIds": [
+   "S241185130"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 7",
+    "row 8",
+    "row 9"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 339,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100006",
+  "marketplace": "A1C3SOZRARQ6R3",
+  "amazonTransactionIds": [
+   "S985423629"
+  ],
+  "orderIds": [
+   "769-1351142-2000043"
+  ],
+  "shippingIds": [
+   "S985423629"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 11",
+    "row 12",
+    "row 13"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 374,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A29",
+  "marketplace": "APJ6JRA9NG5V4",
+  "amazonTransactionIds": [
+   "S594987695"
+  ],
+  "orderIds": [
+   "279-2268298-2000207"
+  ],
+  "shippingIds": [
+   "S594987695"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 32",
+    "row 33"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 374,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A38",
+  "marketplace": "APJ6JRA9NG5V4",
+  "amazonTransactionIds": [
+   "S245793418"
+  ],
+  "orderIds": [
+   "566-2268307-2000266"
+  ],
+  "shippingIds": [
+   "S245793418"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 42",
+    "row 43",
+    "row 44"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 374,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A5",
+  "marketplace": "APJ6JRA9NG5V4",
+  "amazonTransactionIds": [
+   "S683022670"
+  ],
+  "orderIds": [
+   "893-2268274-2000035"
+  ],
+  "shippingIds": [
+   "S683022670"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 6",
+    "row 7",
+    "row 8"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 374,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "A64",
+  "marketplace": "APJ6JRA9NG5V4",
+  "amazonTransactionIds": [
+   "S250785494"
+  ],
+  "orderIds": [
+   "179-2268333-2000451"
+  ],
+  "shippingIds": [
+   "S250785494"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 70",
+    "row 71"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 409,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00001",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S066189517"
+  ],
+  "orderIds": [
+   "192-5014831-2000010"
+  ],
+  "shippingIds": [
+   "S066189517"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 2",
+    "row 3"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 409,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00003",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S821770027"
+  ],
+  "orderIds": [
+   "333-5014833-2000022"
+  ],
+  "shippingIds": [
+   "S821770027"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 5",
+    "row 6"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 409,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00004",
+  "marketplace": "A1805IZSGTT6HS",
+  "amazonTransactionIds": [
+   "S409346583"
+  ],
+  "orderIds": [
+   "792-5014834-2000032"
+  ],
+  "shippingIds": [
+   "S409346583"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 7",
+    "row 8"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 444,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00005",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S088990318"
+  ],
+  "orderIds": [
+   "544-2996777-2000037"
+  ],
+  "shippingIds": [
+   "S088990318"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 6",
+    "row 7",
+    "row 8"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 444,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00015",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S629888954"
+  ],
+  "orderIds": [
+   "386-2996787-2000106"
+  ],
+  "shippingIds": [
+   "S629888954"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 18",
+    "row 19"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 444,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00020",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S945397165"
+  ],
+  "orderIds": [
+   "452-2996792-2000143"
+  ],
+  "shippingIds": [
+   "S945397165"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 24",
+    "row 25",
+    "row 26"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 444,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00032",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S387251903"
+  ],
+  "orderIds": [
+   "662-2996804-2000225"
+  ],
+  "shippingIds": [
+   "S387251903"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 38",
+    "row 39",
+    "row 40"
+   ],
+   "rowsInFile": 3,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 3,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 444,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00033",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S380026669"
+  ],
+  "orderIds": [
+   "307-2996805-2000233"
+  ],
+  "shippingIds": [
+   "S380026669"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 41",
+    "row 42"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 444,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "2026/ES/00037",
+  "marketplace": "AMEN7PMS3EDWL",
+  "amazonTransactionIds": [
+   "S674758976"
+  ],
+  "orderIds": [
+   "113-2996809-2000261"
+  ],
+  "shippingIds": [
+   "S674758976"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 46",
+    "row 47"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 479,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100001",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S375919004"
+  ],
+  "orderIds": [
+   "199-2129817-2000008"
+  ],
+  "shippingIds": [
+   "S375919004"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 2",
+    "row 3"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 479,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100004",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S102912734"
+  ],
+  "orderIds": [
+   "622-2129820-2000031"
+  ],
+  "shippingIds": [
+   "S102912734"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 6",
+    "row 7"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ },
+ {
+  "seller": 479,
+  "scenario": "line_level_ledger_declared_document_wrongly",
+  "finding": "DUPLICATE_DOCUMENT/EXACT_REPEAT/ACTION_REQUIRED",
+  "documentNumber": "INV-100010",
+  "marketplace": "A2NODRKZP88ZB9",
+  "amazonTransactionIds": [
+   "S043844880"
+  ],
+  "orderIds": [
+   "287-2129826-2000071"
+  ],
+  "shippingIds": [
+   "S043844880"
+  ],
+  "engineEvidence": {
+   "rowRefs": [
+    "row 13",
+    "row 14"
+   ],
+   "rowsInFile": 2,
+   "allRowsByteIdentical": true,
+   "declaredDocumentLevel": "DOCUMENT",
+   "declaredBy": "seller, in the accounting import declaration"
+  },
+  "counterEvidenceInTheFiles": "none: every row carries the same number, date, currency, total, net, VAT and order, and the seller declared that one row is one whole document",
+  "harnessMetadataOnly": {
+   "linesOfThisDocumentInTheGenerator": 2,
+   "generatorNote": "seller mis-declared one row = one document"
+  },
+  "wrongnessDemonstrableFromTheFiles": false
+ }
+]
