@@ -1,0 +1,304 @@
+TAP version 13
+# Subtest: guard: the committed clean fixture has no finding on any shipment
+ok 1 - guard: the committed clean fixture has no finding on any shipment
+  ---
+  duration_ms: 11.423301
+  type: 'test'
+  ...
+# Subtest: guard: a one-cent rounding difference is not a finding
+ok 2 - guard: a one-cent rounding difference is not a finding
+  ---
+  duration_ms: 0.76558
+  type: 'test'
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8,4x"}
+ok 3 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8,4x"}
+  ---
+  duration_ms: 2.019948
+  type: 'test'
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"N/A"}
+ok 4 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"N/A"}
+  ---
+  duration_ms: 0.736399
+  type: 'test'
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipping-vat-excl-amount":"5.0.0"}
+ok 5 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipping-vat-excl-amount":"5.0.0"}
+  ---
+  duration_ms: 0.576194
+  type: 'test'
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"1,234"}
+ok 6 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"1,234"}
+  ---
+  duration_ms: 0.452945
+  type: 'test'
+  ...
+# Subtest: AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8.405"}
+ok 7 - AMOUNT_UNREADABLE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"8.405"}
+  ---
+  duration_ms: 1.023971
+  type: 'test'
+  ...
+# Subtest: AMOUNT_INCOMPLETE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":""}
+ok 8 - AMOUNT_INCOMPLETE (HOLD/NEW_EVIDENCE) for {"item-vat-amount":""}
+  ---
+  duration_ms: 0.386862
+  type: 'test'
+  ...
+# Subtest: AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.40"}
+ok 9 - AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.40"}
+  ---
+  duration_ms: 0.722513
+  type: 'test'
+  ...
+# Subtest: AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"60.00"}
+ok 10 - AMOUNT_INCONSISTENT (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"60.00"}
+  ---
+  duration_ms: 0.761045
+  type: 'test'
+  ...
+# Subtest: AMOUNT_RATE_MISMATCH (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.00","item-vat-incl-amount":"49.00"}
+ok 11 - AMOUNT_RATE_MISMATCH (HOLD/NEW_EVIDENCE) for {"item-vat-amount":"9.00","item-vat-incl-amount":"49.00"}
+  ---
+  duration_ms: 0.526074
+  type: 'test'
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":""}
+ok 12 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":""}
+  ---
+  duration_ms: 0.327182
+  type: 'test'
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"0"}
+ok 13 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"0"}
+  ---
+  duration_ms: 0.27845
+  type: 'test'
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"1.5"}
+ok 14 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"1.5"}
+  ---
+  duration_ms: 3.517876
+  type: 'test'
+  ...
+# Subtest: QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"two"}
+ok 15 - QUANTITY_UNREADABLE (HOLD/NEW_EVIDENCE) for {"quantity-purchased":"two"}
+  ---
+  duration_ms: 0.34346
+  type: 'test'
+  ...
+# Subtest: NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"0","item-vat-amount":"0","item-vat-excl-amoun
+ok 16 - NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"0","item-vat-amount":"0","item-vat-excl-amoun
+  ---
+  duration_ms: 0.303348
+  type: 'test'
+  ...
+# Subtest: NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"-48.40","item-vat-amount":"-8.40","item-vat-e
+ok 17 - NONPOSITIVE_TOTAL (HOLD/NEW_EVIDENCE) for {"item-vat-incl-amount":"-48.40","item-vat-amount":"-8.40","item-vat-e
+  ---
+  duration_ms: 0.266418
+  type: 'test'
+  ...
+# Subtest: DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"yesterday"}
+ok 18 - DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"yesterday"}
+  ---
+  duration_ms: 0.260021
+  type: 'test'
+  ...
+# Subtest: DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"1"}
+ok 19 - DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"1"}
+  ---
+  duration_ms: 0.256525
+  type: 'test'
+  ...
+# Subtest: DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"24/11/2026"}
+ok 20 - DATE_UNREADABLE (HOLD/NEW_EVIDENCE) for {"shipment-date":"24/11/2026"}
+  ---
+  duration_ms: 0.244414
+  type: 'test'
+  ...
+# Subtest: DATE_ORDER (HOLD/HUMAN_DECISION) for {"order-date":"2026-11-26T08:00:00Z"}
+ok 21 - DATE_ORDER (HOLD/HUMAN_DECISION) for {"order-date":"2026-11-26T08:00:00Z"}
+  ---
+  duration_ms: 0.273844
+  type: 'test'
+  ...
+# Subtest: missing, invalid and zero are three different states: a real zero VAT with a zero rate is clean
+ok 22 - missing, invalid and zero are three different states: a real zero VAT with a zero rate is clean
+  ---
+  duration_ms: 0.84515
+  type: 'test'
+  ...
+# Subtest: exact decimals: evidence shows numbers as the exact decimal text, and a float trap (0.1 + 0.2) is not a finding
+ok 23 - exact decimals: evidence shows numbers as the exact decimal text, and a float trap (0.1 + 0.2) is not a finding
+  ---
+  duration_ms: 1.07664
+  type: 'test'
+  ...
+# Subtest: a rate stated as a percentage (21) is not compared and is reported as not checked, never as a mismatch
+ok 24 - a rate stated as a percentage (21) is not compared and is reported as not checked, never as a mismatch
+  ---
+  duration_ms: 0.324438
+  type: 'test'
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on currency
+ok 25 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on currency
+  ---
+  duration_ms: 0.686627
+  type: 'test'
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on buyer-vat-number
+ok 26 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on buyer-vat-number
+  ---
+  duration_ms: 0.383212
+  type: 'test'
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on shipment-date
+ok 27 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on shipment-date
+  ---
+  duration_ms: 0.358347
+  type: 'test'
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on ship-country
+ok 28 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on ship-country
+  ---
+  duration_ms: 0.342064
+  type: 'test'
+  ...
+# Subtest: SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on billing-name
+ok 29 - SHIPMENT_FIELD_CONFLICT (BLOCK): rows of one shipment disagree on billing-name
+  ---
+  duration_ms: 0.365106
+  type: 'test'
+  ...
+# Subtest: a blank buyer VAT on one row and a value on another is a conflict, not a silent pick of the first row
+ok 30 - a blank buyer VAT on one row and a value on another is a conflict, not a silent pick of the first row
+  ---
+  duration_ms: 0.39717
+  type: 'test'
+  ...
+# Subtest: R10a: one order-item-id on two rows of a shipment is HOLD/NEW_EVIDENCE
+ok 31 - R10a: one order-item-id on two rows of a shipment is HOLD/NEW_EVIDENCE
+  ---
+  duration_ms: 0.420356
+  type: 'test'
+  ...
+# Subtest: R10b: two rows identical in every cell with a blank item id are HOLD/HUMAN_DECISION
+ok 32 - R10b: two rows identical in every cell with a blank item id are HOLD/HUMAN_DECISION
+  ---
+  duration_ms: 0.689511
+  type: 'test'
+  ...
+# Subtest: duplicate false positives (explicit): the same SKU is never a signal on its own
+ok 33 - duplicate false positives (explicit): the same SKU is never a signal on its own
+  ---
+  duration_ms: 1.115581
+  type: 'test'
+  ...
+# Subtest: SPLIT_SHIPMENT is information only: two shipments of one order are never merged and never held for it
+ok 34 - SPLIT_SHIPMENT is information only: two shipments of one order are never merged and never held for it
+  ---
+  duration_ms: 2.721554
+  type: 'test'
+  ...
+# Subtest: processReport, unreadable amount: held with the reason, no invoice, no number burned, the clean sibling still issues
+ok 35 - processReport, unreadable amount: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 67.614376
+  type: 'test'
+  ...
+# Subtest: processReport, inconsistent total: held with the reason, no invoice, no number burned, the clean sibling still issues
+ok 36 - processReport, inconsistent total: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 25.903934
+  type: 'test'
+  ...
+# Subtest: processReport, zero quantity: held with the reason, no invoice, no number burned, the clean sibling still issues
+ok 37 - processReport, zero quantity: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 19.910936
+  type: 'test'
+  ...
+# Subtest: processReport, unreadable date: held with the reason, no invoice, no number burned, the clean sibling still issues
+ok 38 - processReport, unreadable date: held with the reason, no invoice, no number burned, the clean sibling still issues
+  ---
+  duration_ms: 17.531529
+  type: 'test'
+  ...
+# Subtest: processReport, a BLOCK: rows that disagree on currency are held and nothing is issued for the shipment
+ok 39 - processReport, a BLOCK: rows that disagree on currency are held and nothing is issued for the shipment
+  ---
+  duration_ms: 14.500477
+  type: 'test'
+  ...
+# Subtest: ledger: re-evaluating the same data is idempotent (no second finding, no second history row) and counts the re-check
+ok 40 - ledger: re-evaluating the same data is idempotent (no second finding, no second history row) and counts the re-check
+  ---
+  duration_ms: 15.017324
+  type: 'test'
+  ...
+# Subtest: ledger: a corrected file closes the finding (RESOLVED) and issues once; the cause coming back reopens it with a count
+ok 41 - ledger: a corrected file closes the finding (RESOLVED) and issues once; the cause coming back reopens it with a count
+  ---
+  duration_ms: 19.537735
+  type: 'test'
+  ...
+# Subtest: governance: BLOCK and NEW_EVIDENCE can never be released; HUMAN_DECISION needs user, reason of 10 or more characters and the exact fingerprint
+ok 42 - governance: BLOCK and NEW_EVIDENCE can never be released; HUMAN_DECISION needs user, reason of 10 or more characters and the exact fingerprint
+  ---
+  duration_ms: 31.41039
+  type: 'test'
+  ...
+# Subtest: governance: a decision covers exactly its evidence; changed numbers are held again and the old decision stays in the history
+ok 43 - governance: a decision covers exactly its evidence; changed numbers are held again and the old decision stays in the history
+  ---
+  duration_ms: 3.01028
+  type: 'test'
+  ...
+# Subtest: governance: a released decision is not revived when the cause went away and came back: the person decides again
+ok 44 - governance: a released decision is not revived when the cause went away and came back: the person decides again
+  ---
+  duration_ms: 66.826852
+  type: 'test'
+  ...
+# Subtest: privacy: the whole ledger holds no buyer name, address, VAT number or company
+ok 45 - privacy: the whole ledger holds no buyer name, address, VAT number or company
+  ---
+  duration_ms: 4.352027
+  type: 'test'
+  ...
+# Subtest: manual preview: the seller sees the held shipment before issuing
+ok 46 - manual preview: the seller sees the held shipment before issuing
+  ---
+  duration_ms: 1.967963
+  type: 'test'
+  ...
+# Subtest: hostile: a formula-like, HTML-like or full-width amount cell is unreadable, never evaluated, and not echoed anywhere
+ok 47 - hostile: a formula-like, HTML-like or full-width amount cell is unreadable, never evaluated, and not echoed anywhere
+  ---
+  duration_ms: 12.300138
+  type: 'test'
+  ...
+# Subtest: test/integrity-gate.test.js
+not ok 1 - test/integrity-gate.test.js
+  ---
+  duration_ms: 846.304868
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/integrity-gate.test.js:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..48
+# tests 48
+# suites 0
+# pass 47
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 853.962568

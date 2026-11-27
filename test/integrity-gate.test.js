@@ -223,3 +223,50 @@ test('transaction type: a negative total is not corrupt data on a refund or retu
   }
   assert.ok(codes(file(rowOf(0, { 'item-vat-incl-amount': '-48.40', 'item-vat-amount': '-8.40', 'item-vat-excl-amount': '-40.00' }))).includes('NONPOSITIVE_TOTAL'), 'on a shipment it still is');
 });
+
+// ---- Ahmed's Stage 1 review (22:16): written BEFORE the fixes ----
+const ROUND = { 'quantity-purchased': '1', 'item-vat-amount': '8.40', 'item-vat-excl-amount': '40.00', 'item-vat-incl-amount': '48.41' };
+test('review 1, rounding visibility: a rounding difference does not hold, but it is saved in the ledger as NOTED and shown in the preview and in the processReport result', async () => {
+  const { db, out } = await run(file(rowOf(0, ROUND)));
+  assert.equal(out.uploaded, 1, 'not held'); assert.equal(out.held.length, 0);
+  const r = db.prepare("SELECT code, severity, status FROM integrity_findings WHERE code='ROUNDING_DIFFERENCE'").all(); assert.deepEqual(r.map(x => [x.severity, x.status]), [['INFO', 'NOTED']]);
+  assert.ok(out.notes?.length === 1 && /unproven|not been verified/i.test(out.notes[0].text), 'the result carries the note');
+  const p = planUpload(file(rowOf(0, ROUND))); assert.equal(p.shipments.length, 1); assert.ok(p.notes?.length === 1 && /ROUNDING|unproven|not been verified/i.test(p.notes[0].text), 'the preview carries the note');
+  await run(file(rowOf(0)), db); assert.equal(db.prepare("SELECT status FROM integrity_findings WHERE code='ROUNDING_DIFFERENCE'").get().status, 'RESOLVED', 'a corrected file closes the note');
+});
+test('review 2, shipment date is REQUIRED for issuance: blank is held (DATE_MISSING), nothing is issued, because the due time and the invoice date come from it', async () => {
+  const a = assessShipment(one(file(rowOf(0, { 'shipment-date': '' })))); const f = a.findings.find(x => x.code === 'DATE_MISSING');
+  assert.ok(f, 'held'); assert.equal(a.verdict, 'HOLD'); assert.equal(f.resolution, 'NEW_EVIDENCE');
+  const { db, out } = await run(file(rowOf(0, { 'shipment-date': '' }), rowOf(1))); assert.equal(out.uploaded, 1, 'the sibling still issues'); assert.equal(out.held.length, 1); assert.match(out.held[0].reason, /shipment-date/); assert.equal(count(db, "SELECT count(*) c FROM invoices"), 1);
+  assert.ok(!assessShipment(one(file(rowOf(0)))).findings.some(x => x.code === 'DATE_MISSING'));
+});
+test('review 3, atomic decision: a failure between the steps leaves the finding OPEN with no decision; RELEASED cannot exist without a decision', async () => {
+  const db = openDb(); await run(file(rowOf(0), rowOf(0)), db); const c = db.prepare("SELECT code, fingerprint FROM integrity_findings").get(); const R = { user: 'u1', reason: 'two identical units, checked the order' };
+  db.exec("CREATE TRIGGER fail_hist BEFORE INSERT ON integrity_history WHEN NEW.event='RELEASED' BEGIN SELECT RAISE(ABORT,'injected'); END");
+  assert.throws(() => releaseIntegrity(db, SELLER.id, 'SHIPMENT:S1001', c.code, c.fingerprint, R), /injected/);
+  assert.equal(db.prepare("SELECT status FROM integrity_findings").get().status, 'OPEN'); assert.equal(count(db, "SELECT count(*) c FROM integrity_decisions"), 0); assert.equal(count(db, "SELECT count(*) c FROM integrity_history WHERE event='RELEASED'"), 0);
+  db.exec('DROP TRIGGER fail_hist');
+  assert.throws(() => db.prepare("UPDATE integrity_findings SET status='RELEASED'").run(), /decision/i, 'the database itself refuses RELEASED without a recorded decision');
+  releaseIntegrity(db, SELLER.id, 'SHIPMENT:S1001', c.code, c.fingerprint, R); assert.equal(db.prepare("SELECT status FROM integrity_findings").get().status, 'RELEASED');
+  assert.throws(() => releaseIntegrity(db, SELLER.id, 'SHIPMENT:S1001', c.code, c.fingerprint, R), /no open finding|not open/i, 'a second release is refused');
+  assert.equal(count(db, "SELECT count(*) c FROM integrity_decisions"), 1); assert.equal(count(db, "SELECT count(*) c FROM integrity_history WHERE event='RELEASED'"), 1);
+});
+test('review 3, concurrency: two connections to the same database file release the same finding, exactly one decision exists', async () => {
+  const { mkdtempSync } = await import('node:fs'); const { tmpdir } = await import('node:os'); const path = mkdtempSync(tmpdir() + '/ig-') + '/t.db';
+  const a = openDb(path); await run(file(rowOf(0), rowOf(0)), a); const c = a.prepare("SELECT code, fingerprint FROM integrity_findings").get(); const b = openDb(path);
+  const R = { user: 'u1', reason: 'two identical units, checked the order' }; let ok = 0, refused = 0;
+  for (const d of [a, b]) { try { releaseIntegrity(d, SELLER.id, 'SHIPMENT:S1001', c.code, c.fingerprint, R); ok++; } catch { refused++; } }
+  assert.deepEqual([ok, refused], [1, 1]); assert.equal(count(a, "SELECT count(*) c FROM integrity_decisions"), 1); assert.equal(count(b, "SELECT count(*) c FROM integrity_history WHERE event='RELEASED'"), 1);
+});
+test('review 4, RETURN and REFUND rows are never issued as ordinary invoices and are not silently dropped: the result and the preview name them as unsupported', async () => {
+  for (const t of ['REFUND', 'RETURN']) {
+    const rows = file(rowOf(0, { 'transaction-type': t, 'invoice-status': 'CreditNotePending', 'item-vat-incl-amount': '-48.40', 'item-vat-amount': '-8.40', 'item-vat-excl-amount': '-40.00' }), rowOf(1));
+    const { db, out } = await run(rows); assert.equal(out.uploaded, 1, 'only the shipment issues'); assert.equal(count(db, "SELECT count(*) c FROM invoices WHERE kind='invoice'"), 1);
+    assert.equal(out.unsupported?.length, 1, t); assert.equal(out.unsupported[0].type, t); assert.match(out.unsupported[0].reason, /not built|unsupported|not supported/i);
+    const p = planUpload(rows); assert.equal(p.unsupported?.length, 1, t + ' preview'); assert.equal(p.shipments.length, 1);
+  }
+});
+test('review 5, history policy: EVERY re-check is its own history event and seen_count equals the number of evaluations', async () => {
+  const db = openDb(), bad = file(rowOf(0, { 'item-vat-incl-amount': '60.00' })); for (let i = 0; i < 4; i++) await run(bad, db);
+  assert.deepEqual(db.prepare("SELECT event FROM integrity_history ORDER BY rowid").all().map(r => r.event), ['OPENED', 'RECHECKED_SAME', 'RECHECKED_SAME', 'RECHECKED_SAME']); assert.equal(db.prepare("SELECT seen_count FROM integrity_findings").get().seen_count, 4);
+});

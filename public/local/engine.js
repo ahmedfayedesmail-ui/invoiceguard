@@ -48993,7 +48993,11 @@ function assessShipment(s) {
       totalCents += incl;
       const tol = p === "item" && qty > 1 ? 2n : 1n, diff = incl - (excl + vat);
       if ((diff < 0n ? -diff : diff) > tol) add("AMOUNT_INCONSISTENT", "HOLD", "NEW_EVIDENCE", p, [ln(r)], { values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, toleranceCents: Number(tol) }, `On line ${ln(r)} the ${p} amounts do not add up: the gross amount differs from net plus VAT by more than ${tol} cent. Nothing was issued, and we do not decide which number is right.`, NEW, [t.incl, t.vat, t.excl]);
-      if (diff !== 0n && (diff < 0n ? -diff : diff) <= tol) findings.push({ k: "RND" + p + ln(r), code: "ROUNDING_DIFFERENCE", severity: "INFO", resolution: null, evidence: { field: p, lines: [ln(r)], values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, differenceCents: Number(diff), toleranceCents: Number(tol) }, explanation: `On line ${ln(r)} the ${p} gross differs from net plus VAT by ${fmt(diff)}, inside the tolerance of ${tol} cent. This is shown, not hidden. The tolerance is an unproven assumption: how Amazon rounds has not been verified.`, action: "Nothing is held for this. Compare with Seller Central if you want to be sure.", raw: [t.incl, t.vat, t.excl] });
+      if (diff !== 0n && (diff < 0n ? -diff : diff) <= tol && findings.some((x) => x.k === "RND" + p)) {
+        const f0 = findings.find((x) => x.k === "RND" + p);
+        f0.evidence.lines.push(ln(r));
+        f0.raw.push(t.incl, t.vat, t.excl);
+      } else if (diff !== 0n && (diff < 0n ? -diff : diff) <= tol) findings.push({ k: "RND" + p, code: "ROUNDING_DIFFERENCE", severity: "INFO", resolution: null, evidence: { field: p, lines: [ln(r)], values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, differenceCents: Number(diff), toleranceCents: Number(tol) }, explanation: `On line ${ln(r)} the ${p} gross differs from net plus VAT by ${fmt(diff)}, inside the tolerance of ${tol} cent. This is shown, not hidden. The tolerance is an unproven assumption: how Amazon rounds has not been verified.`, action: "Nothing is held for this. Compare with Seller Central if you want to be sure.", raw: [t.incl, t.vat, t.excl] });
       if (rate && rate.num <= rate.den) {
         const d = vat * rate.den - excl * rate.num, ad = d < 0n ? -d : d;
         if (ad > tol * rate.den) add("AMOUNT_RATE_MISMATCH", "HOLD", "NEW_EVIDENCE", p, [ln(r)], { values: { vat: fmt(vat), excl: fmt(excl), rate: rt } }, `On line ${ln(r)} the ${p} VAT does not match the stated rate ${rt} applied to the net amount (difference above ${tol} cent). Nothing was issued, and no rate is assumed.`, NEW, [t.vat, t.excl, rt]);
@@ -49001,12 +49005,12 @@ function assessShipment(s) {
       else if (!rt && vat !== 0n) rateSeen.add(`the ${p} rate is blank`);
     }
     const sd = String(r.attrs["shipment-date"] ?? "").trim();
+    if (!sd) add("DATE_MISSING", "HOLD", "NEW_EVIDENCE", "shipment-date", [ln(r)], {}, `The shipment-date cell on line ${ln(r)} is empty. The shipment date is required: the due time and the invoice date come from it, so nothing was issued and no date is assumed.`, NEW, [""]);
     if (sd && isoMs(sd) === null) add("DATE_UNREADABLE", "HOLD", "NEW_EVIDENCE", "shipment-date", [ln(r)], {}, `The shipment-date cell on line ${ln(r)} is not a complete ISO date (year-month-day), so nothing was issued. Day and month order is never guessed.`, NEW, [sd]);
     const od = String(r.orderDate ?? "").trim();
     if (od && sd && isoMs(od) !== null && isoMs(sd) !== null && isoMs(od) > isoMs(sd)) add("DATE_ORDER", "HOLD", "HUMAN_DECISION", "order-date", [ln(r)], {}, `The order-date on line ${ln(r)} is later than the shipment-date. That can be a time zone difference or a wrong value, and the file cannot tell which.`, "Check the order in Seller Central. If the dates are right, record a decision with your reason. If not, upload a corrected report.", [od, sd]);
     else if (od && isoMs(od) === null) notChecked.push({ check: "order-date", reason: "the order-date is not a complete ISO date, so its order against the shipment date was not compared" });
   }
-  if (rows.length && !rows.some((r) => String(r.attrs["shipment-date"] ?? "").trim())) notChecked.push({ check: "shipment-date", reason: "no shipment-date in this shipment" });
   for (const why of rateSeen) notChecked.push({ check: "vat-vs-rate", reason: why });
   if (txType === "SHIPMENT" && rows.length && totalKnown && totalCents <= 0n) add("NONPOSITIVE_TOTAL", "HOLD", "NEW_EVIDENCE", "total", rows.map(ln), { values: { incl: fmt(totalCents) } }, `The total of this shipment (all amounts added) is ${fmt(totalCents)}, which is not an amount to invoice, so nothing was issued. A refund is a credit note, not a shipment invoice.`, NEW, [String(totalCents)]);
   const fields = Object.keys(rows[0]?.attrs ?? {}), shown = [];
@@ -49268,7 +49272,7 @@ function planUpload(text, opts = {}) {
   if (!format) return { ok: false, error: "We do not recognise this file. Use the Order Report (with the buyer tax columns switched on) or the VAT Invoice Data Report, both as tab-delimited text." };
   if (format === "allorders") return { ok: false, format, error: "The All Orders Report has no buyer name, address or VAT number, so it cannot make an invoice. Use the Order Report with the buyer columns switched on." };
   if (format === "vidr") {
-    const kept = [], skipped = [], held = [];
+    const kept = [], skipped = [], held = [], notes = [], unsupported = [];
     const parsed = parseVidr(text);
     for (const s of parsed) {
       if (heldForUnknownFlags(s)) {
@@ -49278,6 +49282,7 @@ function planUpload(text, opts = {}) {
       const why = vidrSkipReason(s);
       if (why) {
         skipped.push({ orderId: s.orderId, why });
+        if (s.transactionType !== "SHIPMENT" && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection && !s.unknownTxFormat) unsupported.push({ orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing will be issued for it.` });
         continue;
       }
       const a = assessShipment(s);
@@ -49286,10 +49291,11 @@ function planUpload(text, opts = {}) {
         held.push({ orderId: s.orderId, reason: "Not issued: " + hf.map((f) => f.explanation).join(" ") });
         continue;
       }
+      for (const f of a.findings.filter((f2) => f2.severity === "INFO")) notes.push({ orderId: s.orderId, code: f.code, text: f.explanation });
       kept.push(s);
     }
     kept.invalidRows = parsed.invalidRows ?? [];
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: kept.invalidRows, truncated: !!t.truncated };
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, notes, unsupported, invalidRows: kept.invalidRows, truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };

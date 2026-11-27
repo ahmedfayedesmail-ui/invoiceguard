@@ -9,7 +9,7 @@ import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from
 import { createHash } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
-import { integrityGate } from './integrity.js';
+import { integrityGate, integrityNotes } from './integrity.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -37,7 +37,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
   // timestamp is evidence-only. Every caller that requests a fresh report must pass both.
   const reportReqTs = reportRequestedAt ? +new Date(reportRequestedAt) : null;
   const reportSeq = reportAttemptSeq ?? null;
-  const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
+  const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [], notes: [], unsupported: [] };
   const list = shipments ?? parseVidr(reportText);
   // Row integrity: rows cut off or split by a raw newline were already rejected by the parser. They are quarantined here, counted and logged by line number only (no cell content), and never processed.
   out.invalidRows = list.invalidRows ?? [];
@@ -60,13 +60,14 @@ export async function processReport(db, seller, reportText, { api, validate = va
     if (staleDoc) { logStaleRow(db, seller, s, staleDoc, reportSeq); out.skipped++; continue; }
     // A blank, unreadable or disagreeing is-amazon-invoiced or is-business-order is UNKNOWN. It is never read as a value and never inferred from the status or the buyer data: nothing is issued for it, and it is shown as held with the reason.
     if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
-    if (!needsInvoice(s)) { out.skipped++; continue; }
+    if (!needsInvoice(s)) { out.skipped++; if (s.transactionType !== 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection) out.unsupported.push({ key: s.key, orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing was issued and its amounts were not judged.` }); continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
     if (existing && ['submitted', 'processing', 'uploaded', 'ready', 'sending'].includes(existing.status)) { integrityGate(db, seller, s); /* ledger only: an issued shipment is never re-issued, but a later bad copy is recorded */ out.skipped++; continue; }
     if (!existing) logEvent(db, seller.id, 'detected', { key: s.key, orderId: s.orderId }); // evidence trail starts here
     // Issuance Integrity Gate (Phase B): the numbers and the consistency of the rows are checked BEFORE anything is issued. A finding holds the shipment, writes the ledger and issues nothing, whatever the path (API or manual upload).
     { const ig = integrityGate(db, seller, s); if (ig) { upsertShipment(db, seller.id, s, 'held', ig.reason); logEvent(db, seller.id, 'held', { key: s.key, reason: ig.reason, check: 'integrity' }); out.held.push({ key: s.key, orderId: s.orderId, reason: ig.reason }); continue; } }
+    for (const n of integrityNotes(s)) out.notes.push({ key: s.key, orderId: s.orderId, code: n.code, text: n.text });
     if (s.buyerVat && hasOverride(db, seller.id, s.key, 'b2c')) { s.buyerVat = null; s.buyerCompany = s.billing?.name || ''; }
     if (s.buyerVat) {
       const v = await validate(s.buyerVat); s.__vies = v;

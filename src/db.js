@@ -21,6 +21,10 @@ export function openDb(file = ':memory:') {
   CREATE TABLE IF NOT EXISTS integrity_findings (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, severity TEXT, resolution TEXT, status TEXT, fingerprint TEXT, evidence TEXT, explanation TEXT, action TEXT,
     first_seen TEXT, last_seen TEXT, seen_count INTEGER, reopened_count INTEGER, resolved_at TEXT, PRIMARY KEY (seller_id, shipment_key, code, field));
   CREATE TABLE IF NOT EXISTS integrity_history (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, event TEXT, fingerprint TEXT, at TEXT);
+  CREATE TRIGGER IF NOT EXISTS integrity_release_needs_decision_u BEFORE UPDATE OF status ON integrity_findings WHEN NEW.status='RELEASED' AND NOT EXISTS (SELECT 1 FROM integrity_decisions d WHERE d.seller_id=NEW.seller_id AND d.shipment_key=NEW.shipment_key AND d.code=NEW.code AND d.field=NEW.field AND d.fingerprint=NEW.fingerprint)
+    BEGIN SELECT RAISE(ABORT,'RELEASED needs a recorded decision'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_release_needs_decision_i BEFORE INSERT ON integrity_findings WHEN NEW.status='RELEASED' AND NOT EXISTS (SELECT 1 FROM integrity_decisions d WHERE d.seller_id=NEW.seller_id AND d.shipment_key=NEW.shipment_key AND d.code=NEW.code AND d.field=NEW.field AND d.fingerprint=NEW.fingerprint)
+    BEGIN SELECT RAISE(ABORT,'RELEASED needs a recorded decision'); END;
   CREATE TABLE IF NOT EXISTS integrity_decisions (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, fingerprint TEXT, decided_by TEXT, reason TEXT, decided_at TEXT);
   CREATE INDEX IF NOT EXISTS idx_events_seller ON events (seller_id, ts);
   CREATE INDEX IF NOT EXISTS idx_ship_status ON shipments (seller_id, status);
