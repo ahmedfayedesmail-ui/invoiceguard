@@ -6,7 +6,7 @@ Evidence: `sim/out/forensic-A1.json` has all 28 (seller, finding id, raw VIDR ro
 All 28 are one pattern: `is-amazon-invoiced = TRUE` with `invoice-status = InvoiceUploaded` and an invoice number in the row, business order, shipment in range. The engine raised BOOKS_GAP / NUMBER_AT_AMAZON_NOT_IN_BOOKS, state ACTION_REQUIRED (confident), for each. None was UNDETERMINED. The second pattern in the scenario (FALSE with InvoiceCreatedByAmazon) raised no finding (see "also found").
 
 ## Root cause (named, in code)
-1. src/reconcile.js line 17: invoice-status is mapped to a state (InvoiceUploaded to UPLOADED; InvoiceCreatedByAmazon and CreditNoteCreatedByAmazon to CREATED_BY_AMAZON). This is the only place the engine decides who issued the invoice.
+1. src/reconcile.js line 17: invoice-status is mapped to a state (see the STATUS map near line 10 to 18; InvoiceCreatedByAmazon and CreditNoteCreatedByAmazon to CREATED_BY_AMAZON). This is the only place the engine decides who issued the invoice.
 2. src/loop/project.js line 73 at c608611: `const A = rec.docs.filter(d => d.parts['transaction-type'] === 'SHIPMENT' && !d.correction && d.state !== 'CREATED_BY_AMAZON')`. The set of invoices the seller owes is built from the state only.
 3. src/loop/project.js lines 215 to 220: for each document in A with no match in the books, `put(... family 'BOOKS_GAP', subtype 'NUMBER_AT_AMAZON_NOT_IN_BOOKS' ...)` as ACTION_REQUIRED.
 4. The column is-amazon-invoiced is never read by the loop engine: it is parsed in src/vidr.js line 37 and shown as a column in src/reconcile.js line 340, but nothing in project.js consults it. The engine has no branch for "the two fields disagree".
