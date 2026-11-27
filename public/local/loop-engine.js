@@ -2796,7 +2796,7 @@ function buildCard(i) {
 
 // src/loop/coverage.js
 init_buffer_shim();
-var UND = { BUSINESS_FLAG_BLANK: "the business-order field is blank", BUSINESS_FLAG_CONFLICT: "the rows of one shipment disagree about the business-order field", BUSINESS_FLAG_UNREADABLE: "the business-order field is neither TRUE nor FALSE", AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: "who issues the invoice could not be read, or the fields that say so disagree" };
+var UND = { BUSINESS_FLAG_BLANK: "the business-order field is blank", BUSINESS_FLAG_CONFLICT: "the rows of one shipment disagree about the business-order field", BUSINESS_FLAG_UNREADABLE: "the business-order field is neither TRUE nor FALSE", AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: "who issues the invoice is blank, could not be read, or the fields that say so disagree" };
 var list = (by, words) => Object.entries(by).filter(([, n]) => n > 0).map(([k, n]) => `${n} where ${words[k] ?? k}`).join("; ");
 function coverageStatement(c2) {
   if (!c2 || !c2.transactionsTotal) return ["No Amazon report is loaded, so nothing has been checked yet."];
@@ -2934,10 +2934,10 @@ function evaluate(prefix, events, ctx) {
   const flagVsStatus = /* @__PURE__ */ new Set(), flagged = new Map(ordinary.map((d) => {
     const f = amazonFlag(d), byAmazon = d.state === "CREATED_BY_AMAZON";
     if (f === "TRUE" && !byAmazon || f === "FALSE" && byAmazon) flagVsStatus.add(d);
-    return [d, f === "TRUE" ? byAmazon ? "TRUE" : "CONFLICT" : f === "FALSE" ? byAmazon ? "CONFLICT" : "FALSE" : f === "BLANK" ? byAmazon ? "TRUE" : "FALSE" : f];
+    return [d, f === "TRUE" ? byAmazon ? "TRUE" : "CONFLICT" : f === "FALSE" ? byAmazon ? "CONFLICT" : "FALSE" : f];
   }));
   const A0 = ordinary.filter((d) => flagged.get(d) === "FALSE");
-  const flagUndetermined = ordinary.filter((d) => ["CONFLICT", "UNREADABLE"].includes(flagged.get(d)));
+  const flagUndetermined = ordinary.filter((d) => ["CONFLICT", "UNREADABLE", "BLANK"].includes(flagged.get(d)));
   const businessFlag = (d) => {
     const v = new Set((d.evidence.rows ?? []).map((r) => String(r["is-business-order"] ?? "").trim().toUpperCase()));
     if ([...v].some((x) => !["TRUE", "FALSE", ""].includes(x))) return "UNREADABLE";
@@ -2958,7 +2958,7 @@ function evaluate(prefix, events, ctx) {
   };
   for (const d of flagUndetermined) {
     const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
-    const why = flagVsStatus.has(d) ? `the is-amazon-invoiced column (${[...new Set((d.evidence.rows ?? []).map((r) => String(r["is-amazon-invoiced"] ?? "").trim().toUpperCase()))].join("/")}) and invoice-status (${d.rawStatus}) disagree about whether Amazon issued the invoice` : flagged.get(d) === "CONFLICT" ? "the rows of this shipment disagree about whether Amazon issued the invoice" : "the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE";
+    const why = flagVsStatus.has(d) ? `the is-amazon-invoiced column (${[...new Set((d.evidence.rows ?? []).map((r) => String(r["is-amazon-invoiced"] ?? "").trim().toUpperCase()))].join("/")}) and invoice-status (${d.rawStatus}) disagree about whether Amazon issued the invoice` : flagged.get(d) === "CONFLICT" ? "the rows of this shipment disagree about whether Amazon issued the invoice" : flagged.get(d) === "BLANK" ? `the is-amazon-invoiced column is empty, so it cannot be told whether Amazon issued the invoice (invoice-status ${d.rawStatus || "is empty"} is not used as a substitute)` : "the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE";
     put(key, { family: "INVOICE_AMAZON_STATE", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp("IAS", id, "AMZFLAG", flagged.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}.` });
     noteAdd(`Amazon invoice flag could not be read (${flagged.get(d)}): ${why}`, id);
   }

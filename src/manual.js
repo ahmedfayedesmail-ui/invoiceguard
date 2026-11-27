@@ -1,7 +1,7 @@
 // Manual path: the seller downloads an order report from Seller Central and uploads it here. No Amazon connection.
 // Verified against Amazon's API documentation only (developer-docs.amazon.com, report type pages); NOT against real downloaded files yet.
 // Every column that is not documented is optional. Anything we cannot read exactly is held with a reason, never guessed.
-import { parseVidr, needsInvoice } from './vidr.js';
+import { parseVidr, needsInvoice, readFlag } from './vidr.js';
 
 export const FORMATS = {
   vidr: 'VAT Invoice Data Report',
@@ -44,15 +44,27 @@ const rateOf = (excl, vat) => { // the VAT rate read from Amazon's own amounts, 
   return Math.abs(raw - near) <= tol && near > 0 && near <= 30 ? near : null;
 };
 
+/** Why a flag is unknown, in the seller's words. `absent` = the column is not in the file at all. */
+export const unknownFlagReason = (fields, absent) => `${absent ? 'The Order Report does not carry' : 'The report holds no readable value for'} ${fields.join(' and ')}, so it cannot show ${fields.length === 2 ? 'whether this is a business order or who issues the invoice' : fields[0] === 'is-business-order' ? 'whether this is a business order' : 'who issues the invoice'}. We did not guess. Company name and VAT number are buyer data and prove neither. Confirm it yourself, which is recorded as your declaration and not as something Amazon said.`;
+/** Reads one flag of an Order Report order exactly as written. state: ABSENT (no such column), VALUE (true or false), UNKNOWN (blank, unreadable or the rows disagree). */
+const orderFlag = (lines, col) => { if (!lines.some(l => col in l)) return { state: 'ABSENT', value: null }; const vals = lines.map(l => l[col]), v = readFlag(vals); if (v !== null) return { state: 'VALUE', value: v }; return { state: vals.every(x => String(x ?? '').trim() === '') ? 'BLANK' : 'UNKNOWN', value: null }; };
+
 /** Order Report -> the same shipment objects the engine already uses. Returns { shipments, held, skipped, problems }. */
-export function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
+export function parseOrderReport(rows, { useDeliveryAddress = false, sellerDeclaration = {} } = {}) {
   const byOrder = new Map(), out = { shipments: [], held: [], skipped: [], problems: [] };
   for (const r of rows) { const id = r['order-id']; if (!id) continue; if (!byOrder.has(id)) byOrder.set(id, []); byOrder.get(id).push(r); }
   for (const [orderId, lines] of byOrder) {
     const f = lines[0], holdWith = (reason, s = null) => out.held.push({ orderId, reason, s });
-    if (lines.some(l => String(l['is-amazon-invoiced']).toUpperCase() === 'TRUE')) { out.skipped.push({ orderId, why: 'Amazon creates this invoice' }); continue; }
+    // The Order Report has no is-business-order or is-amazon-invoiced column. Absent evidence is UNKNOWN, never FALSE and never TRUE. Only the seller can fill a missing (absent or blank) value, and it is then recorded as a SELLER DECLARATION.
+    const bf = orderFlag(lines, 'is-business-order'), af = orderFlag(lines, 'is-amazon-invoiced'), flagSource = {};
+    const resolve = (f, key, decl) => { if (f.state === 'VALUE') { flagSource[key] = 'REPORT'; return f.value; } if ((f.state === 'ABSENT' || f.state === 'BLANK') && typeof decl === 'boolean') { flagSource[key] = 'SELLER_DECLARATION'; return decl; } return null; };
+    const isBusiness = resolve(bf, 'isBusiness', sellerDeclaration.isBusiness), isAmazonInvoiced = resolve(af, 'isAmazonInvoiced', sellerDeclaration.isAmazonInvoiced);
+    if (isAmazonInvoiced === true) { out.skipped.push({ orderId, why: 'Amazon creates this invoice' }); continue; }
+    if (isBusiness === false) { out.skipped.push({ orderId, why: 'Not a business order: ' + (flagSource.isBusiness === 'REPORT' ? 'the report says is-business-order FALSE' : 'you declared it') }); continue; }
+    const unknown = [isBusiness === null && 'is-business-order', isAmazonInvoiced === null && 'is-amazon-invoiced'].filter(Boolean);
+    if (unknown.length) { holdWith(unknownFlagReason(unknown, unknown.every(k => (k === 'is-business-order' ? bf : af).state === 'ABSENT')), null); continue; }
     const company = f['buyer-company-name'] || '', taxIdRaw = (f['buyer-tax-registration-id'] || '').replace(/\s+/g, '').toUpperCase();
-    if (!company && !taxIdRaw) { out.skipped.push({ orderId, why: 'No company name or VAT number: looks like a consumer order' }); continue; }
+    if (!company && !taxIdRaw) { holdWith('This is a business order but the report has no company name or VAT number for the buyer, so we did not guess.'); continue; }
     const differs = (k) => lines.some(l => (l[k] ?? '') !== (f[k] ?? ''));
     if (['buyer-name', 'buyer-company-name', 'buyer-tax-registration-id', 'currency', 'ship-country'].some(differs)) { holdWith('The rows of this order disagree on buyer or currency, so we did not guess which is right.'); continue; }
     let buyerVat = null;
@@ -73,7 +85,7 @@ export function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
       incl += price + sp; vat += tax + st;
     }
     const s = { key: `ORDER:${orderId}`, orderId, shippingId: orderId, transactionId: orderId, transactionType: 'SHIPMENT', marketplace: COUNTRY_BY_DOMAIN[String(f['sales-channel'] ?? '').toLowerCase().replace(/^www\./, '')] ?? null,
-      orderDate: f['purchase-date'] || null, shipmentDate: null, currency: f.currency || 'EUR', isBusiness: true, isAmazonInvoiced: false, invoiceStatus: '', sellerVat: null, buyerVat, buyerTaxType: f['buyer-tax-registration-type'] || null,
+      orderDate: f['purchase-date'] || null, shipmentDate: null, currency: f.currency || 'EUR', isBusiness, isAmazonInvoiced, flagSource, invoiceStatus: '', sellerVat: null, buyerVat, buyerTaxType: f['buyer-tax-registration-type'] || null,
       buyerCompany: company || f['buyer-name'] || f['recipient-name'], poNumber: null, billing: billing ?? { name: '', lines: [], city: '', postal: '', country: '' }, shipCountry: (f['ship-country'] || '').toUpperCase(), shipFromCountry: null,
       isCorrection: false, isCorrectionReversal: false, isCorrectedTx: false, originalInvoiceNumber: null, correctionDetails: null, citation: null, items, incl: r2(incl), vat: r2(vat), excl: r2(incl - vat), manual: true };
     if (bad) { holdWith(bad, s); continue; }
@@ -85,7 +97,7 @@ export function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
 }
 
 /** Why a VIDR shipment will not produce an invoice, in the words the preview shows. Mirrors needsInvoice() in vidr.js. */
-const vidrSkipReason = (s) => s.unknownTxFormat ? 'The transaction id looks like a correction but has an unknown format, so we did not guess' : s.isAmazonInvoiced ? 'Amazon creates this invoice'
+const vidrSkipReason = (s) => s.unknownTxFormat ? 'The transaction id looks like a correction but has an unknown format, so we did not guess' : s.isAmazonInvoiced === true ? 'Amazon creates this invoice'
   : !s.isBusiness ? 'Not a business order: looks like a consumer order'
   : s.transactionType !== 'SHIPMENT' ? 'Not a shipment (transaction type: ' + (s.transactionType || 'unknown') + ')'
   : s.isCorrection || s.isCorrectedTx ? 'A correction row: it belongs with the original invoice, not a new one'
@@ -103,9 +115,9 @@ export function planUpload(text, opts = {}) {
   if (format === 'vidr') {
     // Same honesty as the Order Report: rows that cannot produce an invoice are counted as skipped up front,
     // so the preview's "Ready to invoice" matches what issue will actually attempt.
-    const kept = [], skipped = [];
-    for (const s of parseVidr(text)) { const why = vidrSkipReason(s); if (why) skipped.push({ orderId: s.orderId, why }); else kept.push(s); }
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held: [], skipped, truncated: !!t.truncated };
+    const kept = [], skipped = [], held = [];
+    for (const s of parseVidr(text)) { if (s.isAmazonInvoiced === null && needsInvoice({ ...s, isAmazonInvoiced: false })) { held.push({ orderId: s.orderId, reason: 'The is-amazon-invoiced column is blank, unreadable or disagrees between the rows of this shipment, so the report does not show who issues the invoice. We did not guess it from invoice-status, so nothing is issued for it.' }); continue; } const why = vidrSkipReason(s); if (why) skipped.push({ orderId: s.orderId, why }); else kept.push(s); }
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows, opts);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };

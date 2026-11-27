@@ -48867,6 +48867,10 @@ var num = (x) => {
   return Number.isFinite(n) ? n : 0;
 };
 var bool = (x) => String(x).toUpperCase() === "TRUE";
+var readFlag = (values) => {
+  const v = new Set([].concat(values).map((x) => String(x ?? "").trim().toUpperCase()));
+  return v.size === 1 && v.has("TRUE") ? true : v.size === 1 && v.has("FALSE") ? false : null;
+};
 var r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 function parseTsv(text) {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
@@ -48896,7 +48900,8 @@ function parseVidr(text) {
         shipmentDate: r["shipment-date"],
         currency: r.currency || "EUR",
         isBusiness: bool(r["is-business-order"]),
-        isAmazonInvoiced: bool(r["is-amazon-invoiced"]),
+        isAmazonInvoiced: null,
+        flagValues: [],
         invoiceStatus: r["invoice-status"],
         invoiceStatusDesc: r["invoice-status-description"] || null,
         sellerVat: r["seller-vat-number"],
@@ -48920,6 +48925,7 @@ function parseVidr(text) {
         excl: 0
       }).get(key);
     }
+    s.flagValues.push(r["is-amazon-invoiced"]);
     const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
     const vatSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
     s.incl += inclSum;
@@ -48937,9 +48943,9 @@ function parseVidr(text) {
       extras: PARTS.slice(1).map((p) => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter((x) => x.excl || x.vat)
     });
   }
-  return [...map.values()].map((s) => ({ ...s, incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  return [...map.values()].map(({ flagValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
 }
-var needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && !s.isAmazonInvoiced && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
+var needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && s.isAmazonInvoiced === false && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
 
 // src/manual.js
 var FORMATS = {
@@ -48990,7 +48996,14 @@ var rateOf = (excl, vat) => {
   const raw = vat / excl * 100, near = Math.round(raw * 2) / 2, tol = excl >= 10 ? 0.2 : excl >= 3 ? 0.6 : 1.5;
   return Math.abs(raw - near) <= tol && near > 0 && near <= 30 ? near : null;
 };
-function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
+var unknownFlagReason = (fields, absent) => `${absent ? "The Order Report does not carry" : "The report holds no readable value for"} ${fields.join(" and ")}, so it cannot show ${fields.length === 2 ? "whether this is a business order or who issues the invoice" : fields[0] === "is-business-order" ? "whether this is a business order" : "who issues the invoice"}. We did not guess. Company name and VAT number are buyer data and prove neither. Confirm it yourself, which is recorded as your declaration and not as something Amazon said.`;
+var orderFlag = (lines, col) => {
+  if (!lines.some((l) => col in l)) return { state: "ABSENT", value: null };
+  const vals = lines.map((l) => l[col]), v = readFlag(vals);
+  if (v !== null) return { state: "VALUE", value: v };
+  return { state: vals.every((x) => String(x ?? "").trim() === "") ? "BLANK" : "UNKNOWN", value: null };
+};
+function parseOrderReport(rows, { useDeliveryAddress = false, sellerDeclaration = {} } = {}) {
   const byOrder = /* @__PURE__ */ new Map(), out = { shipments: [], held: [], skipped: [], problems: [] };
   for (const r of rows) {
     const id = r["order-id"];
@@ -49000,13 +49013,35 @@ function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
   }
   for (const [orderId, lines] of byOrder) {
     const f = lines[0], holdWith = (reason, s2 = null) => out.held.push({ orderId, reason, s: s2 });
-    if (lines.some((l) => String(l["is-amazon-invoiced"]).toUpperCase() === "TRUE")) {
+    const bf = orderFlag(lines, "is-business-order"), af = orderFlag(lines, "is-amazon-invoiced"), flagSource = {};
+    const resolve = (f2, key, decl) => {
+      if (f2.state === "VALUE") {
+        flagSource[key] = "REPORT";
+        return f2.value;
+      }
+      if ((f2.state === "ABSENT" || f2.state === "BLANK") && typeof decl === "boolean") {
+        flagSource[key] = "SELLER_DECLARATION";
+        return decl;
+      }
+      return null;
+    };
+    const isBusiness = resolve(bf, "isBusiness", sellerDeclaration.isBusiness), isAmazonInvoiced = resolve(af, "isAmazonInvoiced", sellerDeclaration.isAmazonInvoiced);
+    if (isAmazonInvoiced === true) {
       out.skipped.push({ orderId, why: "Amazon creates this invoice" });
+      continue;
+    }
+    if (isBusiness === false) {
+      out.skipped.push({ orderId, why: "Not a business order: " + (flagSource.isBusiness === "REPORT" ? "the report says is-business-order FALSE" : "you declared it") });
+      continue;
+    }
+    const unknown = [isBusiness === null && "is-business-order", isAmazonInvoiced === null && "is-amazon-invoiced"].filter(Boolean);
+    if (unknown.length) {
+      holdWith(unknownFlagReason(unknown, unknown.every((k) => (k === "is-business-order" ? bf : af).state === "ABSENT")), null);
       continue;
     }
     const company = f["buyer-company-name"] || "", taxIdRaw = (f["buyer-tax-registration-id"] || "").replace(/\s+/g, "").toUpperCase();
     if (!company && !taxIdRaw) {
-      out.skipped.push({ orderId, why: "No company name or VAT number: looks like a consumer order" });
+      holdWith("This is a business order but the report has no company name or VAT number for the buyer, so we did not guess.");
       continue;
     }
     const differs = (k) => lines.some((l) => (l[k] ?? "") !== (f[k] ?? ""));
@@ -49068,8 +49103,9 @@ function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
       orderDate: f["purchase-date"] || null,
       shipmentDate: null,
       currency: f.currency || "EUR",
-      isBusiness: true,
-      isAmazonInvoiced: false,
+      isBusiness,
+      isAmazonInvoiced,
+      flagSource,
       invoiceStatus: "",
       sellerVat: null,
       buyerVat,
@@ -49107,7 +49143,7 @@ function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
   }
   return out;
 }
-var vidrSkipReason = (s) => s.unknownTxFormat ? "The transaction id looks like a correction but has an unknown format, so we did not guess" : s.isAmazonInvoiced ? "Amazon creates this invoice" : !s.isBusiness ? "Not a business order: looks like a consumer order" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
+var vidrSkipReason = (s) => s.unknownTxFormat ? "The transaction id looks like a correction but has an unknown format, so we did not guess" : s.isAmazonInvoiced === true ? "Amazon creates this invoice" : !s.isBusiness ? "Not a business order: looks like a consumer order" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
 function planUpload(text, opts = {}) {
   const t = parseTable(text);
   if (t.unsupported) return { ok: false, error: t.unsupported };
@@ -49116,13 +49152,17 @@ function planUpload(text, opts = {}) {
   if (!format) return { ok: false, error: "We do not recognise this file. Use the Order Report (with the buyer tax columns switched on) or the VAT Invoice Data Report, both as tab-delimited text." };
   if (format === "allorders") return { ok: false, format, error: "The All Orders Report has no buyer name, address or VAT number, so it cannot make an invoice. Use the Order Report with the buyer columns switched on." };
   if (format === "vidr") {
-    const kept = [], skipped = [];
+    const kept = [], skipped = [], held = [];
     for (const s of parseVidr(text)) {
+      if (s.isAmazonInvoiced === null && needsInvoice({ ...s, isAmazonInvoiced: false })) {
+        held.push({ orderId: s.orderId, reason: "The is-amazon-invoiced column is blank, unreadable or disagrees between the rows of this shipment, so the report does not show who issues the invoice. We did not guess it from invoice-status, so nothing is issued for it." });
+        continue;
+      }
       const why = vidrSkipReason(s);
       if (why) skipped.push({ orderId: s.orderId, why });
       else kept.push(s);
     }
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held: [], skipped, truncated: !!t.truncated };
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows, opts);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };
@@ -50492,8 +50532,8 @@ var stmt = { get: () => void 0, all: () => [], run: () => ({}) };
 var stubDb = { prepare: () => stmt, exec: () => {
 } };
 var sellerFor = (s, country) => ({ id: "local", name: "SAMPLE SELLER (not a real invoice)", nif: s.sellerVat || "", address: "Sample address", country, invoice_lang: "auto", profile: "{}" });
-async function analyze(text, { country = "ES", useDeliveryAddress = false } = {}) {
-  const plan = planUpload(String(text ?? ""), { useDeliveryAddress });
+async function analyze(text, { country = "ES", useDeliveryAddress = false, sellerDeclaration = {} } = {}) {
+  const plan = planUpload(String(text ?? ""), { useDeliveryAddress, sellerDeclaration });
   if (!plan.ok) return { ok: false, error: plan.error, format: plan.format ?? null };
   const rd = readiness(country, "issue");
   const ready = [], held = plan.held.map((h) => ({ orderId: h.orderId, reason: h.reason }));

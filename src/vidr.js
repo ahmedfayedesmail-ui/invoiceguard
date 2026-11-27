@@ -12,6 +12,8 @@ const num = (x) => {
   return Number.isFinite(n) ? n : 0;
 };
 const bool = (x) => String(x).toUpperCase() === 'TRUE';
+/** A flag that must be read exactly as written. TRUE or FALSE (case and spaces ignored) when every value agrees; null (UNKNOWN) for a blank, an unreadable value or values that disagree. A blank is never FALSE and is never inferred from any other column. */
+export const readFlag = (values) => { const v = new Set([].concat(values).map(x => String(x ?? '').trim().toUpperCase())); return v.size === 1 && v.has('TRUE') ? true : v.size === 1 && v.has('FALSE') ? false : null; };
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export function parseTsv(text) {
@@ -34,7 +36,7 @@ export function parseVidr(text) {
       s = map.set(key, {
         key, orderId: r['order-id'], shippingId: r['shipping-id'], transactionId: r['transaction-id'] || r['shipping-id'],
         transactionType: r['transaction-type'] || 'SHIPMENT', marketplace: r['marketplace-id'], orderDate: r['order-date'], shipmentDate: r['shipment-date'],
-        currency: r.currency || 'EUR', isBusiness: bool(r['is-business-order']), isAmazonInvoiced: bool(r['is-amazon-invoiced']),
+        currency: r.currency || 'EUR', isBusiness: bool(r['is-business-order']), isAmazonInvoiced: null, flagValues: [],
         invoiceStatus: r['invoice-status'], invoiceStatusDesc: r['invoice-status-description'] || null, sellerVat: r['seller-vat-number'], buyerVat: r['buyer-vat-number'] || null,
         buyerTaxType: r['buyer-tax-registration-type'] || null, buyerCompany: r['buyer-company-name'] || r['billing-name'] || r['buyer-name'],
         poNumber: r['purchase-order-number'] || null,
@@ -44,6 +46,7 @@ export function parseVidr(text) {
         citation: r['citation-es'] || r['citation-en'] || null, items: [], incl: 0, vat: 0, excl: 0,
       }).get(key);
     }
+    s.flagValues.push(r['is-amazon-invoiced']);
     const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
     const vatSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
     s.incl += inclSum; s.vat += vatSum; s.excl += inclSum - vatSum;
@@ -54,9 +57,9 @@ export function parseVidr(text) {
       extras: PARTS.slice(1).map(p => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter(x => x.excl || x.vat),
     });
   }
-  return [...map.values()].map(s => ({ ...s, incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  return [...map.values()].map(({ flagValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
 }
 
 /** Shipments the seller still has to invoice themselves. */
-export const needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && !s.isAmazonInvoiced && s.transactionType === 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrection &&
+export const needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && s.isAmazonInvoiced === false && s.transactionType === 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrection &&
   ['InvoicePending', 'InvoiceRejected', 'NoTaxCalculated', ''].includes(s.invoiceStatus || '');

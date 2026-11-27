@@ -102,3 +102,19 @@ test('order report: flag columns, when the file does carry them, are read as wri
   assert.equal(planUpload(order({ 'is-business-order': 'TRUE', 'is-amazon-invoiced': '' }), { useDeliveryAddress: true }).held.length, 1, 'blank column: unknown, held');
   assert.equal(planUpload(order({ 'is-business-order': 'FALSE', 'is-amazon-invoiced': 'FALSE' }), { useDeliveryAddress: true }).skipped.length, 1, 'explicit FALSE business: consumer, as written');
 });
+
+// ---- the production pipeline (processReport): a blank flag is held, never issued ----
+import { readFileSync } from 'node:fs';
+import { openDb } from '../src/db.js';
+import { processReport } from '../src/pipeline.js';
+test('pipeline: processReport holds a shipment whose is-amazon-invoiced is blank and issues nothing for it; the explicit FALSE rows of the same file are still issued', async () => {
+  const fx = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'), lines = fx.trim().split('\n'), head = lines[0].split('\t'), ix = head.indexOf('is-amazon-invoiced');
+  const blanked = [lines[0], ...lines.slice(1).map(r => { const c = r.split('\t'); if (c[head.indexOf('shipping-id')] === 'S1001') c[ix] = ''; return c.join('\t'); })].join('\n');
+  const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, 28001 Madrid, ES' };
+  const calls = []; const api = { uploadInvoice: async (a) => { calls.push(a); return 'feed-' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
+  const db = openDb();
+  const out = await processReport(db, seller, blanked, { api, validate: async (v) => ({ status: 'valid', vat: v }), now: new Date('2026-11-24T12:00:00Z') });
+  assert.ok(out.held.some(h => /is-amazon-invoiced/.test(h.reason)), JSON.stringify(out.held));
+  assert.ok(!db.prepare("SELECT 1 FROM shipments WHERE key LIKE '%S1001%' AND status IN ('submitted','uploaded','ready','sending','processing')").get(), 'S1001 was not issued');
+  assert.equal(out.detected, 3, 'the file has 4 shipments that need an invoice; the blank one is not detected as one'); assert.equal(out.uploaded + out.held.length, 4, 'the other 3 are uploaded or held for their own reasons, plus the blank one held');
+});

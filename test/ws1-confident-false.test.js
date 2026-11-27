@@ -37,9 +37,10 @@ test('ws1: CONFLICT: field FALSE but status InvoiceCreatedByAmazon is undetermin
   assert.deepEqual(confident(r).map(i => i.family), []);
   assert.equal(r.stats.amazonFlagUndetermined, 1);
 });
-test('ws1: a blank flag falls back to the status (no behaviour change for files without the field filled)', () => {
-  assert.equal(run(setFlag(base(), '')).issues.filter(i => i.family === 'BOOKS_GAP' && i.state === 'ACTION_REQUIRED').length, 1);
-  assert.deepEqual(confident(run(setFlag(amz(), ''))).map(i => i.family), []);
+test('ws1: a BLANK flag is UNKNOWN: never inferred from the status, so neither a confident finding nor an Amazon-created invoice (replaces the old test that locked the fallback; see test/blank-flag-unknown.test.js)', () => {
+  assert.deepEqual(confident(run(setFlag(base(), ''))).map(i => i.family), []);
+  assert.equal(run(setFlag(base(), '')).stats.amazonFlagUndetermined, 1);
+  const r = run(setFlag(amz(), '')); assert.deepEqual(confident(r).map(i => i.family), []); assert.equal(r.stats.createdByAmazon, 0); assert.equal(r.stats.amazonFlagUndetermined, 1);
 });
 test('ws1: the flag is read case-insensitively and with spaces', () => {
   for (const v of ['true', ' TRUE ', 'True']) assert.equal(run(setFlag(amz(), v)).stats.amazonFlagUndetermined, 0, v);

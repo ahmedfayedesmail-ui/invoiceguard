@@ -22,6 +22,7 @@ test('detects formats and refuses the All Orders report', () => {
 });
 
 test('order report: clean order, consumer skip, and every hold has a reason', () => {
+  const DECL = { isBusiness: true, isAmazonInvoiced: false }; // the Order Report carries no flag columns: only a seller declaration can fill them (see test/blank-flag-unknown.test.js)
   const p = planUpload(file(
     { 'order-id': 'OK1' },
     { 'order-id': 'CONS', 'buyer-company-name': '', 'buyer-tax-registration-id': '' },
@@ -29,13 +30,13 @@ test('order report: clean order, consumer skip, and every hold has a reason', ()
     { 'order-id': 'ODD', 'item-price': '100.00', 'item-tax': '13.37' },
     { 'order-id': 'NOCC', 'buyer-tax-registration-id': '12345678', 'buyer-tax-registration-country': '' },
     { 'order-id': 'TXT', 'item-price': 'abc' },
-  ));
+  ), { sellerDeclaration: DECL });
   assert.equal(p.ok, true);
   assert.equal(p.shipments.length, 0, 'no billing address in the report, so nothing is issued by default');
-  assert.equal(p.skipped.length, 1);
-  assert.equal(p.held.length, 5);
+  assert.equal(p.skipped.length, 0, 'with no company and no VAT number the order is held, not excluded as consumer: that needs evidence the Order Report does not carry');
+  assert.equal(p.held.length, 6);
   assert.ok(p.held.every(h => h.reason.length > 20));
-  const q = planUpload(file({ 'order-id': 'OK1' }), { useDeliveryAddress: true });
+  const q = planUpload(file({ 'order-id': 'OK1' }), { useDeliveryAddress: true, sellerDeclaration: DECL });
   assert.equal(q.shipments.length, 1);
   const s = q.shipments[0]; assert.equal(s.buyerVat, 'ESB12345674'); assert.equal(s.items[0].vatRate, 21); assert.equal(s.incl, 121); assert.equal(s.vat, 21); assert.equal(s.marketplace, 'ES');
 });
@@ -66,11 +67,13 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
   assert.equal((await call('sync', {})).status >= 400, true);
   const text = file({ 'order-id': 'M1' }, { 'order-id': 'M2', 'item-promotion-discount': '3' });
   assert.equal((await call('manual/issue', { text, attest: true })).body.issued, 0);
+  const DECL = { isBusiness: true, isAmazonInvoiced: false };
+  assert.equal((await call('manual/issue', { text, useDeliveryAddress: true, attest: true })).body.issued, 0, 'no declaration: the Order Report carries no flag evidence, so nothing is issued');
   assert.equal((await call('manual/preview', { text: 'nope' })).status, 400);
   assert.equal((await call('manual/issue', { text, useDeliveryAddress: true })).status, 400, 'needs the checks');
-  const r = (await call('manual/issue', { text, useDeliveryAddress: true, attest: true })).body;
+  const r = (await call('manual/issue', { text, useDeliveryAddress: true, attest: true, sellerDeclaration: DECL })).body;
   assert.equal(r.issued, 1); assert.equal(r.heldNow, 1);
-  assert.equal((await call('manual/issue', { text, useDeliveryAddress: true, attest: true })).body.issued, 0, 'no duplicate');
+  assert.equal((await call('manual/issue', { text, useDeliveryAddress: true, attest: true, sellerDeclaration: DECL })).body.issued, 0, 'no duplicate');
   const d = (await call('dashboard')).body; assert.equal(d.kpis.ready, 1); assert.equal(d.invoices.length, 1);
   const zip = await call('pack'); assert.equal(zip.body.subarray(0, 2).toString(), 'PK'); assert.match(zip.body.toString('latin1'), /manifest\.csv/);
   assert.equal((await call('invoices/mark', { numbers: [d.invoices[0].number] })).body.marked, 1);

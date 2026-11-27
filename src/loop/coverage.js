@@ -1,5 +1,5 @@
 // Coverage statement: the words that say what the check covered and what it did not. It reads only the coverage numbers.
-const UND = { BUSINESS_FLAG_BLANK: 'the business-order field is blank', BUSINESS_FLAG_CONFLICT: 'the rows of one shipment disagree about the business-order field', BUSINESS_FLAG_UNREADABLE: 'the business-order field is neither TRUE nor FALSE', AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 'who issues the invoice could not be read, or the fields that say so disagree' };
+const UND = { BUSINESS_FLAG_BLANK: 'the business-order field is blank', BUSINESS_FLAG_CONFLICT: 'the rows of one shipment disagree about the business-order field', BUSINESS_FLAG_UNREADABLE: 'the business-order field is neither TRUE nor FALSE', AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 'who issues the invoice is blank, could not be read, or the fields that say so disagree' };
 const list = (by, words) => Object.entries(by).filter(([, n]) => n > 0).map(([k, n]) => `${n} where ${words[k] ?? k}`).join('; ');
 export function coverageStatement(c) {
   if (!c || !c.transactionsTotal) return ['No Amazon report is loaded, so nothing has been checked yet.'];
