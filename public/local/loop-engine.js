@@ -3418,7 +3418,6 @@ function project({ imports, events = [], sellerProfileId = "local", deletions: a
 var isoDay2 = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 var DELETION_EXPORT_NOTICE = "This export contains a record of the files you deleted: their names, their fingerprints (SHA-256), the time of each deletion and which problems each one touched. It does not contain what was inside those files. Anyone who receives this export can read those names and times.";
 var RESTORE_WARNING = "A restore puts your workspace back exactly as it was when the backup was made. Files you deleted after that backup come back with it, and the records of those deletions are not in it, so they will not be shown as deleted.";
-var PENDING_GRACE_MS = 5 * 60 * 1e3;
 var Refused = class extends Error {
   constructor(reasons) {
     super(reasons.join(" "));
@@ -3510,16 +3509,13 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
     async committedDeletions() {
       return (await list("deletion")).filter((d) => (d.status ?? "COMMITTED") === "COMMITTED");
     },
-    /** Settles every PENDING deletion record by looking at whether its file is really gone. File gone: the record is completed (COMMITTED), once, under its own id. File present and the attempt older than the grace period: the deletion never happened, the record is discarded and the data is untouched. File present and the attempt is recent: left alone, because another tab may be mid-deletion; it counts as no deletion. Idempotent. */
+    /** Settles every PENDING deletion record by looking at whether its file is really gone. File gone: the record is completed (COMMITTED), once, under its own id. File present: the record is KEPT, however old, and counts as no deletion (it is invisible to project()); a retry reuses it under the same id. There is no time-based discard: a stalled tab could still delete the file later, and a discarded record would then be lost. Only the file's absence moves a record forward. The file is looked up by its import id, never by name or hash. Idempotent. */
     async recoverDeletions() {
-      const out = { committed: [], discarded: [], pending: [] };
+      const out = { committed: [], pending: [] };
       for (const rec of (await list("deletion")).filter((d) => d.status === "PENDING")) {
         if (!await adapter.get(key("import", rec.import.id))) {
           await adapter.put(key("deletion", rec.id), { ...rec, status: "COMMITTED", committedAt: now() });
           out.committed.push(rec.id);
-        } else if (Date.parse(now()) - Date.parse(rec.attemptedAt ?? rec.deletedAt) > PENDING_GRACE_MS) {
-          await adapter.del(key("deletion", rec.id));
-          out.discarded.push(rec.id);
         } else out.pending.push(rec.id);
       }
       if (out.committed.length) await pruneOrphans();
@@ -3632,10 +3628,6 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
         await adapter.del(key("import", importId));
         if (await adapter.get(key("import", importId))) throw new Error("The file is still stored after the delete.");
       } catch (e) {
-        try {
-          await adapter.del(key("deletion", rec.id));
-        } catch {
-        }
         throw e;
       }
       await adapter.put(key("deletion", rec.id), { ...rec, status: "COMMITTED", committedAt: now() });

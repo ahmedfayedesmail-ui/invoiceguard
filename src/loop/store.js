@@ -9,7 +9,6 @@ import { eventShapeProblem, declarationProblem, DECLARATION_TYPES } from './even
 const isoDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 export const DELETION_EXPORT_NOTICE = 'This export contains a record of the files you deleted: their names, their fingerprints (SHA-256), the time of each deletion and which problems each one touched. It does not contain what was inside those files. Anyone who receives this export can read those names and times.';
 export const RESTORE_WARNING = 'A restore puts your workspace back exactly as it was when the backup was made. Files you deleted after that backup come back with it, and the records of those deletions are not in it, so they will not be shown as deleted.';
-export const PENDING_GRACE_MS = 5 * 60 * 1000; // a PENDING deletion record whose file is still present is discarded after this
 export class Refused extends Error { constructor(reasons) { super(reasons.join(' ')); this.code = 'REFUSED'; this.reasons = reasons; } }
 const hex = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toString(16).padStart(2, '0')).join('');
 
@@ -62,12 +61,11 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString(),
     /** The permanent record of deleted imports: which file, when, why, and which problems it touched. It never holds file content. */
     async deletions() { return list('deletion'); },
     async committedDeletions() { return (await list('deletion')).filter(d => (d.status ?? 'COMMITTED') === 'COMMITTED'); },
-    /** Settles every PENDING deletion record by looking at whether its file is really gone. File gone: the record is completed (COMMITTED), once, under its own id. File present and the attempt older than the grace period: the deletion never happened, the record is discarded and the data is untouched. File present and the attempt is recent: left alone, because another tab may be mid-deletion; it counts as no deletion. Idempotent. */
+    /** Settles every PENDING deletion record by looking at whether its file is really gone. File gone: the record is completed (COMMITTED), once, under its own id. File present: the record is KEPT, however old, and counts as no deletion (it is invisible to project()); a retry reuses it under the same id. There is no time-based discard: a stalled tab could still delete the file later, and a discarded record would then be lost. Only the file's absence moves a record forward. The file is looked up by its import id, never by name or hash. Idempotent. */
     async recoverDeletions() {
-      const out = { committed: [], discarded: [], pending: [] };
+      const out = { committed: [], pending: [] };
       for (const rec of (await list('deletion')).filter(d => d.status === 'PENDING')) {
         if (!(await adapter.get(key('import', rec.import.id)))) { await adapter.put(key('deletion', rec.id), { ...rec, status: 'COMMITTED', committedAt: now() }); out.committed.push(rec.id); }
-        else if (Date.parse(now()) - Date.parse(rec.attemptedAt ?? rec.deletedAt) > PENDING_GRACE_MS) { await adapter.del(key('deletion', rec.id)); out.discarded.push(rec.id); }
         else out.pending.push(rec.id);
       }
       if (out.committed.length) await pruneOrphans();
@@ -135,7 +133,7 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString(),
       const rec = { id: prior?.id ?? `del-${at.replace(/\D/g, '').slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, status: 'PENDING', attemptedAt: at, deletedAt: at, utcOffsetMinutes: offsetMinutes(), reason: reason.trim(), ...impact.record };
       await adapter.put(key('deletion', rec.id), rec);
       try { await adapter.del(key('import', importId)); if (await adapter.get(key('import', importId))) throw new Error('The file is still stored after the delete.'); }
-      catch (e) { try { await adapter.del(key('deletion', rec.id)); } catch { /* the process may be gone: recovery settles it */ } throw e; }
+      catch (e) { throw e; } // the record stays whatever happened: only the file's absence moves it forward, a retry reuses it
       await adapter.put(key('deletion', rec.id), { ...rec, status: 'COMMITTED', committedAt: now() });
       const removed = await pruneOrphans();
       return { ...impact, deleted: true, deletionId: rec.id, eventsDeleted: removed };
