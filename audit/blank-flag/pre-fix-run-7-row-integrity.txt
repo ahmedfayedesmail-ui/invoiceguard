@@ -1,0 +1,13 @@
+not ok 1 - newline inside billing-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+not ok 2 - newline inside buyer-company-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+not ok 3 - newline inside buyer-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+not ok 4 - newline inside recipient-name: both pieces are invalid rows, no shipment, no hold card, no invoice, no throw
+not ok 5 - the first piece keeps order-id, shipping-id and shipment-date (billing-name is column after them) and is STILL rejected: the check is on missing required cells, not on IDs or dates
+not ok 6 - garbage input: no shipment, no throw, no stored row
+not ok 7 - a healthy row with an unknown flag is still HELD, next to broken rows and a healthy issuable row
+not ok 8 - tolerance: a trailing empty optional cell removed by an editor (citation-es) is NOT rejected
+not ok 9 - rejected: a row missing a required cell at the end (buyer-tax-registration-type) or with an extra cell
+not ok 10 - a healthy report has no invalid rows and its shipments are unchanged
+# tests 10
+# pass 0
+# fail 10
