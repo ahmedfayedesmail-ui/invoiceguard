@@ -52,7 +52,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const throttled = (k, max = FAIL_MAX) => { const f = fails.get(k); if (!f) return 0; if (f.until < Date.now()) { fails.delete(k); return 0; } return f.n >= max ? Math.ceil((f.until - Date.now()) / 1000) : 0; };
   const noteFail = (k) => { const f = fails.get(k); if (!f || f.until < Date.now()) fails.set(k, { n: 1, until: Date.now() + FAIL_WINDOW }); else f.n++; if (fails.size > 50000) fails.delete(fails.keys().next().value); };
   const secureFlag = (req) => (process.env.COOKIE_SECURE === '1' || req.headers['x-forwarded-proto'] === 'https') ? '; Secure' : '';
-  const json = (res, code, body, headers = {}) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
+  const json = (res, code, body, headers = {}) => { if (res.headersSent || res.writableEnded) { try { res.end(); } catch { /* socket already gone */ } return; } /* a late error after the reply started must not throw out of the handler */ res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
   const readBody = (req, limit = 64e3) => new Promise((ok, no) => { let d = '', big = false; const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
     req.on('data', c => { if (big) return; d += c; if (d.length > limit) { big = true; d = ''; } });
     req.on('end', () => { if (big) return no(fail('That request is too large. Uploaded PDFs can be up to 5 MB.', 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
@@ -566,6 +566,9 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // Last-resort net for the real server only: a stray error in a timer or an unawaited promise is logged instead of taking the whole service down.
+  process.on('unhandledRejection', (e) => console.error('unhandled rejection (logged, process kept alive):', e?.stack || e));
+  process.on('uncaughtException', (e) => console.error('uncaught exception (logged, process kept alive):', e?.stack || e));
   applyPendingRestore(process.env.DB_FILE ?? 'invoiceguard.db'); // before the database is opened
   const { server, db, sync } = createApp({ db: openDb(process.env.DB_FILE ?? 'invoiceguard.db') });
   // Automatic backups: a checkpoint-consistent snapshot on boot and every 6 h, kept on the same
@@ -591,7 +594,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));
   const recheck = async () => { try { const r = await checkSources(db); console.log(`rule re-check: ${r.length} sources, ${r.filter(x => x.missing.length).length} with missing anchor text`); } catch (e) { console.error('rule re-check failed', e.message); } };
   if (!process.env.NO_RULE_CHECK) { setTimeout(recheck, 30e3).unref(); setInterval(recheck, 24 * 3600e3).unref(); }
-  setInterval(async () => { for (const s of db.prepare('SELECT * FROM sellers').all()) { try { await F.watchRun(db, s, validateVat); } catch (e) { console.error('watch failed', e.message); } } }, 24 * 3600e3).unref();
+  setInterval(async () => { let all = []; try { all = db.prepare('SELECT * FROM sellers').all(); } catch (e) { console.error('watch list failed', e.message); } for (const s of all) { try { await F.watchRun(db, s, validateVat); } catch (e) { console.error('watch failed', e.message); } } }, 24 * 3600e3).unref();
   setInterval(async () => { // scheduler: Amazon's report is requested every 12 h in their SLA guidance; we poll hourly
     let sellers; try { sellers = db.prepare('SELECT s.*, c.mode AS conn_mode FROM sellers s JOIN amazon_conn c ON c.seller_id=s.id WHERE c.mode != ?').all('manual'); } catch (e) { console.error('scheduler query failed', e.message); return; } // a failure here must never take the process down
     for (const s of sellers) {
