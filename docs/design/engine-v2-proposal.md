@@ -190,7 +190,7 @@ Actionability is set by the policy table in 7.4, per domain and defect type. It 
 
 ### 7.3 Effect on the 49 and the 124
 - is-business-order FALSE sets B2B_OBLIGATION NOT_APPLICABLE for the shipment. LEDGER_INTEGRITY and DATA_RECONCILIATION remain APPLIES.
-- The 11 DATA_MISMATCH return as DATA_RECONCILIATION, Observation PRESENT, Actionability SELLER_ACTION (row R1), worded as an accounting discrepancy between the books and Amazon's record and never as a tax or B2B obligation. The flag does not change the action. Materiality does, in this order: threshold declared and difference at or above it gives SELLER_ACTION; below it, IMMATERIAL (summary line only); no threshold declared gives REVIEW with the amount shown and Materiality UNDETERMINED. For business orders that today get SELLER_ACTION unconditionally this is a behaviour change, flagged in R1.
+- The 11 DATA_MISMATCH return as DATA_RECONCILIATION, Observation PRESENT, Actionability decided by materiality (row R1: SELLER_ACTION when the seller's declared threshold is met, REVIEW when no threshold is declared, a per-currency summary line when below it), worded as an accounting discrepancy between the books and Amazon's record and never as a tax or B2B obligation. The flag does not change the action. Materiality does, in this order: threshold declared and difference at or above it gives SELLER_ACTION; below it, IMMATERIAL (summary line only); no threshold declared gives REVIEW with the amount shown and Materiality UNDETERMINED. For business orders that today get SELLER_ACTION unconditionally this is a behaviour change, flagged in R1.
 - The 38 BOOKS_GAP: B2B NOT_APPLICABLE. As reconciliation facts they apply when the declared scope of the books includes the document's channel and period (a declaration about the books, independent of the business flag). Then Observation PRESENT and the row is R4, decided by Materiality on the document total as in R1 (SELLER_ACTION when declared and material, REVIEW when undetermined, summary line when immaterial), worded as "Amazon shows document N for order O dated D and your books do not contain it", never as an obligation to issue an invoice, with the fact, context and date kept. If the scope does not cover them, Applicability is UNDETERMINED and the output is a coverage item (row R6). Decision 3 in section 15.
 - Duplicates (all in LEDGER_INTEGRITY, independent of the business flag):
 | Case | Severity | Review priority | Meaning |
@@ -215,7 +215,7 @@ B2B_OBLIGATION (precondition for every row: is-business-order TRUE read from the
 | B2 | No invoice at Amazon for the shipment after the Amazon-policy window (policy, not law) | PRESENT | SELLER_ACTION | high | E |
 | B3 | Same, inside the window, or Amazon marks it processing | PRESENT but early | WAIT | low | E |
 | B4 | is-business-order FALSE | B2B not applicable | NONE (deliberate; reason recorded; the same shipment still goes through the other domains) | none | R (15:36 and 17:42) |
-| B5 | is-business-order blank, unreadable or conflicting between rows | Applicability UNDETERMINED | REVIEW, one item per affected seller file naming the field | low | P? |
+| B5 | is-business-order blank, unreadable or conflicting between rows | Applicability UNDETERMINED | REVIEW, aggregated: one item per seller file with the count of affected shipments and the field, not one item per shipment | normal | R (Ahmed, decision after rev 4) |
 | B6 | is-amazon-invoiced TRUE (Amazon issued the invoice) | B2B seller duty not applicable | NONE (deliberate) | none | E |
 | B7 | is-amazon-invoiced contradicts invoice-status (WS1 conflict) | CONTRADICTORY | REVIEW; nothing concluded, no action | normal | E |
 
@@ -234,8 +234,8 @@ DATA_RECONCILIATION (Amazon records versus the seller's books; precondition: shi
 | R10 | Document linked only by corroborating signals (PROPOSED_LINK_UNCONFIRMED) | PROPOSED | REVIEW, the seller confirms or corrects; never SELLER_ACTION; never promoted by the engine | low | E |
 | R11 | One number matching several candidates (MULTIPLE_CANDIDATES) | CONFLICTING | REVIEW | normal | E |
 | R12 | One document related to several shipments, or one shipment to several documents | PRESENT (relation observation) | REVIEW, wording "whether permitted is not established" | normal | P (per review of 17:51) |
-| R13 | One document number on two Amazon shipments | CONTRADICTORY | REVIEW | high | P? |
-| R14 | A books document whose number points to another order than the Amazon shipment it matches (wrong-order link) | CONFLICTING | REVIEW | normal | P? (today only a note on 13 sellers; promotion needs the diagnosis of the 20 missed) |
+| R13 | One document number on two Amazon shipments | CONFLICTING (the identity of the relation is in conflict) | REVIEW | high | R (Ahmed, decision after rev 4) |
+| R14 | A books document whose number points to another order than the Amazon shipment it matches (wrong-order link) | CONFLICTING (the identity of the relation is in conflict) | REVIEW | high | R for the level (Ahmed, decision after rev 4); promotion from a note still needs the diagnosis of the 20 missed |
 
 LEDGER_INTEGRITY (the seller's file against itself; independent of the business flag)
 | # | Defect type | Observation | Actionability | Priority | Certainty |
@@ -263,7 +263,7 @@ COVERAGE, SOURCE and PERIOD
 | T3 | A correction falls in a different tax period from its original | observation | REVIEW | low | P |
 
 Cases where the policy deliberately says NONE: B4, B6, R3, R7, L4. Each stays visible in counts and in the coverage map with its reason, so "not shown" never means "not looked at".
-Rows still uncertain, for Ahmed to decide: B5, R1 priority bands, materiality (threshold input, field classes, UNDETERMINED fallback), R13, R14, L9. The seller-facing priority labels (high, normal, low) are a proposal with no external source.
+Decided by Ahmed after rev 4: B5 (aggregated review), R13 and R14 (review, high priority). Rows still uncertain: R1 priority bands and L9. The seller-facing priority labels (high, normal, low) are a proposal with no external source.
 Resolved after review and re-decided after the materiality objection: R1 versus R2 and R4 versus R5 are no longer different rows. My first merge used provability as the only difference, which was wrong: provability is not materiality. Principle 2 says Applicability belongs to the check domain, so reconciliation Actionability cannot depend on the business flag; the flag is read only in the B2B rows.
 
 ## 8. Falsifiable findings
@@ -440,7 +440,7 @@ Phase 0 (the import-deletion defect) comes first and fixes the existing engine. 
 | Phase | Content | Depends on | Visible result and proof | Main risks |
 |---|---|---|---|---|
 | 0 | Import-deletion defect (4.4), its own defect with its own failing-before test: a recorded delete event, a permanent incomplete-history marker on every finding whose history passed through the deleted import, no path that silently turns CLOSED into open or removes a finding. The characterization script becomes the test | none | The three cases in evidence/import-deletion fail today and pass after | history must be sound before phase A adds axes onto findings |
-| A | Axes (domain, applicability, observation, materiality, actionability) as fields on current findings, policy table 7.4 as data; seller materiality declaration (no default); restore the 11 DATA_MISMATCH as DATA_RECONCILIATION R1 decided by materiality; duplicate severity and priority; the 38 BOOKS_GAP as R4/R6 items | none | The 11 listed by seller, order, field: absent before, present after as accounting-discrepancy SELLER_ACTION; negative control: no B2B_OBLIGATION finding on any non-business order and no wording of a tax obligation; first test of the phase: the import-deletion behaviour (4.4); old tests keep passing as projections | the R4 action level for the 38; priority labels have no external source |
+| A | Axes (domain, applicability, observation, materiality, actionability) as fields on current findings, policy table 7.4 as data; seller materiality declaration (no default); restore the 11 DATA_MISMATCH as DATA_RECONCILIATION R1 decided by materiality; duplicate severity and priority; the 38 BOOKS_GAP as R4/R6 items | none | The 11 listed by seller, order, field: absent before, present after as DATA_RECONCILIATION with the action decided by materiality (above the declared threshold SELLER_ACTION, below it a summary line, no threshold declared REVIEW with the amount shown; all three cases are tests); negative control: no B2B_OBLIGATION finding on any non-business order and no wording of a tax obligation; first test of the phase: the import-deletion behaviour (4.4); old tests keep passing as projections | the R4 action level for the 38; priority labels have no external source |
 | B | Mutation harness with mechanical expectations, negative controls, collateral-damage test, dumb reference checker; baseline exact recall of the CURRENT engine and of phase A, published | A (the policy table is the lookup) | An honest exact-recall number per defect type, and a list of reference-checker disagreements | harness identity matching; shared misreading (stated in section 10) |
 | C | Relationship statuses and components, orphans, relation multiplicity observation (R12, R13), wrong-order promotion if the diagnosis of the 20 supports it | A | Components shown for swapped pairs as one conflict; the 20 diagnosed first | component size; PROPOSED shown as confirmed |
 | D | Tax period assignment and the correction chain | C | PERIOD_AMBIGUOUS and chain observations on synthetic corrections | unsourced tax rules: only candidates and ambiguity until a SOURCE exists |
@@ -463,6 +463,14 @@ Each phase ends with: branch, head SHA, test names and counts, what fails before
 8. Independence: accept the method in section 10 and its stated limit, or require a real de-identified cycle before any production claim (the strategy already requires one).
 9. Phase order (phase 0, the import-deletion fix, first), and whether phase B starts in parallel with A.
 10. Materiality (7.2a): confirm the dimension; that the seller declares one absolute threshold per currency at onboarding with no default; the field classes AMOUNT_TAX, IDENTIFYING, TIMING; the UNDETERMINED fallback (REVIEW, amount shown, no escalation); the summary line for immaterial items; that business orders move from unconditional SELLER_ACTION; and that materiality never lowers a ledger-integrity finding.
+
+### 15.1 Recorded decisions (Ahmed, 17:xx WhatsApp via Main, after rev 4)
+All ten approved. Amendments that change the text above:
+- Decision 10 amendment: the onboarding flow asks for the threshold on day one but the seller may skip it. When absent: Materiality UNDETERMINED and the action is REVIEW. Amount and tax-amount differences are governed by the threshold; tax id, currency or identity differences are MATERIAL by nature; a date difference is MATERIAL when it changes the candidate tax period; immaterial differences always appear in the per-currency summary; materiality never lowers a Ledger Integrity finding.
+- Table: B5 becomes an aggregated review; R13 and R14 become REVIEW at high priority (relation identity in conflict).
+- Decision 3: books scope and period cover the document gives DATA_RECONCILIATION whatever the business flag; otherwise NOT_OBSERVABLE with the settle-it instruction. No accusation, no invented missing invoice.
+- Phase 0 (import deletion) approved to start immediately, on branch fix/import-deletion-history. Phase A next, phase B in parallel once the policy table is approved.
+- Fixed after review: phase A said the 11 DATA_MISMATCH return as SELLER_ACTION while R1 said REVIEW with no declared threshold. Both now say the same: the action is decided by materiality, three cases.
 
 ## Appendix A. The 7 items proven per Order ID and Document Number
 
