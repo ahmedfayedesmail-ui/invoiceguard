@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>InvoiceGuard - problem loop (Concierge Pilot, preview)</title>
+<style>
+:root{--ink:#17202a;--mut:#5d6b78;--line:#dde3ea;--ok:#0b7a43;--bad:#b42318;--warn:#8a5a00;--bg:#f6f8fa}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+main{max-width:900px;margin:0 auto;padding:20px 16px 60px}h1{font-size:26px;margin:8px 0}h2{font-size:18px;margin:26px 0 8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0}.mut{color:var(--mut)}.small{font-size:14px}
+.badge{display:inline-block;border-radius:999px;padding:2px 10px;font-size:13px;font-weight:600;background:#eef1f4}
+.b-ok{background:#e6f4ec;color:var(--ok)}.b-bad{background:#fdecea;color:var(--bad)}.b-warn{background:#fff4dc;color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-weight:600}
+button{font:inherit;font-size:14px;padding:6px 12px;border-radius:8px;border:1px solid #2563eb;background:#2563eb;color:#fff;cursor:pointer}button.alt{background:#fff;color:#2563eb}
+label{display:block;margin:8px 0 2px;font-size:14px;font-weight:600}input,select,textarea{font:inherit;font-size:14px;padding:6px;border:1px solid #9fb0c0;border-radius:6px;width:100%;max-width:420px}
+.row{display:flex;gap:12px;flex-wrap:wrap}.err{color:var(--bad)}.net{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.net b{font-size:22px}
+h3{margin:0 0 4px;font-size:16px}.kv{margin:4px 0}.group>summary{font-weight:700;cursor:pointer;margin:14px 0 6px}
+</style></head><body><main>
+<h1>Problem loop <span class="badge b-warn">preview, synthetic data only</span></h1>
+<p class="mut">Load your Amazon VAT Invoice Data Report and your accounting invoice export. You get the problems found, with the specific action for each, and each problem closes only when a newer file shows it is solved. Stored in this browser only.</p>
+<div class="card net"><span class="badge b-ok">Stays on this page</span><span>Network requests made since the page loaded: <b id="netcount">0</b></span></div>
+<div class="card"><h3>1. Load files</h3><div class="row">
+<div><label for="vfile">Amazon VAT Invoice Data Report (tab-delimited)</label><input type="file" id="vfile"></div>
+<div><label for="lfile">Accounting invoice export (CSV)</label><input type="file" id="lfile"></div></div>
+<div id="form"></div><div id="msg" class="small"></div></div>
+<div id="results"></div>
+<div class="card small"><b>Not checked in this version:</b> <span id="notchecked"></span></div>
+<div class="card small"><button class="alt" id="bundle">Download evidence bundle</button> <button class="alt" id="wipe">Delete everything stored here</button></div>
+</main><script type="module" src="/local/loop.js"></script></body></html>

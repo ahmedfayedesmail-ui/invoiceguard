@@ -47,3 +47,18 @@ test('local engine bundle is up to date with src/', () => {
   const after = readFileSync(new URL('../public/local/engine.js', import.meta.url));
   assert.ok(before.equals(after), 'public/local/engine.js is stale: run node tools/build-local.mjs and commit');
 });
+
+test('loop bundle is up to date with src/loop and the page cannot reach repair, pipeline, db or app', () => {
+  const before = readFileSync(new URL('../public/local/loop-engine.js', import.meta.url));
+  const out = execFileSync('node', ['tools/build-local.mjs'], { stdio: 'pipe' }).toString();
+  const after = readFileSync(new URL('../public/local/loop-engine.js', import.meta.url));
+  assert.ok(before.equals(after), 'public/local/loop-engine.js is stale: run node tools/build-local.mjs and commit');
+  const line = out.split('\n').find(l => l.startsWith('loop inputs from our code:')) ?? '';
+  assert.ok(line && !/repair|pipeline|db\.js|app\.js/.test(line), 'loop bundle inputs: ' + line);
+});
+
+test('loop page is off unless ENABLE_LOOP_PAGE=1 (no public deployment in P1)', async () => {
+  delete process.env.ENABLE_LOOP_PAGE;
+  const { server } = createApp({ validate: async () => ({}), secret: 'test' }); await new Promise(r => server.listen(0, r));
+  try { for (const p of ['/local/loop', '/local/loop.js', '/local/loop-engine.js']) assert.notEqual((await fetch(`http://127.0.0.1:${server.address().port}${p}`)).status, 200, p); } finally { server.close(); }
+});

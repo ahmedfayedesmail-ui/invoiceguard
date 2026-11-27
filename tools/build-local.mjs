@@ -14,3 +14,8 @@ const r = await build({ entryPoints: [w('engine-entry.js')], bundle: true, forma
   inject: [w('buffer-shim.js')], plugins: [redirect], loader: { '.json': 'json' }, define: { 'process.env.PDF_CACHE_MB': '"64"', 'process.env.RULES_ASOF': 'undefined', 'global': 'globalThis' }, legalComments: 'none', metafile: true, logLevel: 'info' });
 const ins = Object.keys(r.metafile.inputs).filter(f => f.startsWith('src/') || f.startsWith('web/'));
 console.log('inputs from our code:', ins.join(', '));
+
+// Problem loop bundle (separate file: the loop never shares a module with the issuing code).
+const r2 = await build({ entryPoints: [w('loop-entry.js')], bundle: true, format: 'esm', platform: 'browser', outfile: join(root, 'public/local/loop-engine.js'),
+  inject: [w('buffer-shim.js')], plugins: [redirect], loader: { '.json': 'json' }, define: { 'global': 'globalThis' }, legalComments: 'none', metafile: true, logLevel: 'info' });
+console.log('loop inputs from our code:', Object.keys(r2.metafile.inputs).filter(f => f.startsWith('src/') || f.startsWith('web/')).join(', '));

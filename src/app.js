@@ -31,6 +31,9 @@ const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
 const SAMPLE_JS = readFileSync(new URL('../public/sample.js', import.meta.url));
 const LOCAL_HTML = readFileSync(new URL('../public/local/index.html', import.meta.url)), LOCAL_PAGE = readFileSync(new URL('../public/local/page.js', import.meta.url)), LOCAL_ENGINE = readFileSync(new URL('../public/local/engine.js', import.meta.url));
+// Problem loop page: built in the repository, OFF unless ENABLE_LOOP_PAGE=1 (no public deployment of it without a decision).
+const LOOP_FILES = { '/local/loop': ['loop.html', 'text/html; charset=utf-8'], '/local/loop.js': ['loop.js', 'text/javascript; charset=utf-8'], '/local/loop-engine.js': ['loop-engine.js', 'text/javascript; charset=utf-8'] };
+const loopFile = (name) => readFileSync(new URL('../public/local/' + name, import.meta.url));
 // connect-src 'none' + form-action 'none': the browser itself refuses fetch, XHR, beacons, WebSockets and form posts from the local page. frame-src blob: only shows the PDF the page made.
 const LOCAL_CSP = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src blob: data:; connect-src 'none'; form-action 'none'; frame-src blob:; base-uri 'none'; frame-ancestors 'none'; object-src 'none'";
 const PACK_HOWTO = `HOW TO SEND THESE INVOICES TO AMAZON
@@ -160,6 +163,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const f = p === '/local/page.js' ? LOCAL_PAGE : p === '/local/engine.js' ? LOCAL_ENGINE : LOCAL_HTML;
         res.writeHead(200, { 'content-type': p.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'content-security-policy': LOCAL_CSP, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return res.end(f);
       }
+      if (req.method === 'GET' && LOOP_FILES[p] && process.env.ENABLE_LOOP_PAGE === '1') { const [f, ct] = LOOP_FILES[p]; res.writeHead(200, { 'content-type': ct, 'content-security-policy': LOCAL_CSP, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return res.end(loopFile(f)); }
       if (req.method === 'GET' && p === '/sample.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300' }); return res.end(SAMPLE_JS); }
       // Public no-signup sample: the real pipeline on made-up orders, in a throwaway in-memory DB. Nothing is stored, nothing is sent anywhere.
       const bump = (k) => { try { db.prepare('INSERT INTO site_counters (key,n) VALUES (?,1) ON CONFLICT(key) DO UPDATE SET n=n+1').run(k); } catch { /* counting must never break a page */ } };
