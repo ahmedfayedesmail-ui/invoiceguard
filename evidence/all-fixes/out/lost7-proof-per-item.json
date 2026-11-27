@@ -1,0 +1,265 @@
+[
+ {
+  "seller": 180,
+  "orderId": "679-7236031-2000014",
+  "documentNumber": "FA-2026-0002",
+  "kind": "fixAllButStaleReport",
+  "amazonRows": [
+   {
+    "transaction-id": "S723387162",
+    "invoice-number": "FA-2026-0002",
+    "invoice-status": "InvoiceUploaded",
+    "is-amazon-invoiced": "FALSE",
+    "is-business-order": "TRUE"
+   }
+  ],
+  "booksRows": [
+   {
+    "row": 3,
+    "text": "FA-2026-0002;Fattura;10/10/2026;08/10/2026;EUR;18,64;15,40;3,24;679-7236031-2000014;Amazon.fr"
+   }
+  ],
+  "roundTwoFilesOnly": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 20,
+   "amazonInvoices": 20,
+   "coverageNotes": [
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "control_thisBooksRowRemoved": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 19,
+   "coverageNotes": [
+    "Absence from the books cannot be concluded: its period 2026-10-02 to 2026-10-31 must start on or before the shipment day 2026-10-09 and end on or after the shipment day and the day the Amazon report was taken (2026-11-20",
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "proof": "engine matches this order and document number by number in the round-2 files; removing only this books row lowers the match count by one and the engine then states a coverage limit, so the item is tracked individually"
+ },
+ {
+  "seller": 180,
+  "orderId": "232-7236043-2000098",
+  "documentNumber": "FA-2026-0014",
+  "kind": "fixAllButStaleReport",
+  "amazonRows": [
+   {
+    "transaction-id": "S082112426",
+    "invoice-number": "FA-2026-0014",
+    "invoice-status": "InvoiceUploaded",
+    "is-amazon-invoiced": "FALSE",
+    "is-business-order": "TRUE"
+   }
+  ],
+  "booksRows": [
+   {
+    "row": 15,
+    "text": "FA-2026-0014;Fattura;29/10/2026;27/10/2026;EUR;186,36;154,02;32,34;232-7236043-2000098;Amazon.fr"
+   }
+  ],
+  "roundTwoFilesOnly": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 20,
+   "amazonInvoices": 20,
+   "coverageNotes": [
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "control_thisBooksRowRemoved": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 19,
+   "coverageNotes": [
+    "Absence from the books cannot be concluded: its period 2026-10-02 to 2026-10-31 must start on or before the shipment day 2026-10-28 and end on or after the shipment day and the day the Amazon report was taken (2026-11-20",
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "proof": "engine matches this order and document number by number in the round-2 files; removing only this books row lowers the match count by one and the engine then states a coverage limit, so the item is tracked individually"
+ },
+ {
+  "seller": 180,
+  "orderId": "619-7236049-2000141",
+  "documentNumber": "FA-2026-0020",
+  "kind": "fixAllButStaleReport",
+  "amazonRows": [
+   {
+    "transaction-id": "S517976145",
+    "invoice-number": "FA-2026-0020",
+    "invoice-status": "InvoiceUploaded",
+    "is-amazon-invoiced": "FALSE",
+    "is-business-order": "TRUE"
+   }
+  ],
+  "booksRows": [
+   {
+    "row": 21,
+    "text": "FA-2026-0020;Fattura;06/10/2026;04/10/2026;EUR;99,34;82,10;17,24;619-7236049-2000141;Amazon.fr"
+   }
+  ],
+  "roundTwoFilesOnly": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 20,
+   "amazonInvoices": 20,
+   "coverageNotes": [
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "control_thisBooksRowRemoved": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 19,
+   "coverageNotes": [
+    "Absence from the books cannot be concluded: its period 2026-10-02 to 2026-10-31 must start on or before the shipment day 2026-10-05 and end on or after the shipment day and the day the Amazon report was taken (2026-11-20",
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "proof": "engine matches this order and document number by number in the round-2 files; removing only this books row lowers the match count by one and the engine then states a coverage limit, so the item is tracked individually"
+ },
+ {
+  "seller": 180,
+  "orderId": "161-7236046-2000119",
+  "documentNumber": "FA-2026-0017",
+  "kind": "fixAllButStaleReport",
+  "amazonRows": [
+   {
+    "transaction-id": "S785367326",
+    "invoice-number": "FA-2026-0017",
+    "invoice-status": "InvoiceUploaded",
+    "is-amazon-invoiced": "FALSE",
+    "is-business-order": "TRUE"
+   }
+  ],
+  "booksRows": [
+   {
+    "row": 18,
+    "text": "FA-2026-0017;Fattura;20/10/2026;18/10/2026;EUR;303,13;250,52;52,61;161-7236046-2000119;Amazon.fr"
+   }
+  ],
+  "roundTwoFilesOnly": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 20,
+   "amazonInvoices": 20,
+   "coverageNotes": [
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "control_thisBooksRowRemoved": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 19,
+   "coverageNotes": [
+    "Absence from the books cannot be concluded: its period 2026-10-02 to 2026-10-31 must start on or before the shipment day 2026-10-19 and end on or after the shipment day and the day the Amazon report was taken (2026-11-20",
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "proof": "engine matches this order and document number by number in the round-2 files; removing only this books row lowers the match count by one and the engine then states a coverage limit, so the item is tracked individually"
+ },
+ {
+  "seller": 180,
+  "orderId": "179-7236050-2000148",
+  "documentNumber": "FA-2026-0021",
+  "kind": "fixAllButStaleReport",
+  "amazonRows": [
+   {
+    "transaction-id": "S235323549",
+    "invoice-number": "FA-2026-0021",
+    "invoice-status": "InvoiceUploaded",
+    "is-amazon-invoiced": "FALSE",
+    "is-business-order": "TRUE"
+   }
+  ],
+  "booksRows": [
+   {
+    "row": 22,
+    "text": "FA-2026-0021;Fattura;08/10/2026;06/10/2026;EUR;301,32;249,02;52,30;179-7236050-2000148;Amazon.fr"
+   }
+  ],
+  "roundTwoFilesOnly": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 20,
+   "amazonInvoices": 20,
+   "coverageNotes": [
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "control_thisBooksRowRemoved": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 19,
+   "coverageNotes": [
+    "Absence from the books cannot be concluded: its period 2026-10-02 to 2026-10-31 must start on or before the shipment day 2026-10-07 and end on or after the shipment day and the day the Amazon report was taken (2026-11-20",
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "proof": "engine matches this order and document number by number in the round-2 files; removing only this books row lowers the match count by one and the engine then states a coverage limit, so the item is tracked individually"
+ },
+ {
+  "seller": 365,
+  "orderId": "130-1185256-2000522",
+  "documentNumber": "A74",
+  "kind": "fixAllButStaleReport",
+  "amazonRows": [
+   {
+    "transaction-id": "S068495985",
+    "invoice-number": "A74",
+    "invoice-status": "InvoiceUploaded",
+    "is-amazon-invoiced": "FALSE",
+    "is-business-order": "TRUE"
+   }
+  ],
+  "booksRows": [
+   {
+    "row": 75,
+    "text": "\"A74\",\"2026-10-25\",\"2026-10-23\",\"SEK\",\"356.59\",\"294.70\",\"61.89\",\"130-1185256-2000522\",\"Amazon.se\""
+   }
+  ],
+  "roundTwoFilesOnly": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 120,
+   "amazonInvoices": 120,
+   "coverageNotes": [
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "control_thisBooksRowRemoved": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 119,
+   "coverageNotes": [
+    "Absence from the books cannot be concluded: its period 2026-10-02 to 2026-10-31 must start on or before the shipment day 2026-10-24 and end on or after the shipment day and the day the Amazon report was taken (2026-11-20",
+    "This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing"
+   ]
+  },
+  "proof": "engine matches this order and document number by number in the round-2 files; removing only this books row lowers the match count by one and the engine then states a coverage limit, so the item is tracked individually"
+ },
+ {
+  "seller": 375,
+  "orderId": "564-6335423-2000162",
+  "documentNumber": "F000023",
+  "kind": "fixBooks",
+  "amazonRows": [
+   {
+    "transaction-id": "S928266134",
+    "invoice-number": "F000023",
+    "invoice-status": "InvoiceUploaded",
+    "is-amazon-invoiced": "FALSE",
+    "is-business-order": "TRUE"
+   }
+  ],
+  "booksRows": [
+   {
+    "row": 24,
+    "text": "F000023;Rechnung;30.10.2026;28.10.2026;EUR;382,72;316,30;66,42;564-6335423-2000162;Amazon.com.be"
+   }
+  ],
+  "roundTwoFilesOnly": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 31,
+   "amazonInvoices": 31,
+   "coverageNotes": []
+  },
+  "control_thisBooksRowRemoved": {
+   "issuesForThisItem": [],
+   "matchedByInvoiceNumber": 30,
+   "coverageNotes": [
+    "Absence from the books cannot be concluded: its period 2026-10-02 to 2026-10-31 must start on or before the shipment day 2026-10-29 and end on or after the shipment day and the day the Amazon report was taken (2026-12-04"
+   ]
+  },
+  "proof": "engine matches this order and document number by number in the round-2 files; removing only this books row lowers the match count by one and the engine then states a coverage limit, so the item is tracked individually"
+ }
+]
