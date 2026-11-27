@@ -1,4 +1,4 @@
-import { parseVidr, needsInvoice } from './vidr.js';
+import { parseVidr, needsInvoice, heldForUnknownFlags, unknownFlags, unknownFlagsReason } from './vidr.js';
 import { validateVat } from './vies.js';
 import { buildInvoice, buildRectificativa } from './invoice.js';
 import { verifyBuyer, hasOverride } from './verify.js';
@@ -54,8 +54,8 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // an in-flight attempt - old information causing a new financial upload.
     const staleDoc = staleDocForReport(db, seller, s, reportSeq);
     if (staleDoc) { logStaleRow(db, seller, s, staleDoc, reportSeq); out.skipped++; continue; }
-    // A blank, unreadable or disagreeing is-amazon-invoiced is UNKNOWN. It is never read as FALSE and never inferred from the status: nothing is issued for it, and it is shown as held with the reason.
-    if (s.isAmazonInvoiced === null && !s.unknownTxFormat && needsInvoice({ ...s, isAmazonInvoiced: false })) { const reason = 'The is-amazon-invoiced column is blank, unreadable or disagrees between rows, so the report does not show who issues this invoice. It was not guessed from invoice-status, and nothing was issued.'; upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
+    // A blank, unreadable or disagreeing is-amazon-invoiced or is-business-order is UNKNOWN. It is never read as a value and never inferred from the status or the buyer data: nothing is issued for it, and it is shown as held with the reason.
+    if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);

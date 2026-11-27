@@ -36,7 +36,7 @@ export function parseVidr(text) {
       s = map.set(key, {
         key, orderId: r['order-id'], shippingId: r['shipping-id'], transactionId: r['transaction-id'] || r['shipping-id'],
         transactionType: r['transaction-type'] || 'SHIPMENT', marketplace: r['marketplace-id'], orderDate: r['order-date'], shipmentDate: r['shipment-date'],
-        currency: r.currency || 'EUR', isBusiness: bool(r['is-business-order']), isAmazonInvoiced: null, flagValues: [],
+        currency: r.currency || 'EUR', isBusiness: null, isAmazonInvoiced: null, flagValues: [], businessValues: [],
         invoiceStatus: r['invoice-status'], invoiceStatusDesc: r['invoice-status-description'] || null, sellerVat: r['seller-vat-number'], buyerVat: r['buyer-vat-number'] || null,
         buyerTaxType: r['buyer-tax-registration-type'] || null, buyerCompany: r['buyer-company-name'] || r['billing-name'] || r['buyer-name'],
         poNumber: r['purchase-order-number'] || null,
@@ -46,7 +46,7 @@ export function parseVidr(text) {
         citation: r['citation-es'] || r['citation-en'] || null, items: [], incl: 0, vat: 0, excl: 0,
       }).get(key);
     }
-    s.flagValues.push(r['is-amazon-invoiced']);
+    s.flagValues.push(r['is-amazon-invoiced']); s.businessValues.push(r['is-business-order']);
     const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
     const vatSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
     s.incl += inclSum; s.vat += vatSum; s.excl += inclSum - vatSum;
@@ -57,9 +57,21 @@ export function parseVidr(text) {
       extras: PARTS.slice(1).map(p => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter(x => x.excl || x.vat),
     });
   }
-  return [...map.values()].map(({ flagValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  return [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
 }
 
 /** Shipments the seller still has to invoice themselves. */
-export const needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && s.isAmazonInvoiced === false && s.transactionType === 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrection &&
+export const needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness === true && s.isAmazonInvoiced === false && s.transactionType === 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrection &&
   ['InvoicePending', 'InvoiceRejected', 'NoTaxCalculated', ''].includes(s.invoiceStatus || '');
+
+/** Which of the two flags a shipment leaves UNKNOWN (blank, unreadable, or rows that disagree). */
+export const unknownFlags = (s) => [s.isBusiness == null && 'is-business-order', s.isAmazonInvoiced == null && 'is-amazon-invoiced'].filter(Boolean);
+/** True when a flag is unknown AND the shipment would need a seller invoice if it were known the way an invoice needs it. Such a shipment is HELD: it is neither issued nor skipped as consumer or as Amazon-created. */
+export const heldForUnknownFlags = (s) => !s.unknownTxFormat && unknownFlags(s).length > 0 && needsInvoice({ ...s, isBusiness: s.isBusiness ?? true, isAmazonInvoiced: s.isAmazonInvoiced ?? false });
+/** The seller's words for a held shipment: which column, that nothing was guessed or issued, and what would resolve it. kind ABSENT = the report type has no such column. */
+export const unknownFlagsReason = (fields, kind = 'BLANK') => {
+  const cols = fields.join(' and '), shows = fields.length === 2 ? 'whether this is a business order or who issues the invoice' : fields[0] === 'is-business-order' ? 'whether this is a business order' : 'who issues the invoice';
+  const head = kind === 'ABSENT' ? `The Order Report does not carry ${cols}, so it cannot show ${shows} for this order.` : `${cols} ${fields.length > 1 ? 'are' : 'is'} blank, unreadable or disagree between the rows of this order in the report, so the report does not show ${shows}.`;
+  const tail = kind === 'ABSENT' ? ` To resolve it, load the VAT Invoice Data Report, which carries ${cols} with TRUE or FALSE for each order.` : ` To resolve it, load a VAT Invoice Data Report in which ${cols} holds TRUE or FALSE for this order.`;
+  return `${head} We did not guess, and nothing was issued for this order. Company name and VAT number are buyer data and prove neither the business flag nor who issues the invoice.${fields.includes('is-amazon-invoiced') ? ' The invoice-status column is not used as a substitute.' : ''}${tail}`;
+};

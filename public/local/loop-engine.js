@@ -2948,7 +2948,8 @@ function evaluate(prefix, events, ctx) {
   const bflag = new Map(sellerSet.map((d) => [d, businessFlag(d)]));
   const A = sellerSet.filter((d) => bflag.get(d) === "TRUE");
   const bizUndetermined = sellerSet.filter((d) => ["BLANK", "UNREADABLE", "CONFLICT"].includes(bflag.get(d)));
-  const heldOutNum = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE" && d.evidence.invoiceNumber).map((d) => d.parts["marketplace-id"] + "|" + d.evidence.invoiceNumber)), heldOutOrder = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE").map((d) => d.parts["marketplace-id"] + "|" + d.parts["order-id"]));
+  const notJudged = [...sellerSet.filter((d) => bflag.get(d) !== "TRUE"), ...flagUndetermined];
+  const heldOutNum = new Set(notJudged.filter((d) => d.evidence.invoiceNumber).map((d) => d.parts["marketplace-id"] + "|" + d.evidence.invoiceNumber)), heldOutOrder = new Set(notJudged.map((d) => d.parts["marketplace-id"] + "|" + d.parts["order-id"]));
   const stats = { amazonInvoices: A.length, nonBusinessOrders: sellerSet.filter((d) => bflag.get(d) === "FALSE").length, businessFlagUndetermined: bizUndetermined.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length - ordinary.filter((d) => d.state === "CREATED_BY_AMAZON" && flagged.get(d) !== "TRUE").length + ordinary.filter((d) => d.state !== "CREATED_BY_AMAZON" && flagged.get(d) === "TRUE").length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   const afterAction = (key, d) => {
     const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter((e) => ms2(e.createdAt) <= (ms2(imp?.importedAt) ?? Infinity));

@@ -48899,9 +48899,10 @@ function parseVidr(text) {
         orderDate: r["order-date"],
         shipmentDate: r["shipment-date"],
         currency: r.currency || "EUR",
-        isBusiness: bool(r["is-business-order"]),
+        isBusiness: null,
         isAmazonInvoiced: null,
         flagValues: [],
+        businessValues: [],
         invoiceStatus: r["invoice-status"],
         invoiceStatusDesc: r["invoice-status-description"] || null,
         sellerVat: r["seller-vat-number"],
@@ -48926,6 +48927,7 @@ function parseVidr(text) {
       }).get(key);
     }
     s.flagValues.push(r["is-amazon-invoiced"]);
+    s.businessValues.push(r["is-business-order"]);
     const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
     const vatSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
     s.incl += inclSum;
@@ -48943,9 +48945,17 @@ function parseVidr(text) {
       extras: PARTS.slice(1).map((p) => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter((x) => x.excl || x.vat)
     });
   }
-  return [...map.values()].map(({ flagValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  return [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
 }
-var needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && s.isAmazonInvoiced === false && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
+var needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness === true && s.isAmazonInvoiced === false && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
+var unknownFlags = (s) => [s.isBusiness == null && "is-business-order", s.isAmazonInvoiced == null && "is-amazon-invoiced"].filter(Boolean);
+var heldForUnknownFlags = (s) => !s.unknownTxFormat && unknownFlags(s).length > 0 && needsInvoice({ ...s, isBusiness: s.isBusiness ?? true, isAmazonInvoiced: s.isAmazonInvoiced ?? false });
+var unknownFlagsReason = (fields, kind = "BLANK") => {
+  const cols = fields.join(" and "), shows = fields.length === 2 ? "whether this is a business order or who issues the invoice" : fields[0] === "is-business-order" ? "whether this is a business order" : "who issues the invoice";
+  const head = kind === "ABSENT" ? `The Order Report does not carry ${cols}, so it cannot show ${shows} for this order.` : `${cols} ${fields.length > 1 ? "are" : "is"} blank, unreadable or disagree between the rows of this order in the report, so the report does not show ${shows}.`;
+  const tail = kind === "ABSENT" ? ` To resolve it, load the VAT Invoice Data Report, which carries ${cols} with TRUE or FALSE for each order.` : ` To resolve it, load a VAT Invoice Data Report in which ${cols} holds TRUE or FALSE for this order.`;
+  return `${head} We did not guess, and nothing was issued for this order. Company name and VAT number are buyer data and prove neither the business flag nor who issues the invoice.${fields.includes("is-amazon-invoiced") ? " The invoice-status column is not used as a substitute." : ""}${tail}`;
+};
 
 // src/manual.js
 var FORMATS = {
@@ -48996,7 +49006,6 @@ var rateOf = (excl, vat) => {
   const raw = vat / excl * 100, near = Math.round(raw * 2) / 2, tol = excl >= 10 ? 0.2 : excl >= 3 ? 0.6 : 1.5;
   return Math.abs(raw - near) <= tol && near > 0 && near <= 30 ? near : null;
 };
-var unknownFlagReason = (fields, absent) => `${absent ? "The Order Report does not carry" : "The report holds no readable value for"} ${fields.join(" and ")}, so it cannot show ${fields.length === 2 ? "whether this is a business order or who issues the invoice" : fields[0] === "is-business-order" ? "whether this is a business order" : "who issues the invoice"}. We did not guess. Company name and VAT number are buyer data and prove neither. Confirm it yourself, which is recorded as your declaration and not as something Amazon said.`;
 var orderFlag = (lines, col) => {
   if (!lines.some((l) => col in l)) return { state: "ABSENT", value: null };
   const vals = lines.map((l) => l[col]), v = readFlag(vals);
@@ -49036,7 +49045,7 @@ function parseOrderReport(rows, { useDeliveryAddress = false, sellerDeclaration 
     }
     const unknown = [isBusiness === null && "is-business-order", isAmazonInvoiced === null && "is-amazon-invoiced"].filter(Boolean);
     if (unknown.length) {
-      holdWith(unknownFlagReason(unknown, unknown.every((k) => (k === "is-business-order" ? bf : af).state === "ABSENT")), null);
+      holdWith(unknownFlagsReason(unknown, unknown.every((k) => (k === "is-business-order" ? bf : af).state === "ABSENT") ? "ABSENT" : "BLANK"), null);
       continue;
     }
     const company = f["buyer-company-name"] || "", taxIdRaw = (f["buyer-tax-registration-id"] || "").replace(/\s+/g, "").toUpperCase();
@@ -49143,7 +49152,7 @@ function parseOrderReport(rows, { useDeliveryAddress = false, sellerDeclaration 
   }
   return out;
 }
-var vidrSkipReason = (s) => s.unknownTxFormat ? "The transaction id looks like a correction but has an unknown format, so we did not guess" : s.isAmazonInvoiced === true ? "Amazon creates this invoice" : !s.isBusiness ? "Not a business order: looks like a consumer order" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
+var vidrSkipReason = (s) => s.unknownTxFormat ? "The transaction id looks like a correction but has an unknown format, so we did not guess" : s.isAmazonInvoiced === true ? "Amazon creates this invoice" : s.isBusiness === false ? "Not a business order: the report says is-business-order FALSE" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
 function planUpload(text, opts = {}) {
   const t = parseTable(text);
   if (t.unsupported) return { ok: false, error: t.unsupported };
@@ -49154,8 +49163,8 @@ function planUpload(text, opts = {}) {
   if (format === "vidr") {
     const kept = [], skipped = [], held = [];
     for (const s of parseVidr(text)) {
-      if (s.isAmazonInvoiced === null && needsInvoice({ ...s, isAmazonInvoiced: false })) {
-        held.push({ orderId: s.orderId, reason: "The is-amazon-invoiced column is blank, unreadable or disagrees between the rows of this shipment, so the report does not show who issues the invoice. We did not guess it from invoice-status, so nothing is issued for it." });
+      if (heldForUnknownFlags(s)) {
+        held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) });
         continue;
       }
       const why = vidrSkipReason(s);
