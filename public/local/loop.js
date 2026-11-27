@@ -1,4 +1,4 @@
-import { createLoopStore, Refused, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflightPending, preflightStored, pilotScope, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
+import { createLoopStore, Refused, DELETION_EXPORT_NOTICE, RESTORE_WARNING, detectLedgerMapping, indexedDbAdapter, createVault, migrateLegacy, legacyKeys, preflightPending, preflightStored, pilotScope, createPilotRecord, aggregateMetrics } from '/local/loop-engine.js';
 const $ = (s) => document.querySelector(s);
 const el = (t, props = {}, ...kids) => { const e = document.createElement(t); for (const [k, v] of Object.entries(props)) k === 'class' ? (e.className = v) : k === 'onclick' ? e.addEventListener('click', v) : e.setAttribute(k, v); for (const x of kids.flat()) if (x != null) e.append(x.nodeType ? x : String(x)); return e; };
 const baseline = new Set(performance.getEntriesByType('resource').map(r => r.name));
@@ -113,6 +113,7 @@ async function render() {
   $('#notchecked').textContent = r.notCheckedInThisVersion.join('; ') + '.';
   net();
 }
+$('#bundle').after(el('p', { class: 'small mut', id: 'bundle-notice' }, DELETION_EXPORT_NOTICE));
 $('#bundle').addEventListener('click', async () => { if (!store) return; const b = await store.bundle(), a = el('a', { href: URL.createObjectURL(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' })), download: 'invoiceguard-loop-bundle.json' }); document.body.append(a); a.click(); a.remove(); });
 $('#wipe').addEventListener('click', async () => {
   if (!store) return;
@@ -137,8 +138,8 @@ async function showGate(note = '') {
       if (pw.value !== pw2.value) return bad('The two passwords differ.');
       try { const { recoveryKey } = await vault.create(pw.value); gate.replaceChildren(el('h3', {}, 'Your recovery key'), el('p', { class: 'small' }, 'Write this down now. It is shown once, it is not stored anywhere, and it is the only way in if you forget the password.'), el('pre', { id: 'g-rec' }, recoveryKey), el('label', {}, (() => { const c = el('input', { type: 'checkbox', id: 'g-saved' }); return c; })(), ' I have saved the recovery key'), el('button', { onclick: async () => { if (!$('#g-saved').checked) return; await enter(); } }, 'Continue')); } catch (e) { bad(e.message); }
     } }, 'Create vault'));
-    const rf = el('input', { type: 'file', id: 'g-restore' }); gate.append(el('h3', {}, 'Or restore an encrypted backup'), rf);
-    rf.addEventListener('change', async () => { const f = rf.files[0]; if (!f) return; const p = prompt('Password of the backup:'); if (!p) return; try { await vault.restoreBackup(JSON.parse(await readFile(f)), p); await showGate('Backup restored and checked. Unlock with its password.'); } catch (e) { bad(e.message); } });
+    const rf = el('input', { type: 'file', id: 'g-restore' }); gate.append(el('h3', {}, 'Or restore an encrypted backup'), el('p', { class: 'small', id: 'g-restore-warning' }, RESTORE_WARNING), rf);
+    rf.addEventListener('change', async () => { const f = rf.files[0]; if (!f) return; if (!confirm(RESTORE_WARNING + '\n\nRestore this backup?')) return; const p = prompt('Password of the backup:'); if (!p) return; try { await vault.restoreBackup(JSON.parse(await readFile(f)), p); await showGate('Backup restored and checked. Unlock with its password.'); } catch (e) { bad(e.message); } });
   } else {
     const pw = inp('g-pw', 'password');
     gate.append(el('h3', {}, 'Unlock'), field('Password', pw), msg, el('button', { onclick: async () => { try { await vault.unlock(pw.value); await enter(); } catch (e) { bad(e.message); } } }, 'Unlock'),

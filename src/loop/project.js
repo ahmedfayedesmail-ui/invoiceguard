@@ -271,7 +271,8 @@ function evaluate(prefix, events, ctx) {
 }
 
 /** @param {{imports:object[], events?:object[], sellerProfileId?:string}} input */
-export function project({ imports, events = [], sellerProfileId = 'local', deletions = [] }) {
+export function project({ imports, events = [], sellerProfileId = 'local', deletions: allDeletions = [] }) {
+  const deletions = allDeletions.filter(d => (d.status ?? 'COMMITTED') === 'COMMITTED'); // a PENDING record is an attempt, not a deletion
   const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: new Map(), rowIdx: new Map(), actions: new Map(), prevMismatch: new Map() };
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) { const p = eventShapeProblem(e); if (p) rejectedEvents.push({ event: e, reason: p }); else goodEvents.push(e); }

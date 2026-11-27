@@ -7,6 +7,9 @@ import { parseTable } from '../manual.js';
 import { eventShapeProblem, declarationProblem, DECLARATION_TYPES } from './events.js';
 
 const isoDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+export const DELETION_EXPORT_NOTICE = 'This export contains a record of the files you deleted: their names, their fingerprints (SHA-256), the time of each deletion and which problems each one touched. It does not contain what was inside those files. Anyone who receives this export can read those names and times.';
+export const RESTORE_WARNING = 'A restore puts your workspace back exactly as it was when the backup was made. Files you deleted after that backup come back with it, and the records of those deletions are not in it, so they will not be shown as deleted.';
+export const PENDING_GRACE_MS = 5 * 60 * 1000; // a PENDING deletion record whose file is still present is discarded after this
 export class Refused extends Error { constructor(reasons) { super(reasons.join(' ')); this.code = 'REFUSED'; this.reasons = reasons; } }
 const hex = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toString(16).padStart(2, '0')).join('');
 
@@ -41,6 +44,7 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString(),
   const key = (k, id) => `loop:${k}:${id}`;
   const list = async (k) => { const out = []; for (const x of (await adapter.list()).filter(x => String(x).startsWith(`loop:${k}:`)).sort()) out.push(await adapter.get(x)); return out; };
   let seq = 0;
+  const pruneOrphans = async () => { const imports = await list('import'), events = await list('event'), pid = await api.profileId(), deletions = (await list('deletion')).filter(d => (d.status ?? 'COMMITTED') === 'COMMITTED'), after = project({ imports, events, sellerProfileId: pid, deletions }); let n = 0; for (const e of orphanedEvents(events, after, imports, pid, deletions)) { await adapter.del(key('event', e.id)); n++; } return n; };
   const api = {
     async profileId() { let p = await adapter.get('loop:profile'); if (!p) { p = { id: 'p-' + hex(8), createdAt: now() }; await adapter.put('loop:profile', p); } return p.id; },
     async addVidr({ text, declared, fileName = null }) {
@@ -57,7 +61,19 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString(),
     async events() { return list('event'); },
     /** The permanent record of deleted imports: which file, when, why, and which problems it touched. It never holds file content. */
     async deletions() { return list('deletion'); },
-    async project() { return project({ imports: await this.imports(), events: await this.events(), sellerProfileId: await this.profileId(), deletions: await this.deletions() }); },
+    async committedDeletions() { return (await list('deletion')).filter(d => (d.status ?? 'COMMITTED') === 'COMMITTED'); },
+    /** Settles every PENDING deletion record by looking at whether its file is really gone. File gone: the record is completed (COMMITTED), once, under its own id. File present and the attempt older than the grace period: the deletion never happened, the record is discarded and the data is untouched. File present and the attempt is recent: left alone, because another tab may be mid-deletion; it counts as no deletion. Idempotent. */
+    async recoverDeletions() {
+      const out = { committed: [], discarded: [], pending: [] };
+      for (const rec of (await list('deletion')).filter(d => d.status === 'PENDING')) {
+        if (!(await adapter.get(key('import', rec.import.id)))) { await adapter.put(key('deletion', rec.id), { ...rec, status: 'COMMITTED', committedAt: now() }); out.committed.push(rec.id); }
+        else if (Date.parse(now()) - Date.parse(rec.attemptedAt ?? rec.deletedAt) > PENDING_GRACE_MS) { await adapter.del(key('deletion', rec.id)); out.discarded.push(rec.id); }
+        else out.pending.push(rec.id);
+      }
+      if (out.committed.length) await pruneOrphans();
+      return out;
+    },
+    async project() { await this.recoverDeletions(); return project({ imports: await this.imports(), events: await this.events(), sellerProfileId: await this.profileId(), deletions: await this.committedDeletions() }); },
     /** Records what the seller said. It checks the event against the current projection and refuses what the problem does not accept. It never writes a state. */
     async addEvent(e) {
       const ev = { ...e, createdAt: e.createdAt ?? now() }, bad = eventShapeProblem(ev); if (bad) throw new Refused([bad]);
@@ -76,13 +92,13 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString(),
     },
     /** Evidence bundle: inputs, events, and the projection with what each closure rests on. No field adds declared resolutions to evidence-closed ones. */
     async bundle() {
-      const r = await this.project(), imports = await this.imports(), events = await this.events(), deletions = await this.deletions();
+      const r = await this.project(), imports = await this.imports(), events = await this.events(), deletions = await this.committedDeletions();
       const b = r.buckets;
       return { bundleVersion: 1, kind: 'problem-loop', loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId: r.sellerProfileId, createdAt: now(),
         matchedByInvoiceNumberMeaning: 'Matched by invoice number means an Amazon transaction and an accounting document carry the same document number. For each such pair the currency and the buyer tax id are compared where both sides state them exactly, and all differences of a pair are shown in one problem. The invoice total (the Amazon report states the item price, not the invoice total), net and VAT amounts, dates, line items and tax rates are not compared in this version.',
         note: 'State of the loaded files on the dates they were loaded. Anything marked declared was said by the seller and is not confirmed by a file. No statement here is about the legal position of any document.',
         imports: imports.map(i => ({ id: i.id, kind: i.kind, fileName: i.fileName, sha256: i.sha256, importedAt: i.importedAt, declared: i.declared, profile: i.profile ?? null, text: i.text })),
-        events, deletions, headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },
+        events, deletions, deletionRecordNotice: DELETION_EXPORT_NOTICE, headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },
         issues: r.issues.map(i => ({ key: i.key, family: i.family, subtype: i.subtype, state: i.state, closureBasis: i.outcome, episodes: i.episodes, history: i.history, events: i.events, declaration: i.declaration, lapsedDeclarations: i.lapsedDeclarations, closure: i.closure, historyIncomplete: i.historyIncomplete ?? false, priorRecordedState: i.priorRecordedState ?? null, deletedImports: i.deletedImports ?? [], recordedBeforeDeletion: i.recordedBeforeDeletion ?? null, card: i.card })),
         coverageNotes: r.coverageNotes, rejectedEvents: r.rejectedEvents.map(x => ({ reason: x.reason, type: x.event.type })), notCheckedInThisVersion: r.notCheckedInThisVersion };
     },
@@ -99,7 +115,7 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString(),
     },
     /** What deleting this import would do, computed from the data, nothing is changed. */
     async deletionImpact(importId) {
-      const imports = await this.imports(), events = await this.events(), deletions = await this.deletions(), target = imports.find(i => i.id === importId); if (!target) throw new Refused(['That import is not stored.']);
+      const imports = await this.imports(), events = await this.events(), deletions = await this.committedDeletions(), target = imports.find(i => i.id === importId); if (!target) throw new Refused(['That import is not stored.']);
       const pid = await this.profileId(), before = project({ imports, events, sellerProfileId: pid, deletions }), rest = imports.filter(i => i.id !== importId), after = project({ imports: rest, events, sellerProfileId: pid, deletions });
       const ak = new Map(after.issues.map(i => [i.key, i]));
       const touched = before.issues.filter(i => !i.placeholder && (i.history.some(h => h.import === importId) || !ak.has(i.key) || ak.get(i.key).state !== i.state || ak.get(i.key).fingerprint !== i.fingerprint));
@@ -114,10 +130,14 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString(),
     async deleteImport(importId, { confirmed = false, reason = 'SELLER_DELETED' } = {}) {
       if (confirmed !== true) throw new Refused(['Deleting needs your confirmation after you have seen what it removes.']); if (!adapter.del) throw new Refused(['This storage cannot delete single records.']);
       if (typeof reason !== 'string' || !reason.trim() || reason.length > 200) throw new Refused(['The reason for a deletion is a short text of at most 200 characters.']);
-      const impact = await this.deletionImpact(importId), at = now(), rec = { id: `del-${at.replace(/\D/g, '').slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, deletedAt: at, utcOffsetMinutes: offsetMinutes(), reason: reason.trim(), ...impact.record };
-      await adapter.put(key('deletion', rec.id), rec); await adapter.del(key('import', importId));
-      const imports = await this.imports(), events = await this.events(), pid = await this.profileId(), deletions = await this.deletions(), after = project({ imports, events, sellerProfileId: pid, deletions });
-      let removed = 0; for (const e of orphanedEvents(events, after, imports, pid, deletions)) { await adapter.del(key('event', e.id)); removed++; }
+      await this.recoverDeletions();
+      const impact = await this.deletionImpact(importId), at = now(), prior = (await list('deletion')).find(d => d.status === 'PENDING' && d.import.id === importId);
+      const rec = { id: prior?.id ?? `del-${at.replace(/\D/g, '').slice(0, 14)}-${impact.import.sha256.slice(0, 6)}-${seq++}`, status: 'PENDING', attemptedAt: at, deletedAt: at, utcOffsetMinutes: offsetMinutes(), reason: reason.trim(), ...impact.record };
+      await adapter.put(key('deletion', rec.id), rec);
+      try { await adapter.del(key('import', importId)); if (await adapter.get(key('import', importId))) throw new Error('The file is still stored after the delete.'); }
+      catch (e) { try { await adapter.del(key('deletion', rec.id)); } catch { /* the process may be gone: recovery settles it */ } throw e; }
+      await adapter.put(key('deletion', rec.id), { ...rec, status: 'COMMITTED', committedAt: now() });
+      const removed = await pruneOrphans();
       return { ...impact, deleted: true, deletionId: rec.id, eventsDeleted: removed };
     },
     /** Imports older than the retention days. Only ever acts when the seller turned retention on and confirmed. */
