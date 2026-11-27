@@ -54,11 +54,24 @@ test('combined 4: SAME_NUMBER_DIFFERENT_CONTENT on a non-business order carries 
   assert.equal(e.orderTie.amazonShipments[0].orderId, F.O(1));
   assert.equal(e.orderTie.amazonShipments[0].isBusinessOrder, 'FALSE');
 });
-test('combined 5: the same duplicate on a BUSINESS order is unchanged (still ACTION_REQUIRED, no section)', () => {
+test('combined 5: the same duplicate on a BUSINESS order is also Ledger Data Quality, information only, rows kept', () => {
   const r = run(one(), F.ledger([filler, lrow('AMZ-1', F.O(1)), lrow('AMZ-1', F.O(1))]));
   const d = r.issues.find(i => i.family === 'DUPLICATE_DOCUMENT');
-  assert.equal(d.state, 'ACTION_REQUIRED');
-  assert.equal(d.section, null);
+  assert.notEqual(d.state, 'ACTION_REQUIRED');
+  assert.equal(d.section, 'LEDGER_DATA_QUALITY');
+  const e = d.finding.evidence;
+  assert.ok(e.rowNumbers.length >= 2 && e.sources[0].fileName === 'books.csv' && e.documentLevel);
+  assert.equal(e.orderTie.amazonShipments[0].isBusinessOrder, 'TRUE');
+  assert.equal(r.issues.filter(i => i.state === 'ACTION_REQUIRED' && i.family === 'DUPLICATE_DOCUMENT').length, 0);
+  assert.ok(!/not subject|not judged/i.test(JSON.stringify(d.note)), 'no wording that a business order is not checked');
+});
+test('combined 14: a business duplicate is information only while the other checks on that order and on its neighbour are unaffected', () => {
+  const r = run(two(), F.ledger([filler, lrow('AMZ-1', F.O(1)), lrow('AMZ-1', F.O(1))]));
+  const d = r.issues.find(i => i.family === 'DUPLICATE_DOCUMENT');
+  assert.equal(d.section, 'LEDGER_DATA_QUALITY'); assert.notEqual(d.state, 'ACTION_REQUIRED');
+  const gap = r.issues.filter(i => i.family === 'BOOKS_GAP' && i.state === 'ACTION_REQUIRED');
+  assert.ok(gap.length >= 1, 'the invoice missing from the books is still raised on its own');
+  assert.equal(r.issues.some(i => i.family === 'DUPLICATE_DOCUMENT' && i.state === 'ACTION_REQUIRED'), false);
 });
 test('combined 6: wrong-order link on a non-business order: no mismatch accusation, no action', () => {
   const r = run(col(one(), BIZ, 'FALSE'), F.ledger([filler, lrow('AMZ-1', F.O(2))]));

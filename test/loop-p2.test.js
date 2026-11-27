@@ -138,7 +138,7 @@ test('duplicate: a corrected file in which the document appears once closes it b
   const d = dup(project({ imports: [v, twice, once] }))[0]; assert.equal(d.state, 'VERIFIED_CLOSED'); assert.equal(d.outcome, 'evidence');
   const open = dup(project({ imports: [v, twice] }))[0];
   const e = { id: 'd1', type: 'RESOLUTION_DECLARED', kind: 'RESOLUTION_DECLARED', issueKey: open.key, author: 'a', reasoning: 'x', createdAt: '2026-11-20T12:00:00Z', basedOnFingerprint: open.fingerprint };
-  assert.equal(dup(project({ imports: [v, twice], events: [e] }))[0].state, 'ACTION_REQUIRED', 'a declaration is ignored for a duplicate');
+  assert.equal(dup(project({ imports: [v, twice], events: [e] }))[0].state, 'OPEN', 'a declaration is ignored for a duplicate (information only, Ledger Data Quality)');
   const s = createLoopStore(memoryAdapter()); await s.addVidr({ text: vone(1), declared: F.VDECL('2026-11-20T10:00:00Z') }); await s.addLedger({ text: led2([row2('M-1', F.O(1)), row2('M-1', F.O(1))]), profile: P2PROFILE, declared: F.LDECL({ exportedAt: '2026-11-20T11:00:00Z' }) });
   const di = (await s.project()).issues.find(i => i.family === 'DUPLICATE_DOCUMENT');
   await assert.rejects(() => s.addEvent({ type: 'RESOLUTION_DECLARED', kind: 'RESOLUTION_DECLARED', issueKey: di.key, author: 'a', reasoning: 'x' }), Refused);
@@ -161,7 +161,7 @@ test('fix-2: a newer PARTIAL export that holds the document once does NOT close 
   const v = V(vone(1)), twice = LV(led2([row2('M-1', F.O(1)), row2('M-1', F.O(1), { total: '99,00' })]), 1, '2026-11-20T11:00:00Z', 'DOCUMENT');
   const partialOnce = LV(led2([row2('M-1', F.O(1))]), 2, '2026-11-21T11:00:00Z', 'DOCUMENT', false);
   const r = project({ imports: [v, twice, partialOnce] }), d = dup(r)[0];
-  assert.equal(dup(r).length, 1); assert.equal(d.state, 'ACTION_REQUIRED'); assert.notEqual(d.state, 'VERIFIED_CLOSED'); assert.equal(r.buckets.closedWithEvidence, 0);
+  assert.equal(dup(r).length, 1); assert.equal(d.state, 'OPEN'); assert.equal(d.section, 'LEDGER_DATA_QUALITY'); assert.notEqual(d.state, 'VERIFIED_CLOSED'); assert.equal(r.buckets.closedWithEvidence, 0);
   assert.equal(mm(r).length, 0, 'no pair is compared while the duplicate stands');
   const completeOnce = LV(led2([row2('M-1', F.O(1))]), 3, '2026-11-22T11:00:00Z', 'DOCUMENT');
   assert.equal(dup(project({ imports: [v, twice, partialOnce, completeOnce] }))[0].state, 'VERIFIED_CLOSED', 'a complete file of the same scope closes it');
@@ -173,7 +173,7 @@ test('fix-3: where the file does not say what one row is, repeated rows are an U
   assert.match(d.card.action, /state what one row is/); assert.match(d.card.action, /Do not remove rows/); assert.doesNotMatch(JSON.stringify(d.card), /Correct the export so the document appears once/);
   assert.equal(unknown.buckets.closedWithEvidence, 0);
   const asLines = project({ imports: [v, LV(lines, 1, '2026-11-20T11:00:00Z', 'LINE')] }); assert.equal(dup(asLines).length, 0, 'declared one row per line item: the repeat is expected, no problem'); assert.equal(asLines.buckets.matchedByInvoiceNumber, 1);
-  const asDoc = dup(project({ imports: [v, LV(lines, 1, '2026-11-20T11:00:00Z', 'DOCUMENT')] }))[0]; assert.equal(asDoc.state, 'ACTION_REQUIRED'); assert.equal(asDoc.subtype, 'SAME_NUMBER_DIFFERENT_CONTENT'); assert.match(asDoc.card.action, /Do not delete anything that is correct/);
+  const asDoc = dup(project({ imports: [v, LV(lines, 1, '2026-11-20T11:00:00Z', 'DOCUMENT')] }))[0]; assert.equal(asDoc.state, 'OPEN'); assert.equal(asDoc.section, 'LEDGER_DATA_QUALITY'); assert.equal(asDoc.subtype, 'SAME_NUMBER_DIFFERENT_CONTENT'); assert.match(asDoc.card.action, /Do not delete anything that is correct/);
   const identityClash = project({ imports: [v, LV(led2([row2('M-1', F.O(1)), row2('M-1', F.O(1), { nif: 'DE000000000' })]), 1, '2026-11-20T11:00:00Z', 'LINE')] }); assert.equal(dup(identityClash).length, 1, 'even per line, the document-level fields must agree');
   const cc = dup(identityClash)[0].card, txt = JSON.stringify(cc);
   assert.match(cc.title, /disagree on data that belongs to the whole document/); assert.match(cc.what, /declared that each row of this export is one line item/); assert.match(cc.what, /buyer tax id \(row 2: DE811128135; row 3: DE000000000\)/); assert.match(cc.what, /Rows row 2, row 3/);

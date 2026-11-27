@@ -2691,12 +2691,6 @@ function buildCard(i) {
     }
     c2.closesWhen = "A newer file, loaded here, shows the same pair with the compared values agreeing. Saying the difference is explained records your statement and does not change what the files show.";
   } else if (i.family === "DUPLICATE_DOCUMENT") {
-    if (i.section === "LEDGER_DATA_QUALITY") {
-      c2.title = `${i.label}: ${s.number ?? ""}`;
-      c2.what = `Rows ${(e.rowNumbers ?? []).join(", ")} of the accounting file carry the document number ${s.number ?? ""}. This is information about your accounting file (Ledger Data Quality), not a finding about an Amazon invoice.`;
-      c2.why = "The order is not judged for an Amazon invoice duty. Nothing is asked of you because of Amazon. It is not called a duplicate invoice until the rows and the document level are confirmed.";
-      return c2;
-    }
     c2.title = `Document ${s.number ?? ""} appears more than once in one accounting file`;
     if (e.documentLevel === "LINE" && t === "SAME_NUMBER_DIFFERENT_CONTENT") {
       const fs = e.disagreeingFields ?? [];
@@ -2713,6 +2707,15 @@ function buildCard(i) {
       c2.why = "The file does not say what one row is. If each row is one line of the document, the repetition is normal; if each row is a whole document, it is a duplicate.";
       c2.action = "Load the file again and state what one row is: a whole document or one line item of a document. Do not remove rows from your accounting system because of this message.";
       c2.closesWhen = "A complete export of the same scope that states what one row is. If one row is one document, a repeated number then becomes a duplicate; if one row is one line item, the repetition is expected.";
+      return c2;
+    }
+    if (i.section === "LEDGER_DATA_QUALITY") {
+      const fs = e.disagreeingFields ?? [];
+      c2.title = `${i.label}: ${s.number ?? ""}`;
+      c2.what = (t === "SAME_NUMBER_DIFFERENT_CONTENT" ? `Rows ${(e.rowNumbers ?? []).join(", ")} of the accounting file carry the same document number ${s.number ?? ""} with different content` + (fs.length ? " (differing: " + fs.map((f) => f.label).join(", ") + ")" : "") + "." : `Rows ${(e.rowNumbers ?? []).join(", ")} of the accounting file are identical copies carrying the document number ${s.number ?? ""}.`) + " This is information about your accounting file (Ledger Data Quality), not a finding about an Amazon invoice.";
+      c2.why = "A repeated accounting record does not by itself show a duplicate invoice or a problem with an Amazon invoice. Nothing is asked of you because of this alone. It is not called a duplicate invoice until the rows and the document level are confirmed. Other checks on the same order are unaffected.";
+      c2.action = "Optional: look at these rows in your accounting system. Do not delete anything that is correct; nothing in this message asks you to remove a row.";
+      c2.closesWhen = "A newer complete accounting export of the same scope in which the document appears once.";
       return c2;
     }
     c2.what = t === "SAME_NUMBER_DIFFERENT_CONTENT" ? `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document identity with different content.` : `Rows ${(e.rowNumbers ?? []).join(", ")} are identical copies of the same document.`;
@@ -3035,8 +3038,8 @@ function evaluate(prefix, events, ctx) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "DUPLICATE_DOCUMENT", "L:" + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
     if (l.conflicting || l.repeatRows) {
       const rows = rowsOfIdentity(l), unknownLevel = l.level === null, sub = unknownLevel ? "SUSPECTED_DUPLICATE" : l.conflicting ? "SAME_NUMBER_DIFFERENT_CONTENT" : "EXACT_REPEAT";
-      const ldq = heldOutNum.has(l.marketplace + "|" + l.number) || heldOutOrder.has(l.marketplace + "|" + l.orderRef);
-      put(key, { ...ldq ? { section: "LEDGER_DATA_QUALITY", label: sub === "SAME_NUMBER_DIFFERENT_CONTENT" ? "Conflicting records sharing the same document number (higher review priority)" : "Repeated accounting record candidate" } : {}, family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref), documentLevel: l.level, ...l.conflicting ? { disagreeingFields: disagreeing(l) } : {}, ...ldq ? { orderTie: { orderRef: l.orderRef ?? null, amazonShipments: sellerSet.filter((d) => d.parts["marketplace-id"] === l.marketplace && (d.parts["order-id"] === l.orderRef || d.evidence.invoiceNumber === l.number)).map((d) => ({ orderId: d.parts["order-id"], transactionId: d.parts["transaction-id"], isBusinessOrder: bflag.get(d) })) } } : {} }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : ldq ? { safeAction: false, note: "Information about the accounting file only. The order is not judged for an Amazon invoice duty (is-business-order is not TRUE), so this is not a finding about a seller invoice. It is not called a duplicate invoice until the rows and the document level are confirmed." } : { safeAction: true } });
+      const ldq = true;
+      put(key, { ...ldq ? { section: "LEDGER_DATA_QUALITY", label: sub === "SAME_NUMBER_DIFFERENT_CONTENT" ? "Conflicting records sharing the same document number (higher review priority)" : "Repeated accounting record candidate" } : {}, family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref), documentLevel: l.level, ...l.conflicting ? { disagreeingFields: disagreeing(l) } : {}, ...ldq ? { orderTie: { orderRef: l.orderRef ?? null, amazonShipments: sellerSet.filter((d) => d.parts["marketplace-id"] === l.marketplace && (d.parts["order-id"] === l.orderRef || d.evidence.invoiceNumber === l.number)).map((d) => ({ orderId: d.parts["order-id"], transactionId: d.parts["transaction-id"], isBusinessOrder: bflag.get(d) })) } } : {} }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : ldq ? { safeAction: false, note: "Information about the accounting file only. A repeated accounting record does not by itself show a duplicate invoice or a missing or wrong Amazon invoice. It is not called a duplicate invoice until the rows and the document level are confirmed." } : { safeAction: true } });
     } else closed.set(key, { why: l.level === "LINE" ? `The file is declared by the seller as one row per line item, so repeated rows of ${l.number} are expected.` : `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
   }
   const money = (v) => /^-?\d+(\.\d{1,2})?$/.test(String(v ?? "").trim()) ? readMoney(String(v).trim(), ".", "") : null;
