@@ -18,6 +18,10 @@ export function openDb(file = ':memory:') {
   CREATE TABLE IF NOT EXISTS vat_checks (seller_id TEXT, vat TEXT, status TEXT, name TEXT, checked_at TEXT);
   CREATE TABLE IF NOT EXISTS events (ts TEXT, seller_id TEXT, type TEXT, detail TEXT);
   CREATE TABLE IF NOT EXISTS site_counters (key TEXT PRIMARY KEY, n INTEGER);
+  CREATE TABLE IF NOT EXISTS integrity_findings (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, severity TEXT, resolution TEXT, status TEXT, fingerprint TEXT, evidence TEXT, explanation TEXT, action TEXT,
+    first_seen TEXT, last_seen TEXT, seen_count INTEGER, reopened_count INTEGER, resolved_at TEXT, PRIMARY KEY (seller_id, shipment_key, code, field));
+  CREATE TABLE IF NOT EXISTS integrity_history (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, event TEXT, fingerprint TEXT, at TEXT);
+  CREATE TABLE IF NOT EXISTS integrity_decisions (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, fingerprint TEXT, decided_by TEXT, reason TEXT, decided_at TEXT);
   CREATE INDEX IF NOT EXISTS idx_events_seller ON events (seller_id, ts);
   CREATE INDEX IF NOT EXISTS idx_ship_status ON shipments (seller_id, status);
   CREATE INDEX IF NOT EXISTS idx_ship_date ON shipments (seller_id, shipment_date);

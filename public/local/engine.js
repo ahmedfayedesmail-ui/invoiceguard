@@ -23359,27 +23359,27 @@ end`);
             var G = [];
             var RabbitLegacy = C_algo.RabbitLegacy = StreamCipher.extend({
               _doReset: function() {
-                var K2 = this._key.words;
+                var K3 = this._key.words;
                 var iv = this.cfg.iv;
                 var X = this._X = [
-                  K2[0],
-                  K2[3] << 16 | K2[2] >>> 16,
-                  K2[1],
-                  K2[0] << 16 | K2[3] >>> 16,
-                  K2[2],
-                  K2[1] << 16 | K2[0] >>> 16,
-                  K2[3],
-                  K2[2] << 16 | K2[1] >>> 16
+                  K3[0],
+                  K3[3] << 16 | K3[2] >>> 16,
+                  K3[1],
+                  K3[0] << 16 | K3[3] >>> 16,
+                  K3[2],
+                  K3[1] << 16 | K3[0] >>> 16,
+                  K3[3],
+                  K3[2] << 16 | K3[1] >>> 16
                 ];
                 var C2 = this._C = [
-                  K2[2] << 16 | K2[2] >>> 16,
-                  K2[0] & 4294901760 | K2[1] & 65535,
-                  K2[3] << 16 | K2[3] >>> 16,
-                  K2[1] & 4294901760 | K2[2] & 65535,
-                  K2[0] << 16 | K2[0] >>> 16,
-                  K2[2] & 4294901760 | K2[3] & 65535,
-                  K2[1] << 16 | K2[1] >>> 16,
-                  K2[3] & 4294901760 | K2[0] & 65535
+                  K3[2] << 16 | K3[2] >>> 16,
+                  K3[0] & 4294901760 | K3[1] & 65535,
+                  K3[3] << 16 | K3[3] >>> 16,
+                  K3[1] & 4294901760 | K3[2] & 65535,
+                  K3[0] << 16 | K3[0] >>> 16,
+                  K3[2] & 4294901760 | K3[3] & 65535,
+                  K3[1] << 16 | K3[1] >>> 16,
+                  K3[3] & 4294901760 | K3[0] & 65535
                 ];
                 this._b = 0;
                 for (var i2 = 0; i2 < 4; i2++) {
@@ -23481,30 +23481,30 @@ end`);
             var G = [];
             var Rabbit = C_algo.Rabbit = StreamCipher.extend({
               _doReset: function() {
-                var K2 = this._key.words;
+                var K3 = this._key.words;
                 var iv = this.cfg.iv;
                 for (var i2 = 0; i2 < 4; i2++) {
-                  K2[i2] = (K2[i2] << 8 | K2[i2] >>> 24) & 16711935 | (K2[i2] << 24 | K2[i2] >>> 8) & 4278255360;
+                  K3[i2] = (K3[i2] << 8 | K3[i2] >>> 24) & 16711935 | (K3[i2] << 24 | K3[i2] >>> 8) & 4278255360;
                 }
                 var X = this._X = [
-                  K2[0],
-                  K2[3] << 16 | K2[2] >>> 16,
-                  K2[1],
-                  K2[0] << 16 | K2[3] >>> 16,
-                  K2[2],
-                  K2[1] << 16 | K2[0] >>> 16,
-                  K2[3],
-                  K2[2] << 16 | K2[1] >>> 16
+                  K3[0],
+                  K3[3] << 16 | K3[2] >>> 16,
+                  K3[1],
+                  K3[0] << 16 | K3[3] >>> 16,
+                  K3[2],
+                  K3[1] << 16 | K3[0] >>> 16,
+                  K3[3],
+                  K3[2] << 16 | K3[1] >>> 16
                 ];
                 var C2 = this._C = [
-                  K2[2] << 16 | K2[2] >>> 16,
-                  K2[0] & 4294901760 | K2[1] & 65535,
-                  K2[3] << 16 | K2[3] >>> 16,
-                  K2[1] & 4294901760 | K2[2] & 65535,
-                  K2[0] << 16 | K2[0] >>> 16,
-                  K2[2] & 4294901760 | K2[3] & 65535,
-                  K2[1] << 16 | K2[1] >>> 16,
-                  K2[3] & 4294901760 | K2[0] & 65535
+                  K3[2] << 16 | K3[2] >>> 16,
+                  K3[0] & 4294901760 | K3[1] & 65535,
+                  K3[3] << 16 | K3[3] >>> 16,
+                  K3[1] & 4294901760 | K3[2] & 65535,
+                  K3[0] << 16 | K3[0] >>> 16,
+                  K3[2] & 4294901760 | K3[3] & 65535,
+                  K3[1] << 16 | K3[1] >>> 16,
+                  K3[3] & 4294901760 | K3[0] & 65535
                 ];
                 this._b = 0;
                 for (var i2 = 0; i2 < 4; i2++) {
@@ -24277,7 +24277,7 @@ end`);
             var Hasher = C_lib.Hasher;
             var C_algo = C.algo;
             var H = [];
-            var K2 = [];
+            var K3 = [];
             (function() {
               function isPrime(n2) {
                 var sqrtN = Math2.sqrt(n2);
@@ -24298,7 +24298,7 @@ end`);
                   if (nPrime < 8) {
                     H[nPrime] = getFractionalBits(Math2.pow(n, 1 / 2));
                   }
-                  K2[nPrime] = getFractionalBits(Math2.pow(n, 1 / 3));
+                  K3[nPrime] = getFractionalBits(Math2.pow(n, 1 / 3));
                   nPrime++;
                 }
                 n++;
@@ -24333,7 +24333,7 @@ end`);
                   var maj = a & b ^ a & c ^ b & c;
                   var sigma0 = (a << 30 | a >>> 2) ^ (a << 19 | a >>> 13) ^ (a << 10 | a >>> 22);
                   var sigma1 = (e << 26 | e >>> 6) ^ (e << 21 | e >>> 11) ^ (e << 7 | e >>> 25);
-                  var t1 = h + sigma1 + ch + K2[i2] + W[i2];
+                  var t1 = h + sigma1 + ch + K3[i2] + W[i2];
                   var t2 = sigma0 + maj;
                   h = g;
                   g = f;
@@ -24638,7 +24638,7 @@ end`);
             function X64Word_create() {
               return X64Word.create.apply(X64Word, arguments);
             }
-            var K2 = [
+            var K3 = [
               X64Word_create(1116352408, 3609767458),
               X64Word_create(1899447441, 602891725),
               X64Word_create(3049323471, 3964484399),
@@ -24822,7 +24822,7 @@ end`);
                   var sigma0l = (al >>> 28 | ah << 4) ^ (al << 30 | ah >>> 2) ^ (al << 25 | ah >>> 7);
                   var sigma1h = (eh >>> 14 | el << 18) ^ (eh >>> 18 | el << 14) ^ (eh << 23 | el >>> 9);
                   var sigma1l = (el >>> 14 | eh << 18) ^ (el >>> 18 | eh << 14) ^ (el << 23 | eh >>> 9);
-                  var Ki = K2[i2];
+                  var Ki = K3[i2];
                   var Kih = Ki.high;
                   var Kil = Ki.low;
                   var t1l = hl + sigma1l;
@@ -43593,7 +43593,7 @@ end`);
                     let row = 0;
                     let c = 0;
                     while (row < h && pos < length) {
-                      var byte, col, i2, left, upper;
+                      var byte, col, i2, left, upper2;
                       switch (data[pos++]) {
                         case 0:
                           for (i2 = 0; i2 < scanlineLength; i2++) {
@@ -43611,8 +43611,8 @@ end`);
                           for (i2 = 0; i2 < scanlineLength; i2++) {
                             byte = data[pos++];
                             col = (i2 - i2 % pixelBytes) / pixelBytes;
-                            upper = row && buffer[(row - 1) * scanlineLength + col * pixelBytes + i2 % pixelBytes];
-                            buffer[c++] = (upper + byte) % 256;
+                            upper2 = row && buffer[(row - 1) * scanlineLength + col * pixelBytes + i2 % pixelBytes];
+                            buffer[c++] = (upper2 + byte) % 256;
                           }
                           break;
                         case 3:
@@ -43620,8 +43620,8 @@ end`);
                             byte = data[pos++];
                             col = (i2 - i2 % pixelBytes) / pixelBytes;
                             left = i2 < pixelBytes ? 0 : buffer[c - pixelBytes];
-                            upper = row && buffer[(row - 1) * scanlineLength + col * pixelBytes + i2 % pixelBytes];
-                            buffer[c++] = (byte + Math.floor((left + upper) / 2)) % 256;
+                            upper2 = row && buffer[(row - 1) * scanlineLength + col * pixelBytes + i2 % pixelBytes];
+                            buffer[c++] = (byte + Math.floor((left + upper2) / 2)) % 256;
                           }
                           break;
                         case 4:
@@ -43631,19 +43631,19 @@ end`);
                             col = (i2 - i2 % pixelBytes) / pixelBytes;
                             left = i2 < pixelBytes ? 0 : buffer[c - pixelBytes];
                             if (row === 0) {
-                              upper = upperLeft = 0;
+                              upper2 = upperLeft = 0;
                             } else {
-                              upper = buffer[(row - 1) * scanlineLength + col * pixelBytes + i2 % pixelBytes];
+                              upper2 = buffer[(row - 1) * scanlineLength + col * pixelBytes + i2 % pixelBytes];
                               upperLeft = col && buffer[(row - 1) * scanlineLength + (col - 1) * pixelBytes + i2 % pixelBytes];
                             }
-                            const p = left + upper - upperLeft;
+                            const p = left + upper2 - upperLeft;
                             const pa = Math.abs(p - left);
-                            const pb = Math.abs(p - upper);
+                            const pb = Math.abs(p - upper2);
                             const pc = Math.abs(p - upperLeft);
                             if (pa <= pb && pa <= pc) {
                               paeth = left;
                             } else if (pb <= pc) {
-                              paeth = upper;
+                              paeth = upper2;
                             } else {
                               paeth = upperLeft;
                             }
@@ -48841,6 +48841,201 @@ init_buffer_shim();
 // src/manual.js
 init_buffer_shim();
 
+// src/integrity-core.js
+init_buffer_shim();
+
+// src/loop/sha256.js
+init_buffer_shim();
+var K = new Uint32Array([1116352408, 1899447441, 3049323471, 3921009573, 961987163, 1508970993, 2453635748, 2870763221, 3624381080, 310598401, 607225278, 1426881987, 1925078388, 2162078206, 2614888103, 3248222580, 3835390401, 4022224774, 264347078, 604807628, 770255983, 1249150122, 1555081692, 1996064986, 2554220882, 2821834349, 2952996808, 3210313671, 3336571891, 3584528711, 113926993, 338241895, 666307205, 773529912, 1294757372, 1396182291, 1695183700, 1986661051, 2177026350, 2456956037, 2730485921, 2820302411, 3259730800, 3345764771, 3516065817, 3600352804, 4094571909, 275423344, 430227734, 506948616, 659060556, 883997877, 958139571, 1322822218, 1537002063, 1747873779, 1955562222, 2024104815, 2227730452, 2361852424, 2428436474, 2756734187, 3204031479, 3329325298]);
+function sha256(str) {
+  const msg = new TextEncoder().encode(String(str)), l = msg.length, n = (l + 8 >> 6) + 1 << 6, buf = new Uint8Array(n);
+  buf.set(msg);
+  buf[l] = 128;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(n - 8, Math.floor(l * 8 / 4294967296));
+  dv.setUint32(n - 4, l * 8 >>> 0);
+  const H = new Uint32Array([1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225]), w = new Uint32Array(64);
+  const rr = (x, c) => x >>> c | x << 32 - c;
+  for (let o = 0; o < n; o += 64) {
+    for (let i2 = 0; i2 < 16; i2++) w[i2] = dv.getUint32(o + i2 * 4);
+    for (let i2 = 16; i2 < 64; i2++) {
+      const a2 = rr(w[i2 - 15], 7) ^ rr(w[i2 - 15], 18) ^ w[i2 - 15] >>> 3, b2 = rr(w[i2 - 2], 17) ^ rr(w[i2 - 2], 19) ^ w[i2 - 2] >>> 10;
+      w[i2] = w[i2 - 16] + a2 + w[i2 - 7] + b2 >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i2 = 0; i2 < 64; i2++) {
+      const t1 = h + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + (e & f ^ ~e & g) + K[i2] + w[i2] >>> 0, t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + (a & b ^ a & c ^ b & c) >>> 0;
+      h = g;
+      g = f;
+      f = e;
+      e = d + t1 >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = t1 + t2 >>> 0;
+    }
+    H[0] += a;
+    H[1] += b;
+    H[2] += c;
+    H[3] += d;
+    H[4] += e;
+    H[5] += f;
+    H[6] += g;
+    H[7] += h;
+  }
+  return [...H].map((x) => x.toString(16).padStart(8, "0")).join("");
+}
+
+// src/integrity-core.js
+var sha = (x) => sha256(typeof x === "string" ? x : JSON.stringify(x));
+var PARTS = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
+function parseAmount(token) {
+  const t = String(token ?? "").trim();
+  if (!t) return { state: "MISSING" };
+  if (t.length > 40) return { state: "INVALID", why: "too long" };
+  const m = /^([+-]?)(\d[\d.,]*)$/.exec(t);
+  if (!m) return { state: "INVALID", why: "not a plain decimal number" };
+  const neg = m[1] === "-", body = m[2];
+  if (/[.,]$/.test(body) || /[.,]{2}/.test(body)) return { state: "INVALID", why: "misplaced separator" };
+  const seps = [...body].filter((c) => c === "." || c === ",");
+  const toCents = (int, frac) => {
+    const v = BigInt(int) * 100n + BigInt((frac || "").padEnd(2, "0"));
+    return { state: "VALID", cents: neg ? -v : v };
+  };
+  if (!seps.length) return toCents(body, "");
+  const kinds = new Set(seps), last = Math.max(body.lastIndexOf("."), body.lastIndexOf(","));
+  const grouped = (s, g) => {
+    const p = s.split(g);
+    return p.length > 1 && p[0].length >= 1 && p[0].length <= 3 && p.slice(1).every((x) => x.length === 3);
+  };
+  if (kinds.size === 2) {
+    const dec = body[last], grp = dec === "." ? "," : ".", ip2 = body.slice(0, last), fp2 = body.slice(last + 1);
+    if (ip2.includes(dec) || !/^\d{1,2}$/.test(fp2) || !grouped(ip2, grp)) return { state: "INVALID", why: "inconsistent separators" };
+    return toCents(ip2.split(grp).join(""), fp2);
+  }
+  const sep = [...kinds][0];
+  if (seps.length > 1) return grouped(body, sep) ? toCents(body.split(sep).join(""), "") : { state: "INVALID", why: "inconsistent separators" };
+  const [ip, fp] = body.split(sep);
+  if (fp.length === 3) return { state: "INVALID", why: "ambiguous: thousands or decimals" };
+  if (fp.length > 3 || fp.length === 0) return { state: "INVALID", why: "more than two decimals" };
+  return fp.length > 2 ? { state: "INVALID", why: "more than two decimals" } : toCents(ip, fp);
+}
+var fmt = (c) => `${c < 0n ? "-" : ""}${(c < 0n ? -c : c) / 100n}.${String((c < 0n ? -c : c) % 100n).padStart(2, "0")}`;
+var parseRate = (token) => {
+  const t = String(token ?? "").trim();
+  const m = /^(\d{1,3})(?:[.,](\d{1,6}))?$/.exec(t);
+  if (!m) return null;
+  const d = m[2] ?? "";
+  return { num: BigInt(m[1] + d), den: 10n ** BigInt(d.length) };
+};
+var ISO = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+var SUPPORTED_CURRENCIES = Object.freeze(["EUR", "GBP", "PLN", "SEK"]);
+var isoMs = (v) => {
+  const m = ISO.exec(String(v ?? "").trim());
+  if (!m) return null;
+  const [y, mo, d] = [+m[1], +m[2], +m[3]], t = Date.UTC(y, mo - 1, d);
+  const dt = new Date(t);
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  const p = Date.parse(String(v).trim());
+  return Number.isNaN(p) ? null : p;
+};
+var QTY = /^[1-9]\d{0,8}$/;
+var PLAIN = /* @__PURE__ */ new Set(["currency", "shipment-date", "ship-country", "ship-from-country", "bill-country", "marketplace-id", "invoice-status", "buyer-tax-registration-type", "order-id"]);
+var clean = (v) => String(v).replace(/[^\w:.+\- ]/g, "").slice(0, 40);
+var upper = /* @__PURE__ */ new Set(["currency", "ship-country", "ship-from-country", "bill-country"]);
+function assessShipment(s) {
+  const findings = [], notChecked = [], rows = s.src ?? [];
+  const add = (code, severity, resolution, field, lines, evidence, explanation, action, raw) => {
+    const key = code + "|" + field;
+    let f = findings.find((x) => x.k === key);
+    if (f) {
+      for (const l of lines) if (!f.evidence.lines.includes(l)) f.evidence.lines.push(l);
+      f.evidence.lines.sort((a, b) => a - b);
+      f.raw.push(...raw);
+      return;
+    }
+    findings.push({ k: key, code, severity, resolution, evidence: { field, lines: [...new Set(lines)].sort((a, b) => a - b), ...evidence }, explanation, action, raw: [...raw] });
+  };
+  const ln = (r) => r.line ?? 0;
+  const NEW = "Download the report again, or correct the value in your own copy, and upload it. Nothing can be approved for this by hand.";
+  const txType = String(s.transactionType ?? "SHIPMENT").trim().toUpperCase();
+  if (txType !== "SHIPMENT") add("TRANSACTION_TYPE_UNSUPPORTED", "HOLD", "UNSUPPORTED_PATH", "transaction-type", rows.map(ln), { transactionType: clean(txType) || "(blank)" }, `This row is a ${clean(txType) || "blank"} transaction. Only shipment invoices are built here, so nothing was issued. The amounts are not treated as wrong: refunds and returns legitimately carry negative amounts, and the credit note path is not built yet.`, "No action on the amounts. This type needs a path that is not built yet.", [txType]);
+  const curs = [...new Set(rows.map((r) => String(r.attrs.currency ?? "").trim().toUpperCase()))];
+  for (const c of curs) if (!SUPPORTED_CURRENCIES.includes(c)) add("CURRENCY_UNSUPPORTED", "HOLD", "NEW_EVIDENCE", "currency", rows.filter((r) => String(r.attrs.currency ?? "").trim().toUpperCase() === c).map(ln), { currency: c ? clean(c) : "(blank)", supported: SUPPORTED_CURRENCIES }, `The currency ${c ? clean(c) : "(blank)"} is outside the supported list (${SUPPORTED_CURRENCIES.join(", ")}), so nothing was issued. Its decimal places are not assumed.`, "Only a version that has verified this currency can issue it. Nothing can be approved by hand.", [c]);
+  let totalCents = 0n, totalKnown = rows.length > 0;
+  const rateSeen = /* @__PURE__ */ new Set();
+  for (const r of rows) {
+    const q = String(r.qty ?? "").trim();
+    if (!QTY.test(q)) add("QUANTITY_UNREADABLE", "HOLD", "NEW_EVIDENCE", "quantity-purchased", [ln(r)], {}, `The quantity-purchased cell on line ${ln(r)} is not a whole number of one or more, so nothing was issued. The quantity is never assumed to be 1.`, NEW, [q]);
+    const qty = QTY.test(q) ? Number(q) : 1;
+    for (const p of PARTS) {
+      const t = r.parts[p], A = { incl: parseAmount(t.incl), vat: parseAmount(t.vat), excl: parseAmount(t.excl) };
+      const names = { incl: `${p}-vat-incl-amount`, vat: `${p}-vat-amount`, excl: `${p}-vat-excl-amount` };
+      const present = Object.values(A).some((x) => x.state !== "MISSING");
+      if (!present && p !== "item") continue;
+      let ok = true;
+      for (const k of ["incl", "vat", "excl"]) {
+        if (A[k].state === "INVALID") {
+          ok = false;
+          add("AMOUNT_UNREADABLE", "HOLD", "NEW_EVIDENCE", names[k], [ln(r)], { reason: A[k].why }, `The ${names[k]} cell on line ${ln(r)} could not be read as an amount (${A[k].why}), so nothing was issued. It is never read as zero.`, NEW, [String(t[k])]);
+        } else if (A[k].state === "MISSING") {
+          ok = false;
+          add("AMOUNT_INCOMPLETE", "HOLD", "NEW_EVIDENCE", names[k], [ln(r)], {}, `The ${names[k]} cell on line ${ln(r)} is empty while other amounts of the ${p} part are filled in, so nothing was issued. The missing amount is never worked out or assumed.`, NEW, [""]);
+        }
+      }
+      const rt = String(t.rate ?? "").trim(), rate = rt ? parseRate(rt) : null;
+      if (rt && !rate) add("AMOUNT_UNREADABLE", "HOLD", "NEW_EVIDENCE", `${p}-vat-rate`, [ln(r)], { reason: "not a plain decimal number" }, `The ${p}-vat-rate cell on line ${ln(r)} could not be read as a rate, so nothing was issued. It is never read as 0%.`, NEW, [rt]);
+      if (!ok) {
+        totalKnown = false;
+        continue;
+      }
+      const incl = A.incl.cents, vat = A.vat.cents, excl = A.excl.cents;
+      totalCents += incl;
+      const tol = p === "item" && qty > 1 ? 2n : 1n, diff = incl - (excl + vat);
+      if ((diff < 0n ? -diff : diff) > tol) add("AMOUNT_INCONSISTENT", "HOLD", "NEW_EVIDENCE", p, [ln(r)], { values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, toleranceCents: Number(tol) }, `On line ${ln(r)} the ${p} amounts do not add up: the gross amount differs from net plus VAT by more than ${tol} cent. Nothing was issued, and we do not decide which number is right.`, NEW, [t.incl, t.vat, t.excl]);
+      if (diff !== 0n && (diff < 0n ? -diff : diff) <= tol) findings.push({ k: "RND" + p + ln(r), code: "ROUNDING_DIFFERENCE", severity: "INFO", resolution: null, evidence: { field: p, lines: [ln(r)], values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, differenceCents: Number(diff), toleranceCents: Number(tol) }, explanation: `On line ${ln(r)} the ${p} gross differs from net plus VAT by ${fmt(diff)}, inside the tolerance of ${tol} cent. This is shown, not hidden. The tolerance is an unproven assumption: how Amazon rounds has not been verified.`, action: "Nothing is held for this. Compare with Seller Central if you want to be sure.", raw: [t.incl, t.vat, t.excl] });
+      if (rate && rate.num <= rate.den) {
+        const d = vat * rate.den - excl * rate.num, ad = d < 0n ? -d : d;
+        if (ad > tol * rate.den) add("AMOUNT_RATE_MISMATCH", "HOLD", "NEW_EVIDENCE", p, [ln(r)], { values: { vat: fmt(vat), excl: fmt(excl), rate: rt } }, `On line ${ln(r)} the ${p} VAT does not match the stated rate ${rt} applied to the net amount (difference above ${tol} cent). Nothing was issued, and no rate is assumed.`, NEW, [t.vat, t.excl, rt]);
+      } else if (rate) rateSeen.add(`the ${p} rate ${rt} is above 1, so its unit (fraction or percent) is not provable`);
+      else if (!rt && vat !== 0n) rateSeen.add(`the ${p} rate is blank`);
+    }
+    const sd = String(r.attrs["shipment-date"] ?? "").trim();
+    if (sd && isoMs(sd) === null) add("DATE_UNREADABLE", "HOLD", "NEW_EVIDENCE", "shipment-date", [ln(r)], {}, `The shipment-date cell on line ${ln(r)} is not a complete ISO date (year-month-day), so nothing was issued. Day and month order is never guessed.`, NEW, [sd]);
+    const od = String(r.orderDate ?? "").trim();
+    if (od && sd && isoMs(od) !== null && isoMs(sd) !== null && isoMs(od) > isoMs(sd)) add("DATE_ORDER", "HOLD", "HUMAN_DECISION", "order-date", [ln(r)], {}, `The order-date on line ${ln(r)} is later than the shipment-date. That can be a time zone difference or a wrong value, and the file cannot tell which.`, "Check the order in Seller Central. If the dates are right, record a decision with your reason. If not, upload a corrected report.", [od, sd]);
+    else if (od && isoMs(od) === null) notChecked.push({ check: "order-date", reason: "the order-date is not a complete ISO date, so its order against the shipment date was not compared" });
+  }
+  if (rows.length && !rows.some((r) => String(r.attrs["shipment-date"] ?? "").trim())) notChecked.push({ check: "shipment-date", reason: "no shipment-date in this shipment" });
+  for (const why of rateSeen) notChecked.push({ check: "vat-vs-rate", reason: why });
+  if (txType === "SHIPMENT" && rows.length && totalKnown && totalCents <= 0n) add("NONPOSITIVE_TOTAL", "HOLD", "NEW_EVIDENCE", "total", rows.map(ln), { values: { incl: fmt(totalCents) } }, `The total of this shipment (all amounts added) is ${fmt(totalCents)}, which is not an amount to invoice, so nothing was issued. A refund is a credit note, not a shipment invoice.`, NEW, [String(totalCents)]);
+  const fields = Object.keys(rows[0]?.attrs ?? {}), shown = [];
+  for (const f of fields) {
+    const norm2 = (v) => {
+      const x = String(v ?? "").trim();
+      return upper.has(f) ? x.toUpperCase() : x;
+    };
+    const vals = rows.map((r) => norm2(r.attrs[f])), distinct = [...new Set(vals)];
+    if (distinct.length > 1) add("SHIPMENT_FIELD_CONFLICT", "BLOCK", null, f, rows.map(ln), { values: distinct.map((v, i2) => v === "" ? "(blank)" : PLAIN.has(f) ? clean(v) : `value ${i2 + 1}`) }, `The rows of this shipment disagree on ${f}. The file contradicts itself, so nothing was issued, and the first row is not taken as the right one.`, "Only a corrected report can resolve this. Download the report again and check these lines.", [JSON.stringify(distinct)]);
+    void shown;
+  }
+  const byId = /* @__PURE__ */ new Map(), bySig = /* @__PURE__ */ new Map();
+  for (const r of rows) {
+    const id = String(r.itemId ?? "").trim();
+    if (id) {
+      byId.set(id, [...byId.get(id) ?? [], r]);
+    } else {
+      bySig.set(r.sig, [...bySig.get(r.sig) ?? [], r]);
+    }
+  }
+  for (const [id, g] of byId) if (g.length > 1) add("DUPLICATE_ITEM_ROW", "HOLD", "NEW_EVIDENCE", "order-item-id", g.map(ln), {}, `The same order-item-id appears on ${g.length} rows of this shipment (lines ${g.map(ln).join(", ")}), so the same item may be counted twice. Nothing was issued.`, NEW, [id]);
+  for (const g of bySig.values()) if (g.length > 1) add("DUPLICATE_ITEM_ROW", "HOLD", "HUMAN_DECISION", "row", g.map(ln), {}, `Lines ${g.map(ln).join(", ")} are identical in every cell and have no order-item-id. Two identical units can be legitimate, a repeated row is not, and the file cannot tell which.`, "Check the order in Seller Central. If the order really has these identical units, record a decision with your reason. If not, upload a corrected report.", [g[0].sig, String(g.length)]);
+  if ((s.orderShipments ?? 1) > 1) findings.push({ k: "SPLIT", code: "SPLIT_SHIPMENT", severity: "INFO", resolution: null, evidence: { field: "order-id", lines: rows.map(ln), shipments: s.orderShipments }, explanation: `This order has ${s.orderShipments} shipments in the file. They are kept separate and never merged.`, action: "No action needed.", raw: [] });
+  const out = findings.map(({ k, raw, ...f }) => ({ ...f, fingerprint: sha([f.code, f.evidence.field, f.evidence.lines, raw]) }));
+  const verdict = out.some((f) => f.severity === "BLOCK") ? "BLOCK" : out.some((f) => f.severity === "HOLD") ? "HOLD" : "CLEAR";
+  return { verdict, findings: out, notChecked };
+}
+
 // src/vidr.js
 init_buffer_shim();
 
@@ -48875,7 +49070,7 @@ var r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 var OPTIONAL_TRAILING = /* @__PURE__ */ new Set(["citation-en", "citation-es"]);
 function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l, i2) => [l, i2 + 1]).filter(([l]) => l.trim());
-  if (!lines.length) return { rows: [], invalid: [], head: [] };
+  if (!lines.length) return { rows: [], rowLines: [], invalid: [], head: [] };
   const head = lines[0][0].split("	").map((h) => h.trim().toLowerCase());
   const missingOf = (n) => n < head.length ? head.slice(n).filter((h) => !OPTIONAL_TRAILING.has(h)) : [];
   const items = [], invalid = [];
@@ -48892,13 +49087,14 @@ function checkTsv(text) {
       prev = null;
       continue;
     }
-    const item = { row: Object.fromEntries(head.map((h, i2) => [h, (c[i2] ?? "").trim()])) };
+    const item = { row: Object.fromEntries(head.map((h, i2) => [h, (c[i2] ?? "").trim()])), line: no };
     items.push(item);
     prev = { item, no, cells: c.length };
   }
-  return { rows: items.filter((i2) => !i2.drop).map((i2) => i2.row), invalid: invalid.sort((x, y) => x.line - y.line), head };
+  return { rows: items.filter((i2) => !i2.drop).map((i2) => i2.row), rowLines: items.filter((i2) => !i2.drop).map((i2) => i2.line), invalid: invalid.sort((x, y) => x.line - y.line), head };
 }
-var PARTS = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
+var PARTS2 = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
+var CONFLICT_FIELDS = ["currency", "buyer-vat-number", "billing-name", "bill-address-1", "bill-city", "bill-postal-code", "bill-country", "ship-country", "ship-from-country", "shipment-date", "seller-vat-number", "marketplace-id", "order-id", "buyer-company-name", "buyer-tax-registration-type", "invoice-status"];
 function parseVidr(text) {
   const checked = checkTsv(text);
   let { rows, invalid } = checked;
@@ -48908,7 +49104,10 @@ function parseVidr(text) {
     rows = [];
   }
   const map = /* @__PURE__ */ new Map();
+  let ri = -1;
+  const rowLines = checked.rowLines ?? [];
   for (const r of rows) {
+    ri++;
     const key = `${r["transaction-type"] || "SHIPMENT"}:${r["transaction-id"] || r["shipping-id"]}`;
     let s = map.get(key);
     if (!s) {
@@ -48949,10 +49148,11 @@ function parseVidr(text) {
         excl: 0
       }).get(key);
     }
+    (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r["quantity-purchased"] ?? "", itemId: r["order-item-id"] ?? "", sig: Object.values(r).join("	"), orderDate: r["order-date"] ?? "", attrs: Object.fromEntries(CONFLICT_FIELDS.map((f) => [f, r[f] ?? ""])), parts: Object.fromEntries(PARTS2.map((p) => [p, { incl: r[`${p}-vat-incl-amount`] ?? "", vat: r[`${p}-vat-amount`] ?? "", excl: r[`${p}-vat-excl-amount`] ?? "", rate: r[`${p}-vat-rate`] ?? "" }])) });
     s.flagValues.push(r["is-amazon-invoiced"]);
     s.businessValues.push(r["is-business-order"]);
-    const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
-    const vatSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
+    const inclSum = PARTS2.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
+    const vatSum = PARTS2.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
     s.incl += inclSum;
     s.vat += vatSum;
     s.excl += inclSum - vatSum;
@@ -48965,10 +49165,16 @@ function parseVidr(text) {
       vatRate: num(r["item-vat-rate"]),
       exclTotal: r2(num(r["item-vat-excl-amount"])),
       vatTotal: r2(num(r["item-vat-amount"])),
-      extras: PARTS.slice(1).map((p) => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter((x) => x.excl || x.vat)
+      extras: PARTS2.slice(1).map((p) => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter((x) => x.excl || x.vat)
     });
   }
   const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  const perOrder = /* @__PURE__ */ new Map();
+  for (const s of list) {
+    const k = s.marketplace + "|" + s.orderId;
+    perOrder.set(k, (perOrder.get(k) ?? 0) + 1);
+  }
+  for (const s of list) s.orderShipments = perOrder.get(s.marketplace + "|" + s.orderId);
   list.invalidRows = invalid;
   return list;
 }
@@ -49070,8 +49276,17 @@ function planUpload(text, opts = {}) {
         continue;
       }
       const why = vidrSkipReason(s);
-      if (why) skipped.push({ orderId: s.orderId, why });
-      else kept.push(s);
+      if (why) {
+        skipped.push({ orderId: s.orderId, why });
+        continue;
+      }
+      const a = assessShipment(s);
+      const hf = a.findings.filter((f) => f.severity !== "INFO");
+      if (hf.length && !(opts.isReleased && hf.every((f) => f.severity === "HOLD" && f.resolution === "HUMAN_DECISION" && opts.isReleased(s, f)))) {
+        held.push({ orderId: s.orderId, reason: "Not issued: " + hf.map((f) => f.explanation).join(" ") });
+        continue;
+      }
+      kept.push(s);
     }
     kept.invalidRows = parsed.invalidRows ?? [];
     return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: kept.invalidRows, truncated: !!t.truncated };
@@ -50258,7 +50473,7 @@ init_buffer_shim();
 // src/lang.js
 init_buffer_shim();
 var LANGS = { es: "Spanish", en: "English", de: "German", fr: "French", it: "Italian", nl: "Dutch" };
-var K = ["FACTURA RECTIFICATIVA", "FACTURA", "N\xBA:", "Fecha:", "Fecha de operaci\xF3n:", "EMISOR", "CLIENTE", "RECTIFICA A", "Descripci\xF3n", "Cant.", "P. unit.", "IVA %", "Base", "Cuota", "Base imponible", "IVA", "TOTAL", "Pedido Amazon:", "Motivo:", "sustituci\xF3n", "diferencias"];
+var K2 = ["FACTURA RECTIFICATIVA", "FACTURA", "N\xBA:", "Fecha:", "Fecha de operaci\xF3n:", "EMISOR", "CLIENTE", "RECTIFICA A", "Descripci\xF3n", "Cant.", "P. unit.", "IVA %", "Base", "Cuota", "Base imponible", "IVA", "TOTAL", "Pedido Amazon:", "Motivo:", "sustituci\xF3n", "diferencias"];
 var T = {
   en: ["CORRECTED INVOICE", "INVOICE", "No.:", "Date:", "Operation date:", "SUPPLIER", "CUSTOMER", "CORRECTS", "Description", "Qty", "Unit price", "VAT %", "Net", "VAT", "Net total", "VAT", "TOTAL", "Amazon order:", "Reason:", "by substitution", "by differences"],
   de: ["BERICHTIGTE RECHNUNG", "RECHNUNG", "Nr.:", "Datum:", "Leistungsdatum:", "AUSSTELLER", "KUNDE", "BERICHTIGT RECHNUNG", "Beschreibung", "Menge", "Einzelpreis", "USt %", "Netto", "USt", "Nettobetrag", "USt", "GESAMT", "Amazon-Bestellung:", "Grund:", "durch Ersatz", "durch Differenzen"],
@@ -50266,7 +50481,7 @@ var T = {
   it: ["FATTURA RETTIFICATIVA", "FATTURA", "N.:", "Data:", "Data dell'operazione:", "EMITTENTE", "CLIENTE", "RETTIFICA", "Descrizione", "Q.t\xE0", "Prezzo unit.", "IVA %", "Imponibile", "IVA", "Imponibile totale", "IVA", "TOTALE", "Ordine Amazon:", "Motivo:", "per sostituzione", "per differenze"],
   nl: ["CORRECTIEFACTUUR", "FACTUUR", "Nr.:", "Datum:", "Datum van de handeling:", "LEVERANCIER", "KLANT", "CORRIGEERT", "Omschrijving", "Aantal", "Stukprijs", "BTW %", "Netto", "BTW", "Totaal excl. BTW", "BTW", "TOTAAL", "Amazon-bestelling:", "Reden:", "door vervanging", "door verschillen"]
 };
-var LABELS = { es: Object.fromEntries(K.map((k) => [k, k])), ...Object.fromEntries(Object.entries(T).map(([l, v]) => [l, Object.fromEntries(K.map((k, i2) => [k, v[i2]]))])) };
+var LABELS = { es: Object.fromEntries(K2.map((k) => [k, k])), ...Object.fromEntries(Object.entries(T).map(([l, v]) => [l, Object.fromEntries(K2.map((k, i2) => [k, v[i2]]))])) };
 var REF = { es: (n, d, m) => `Factura ${n} de fecha ${d}. Tipo: por ${m}.`, en: (n, d, m) => `Invoice ${n} dated ${d}. Type: ${m}.`, de: (n, d, m) => `Rechnung ${n} vom ${d}. Art: ${m}.`, fr: (n, d, m) => `Facture ${n} du ${d}. Type: ${m}.`, it: (n, d, m) => `Fattura ${n} del ${d}. Tipo: ${m}.`, nl: (n, d, m) => `Factuur ${n} van ${d}. Type: ${m}.` };
 var refLine = (lang, n, d, mode) => REF[lang](n, d, lang === "es" ? mode === "substitution" ? "sustituci\xF3n" : "diferencias" : LABELS[lang][mode === "substitution" ? "sustituci\xF3n" : "diferencias"]);
 var COUNTRY_LANG = { ES: "es", DE: "de", AT: "de", FR: "fr", IT: "it", NL: "nl", GB: "en", IE: "en" };

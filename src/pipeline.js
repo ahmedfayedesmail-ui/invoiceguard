@@ -9,6 +9,7 @@ import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from
 import { createHash } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
+import { integrityGate } from './integrity.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -19,7 +20,7 @@ const DUE_HOURS = 24;
 export const explain = (m) => /FeatureNotAvailable|79509|closed beta/i.test(m) ? 'Amazon has not enabled invoice upload for this account. In Seller Central set VAT Calculation Service to "I will upload my own VAT invoices".' : /Tax Invoicing|Unauthorized|403/i.test(m) ? 'The app lacks the Tax Invoicing role. Amazon must approve it for this seller.' : m;
 
 export function upsertShipment(db, sellerId, s, status, reason = null) {
-  const due = s.shipmentDate ? new Date(new Date(s.shipmentDate).getTime() + DUE_HOURS * 3600e3).toISOString() : null;
+  const t0 = s.shipmentDate ? new Date(s.shipmentDate).getTime() : NaN; const due = Number.isNaN(t0) ? null : new Date(t0 + DUE_HOURS * 3600e3).toISOString(); // an unreadable date has no due time (the gate holds it)
   db.prepare(`INSERT INTO shipments (seller_id,key,order_id,shipping_id,buyer_vat,buyer,country,total,vat,shipment_date,due_at,status,reason,raw,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(seller_id,key) DO UPDATE SET status=excluded.status, reason=excluded.reason, raw=excluded.raw, updated_at=excluded.updated_at`)
     .run(sellerId, s.key, s.orderId, s.shippingId, s.buyerVat, s.buyerCompany, s.shipCountry, s.incl, s.vat, s.shipmentDate, due, status, reason, JSON.stringify(s), new Date().toISOString());
@@ -62,8 +63,10 @@ export async function processReport(db, seller, reportText, { api, validate = va
     if (!needsInvoice(s)) { out.skipped++; continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
-    if (existing && ['submitted', 'processing', 'uploaded', 'ready', 'sending'].includes(existing.status)) { out.skipped++; continue; }
+    if (existing && ['submitted', 'processing', 'uploaded', 'ready', 'sending'].includes(existing.status)) { integrityGate(db, seller, s); /* ledger only: an issued shipment is never re-issued, but a later bad copy is recorded */ out.skipped++; continue; }
     if (!existing) logEvent(db, seller.id, 'detected', { key: s.key, orderId: s.orderId }); // evidence trail starts here
+    // Issuance Integrity Gate (Phase B): the numbers and the consistency of the rows are checked BEFORE anything is issued. A finding holds the shipment, writes the ledger and issues nothing, whatever the path (API or manual upload).
+    { const ig = integrityGate(db, seller, s); if (ig) { upsertShipment(db, seller.id, s, 'held', ig.reason); logEvent(db, seller.id, 'held', { key: s.key, reason: ig.reason, check: 'integrity' }); out.held.push({ key: s.key, orderId: s.orderId, reason: ig.reason }); continue; } }
     if (s.buyerVat && hasOverride(db, seller.id, s.key, 'b2c')) { s.buyerVat = null; s.buyerCompany = s.billing?.name || ''; }
     if (s.buyerVat) {
       const v = await validate(s.buyerVat); s.__vies = v;

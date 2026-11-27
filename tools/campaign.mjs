@@ -54,8 +54,9 @@ function money(plain = false) { // realistic random amounts, sometimes boundary 
   if (b < 0.04) return ['0.00', '0.00', '0.00'];
   if (b < 0.08) return ['0.01', '0.00', '0.01'];
   if (b < 0.12) return ['999999.99', '173553.72', '826446.27'];
-  const incl = Math.round((plain ? 100 + rnd() * 49900 : rnd() * 50000)) / 100, vat = Math.round(incl * 0.21 * 100) / 100;
-  return [incl.toFixed(2), vat.toFixed(2), (incl - vat).toFixed(2)];
+  // Phase B: the template row states a 0.21 rate on the NET amount, so net = gross / 1.21 and VAT = gross - net. The old generator took 21% of the GROSS, which contradicts its own stated rate; the integrity gate rightly holds that.
+  const inclC = Math.round((plain ? 100 + rnd() * 49900 : rnd() * 50000)), exclC = Math.round(inclC / 1.21), vatC = inclC - exclC;
+  return [(inclC / 100).toFixed(2), (vatC / 100).toFixed(2), (exclC / 100).toFixed(2)];
 }
 
 function report(nShipments, opts = {}) {
@@ -66,11 +67,11 @@ function report(nShipments, opts = {}) {
     const vatKind = opts.vat ?? (rnd() < 0.7 ? 'valid' : rnd() < 0.5 ? 'invalid' : 'none');
     const buyerVat = vatKind === 'valid' ? pick(VALID_VATS) : vatKind === 'invalid' ? pick(INVALID_VATS) : '';
     const name = opts.name ?? pick(NAMES);
-    const nRows = int(1, 3);
+    const nRows = int(1, 3); const orderId = `4${int(100, 999)}-${int(1000000, 9999999)}-${int(1000000, 9999999)}`; // one order per shipment: the old generator gave every row its own order id, which the gate rightly treats as a contradiction
     for (let j = 0; j < nRows; j++) {
       const [incl, vat, excl] = money(opts.plain);
       lines.push(row({
-        'order-id': `4${int(100, 999)}-${int(1000000, 9999999)}-${int(1000000, 9999999)}` || undefined, 'shipping-id': sh, 'transaction-id': sh,
+        'order-id': orderId, 'shipping-id': sh, 'transaction-id': sh,
         'marketplace-id': mkt, 'ship-country': mkt, 'bill-country': mkt, 'ship-from-country': mkt === 'ES' ? 'ES' : 'DE', 'currency': cur,
         'buyer-vat-number': buyerVat, 'buyer-company-name': name, 'billing-name': name, 'buyer-name': name,
         'is-business-order': opts.nonBusiness ? 'FALSE' : 'TRUE', 'is-amazon-invoiced': opts.amazonInvoiced ? 'TRUE' : 'FALSE',

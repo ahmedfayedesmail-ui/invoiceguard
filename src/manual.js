@@ -1,6 +1,7 @@
 // Manual path: the seller downloads an order report from Seller Central and uploads it here. No Amazon connection.
 // Verified against Amazon's API documentation only (developer-docs.amazon.com, report type pages); NOT against real downloaded files yet.
 // Every column that is not documented is optional. Anything we cannot read exactly is held with a reason, never guessed.
+import { assessShipment } from './integrity-core.js';
 import { parseVidr, needsInvoice, readFlag, unknownFlags, heldForUnknownFlags, unknownFlagsReason } from './vidr.js';
 
 export const FORMATS = {
@@ -88,7 +89,7 @@ export function planUpload(text, opts = {}) {
     // so the preview's "Ready to invoice" matches what issue will actually attempt.
     const kept = [], skipped = [], held = [];
     const parsed = parseVidr(text);
-    for (const s of parsed) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) skipped.push({ orderId: s.orderId, why }); else kept.push(s); }
+    for (const s of parsed) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) { skipped.push({ orderId: s.orderId, why }); continue; } const a = assessShipment(s); const hf = a.findings.filter(f => f.severity !== 'INFO'); if (hf.length && !(opts.isReleased && hf.every(f => f.severity === 'HOLD' && f.resolution === 'HUMAN_DECISION' && opts.isReleased(s, f)))) { held.push({ orderId: s.orderId, reason: 'Not issued: ' + hf.map(f => f.explanation).join(' ') }); continue; } kept.push(s); }
     kept.invalidRows = parsed.invalidRows ?? []; // the list is handed to processReport as `shipments`: the invalid rows must travel with it
     return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, invalidRows: kept.invalidRows, truncated: !!t.truncated };
   }

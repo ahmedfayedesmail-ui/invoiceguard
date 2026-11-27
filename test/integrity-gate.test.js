@@ -150,7 +150,7 @@ test('ledger: a corrected file closes the finding (RESOLVED) and issues once; th
 test('governance: BLOCK and NEW_EVIDENCE can never be released; HUMAN_DECISION needs user, reason of 10 or more characters and the exact fingerprint', async () => {
   const dbA = openDb(); await run(file(rowOf(0, { 'item-vat-incl-amount': '60.00' })), dbA); const a = dbA.prepare("SELECT code, fingerprint FROM integrity_findings").get();
   assert.throws(() => releaseIntegrity(dbA, SELLER.id, 'SHIPMENT:S1001', a.code, a.fingerprint, { user: 'u1', reason: 'I looked at it and it is fine' }), /new evidence|corrected file/i);
-  const dbB = openDb(); await run(file(rowOf(0), rowOf(0, { currency: 'USD', sku: 'SKU-Z' })), dbB); const b = dbB.prepare("SELECT code, fingerprint FROM integrity_findings").get();
+  const dbB = openDb(); await run(file(rowOf(0), rowOf(0, { currency: 'USD', sku: 'SKU-Z' })), dbB); const b = dbB.prepare("SELECT code, fingerprint FROM integrity_findings WHERE severity='BLOCK'").get();
   assert.throws(() => releaseIntegrity(dbB, SELLER.id, 'SHIPMENT:S1001', b.code, b.fingerprint, { user: 'u1', reason: 'I looked at it and it is fine' }), /cannot be released|BLOCK/i);
   const dbC = openDb(); const t = file(rowOf(0), rowOf(0)); await run(t, dbC); const c = dbC.prepare("SELECT code, fingerprint FROM integrity_findings").get();
   assert.throws(() => releaseIntegrity(dbC, SELLER.id, 'SHIPMENT:S1001', c.code, 'deadbeefdeadbeef', { user: 'u1', reason: 'two identical units, checked the order' }), /fingerprint|evidence/i);
@@ -196,4 +196,30 @@ test('hostile: a formula-like, HTML-like or full-width amount cell is unreadable
     const a = assessShipment(one(file(rowOf(0, { 'item-vat-amount': v })))); const f = a.findings.find(x => x.code === 'AMOUNT_UNREADABLE'); assert.ok(f, v.slice(0, 20)); assert.ok(!JSON.stringify(f).includes('DROP') && !JSON.stringify(f).includes('<b>') && JSON.stringify(f).length < 2000);
   }
   const db = openDb(); await run(file(rowOf(0, { 'item-vat-amount': '<script>x</script>' })), db); assert.ok(!JSON.stringify(db.prepare('SELECT * FROM integrity_findings').all()).includes('<script>'));
+});
+
+// ---- Ahmed's additions after reading the design (21:53) ----
+test('currency: EUR, GBP, PLN and SEK are supported (two minor units); any other currency is held, never assumed to have two decimals', () => {
+  for (const c of ['EUR', 'GBP', 'PLN', 'SEK']) assert.ok(!codes(file(rowOf(0, { currency: c }))).includes('CURRENCY_UNSUPPORTED'), c);
+  for (const c of ['JPY', 'KWD', 'USD', '', 'EU']) { const a = assessShipment(one(file(rowOf(0, { currency: c })))); const f = a.findings.find(x => x.code === 'CURRENCY_UNSUPPORTED'); assert.ok(f, 'held: ' + c); assert.equal(a.verdict, 'HOLD'); assert.equal(f.resolution, 'NEW_EVIDENCE'); }
+});
+test('dates: YYYY-MM-DD and an ISO date-time with a time zone are read; 24/11/2026, 11/24/2026, a zone-less time and an impossible day are held, never reordered', () => {
+  for (const d of ['2026-11-24', '2026-11-24T08:00:00Z', '2026-11-24T08:00:00+01:00']) assert.ok(!codes(file(rowOf(0, { 'shipment-date': d }))).includes('DATE_UNREADABLE'), d);
+  for (const d of ['24/11/2026', '11/24/2026', '2026-11-24T08:00:00', '2026-02-30', '24.11.2026']) assert.ok(codes(file(rowOf(0, { 'shipment-date': d }))).includes('DATE_UNREADABLE'), d);
+});
+test('amounts: 1,234 and 1.234 are both ambiguous and held, never read as 1234 or 1.234', () => {
+  for (const v of ['1,234', '1.234']) { const a = assessShipment(one(file(rowOf(0, { 'item-vat-amount': v })))); assert.ok(a.findings.some(f => f.code === 'AMOUNT_UNREADABLE' && f.evidence.field === 'item-vat-amount'), v); }
+});
+test('rounding: a difference inside the tolerance does not hold, but it is visible in the findings with its numbers and the unproven-tolerance note', () => {
+  const a = assessShipment(one(file(rowOf(0, { 'quantity-purchased': '1', 'item-vat-amount': '8.40', 'item-vat-excl-amount': '40.00', 'item-vat-incl-amount': '48.41' }))));
+  assert.equal(a.verdict, 'CLEAR'); const f = a.findings.find(x => x.code === 'ROUNDING_DIFFERENCE'); assert.ok(f, 'visible'); assert.equal(f.severity, 'INFO');
+  assert.equal(f.evidence.differenceCents, 1); assert.equal(f.evidence.toleranceCents, 1); assert.match(f.explanation, /unproven|not been verified/i); assert.deepEqual(f.evidence.values, { incl: '48.41', vat: '8.40', excl: '40.00' });
+  assert.equal(assessShipment(one(file(rowOf(0, { 'quantity-purchased': '1', 'item-vat-amount': '8.38', 'item-vat-excl-amount': '40.00', 'item-vat-incl-amount': '48.41' })))).verdict, 'HOLD', 'three cents is not tolerated');
+});
+test('transaction type: a negative total is not corrupt data on a refund or return; any non-shipment type is held as an unsupported path, not as bad amounts', () => {
+  for (const t of ['REFUND', 'RETURN', 'ADJUSTMENT']) {
+    const a = assessShipment(one(file(rowOf(0, { 'transaction-type': t, 'item-vat-incl-amount': '-48.40', 'item-vat-amount': '-8.40', 'item-vat-excl-amount': '-40.00' }))));
+    assert.ok(a.findings.some(f => f.code === 'TRANSACTION_TYPE_UNSUPPORTED' && f.resolution === 'UNSUPPORTED_PATH'), t); assert.ok(!a.findings.some(f => f.code === 'NONPOSITIVE_TOTAL' || f.code.startsWith('AMOUNT_')), t + ': the negative amounts are not an error');
+  }
+  assert.ok(codes(file(rowOf(0, { 'item-vat-incl-amount': '-48.40', 'item-vat-amount': '-8.40', 'item-vat-excl-amount': '-40.00' }))).includes('NONPOSITIVE_TOTAL'), 'on a shipment it still is');
 });

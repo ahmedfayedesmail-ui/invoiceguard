@@ -65,7 +65,8 @@ test('manual plan, VAT Invoice Data Report: a blank flag is HELD with a reason t
   const p = planUpload(setFlag(one('InvoicePending'), ''));
   assert.equal(p.format, 'vidr'); assert.equal(p.shipments.length, 0); assert.equal(p.skipped.length, 0); assert.equal(p.held.length, 1);
   assert.match(p.held[0].reason, /is-amazon-invoiced/); assert.match(p.held[0].reason, /not (be )?(guess|infer)|did not guess|not inferred/i);
-  const q = planUpload(setFlag(one('InvoicePending'), 'FALSE')); assert.equal(q.shipments.length, 1); assert.equal(q.held.length, 0);
+  // Phase B: this loop fixture has no quantity and no VAT columns, so the integrity gate holds it. The flag aspect is what this test guards: an explicit FALSE is read as written (never held for the FLAG, never skipped).
+  const q = planUpload(setFlag(one('InvoicePending'), 'FALSE')); assert.equal(q.skipped.length, 0); assert.equal(q.held.length, 1); assert.doesNotMatch(q.held[0].reason, /is-amazon-invoiced/); assert.match(q.held[0].reason, /^Not issued: /);
 });
 
 // ---- the Order Report carries no is-amazon-invoiced or is-business-order column: no evidence ----
