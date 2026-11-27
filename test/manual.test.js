@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
@@ -45,6 +45,7 @@ test('zip writer produces a valid archive', () => {
 });
 
 test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', async () => {
+  mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 24, 10, 30, 0) }); // fixed clock 30 min after the last fixture shipment (due = shipment + 24 h): the issue-window check is deterministic
   const { server } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test', env: { ALLOW_MANUAL_UPLOAD: '1' } }); await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`; let sid = '';
   const call = async (path, body) => { const r = await fetch(base + '/api/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { 'content-type': 'application/json', cookie: sid }, body: body === undefined ? undefined : JSON.stringify(body) }); const c = r.headers.get('set-cookie'); if (c) sid = c.split(';')[0];
@@ -72,9 +73,9 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
   const types = tr.events.map(e => e.type);
   assert.ok(types.includes('detected'), 'trail starts at detection');
   assert.ok(types.includes('issued_manual')); assert.ok(types.includes('exported')); assert.ok(types.includes('uploaded'));
-  // the fixture's shipment dates are fixed (2026-11-24), so whether issuing today is inside the window depends on the clock: not asserted here
+  assert.ok(tr.dueAt, 'a due date is recorded'); assert.ok(new Date(tr.issuedAt) <= new Date(tr.dueAt), 'issued inside the upload window'); assert.equal(tr.issuedAt.slice(0, 10), '2026-11-24', 'the injected clock is what issued it');
   assert.equal((await call('invoices/A-2026-999999/trail')).status, 404);
-  server.close();
+  server.close(); mock.timers.reset();
 });
 
 test('leaving demo mode removes the sample data and lands on the upload route', async () => {
