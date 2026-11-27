@@ -686,6 +686,8 @@ export async function processCorrections(db, seller, reportText, { api, validate
     const staleTx = staleDocForReport(db, seller, s, reportSeq);
     if (staleTx) { logStaleRow(db, seller, s, staleTx, reportSeq); out.skipped.push({ key: s.key, reason: 'stale report row: the replacement has a newer attempt than this report - no upload is driven by old information' }); continue; }
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
+    // Night WP1: the replacement takes the buyer's name, VAT number and address from THIS row. If the rows of the correction disagree (or are otherwise unreadable) the first row must not be taken as the right one: the same gate as for a plain invoice holds it, and it writes the same ledger.
+    { const ig = integrityGate(db, seller, s); if (ig) { logEvent(db, seller.id, 'held', { key: s.key, reason: ig.reason, check: 'integrity' }); out.skipped.push({ key: s.key, reason: ig.reason }); continue; } }
     const block2 = await unknownBlock(s.key);
     if (block2) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block2 }); out.skipped.push({ key: s.key, reason: block2 }); continue; }
     // Round-6: "landed" means Amazon CONFIRMED the credit note (VIDR CreditNoteUploaded), not merely

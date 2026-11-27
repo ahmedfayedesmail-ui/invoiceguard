@@ -1,0 +1,30 @@
+✖ WP1: a correction whose rows contradict each other on the buyer name issues NO replacement invoice and writes the ledger (94.367809ms)
+✔ WP1: a consistent correction still issues exactly one replacement (guard: the gate does not block the normal path) (60.713485ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 356.928286
+
+✖ failing tests:
+
+test at test/issuance-paths.test.js:27:1
+✖ WP1: a correction whose rows contradict each other on the buyer name issues NO replacement invoice and writes the ledger (94.367809ms)
+  AssertionError [ERR_ASSERTION]: no replacement was issued
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/issuance-paths.test.js:29:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
