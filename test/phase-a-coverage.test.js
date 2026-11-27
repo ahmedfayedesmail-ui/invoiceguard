@@ -5,31 +5,57 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { project } from '../src/loop/project.js';
 import { sha256 } from '../src/loop/sha256.js';
-import { SCENARIOS, MIXED } from './helpers/coverage-scenarios.mjs';
+import { SCENARIOS, FULL } from './helpers/coverage-scenarios.mjs';
+import { coverageStatement } from '../src/loop/coverage.js';
 
 test('adding the coverage metric leaves every current result unchanged (issues, buckets, stats, notes, imports are byte-identical to the engine before the change)', () => {
   const golden = JSON.parse(readFileSync(new URL('./golden/engine-output-before-coverage.json', import.meta.url), 'utf8'));
   for (const [k, v] of Object.entries(SCENARIOS())) { const p = project(v); assert.equal(sha256(JSON.stringify({ issues: p.issues, buckets: p.buckets, stats: p.stats, coverageNotes: p.coverageNotes, imports: p.imports })), golden[k], k); }
 });
-test('coverage counts unique shipments, each scope with its own denominator', () => {
-  const c = project(MIXED()).coverage;
-  assert.equal(c.shipmentsInScope, 6, 'six unique shipments, although eight rows were read (two shipments have a second item row)');
-  assert.deepEqual(c.business, { entered: 2, matched: 1, notMatched: 1, matchedMeans: 'the shipment is linked to a document in the books by its invoice number' });
-  assert.equal(c.nonBusiness.count, 2); assert.equal(c.nonBusiness.status, 'NOT_EVALUATED');
-  assert.equal(c.undetermined.count, 2); assert.deepEqual(c.undetermined.byReason, { BLANK: 1, CONFLICT: 1, UNREADABLE: 0 });
-  assert.equal(c.business.entered + c.nonBusiness.count + c.undetermined.count, c.shipmentsInScope, 'the three groups add up to the scope: nothing is dropped and nothing counted twice');
+const total = (c) => c.scope.count + c.undetermined.count + c.outsideScope.count;
+test('one model: scope = shipments determined to need a seller invoice (both fields readable); undetermined and outside-scope sit outside it; the three add up to ALL unique transactions', () => {
+  const c = project(FULL()).coverage;
+  assert.equal(c.transactionsTotal, 10, '12 rows were read, 10 unique transactions (two shipments have a second item row)');
+  assert.equal(c.scope.count, 4); assert.equal(c.undetermined.count, 4); assert.equal(c.outsideScope.count, 2);
+  assert.equal(total(c), c.transactionsTotal, 'nothing counted twice and nothing lost');
+  assert.equal(c.scope.business.entered + c.scope.nonBusiness.count, c.scope.count, 'business and non-business are subsets that fill the scope');
+});
+test('business and non-business are subsets of the scope; matched and not matched are counted over the business subset and the scope total is stated beside them', () => {
+  const s = project(FULL()).coverage.scope;
+  assert.deepEqual({ e: s.business.entered, m: s.business.matched, n: s.business.notMatched }, { e: 2, m: 1, n: 1 });
+  assert.equal(s.business.matched + s.business.notMatched, s.business.entered); assert.equal(s.nonBusiness.count, 2); assert.equal(s.nonBusiness.status, 'NOT_EVALUATED');
+  assert.match(s.business.matchedMeans, /invoice number/);
+});
+test('undetermined is a separate bucket with its own reasons and is in no denominator', () => {
+  const u = project(FULL()).coverage.undetermined;
+  assert.deepEqual(u.byReason, { BUSINESS_FLAG_BLANK: 1, BUSINESS_FLAG_CONFLICT: 1, BUSINESS_FLAG_UNREADABLE: 1, AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING: 1 });
+  assert.equal(Object.values(u.byReason).reduce((a, b) => a + b, 0), u.count); assert.match(u.reason, /blank|disagree|neither/i);
+});
+test('outside scope: Amazon-created invoices and corrections or non-shipment rows, each counted with its reason', () => {
+  const o = project(FULL()).coverage.outsideScope; assert.deepEqual(o.byReason, { AMAZON_INVOICED: 1, NOT_ORDINARY_INVOICE: 1 }); assert.match(o.reason, /Amazon/);
 });
 test('a non-business shipment is never described as unmatched, and the reason is in words', () => {
-  const c = project(MIXED()).coverage, nb = c.nonBusiness;
-  assert.ok(!('unmatched' in nb) && !('notMatched' in nb)); assert.match(nb.reason, /not checked/i); assert.match(nb.reason, /current check rule/i);
-  assert.match(c.undetermined.reason, /blank|disagree|neither/i); assert.match(c.business.matchedMeans, /invoice number/);
+  const nb = project(FULL()).coverage.scope.nonBusiness; assert.ok(!('unmatched' in nb) && !('notMatched' in nb)); assert.match(nb.reason, /not checked/i); assert.match(nb.reason, /current check rule/i);
 });
-test('undetermined flags are not folded into any denominator', () => {
-  const c = project(MIXED()).coverage; assert.equal(c.business.entered, 2); assert.equal(c.business.matched + c.business.notMatched, c.business.entered);
+test('empty input: every count is 0 and the invariant holds', () => {
+  const c = project({ imports: [], events: [] }).coverage; assert.ok(c); assert.equal(c.transactionsTotal, 0); assert.equal(total(c), 0);
 });
-test('with no shipments at all every count is 0 and the reasons still exist', () => {
-  const c = project({ imports: [], events: [] }).coverage; assert.ok(c, 'coverage exists even with nothing loaded'); assert.equal(c.shipmentsInScope, 0); assert.equal(c.business.entered + c.nonBusiness.count + c.undetermined.count, 0);
+test('the invariant holds for every synthetic scenario', () => { for (const [k, v] of Object.entries(SCENARIOS())) { const c = project(v).coverage; assert.equal(total(c), c.transactionsTotal, k); assert.equal(c.scope.business.entered + c.scope.nonBusiness.count, c.scope.count, k); } });
+
+// ---- the words the seller reads ----
+test('the statement names its scope and denominators, and never presents the business-only figure as covering every shipment', () => {
+  const c = project(FULL()).coverage, t = coverageStatement(c).join('\n');
+  assert.match(t, /1 of 2 business shipments/); assert.match(t, /business shipments only/i); assert.match(t, /not all 4 shipments in scope/i);
+  assert.match(t, /2 shipments in scope were NOT EVALUATED/); assert.match(t, /current check rule/); assert.match(t, /4 could not be classified/); assert.match(t, /10 unique transactions = 4 in scope \+ 4 undetermined \+ 2 outside the check/);
+  assert.doesNotMatch(t, /undefined|\[object|NaN/); assert.doesNotMatch(t, /\bunmatched\b/i);
 });
-test('shipments outside the check altogether (Amazon-invoiced, corrections) are counted apart, with the reason', () => {
-  const c = project(MIXED()).coverage; assert.equal(typeof c.outsideScope.createdByAmazon, 'number'); assert.equal(typeof c.outsideScope.notOrdinaryInvoice, 'number'); assert.match(c.outsideScope.reason, /Amazon|not the seller/i);
+test('when every shipment in scope is a business shipment the statement says the figure covers all of them', () => {
+  const t = coverageStatement({ transactionsTotal: 3, scope: { count: 3, business: { entered: 3, matched: 2, notMatched: 1 }, nonBusiness: { count: 0 } }, undetermined: { count: 0, byReason: {} }, outsideScope: { count: 0, byReason: {} } }).join('\n');
+  assert.match(t, /2 of 3 business shipments/); assert.match(t, /all 3 shipments in scope/); assert.doesNotMatch(t, /business shipments only/i);
+});
+test('nothing loaded: the statement says so instead of showing zeros as a result', () => { assert.match(coverageStatement(project({ imports: [], events: [] }).coverage).join(' '), /No Amazon report/); });
+test('the statement is part of the data, the export carries it, and the page renders it from that one source', () => {
+  const p = project(FULL()); assert.deepEqual(p.coverage.statement, coverageStatement(p.coverage));
+  const ui = readFileSync(new URL('../public/local/loop.js', import.meta.url), 'utf8'), st = readFileSync(new URL('../src/loop/store.js', import.meta.url), 'utf8');
+  assert.match(ui, /id: 'coverage'/); assert.match(ui, /coverage\.statement/); assert.match(st, /coverage: r\.coverage/);
 });
