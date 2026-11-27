@@ -2849,8 +2849,9 @@ function evaluate(prefix, events, ctx) {
     return v.has("FALSE") ? "FALSE" : "BLANK";
   };
   const ordinary = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction);
-  const flagged = new Map(ordinary.map((d) => {
+  const flagVsStatus = /* @__PURE__ */ new Set(), flagged = new Map(ordinary.map((d) => {
     const f = amazonFlag(d), byAmazon = d.state === "CREATED_BY_AMAZON";
+    if (f === "TRUE" && !byAmazon || f === "FALSE" && byAmazon) flagVsStatus.add(d);
     return [d, f === "TRUE" ? byAmazon ? "TRUE" : "CONFLICT" : f === "FALSE" ? byAmazon ? "CONFLICT" : "FALSE" : f === "BLANK" ? byAmazon ? "TRUE" : "FALSE" : f];
   }));
   const A = ordinary.filter((d) => flagged.get(d) === "FALSE");
@@ -2864,7 +2865,7 @@ function evaluate(prefix, events, ctx) {
   };
   for (const d of flagUndetermined) {
     const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
-    const why = flagged.get(d) === "CONFLICT" ? "the rows of this shipment disagree about whether Amazon issued the invoice" : "the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE";
+    const why = flagVsStatus.has(d) ? `the is-amazon-invoiced column (${[...new Set((d.evidence.rows ?? []).map((r) => String(r["is-amazon-invoiced"] ?? "").trim().toUpperCase()))].join("/")}) and invoice-status (${d.rawStatus}) disagree about whether Amazon issued the invoice` : flagged.get(d) === "CONFLICT" ? "the rows of this shipment disagree about whether Amazon issued the invoice" : "the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE";
     put(key, { family: "INVOICE_AMAZON_STATE", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp("IAS", id, "AMZFLAG", flagged.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}.` });
     noteAdd(`Amazon invoice flag could not be read (${flagged.get(d)}): ${why}`, id);
   }
