@@ -3126,10 +3126,15 @@ function evaluate(prefix, events, ctx) {
     }
     put(key, { family: "BOOKS_GAP", subtype: number ? "NUMBER_AT_AMAZON_NOT_IN_BOOKS" : "NOT_IN_BOOKS", status: "PRESENT", subject, evidence: { ...base, coverage: cov.import }, fingerprint: fp("BG", id, number, d.state, d.evidence.rows), safeAction: true });
   }
+  const heldOutNum = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE" && d.evidence.invoiceNumber).map((d) => d.parts["marketplace-id"] + "|" + d.evidence.invoiceNumber)), heldOutOrder = new Set(sellerSet.filter((d) => bflag.get(d) !== "TRUE").map((d) => d.parts["marketplace-id"] + "|" + d.parts["order-id"]));
   for (const l of Le) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "UNMATCHED_DOCUMENT", "L:" + lk), L = ledLink.get(lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, orderRef: l.orderRef, issueDate: l.issueDate };
     const ev = { sources: [ledgerEvidence(l)], document: { number: l.number, issueDate: l.issueDate, orderRef: l.orderRef, operationDate: l.operationDate } };
     if (l.conflicting) continue;
+    if (!ledLink.get(lk)?.level && (heldOutNum.has(l.marketplace + "|" + l.number) || heldOutOrder.has(l.marketplace + "|" + l.orderRef))) {
+      noteAdd("This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing", lk);
+      continue;
+    }
     if (L?.level === "CONFIRMED") {
       const a = A.find((x) => amazonId(x) === L.amazon[0]);
       closed.set(key, { why: `Amazon shows the same number (${l.number}) on one transaction.`, sources: a ? [vidrEvidence(a)] : [], importId: a?.current.importId });
