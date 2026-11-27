@@ -14,7 +14,7 @@ Scope: the problem-loop page (`/local/loop`, built from `src/loop/*`). Synthetic
 | Backups | New in P3 | A file the seller downloads | none | Encrypted JSON (records exactly as stored, wrapped keys, manifest MAC) |
 | Browser storage other than IndexedDB | localStorage, sessionStorage, Cache Storage, service workers, cookies | none used by the loop page (verified by searching `src`, `web`, `public`; the browser test also reads the real IndexedDB) | n/a | n/a |
 | Logs and errors | Server logs; page messages | The loop page makes no network request (CSP `connect-src 'none'`), has no logging code, and refusal messages are built from fixed texts and field names, not values | no values in messages | tested: error messages never contain seller values or secrets |
-| Legacy page `/local` (`src/history.js`, database `invoiceguard-local`) | Older engine page: imports with raw text | IndexedDB, optional passphrase (PBKDF2 250000, AES-GCM, no record binding) | optional encryption, off by default | **Unchanged, out of P3 scope.** It is a separate older page; it must not be used for real seller files until it is moved onto the same vault. Listed under limitations |
+| Legacy page `/local` (`page.js`, `engine.js`) | Analyse-only page: reads a file in memory, shows results, offers a sample PDF | Nothing persisted. `src/history.js` (`createHistory`, optional-passphrase store) is a library used only by tests; no shipped browser file reaches it | n/a | Proven by test: after analysing files in Chrome there are 0 IndexedDB databases, 0 localStorage/sessionStorage entries, 0 caches, 0 cookies; static scan of the page, its bundle and html |
 | Server side (`src/app.js`, SQLite for the Amazon integration) | The public site and the Amazon pipeline, separate from the loop page | server | n/a | The loop page sends nothing to it; `ENABLE_LOOP_PAGE` keeps the page off in production |
 
 Data lifecycle: file chosen in the browser, read as text in memory, declared by the seller, stored as an encrypted record, read back and decrypted in memory on each render, projected, shown. It leaves the device only if the seller downloads a bundle or a backup. Deletion: section 6.
@@ -85,7 +85,7 @@ Decrypted records and the projection are in page memory; the page displays them;
 
 ## 9. Known limitations and residual risks
 
-- The legacy `/local` page still stores files with optional passphrase encryption and no record binding. It is not covered by P3.
+- The legacy `/local` page persists nothing (verified by browser test and static scan, see section 11). The older `src/history.js` store, which could write plaintext, is not shipped to any page; a test fails if any browser file references it. Earlier wording in this document that called the page a plaintext store was wrong and is corrected here.
 - The plaintext evidence bundle exists by design for hand-off; a seller who downloads it holds unprotected data.
 - PBKDF2 is memory-light; Argon2 is not in Web Crypto. The iteration count is the available defence and is versioned for increases.
 - A weak password weakens T3. The page requires 10 characters; it does not measure strength.

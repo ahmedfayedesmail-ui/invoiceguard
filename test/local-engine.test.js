@@ -35,6 +35,9 @@ test('local engine: zero network requests while files are processed, PDF renders
     const net = await page.$eval('#netcount', e => e.textContent);
     const stray = requests.filter(u => !u.startsWith('blob:') && !u.startsWith('data:'));
     ok(stray.length === 0, `zero network requests after load (requests seen: ${stray.length}, counter shows ${net}; ${loaded} at load)`);
+    // P3: after real files were analysed, this legacy page must have left nothing on the device
+    const left = await page.evaluate(async () => ({ dbs: ((await indexedDB.databases?.()) || []).map(d => d.name), ls: localStorage.length, ss: sessionStorage.length, caches: (await caches.keys()).length, cookies: document.cookie }));
+    ok(left.dbs.length === 0 && left.ls === 0 && left.ss === 0 && left.caches === 0 && left.cookies === '', `legacy /local page persisted nothing after analysing files (IndexedDB ${left.dbs.length}, localStorage ${left.ls}, sessionStorage ${left.ss}, caches ${left.caches}, cookies ${left.cookies.length})`);
     await page.screenshot({ path: '/tmp/local-proof.png', fullPage: true });
   } finally { await browser.close(); server.close(); }
   assert.equal(fail, 0, 'local engine privacy checks failed (see PASS/FAIL lines above)');
@@ -70,4 +73,12 @@ test('CI: test steps run under shell: bash (pipefail), and a failing command ins
   const run = (flags) => { try { execFileSync('bash', [...flags, '-c', 'false | tee /dev/null'], { stdio: 'pipe' }); return 0; } catch (e) { return e.status; } };
   assert.equal(run(['-e']), 0, 'the default CI shell hides the failure');
   assert.notEqual(run(['-eo', 'pipefail']), 0, 'shell: bash does not');
+});
+
+test('P3: the legacy /local page and its bundle contain no persistence or network API', () => {
+  for (const f of ['page.js', 'engine.js', 'index.html']) { const t = readFileSync(new URL('../public/local/' + f, import.meta.url), 'utf8'); /* pdfkit's bundled deprecation check only READS localStorage; any write would match the setItem/assignment patterns below */ for (const bad of [/indexedDB/, f === 'engine.js' ? /localStorage\.setItem|localStorage\[[^\]]*\]\s*=[^=]/ : /localStorage/, /sessionStorage/, /\bcaches\./, /document\.cookie/, /serviceWorker/, /\bfetch\s*\(/, /XMLHttpRequest/, /sendBeacon/, /WebSocket/, /createHistory/]) assert.ok(!bad.test(t), `public/local/${f} matches ${bad}`); }
+});
+
+test('P3: no shipped browser file can reach the old plaintext-capable history store (createHistory, database invoiceguard-local)', () => {
+  for (const f of ['page.js', 'engine.js', 'index.html', 'loop.js', 'loop.html', 'loop-engine.js']) { const t = readFileSync(new URL('../public/local/' + f, import.meta.url), 'utf8'); assert.ok(!/createHistory|invoiceguard-local/.test(t), `public/local/${f} reaches the old history store`); }
 });

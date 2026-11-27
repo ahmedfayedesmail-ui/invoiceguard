@@ -3476,7 +3476,8 @@ var memoryAdapter = () => {
     m.clear();
   } };
 };
-var indexedDbAdapter = (name = "invoiceguard-local") => {
+var indexedDbAdapter = (name) => {
+  if (!name) throw new Error("indexedDbAdapter needs an explicit database name");
   const open = () => new Promise((res, rej) => {
     const r = indexedDB.open(name, 1);
     r.onupgradeneeded = () => r.result.createObjectStore("kv");
