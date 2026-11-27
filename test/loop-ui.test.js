@@ -81,13 +81,13 @@ test('loop page P2: a mismatch card, a duplicate card, the explain button, then 
     };
     const loadLedger = async (file, exported) => {
       await page.$eval('#lfile', e => { e.value = ''; }); await (await page.$('#lfile')).uploadFile(file); await page.waitForSelector('#l-sys');
-      await setv('#l-sys', 'acme-books'); await setv('#l-exp', exported); await setv('#l-mkt', 'A1RKKUPIHCS9HS'); await setv('#l-from', '2026-11-01'); await setv('#l-to', '2026-11-30'); await setv('#l-complete', 'yes'); await setv('#l-kinds', 'invoice'); await setv('#l-scope', 'CHANNEL'); await setv('#l-chan', 'Amazon.es');
+      await setv('#l-sys', 'acme-books'); await setv('#l-exp', exported); await setv('#l-mkt', 'A1RKKUPIHCS9HS'); await setv('#l-from', '2026-11-01'); await setv('#l-to', '2026-11-30'); await setv('#l-complete', 'yes'); await setv('#l-kinds', 'invoice'); await setv('#l-scope', 'CHANNEL'); await setv('#l-chan', 'Amazon.es'); await setv('#l-level', 'DOCUMENT');
       await click('Confirm and store'); await stored();
     };
     await loadVidr('fixtures/loop/p2-vidr.tsv', '2026-11-20T10:00'); await loadLedger('fixtures/loop/p2-ledger-1.csv', '2026-11-20T11:00');
     await page.$$eval('details.group', ds => ds.forEach(d => { d.open = true; }));
     const r1 = await page.$eval('#results', e => e.innerText); console.log('--- P2 ROUND 1 ---\n' + r1.slice(0, 2500));
-    assert.match(r1, /Amazon shows 121\.00 EUR, your accounting export shows 120\.99 EUR/); assert.match(r1, /more than once|twice|Duplicate/i);
+    assert.match(r1, /Currency: Amazon shows EUR, your accounting export shows USD/); assert.match(r1, /more than once|twice|Duplicate/i);
     assert.ok(await page.$('[data-family="DATA_MISMATCH"], [data-state="ACTION_REQUIRED"]'));
     assert.ok(await page.evaluate(() => [...document.querySelectorAll('button')].some(b => b.textContent === 'Declare: difference explained')), 'explain button is offered for a mismatch');
     assert.equal(await page.$('[data-state="VERIFIED_CLOSED"]'), null);

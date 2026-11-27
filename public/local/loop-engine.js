@@ -2692,9 +2692,17 @@ function buildCard(i) {
     c.closesWhen = "A newer file, loaded here, shows the same pair with the compared values agreeing. Saying the difference is explained records your statement and does not change what the files show.";
   } else if (i.family === "DUPLICATE_DOCUMENT") {
     c.title = `Document ${s.number ?? ""} appears more than once in one accounting file`;
+    if (t === "SUSPECTED_DUPLICATE") {
+      c.title = `Document ${s.number ?? ""} is on several rows: cannot tell if it is a duplicate`;
+      c.what = `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document number.`;
+      c.why = "The file does not say what one row is. If each row is one line of the document, the repetition is normal; if each row is a whole document, it is a duplicate.";
+      c.action = "Load the file again and state what one row is: a whole document or one line item of a document. Do not remove rows from your accounting system because of this message.";
+      c.closesWhen = "A complete export of the same scope that states what one row is. If one row is one document, a repeated number then becomes a duplicate; if one row is one line item, the repetition is expected.";
+      return c;
+    }
     c.what = t === "SAME_NUMBER_DIFFERENT_CONTENT" ? `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document identity with different content.` : `Rows ${(e.rowNumbers ?? []).join(", ")} are identical copies of the same document.`;
     c.why = "A document identity can hold one document. We do not pick one of the rows.";
-    c.action = "Correct the export so the document appears once (often the cause is an export setting such as one row per item), then load the new file.";
+    c.action = "You declared that one row of this export is a whole document, so the same document number on several rows is a problem in the export. Check the rows shown below in your accounting system. Do not delete anything that is correct; if a row is a line item of a document, load the file again and declare that one row is one line item.";
     c.closesWhen = "A newer accounting export, loaded here, in which this document appears once. A later export of the same document is a re-export, not a duplicate.";
   } else if (i.family === "SOURCE_INCOMPLETE") {
     c.title = `A file is not complete: ${s.source ?? "import"} ${s.fileName ?? ""}`.trim();
@@ -2715,7 +2723,7 @@ function buildCard(i) {
 var LOOP_VERSION = "loop-1.0";
 var KEY_VERSION = "k1";
 var FAMILIES = Object.freeze(["SOURCE_INCOMPLETE", "UNMATCHED_DOCUMENT", "INVOICE_AMAZON_STATE", "BOOKS_GAP", "DATA_MISMATCH", "DUPLICATE_DOCUMENT"]);
-var NOT_CHECKED_IN_THIS_VERSION = Object.freeze(["credit notes and rectificativas", "correction pairs", "net and VAT amounts, document dates, line items and tax rates of a linked pair", "a document that appears in two different files (a re-export is not a duplicate)"]);
+var NOT_CHECKED_IN_THIS_VERSION = Object.freeze(["credit notes and rectificativas", "correction pairs", "the invoice total, net and VAT amounts, document dates, line items and tax rates of a linked pair (the Amazon report states the item price, not the invoice total)", "a document that appears in two different files (a re-export is not a duplicate)"]);
 var ms2 = (v) => {
   const t = Date.parse(v);
   return Number.isNaN(t) ? null : t;
@@ -2859,10 +2867,11 @@ function evaluate(prefix, events, ctx) {
         stats.ledgerUnknownScope++;
         continue;
       }
-      const l = { ...doc, marketplace: mk, conflicting: false }, k = ledgerKey(l), c = JSON.stringify([doc.issueDate, doc.operationDate, doc.currency, doc.gross, doc.net, doc.vat, doc.orderRef, doc.buyerTaxId]);
+      const level = i.declared?.documentLevel === "DOCUMENT" || i.declared?.documentLevel === "LINE" ? i.declared.documentLevel : null;
+      const l = { ...doc, marketplace: mk, conflicting: false, level }, k = ledgerKey(l), c = JSON.stringify(level === "LINE" ? [doc.issueDate, doc.operationDate, doc.currency, doc.orderRef, doc.buyerTaxId] : [doc.issueDate, doc.operationDate, doc.currency, doc.gross, doc.net, doc.vat, doc.orderRef, doc.buyerTaxId]);
       if (seen.has(k)) {
         if (seen.get(k).c === c) {
-          seen.get(k).l.repeatRows = [...seen.get(k).l.repeatRows ?? [seen.get(k).l.row], doc.row];
+          if (level !== "LINE") seen.get(k).l.repeatRows = [...seen.get(k).l.repeatRows ?? [seen.get(k).l.row], doc.row];
         }
         if (seen.get(k).c !== c) {
           seen.get(k).l.conflicting = true;
@@ -2870,6 +2879,8 @@ function evaluate(prefix, events, ctx) {
         }
         continue;
       }
+      const prev = merged.get(k);
+      if (prev && (prev.conflicting || prev.repeatRows)) continue;
       seen.set(k, { c, l });
       merged.set(k, l);
     }
@@ -2954,9 +2965,9 @@ function evaluate(prefix, events, ctx) {
   for (const l of Le) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "DUPLICATE_DOCUMENT", "L:" + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
     if (l.conflicting || l.repeatRows) {
-      const rows = rowsOfIdentity(l), sub = l.conflicting ? "SAME_NUMBER_DIFFERENT_CONTENT" : "EXACT_REPEAT";
-      put(key, { family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref) }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), safeAction: true });
-    } else closed.set(key, { why: `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
+      const rows = rowsOfIdentity(l), unknownLevel = l.level === null, sub = unknownLevel ? "SUSPECTED_DUPLICATE" : l.conflicting ? "SAME_NUMBER_DIFFERENT_CONTENT" : "EXACT_REPEAT";
+      put(key, { family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref) }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : { safeAction: true } });
+    } else closed.set(key, { why: l.level === "LINE" ? `The file is declared by the seller as one row per line item, so repeated rows of ${l.number} are expected.` : `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
   }
   const money = (v) => /^-?\d+(\.\d{1,2})?$/.test(String(v ?? "").trim()) ? readMoney(String(v).trim(), ".", "") : null;
   const taxNorm = (v) => String(v ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
@@ -2975,20 +2986,12 @@ function evaluate(prefix, events, ctx) {
       sameCur = aCur === l.currency;
       if (!sameCur) diffs.push({ field: "currency", label: "Currency", amazon: aCur, books: l.currency });
     } else notCompared.push({ field: "currency", reason: "the currency is not stated exactly on both sides" });
-    if (!sameCur) notCompared.push({ field: "gross", reason: aCur && l.currency ? "the two sides use different currencies, so their totals are not compared" : "the currency is not stated exactly on both sides" });
-    else if (l.gross === null) notCompared.push({ field: "gross", reason: "the accounting export has no total column" });
-    else {
-      const parts = rows.map((r) => money(r["item-vat-incl-amount"]));
-      if (parts.some((x) => x === null)) notCompared.push({ field: "gross", reason: "the Amazon report does not state the VAT-inclusive amount exactly on every row of this transaction" });
-      else {
-        const a = parts.reduce((x, y) => x + y, 0);
-        if (a !== l.gross) diffs.push({ field: "gross", label: "Total including VAT", amazon: fmt(a, aCur), books: fmt(l.gross, aCur), difference: fmt(l.gross - a, aCur), amazonMinor: a, booksMinor: l.gross });
-      }
-    }
-    const btx = uniq2(rows.map((r) => taxNorm(r["buyer-vat-number"])).filter(Boolean));
-    if (btx.length === 1 && taxNorm(l.buyerTaxId)) {
+    if (!sameCur) notCompared.push({ field: "gross", reason: aCur && l.currency ? "the two sides use different currencies, and the Amazon report states the item price, not the invoice total" : "the currency is not stated exactly on both sides" });
+    else notCompared.push({ field: "gross", reason: "the Amazon report states the item price, not the invoice total (shipping, gift wrap and discounts are separate amounts), so the invoice total cannot be compared reliably in this version" });
+    const btxRaw = rows.map((r) => taxNorm(r["buyer-vat-number"])), btx = uniq2(btxRaw.filter(Boolean)), btxAll = btxRaw.every(Boolean);
+    if (btxAll && btx.length === 1 && taxNorm(l.buyerTaxId)) {
       if (btx[0] !== taxNorm(l.buyerTaxId)) diffs.push({ field: "buyerTaxId", label: "Buyer tax id", amazon: btx[0], books: taxNorm(l.buyerTaxId) });
-    } else notCompared.push({ field: "buyerTaxId", reason: btx.length > 1 ? "the Amazon rows of this transaction show different buyer tax ids" : !btx.length ? "the Amazon report shows no buyer tax id" : "the accounting export shows no buyer tax id" });
+    } else notCompared.push({ field: "buyerTaxId", reason: btx.length > 1 ? "the Amazon rows of this transaction show different buyer tax ids" : !btx.length ? "the Amazon report shows no buyer tax id" : !btxAll ? "only some Amazon rows of this transaction carry a buyer tax id" : "the accounting export shows no buyer tax id" });
     notCompared.push({ field: "netAndVat", reason: "net and VAT amounts are not read from the Amazon report in this version" });
     const sources = [vidrEvidence(d), ledgerEvidence(l)];
     if (diffs.length) {
@@ -2997,7 +3000,7 @@ function evaluate(prefix, events, ctx) {
     } else {
       const was = ctx.prevMismatch.get(key);
       if (was && [...was].some((f) => notCompared.some((n) => n.field === f))) put(key, { family: "DATA_MISMATCH", subtype: "CANNOT_CONFIRM", status: "UNDETERMINED", subject, evidence: { sources, differences: [], notCompared }, fingerprint: fp("DM", id, ledgerKey(l), "CANNOT"), note: "The difference is no longer shown, but a field that differed can no longer be compared, so it cannot be called agreed." });
-      else closed.set(key, { why: "The compared values (currency, total, buyer tax id where both sides state them) agree on the same confirmed pair.", sources, importId: l.importId });
+      else closed.set(key, { why: "The compared values (currency and buyer tax id, where both sides state them) agree on the same confirmed pair.", sources, importId: l.importId });
     }
   }
   const booksCover = (d) => {
@@ -3356,7 +3359,7 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
         keyVersion: KEY_VERSION,
         sellerProfileId: r.sellerProfileId,
         createdAt: now(),
-        matchedByInvoiceNumberMeaning: "Matched by invoice number means an Amazon transaction and an accounting document carry the same document number. For each such pair the currency, the total and the buyer tax id are compared with zero tolerance, and every difference is its own problem. Net and VAT amounts, dates, line items and tax rates are not examined in this version.",
+        matchedByInvoiceNumberMeaning: "Matched by invoice number means an Amazon transaction and an accounting document carry the same document number. For each such pair the currency and the buyer tax id are compared where both sides state them exactly, and all differences of a pair are shown in one problem. The invoice total (the Amazon report states the item price, not the invoice total), net and VAT amounts, dates, line items and tax rates are not compared in this version.",
         note: "State of the loaded files on the dates they were loaded. Anything marked declared was said by the seller and is not confirmed by a file. No statement here is about the legal position of any document.",
         imports: imports.map((i) => ({ id: i.id, kind: i.kind, fileName: i.fileName, sha256: i.sha256, importedAt: i.importedAt, declared: i.declared, profile: i.profile ?? null, text: i.text })),
         events,

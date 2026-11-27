@@ -10,7 +10,7 @@ import { buildCard } from './cards.js';
 export const LOOP_VERSION = 'loop-1.0';
 export const KEY_VERSION = 'k1';
 export const FAMILIES = Object.freeze(['SOURCE_INCOMPLETE', 'UNMATCHED_DOCUMENT', 'INVOICE_AMAZON_STATE', 'BOOKS_GAP', 'DATA_MISMATCH', 'DUPLICATE_DOCUMENT']); // P1 and P2, ordinary invoices only
-export const NOT_CHECKED_IN_THIS_VERSION = Object.freeze(['credit notes and rectificativas', 'correction pairs', 'net and VAT amounts, document dates, line items and tax rates of a linked pair', 'a document that appears in two different files (a re-export is not a duplicate)']);
+export const NOT_CHECKED_IN_THIS_VERSION = Object.freeze(['credit notes and rectificativas', 'correction pairs', 'the invoice total, net and VAT amounts, document dates, line items and tax rates of a linked pair (the Amazon report states the item price, not the invoice total)', 'a document that appears in two different files (a re-export is not a duplicate)']);
 const ms = (v) => { const t = Date.parse(v); return Number.isNaN(t) ? null : t; };
 const day = (v) => { const t = ms(v); return t === null ? null : new Date(t).toISOString().slice(0, 10); };
 const uniq = (a) => [...new Set(a)];
@@ -97,8 +97,10 @@ function evaluate(prefix, events, ctx) {
       if (doc.kind === 'credit_note') { stats.ledgerCreditNotes++; continue; }
       if (doc.isAmazon === false) { stats.ledgerExcludedNotAmazon++; continue; }
       if (doc.isAmazon === null) { stats.ledgerUnknownScope++; continue; }
-      const l = { ...doc, marketplace: mk, conflicting: false }, k = ledgerKey(l), c = JSON.stringify([doc.issueDate, doc.operationDate, doc.currency, doc.gross, doc.net, doc.vat, doc.orderRef, doc.buyerTaxId]);
-      if (seen.has(k)) { if (seen.get(k).c === c) { seen.get(k).l.repeatRows = [...(seen.get(k).l.repeatRows ?? [seen.get(k).l.row]), doc.row]; } if (seen.get(k).c !== c) { seen.get(k).l.conflicting = true; seen.get(k).l.conflictRows = [...(seen.get(k).l.conflictRows ?? [seen.get(k).l.row]), doc.row]; } continue; }
+      const level = i.declared?.documentLevel === 'DOCUMENT' || i.declared?.documentLevel === 'LINE' ? i.declared.documentLevel : null; // what one row of this export is, declared by the seller
+      const l = { ...doc, marketplace: mk, conflicting: false, level }, k = ledgerKey(l), c = JSON.stringify(level === 'LINE' ? [doc.issueDate, doc.operationDate, doc.currency, doc.orderRef, doc.buyerTaxId] : [doc.issueDate, doc.operationDate, doc.currency, doc.gross, doc.net, doc.vat, doc.orderRef, doc.buyerTaxId]);
+      if (seen.has(k)) { if (seen.get(k).c === c) { if (level !== 'LINE') seen.get(k).l.repeatRows = [...(seen.get(k).l.repeatRows ?? [seen.get(k).l.row]), doc.row]; } if (seen.get(k).c !== c) { seen.get(k).l.conflicting = true; seen.get(k).l.conflictRows = [...(seen.get(k).l.conflictRows ?? [seen.get(k).l.row]), doc.row]; } continue; }
+      const prev = merged.get(k); if (prev && (prev.conflicting || prev.repeatRows)) continue; // a duplicate is replaced only by a complete file of the same scope, and then the earlier file no longer stands (see activeLed); a partial export proves nothing about it
       seen.set(k, { c, l }); merged.set(k, l); // a later import of the same document replaces an earlier one
     }
   }
@@ -135,9 +137,9 @@ function evaluate(prefix, events, ctx) {
   const rowsOfIdentity = (l) => { const imp = impById.get(l.importId), rd = readOf(imp); return rd.documents.filter(x => x.identity === l.identity).map(x => ({ ref: `row ${x.row}`, cells: Object.fromEntries((rd.head ?? []).map((h, i) => [h, x.raw[i]])) })); };
   for (const l of Le) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, 'DUPLICATE_DOCUMENT', 'L:' + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
-    if (l.conflicting || l.repeatRows) { const rows = rowsOfIdentity(l), sub = l.conflicting ? 'SAME_NUMBER_DIFFERENT_CONTENT' : 'EXACT_REPEAT';
-      put(key, { family: 'DUPLICATE_DOCUMENT', subtype: sub, status: 'PRESENT', subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: 'accounting', rows }], rowNumbers: rows.map(r => r.ref) }, fingerprint: fp('DUP', lk, sub, rows.map(r => r.cells)), safeAction: true }); }
-    else closed.set(key, { why: `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
+    if (l.conflicting || l.repeatRows) { const rows = rowsOfIdentity(l), unknownLevel = l.level === null, sub = unknownLevel ? 'SUSPECTED_DUPLICATE' : l.conflicting ? 'SAME_NUMBER_DIFFERENT_CONTENT' : 'EXACT_REPEAT';
+      put(key, { family: 'DUPLICATE_DOCUMENT', subtype: sub, status: 'PRESENT', subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: 'accounting', rows }], rowNumbers: rows.map(r => r.ref) }, fingerprint: fp('DUP', lk, sub, rows.map(r => r.cells)), ...(unknownLevel ? { note: 'The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate.' } : { safeAction: true }) }); }
+    else closed.set(key, { why: l.level === 'LINE' ? `The file is declared by the seller as one row per line item, so repeated rows of ${l.number} are expected.` : `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
   }
   // ---- DATA_MISMATCH (P2): confirmed pairs only (a unique number on both sides). Zero tolerance, minor units. Nothing is compared that either side does not state exactly. ----
   const money = (v) => /^-?\d+(\.\d{1,2})?$/.test(String(v ?? '').trim()) ? readMoney(String(v).trim(), '.', '') : null;
@@ -152,20 +154,17 @@ function evaluate(prefix, events, ctx) {
     const curs = uniq(rows.map(r => String(r.currency ?? '').trim().toUpperCase())), aCur = curs.length === 1 && /^[A-Z]{3}$/.test(curs[0]) ? curs[0] : null;
     let sameCur = false;
     if (aCur && l.currency) { sameCur = aCur === l.currency; if (!sameCur) diffs.push({ field: 'currency', label: 'Currency', amazon: aCur, books: l.currency }); } else notCompared.push({ field: 'currency', reason: 'the currency is not stated exactly on both sides' });
-    if (!sameCur) notCompared.push({ field: 'gross', reason: aCur && l.currency ? 'the two sides use different currencies, so their totals are not compared' : 'the currency is not stated exactly on both sides' });
-    else if (l.gross === null) notCompared.push({ field: 'gross', reason: 'the accounting export has no total column' });
-    else { const parts = rows.map(r => money(r['item-vat-incl-amount']));
-      if (parts.some(x => x === null)) notCompared.push({ field: 'gross', reason: 'the Amazon report does not state the VAT-inclusive amount exactly on every row of this transaction' });
-      else { const a = parts.reduce((x, y) => x + y, 0); if (a !== l.gross) diffs.push({ field: 'gross', label: 'Total including VAT', amazon: fmt(a, aCur), books: fmt(l.gross, aCur), difference: fmt(l.gross - a, aCur), amazonMinor: a, booksMinor: l.gross }); } }
-    const btx = uniq(rows.map(r => taxNorm(r['buyer-vat-number'])).filter(Boolean));
-    if (btx.length === 1 && taxNorm(l.buyerTaxId)) { if (btx[0] !== taxNorm(l.buyerTaxId)) diffs.push({ field: 'buyerTaxId', label: 'Buyer tax id', amazon: btx[0], books: taxNorm(l.buyerTaxId) }); }
-    else notCompared.push({ field: 'buyerTaxId', reason: btx.length > 1 ? 'the Amazon rows of this transaction show different buyer tax ids' : !btx.length ? 'the Amazon report shows no buyer tax id' : 'the accounting export shows no buyer tax id' });
+    if (!sameCur) notCompared.push({ field: 'gross', reason: aCur && l.currency ? 'the two sides use different currencies, and the Amazon report states the item price, not the invoice total' : 'the currency is not stated exactly on both sides' });
+    else notCompared.push({ field: 'gross', reason: 'the Amazon report states the item price, not the invoice total (shipping, gift wrap and discounts are separate amounts), so the invoice total cannot be compared reliably in this version' });
+    const btxRaw = rows.map(r => taxNorm(r['buyer-vat-number'])), btx = uniq(btxRaw.filter(Boolean)), btxAll = btxRaw.every(Boolean);
+    if (btxAll && btx.length === 1 && taxNorm(l.buyerTaxId)) { if (btx[0] !== taxNorm(l.buyerTaxId)) diffs.push({ field: 'buyerTaxId', label: 'Buyer tax id', amazon: btx[0], books: taxNorm(l.buyerTaxId) }); }
+    else notCompared.push({ field: 'buyerTaxId', reason: btx.length > 1 ? 'the Amazon rows of this transaction show different buyer tax ids' : !btx.length ? 'the Amazon report shows no buyer tax id' : !btxAll ? 'only some Amazon rows of this transaction carry a buyer tax id' : 'the accounting export shows no buyer tax id' });
     notCompared.push({ field: 'netAndVat', reason: 'net and VAT amounts are not read from the Amazon report in this version' });
     const sources = [vidrEvidence(d), ledgerEvidence(l)];
     if (diffs.length) { mismatchFields.set(key, new Set(diffs.map(x => x.field))); put(key, { family: 'DATA_MISMATCH', subtype: 'FIELDS_DIFFER', status: 'PRESENT', subject, evidence: { sources, differences: diffs, notCompared }, fingerprint: fp('DM', id, ledgerKey(l), diffs, l.raw), safeAction: true }); }
     else { const was = ctx.prevMismatch.get(key);
       if (was && [...was].some(f => notCompared.some(n => n.field === f))) put(key, { family: 'DATA_MISMATCH', subtype: 'CANNOT_CONFIRM', status: 'UNDETERMINED', subject, evidence: { sources, differences: [], notCompared }, fingerprint: fp('DM', id, ledgerKey(l), 'CANNOT'), note: 'The difference is no longer shown, but a field that differed can no longer be compared, so it cannot be called agreed.' });
-      else closed.set(key, { why: 'The compared values (currency, total, buyer tax id where both sides state them) agree on the same confirmed pair.', sources, importId: l.importId }); }
+      else closed.set(key, { why: 'The compared values (currency and buyer tax id, where both sides state them) agree on the same confirmed pair.', sources, importId: l.importId }); }
   }
 
   // ---- coverage ----

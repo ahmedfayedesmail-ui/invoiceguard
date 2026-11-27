@@ -8,7 +8,7 @@ export const O = (n) => `405-${String(1000000 + n)}-${String(2000000 + n)}`;
 export const vrow = ({ n, status, num = '', desc = '' }) => [MKT, O(n), String(100 + n), `S${9000 + n}`, `S${9000 + n}`, 'SHIPMENT', num, status, desc, 'FALSE', '17/11/2026', '2026-11-18T09:00:00Z', 'TRUE', 'DE811128135', 'EUR', '121.00'].join('\t');
 export const vidr = (rows) => [H.join('\t'), ...rows.map(vrow)].join('\n') + '\n';
 export const LH = 'Nº factura;Tipo;Fecha factura;Fecha operación;Divisa;Total;Base imponible;IVA;Pedido Amazon;Canal';
-const lrow = (num, date, op, order, chan = 'Amazon.es', total = '121,00') => [num, 'Factura', date, op, 'EUR', total, '100,00', '21,00', order, chan].join(';');
+const lrow = (num, date, op, order, chan = 'Amazon.es', total = '121,00', cur = 'EUR') => [num, 'Factura', date, op, cur, total, '100,00', '21,00', order, chan].join(';');
 export const ledger = (rows) => [LH, ...rows].join('\n') + '\n';
 export const L = { row: lrow };
 // Round 1 (taken 2026-11-20)
@@ -44,9 +44,9 @@ export const L2 = ledger([
 ]);
 // P2 fixtures: three Amazon-invoiced transactions; round 1 books have one total off by one cent and one document twice with different content; round 2 books are corrected.
 export const PV = vidr([{ n: 11, status: 'InvoiceUploaded', num: 'A-2001' }, { n: 12, status: 'InvoiceUploaded', num: 'A-2002' }, { n: 13, status: 'InvoiceUploaded', num: 'A-2003' }]);
-export const PL1 = ledger([lrow('A-2001', '2026-11-18', '2026-11-17', O(11), 'Amazon.es', '120,99'), lrow('A-2002', '2026-11-18', '2026-11-17', O(12)), lrow('A-2003', '2026-11-18', '2026-11-17', O(13)), lrow('A-2003', '2026-11-18', '2026-11-17', O(13), 'Amazon.es', '99,00')]);
+export const PL1 = ledger([lrow('A-2001', '2026-11-18', '2026-11-17', O(11), 'Amazon.es', '121,00', 'USD'), lrow('A-2002', '2026-11-18', '2026-11-17', O(12)), lrow('A-2003', '2026-11-18', '2026-11-17', O(13)), lrow('A-2003', '2026-11-18', '2026-11-17', O(13), 'Amazon.es', '99,00')]);
 export const PL2 = ledger([lrow('A-2001', '2026-11-18', '2026-11-17', O(11)), lrow('A-2002', '2026-11-18', '2026-11-17', O(12)), lrow('A-2003', '2026-11-18', '2026-11-17', O(13))]);
 export const VDECL = (createdAt, from = '2026-11-01', to = '2026-11-30') => ({ reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', options: 'ALL', marketplace: MKT, rangeFrom: from, rangeTo: to, createdAt, createdAfterUploadConfirmed: true, downloadedAt: createdAt, obtainedHow: 'downloaded by the seller from Seller Central', dateOrderConfirmed: 'DD/MM/YYYY' });
-export const LDECL = (extra = {}) => ({ exportedAt: '2026-11-20T11:00:00Z', sourceSystem: 'acme-books', marketplace: MKT, periodFrom: '2026-11-01', periodTo: '2026-11-30', documentKinds: ['invoice'], complete: true, amazonScope: { mode: 'CHANNEL', channelValues: ['Amazon.es'] }, ...extra });
+export const LDECL = (extra = {}) => ({ exportedAt: '2026-11-20T11:00:00Z', sourceSystem: 'acme-books', marketplace: MKT, periodFrom: '2026-11-01', periodTo: '2026-11-30', documentKinds: ['invoice'], complete: true, documentLevel: 'DOCUMENT', amazonScope: { mode: 'CHANNEL', channelValues: ['Amazon.es'] }, ...extra });
 export const PROFILE = { delimiter: ';', columns: { number: 'Nº factura', kind: 'Tipo', issueDate: 'Fecha factura', operationDate: 'Fecha operación', currency: 'Divisa', gross: 'Total', net: 'Base imponible', vat: 'IVA', orderRef: 'Pedido Amazon', channel: 'Canal' }, constantKind: null, dateOrder: 'ISO', decimal: ',', thousands: '', unknownColumnsAcknowledged: true, confirmed: true };
 if (process.argv[1] === fileURLToPath(import.meta.url)) { writeFileSync(join(out, 'vidr-1.tsv'), V1); writeFileSync(join(out, 'vidr-2.tsv'), V2); writeFileSync(join(out, 'ledger-1.csv'), L1); writeFileSync(join(out, 'ledger-2.csv'), L2); writeFileSync(join(out, 'p2-vidr.tsv'), PV); writeFileSync(join(out, 'p2-ledger-1.csv'), PL1); writeFileSync(join(out, 'p2-ledger-2.csv'), PL2); console.log('fixtures written'); }
