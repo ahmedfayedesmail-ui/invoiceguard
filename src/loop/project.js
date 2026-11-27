@@ -2,15 +2,15 @@
 // Lifecycle states are derived here and nowhere else. Imports and seller events are the only inputs; neither carries a state.
 import { reconcile, REPORT_TYPE } from '../reconcile.js';
 import { parseTable } from '../manual.js';
-import { readLedger } from './ledger.js';
+import { readLedger, readMoney } from './ledger.js';
 import { sha256 } from './sha256.js';
-import { eventShapeProblem, declarationProblem } from './events.js';
+import { eventShapeProblem, declarationProblem, DECLARATION_TYPES } from './events.js';
 import { buildCard } from './cards.js';
 
 export const LOOP_VERSION = 'loop-1.0';
 export const KEY_VERSION = 'k1';
-export const FAMILIES = Object.freeze(['SOURCE_INCOMPLETE', 'UNMATCHED_DOCUMENT', 'INVOICE_AMAZON_STATE', 'BOOKS_GAP']); // P1 only
-export const NOT_CHECKED_IN_THIS_VERSION = Object.freeze(['credit notes and rectificativas', 'correction pairs', 'differences in amounts, tax or numbers between a linked pair of documents', 'duplicate documents across files']);
+export const FAMILIES = Object.freeze(['SOURCE_INCOMPLETE', 'UNMATCHED_DOCUMENT', 'INVOICE_AMAZON_STATE', 'BOOKS_GAP', 'DATA_MISMATCH', 'DUPLICATE_DOCUMENT']); // P1 and P2, ordinary invoices only
+export const NOT_CHECKED_IN_THIS_VERSION = Object.freeze(['credit notes and rectificativas', 'correction pairs', 'net and VAT amounts, document dates, line items and tax rates of a linked pair', 'a document that appears in two different files (a re-export is not a duplicate)']);
 const ms = (v) => { const t = Date.parse(v); return Number.isNaN(t) ? null : t; };
 const day = (v) => { const t = ms(v); return t === null ? null : new Date(t).toISOString().slice(0, 10); };
 const uniq = (a) => [...new Set(a)];
@@ -98,7 +98,7 @@ function evaluate(prefix, events, ctx) {
       if (doc.isAmazon === false) { stats.ledgerExcludedNotAmazon++; continue; }
       if (doc.isAmazon === null) { stats.ledgerUnknownScope++; continue; }
       const l = { ...doc, marketplace: mk, conflicting: false }, k = ledgerKey(l), c = JSON.stringify([doc.issueDate, doc.operationDate, doc.currency, doc.gross, doc.net, doc.vat, doc.orderRef, doc.buyerTaxId]);
-      if (seen.has(k)) { if (seen.get(k).c !== c) { seen.get(k).l.conflicting = true; seen.get(k).l.conflictRows = [...(seen.get(k).l.conflictRows ?? [seen.get(k).l.row]), doc.row]; } continue; }
+      if (seen.has(k)) { if (seen.get(k).c === c) { seen.get(k).l.repeatRows = [...(seen.get(k).l.repeatRows ?? [seen.get(k).l.row]), doc.row]; } if (seen.get(k).c !== c) { seen.get(k).l.conflicting = true; seen.get(k).l.conflictRows = [...(seen.get(k).l.conflictRows ?? [seen.get(k).l.row]), doc.row]; } continue; }
       seen.set(k, { c, l }); merged.set(k, l); // a later import of the same document replaces an earlier one
     }
   }
@@ -130,6 +130,43 @@ function evaluate(prefix, events, ctx) {
     const lk = Le.find(x => ledgerKey(x) === l.ledger[0]);
     if (e.decision === 'CONFIRM') { link.set(amazonId(d), { level: 'DECLARED', ledger: l.ledger, event: e }); ledLink.set(l.ledger[0], { level: 'DECLARED', amazon: [amazonId(d)], event: e }); }
     else { link.set(amazonId(d), { level: 'REJECTED_PROPOSAL', ledger: l.ledger }); ledLink.set(l.ledger[0], { level: 'REJECTED_PROPOSAL', amazon: [amazonId(d)] }); void lk; } }
+
+  // ---- DUPLICATE_DOCUMENT (P2): one identity twice inside ONE file. The same document in a later file (a re-export) replaces the earlier record and is never a duplicate. ----
+  const rowsOfIdentity = (l) => { const imp = impById.get(l.importId), rd = readOf(imp); return rd.documents.filter(x => x.identity === l.identity).map(x => ({ ref: `row ${x.row}`, cells: Object.fromEntries((rd.head ?? []).map((h, i) => [h, x.raw[i]])) })); };
+  for (const l of Le) {
+    const lk = ledgerKey(l), key = issueKey(ctx.seller, 'DUPLICATE_DOCUMENT', 'L:' + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
+    if (l.conflicting || l.repeatRows) { const rows = rowsOfIdentity(l), sub = l.conflicting ? 'SAME_NUMBER_DIFFERENT_CONTENT' : 'EXACT_REPEAT';
+      put(key, { family: 'DUPLICATE_DOCUMENT', subtype: sub, status: 'PRESENT', subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: 'accounting', rows }], rowNumbers: rows.map(r => r.ref) }, fingerprint: fp('DUP', lk, sub, rows.map(r => r.cells)), safeAction: true }); }
+    else closed.set(key, { why: `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
+  }
+  // ---- DATA_MISMATCH (P2): confirmed pairs only (a unique number on both sides). Zero tolerance, minor units. Nothing is compared that either side does not state exactly. ----
+  const money = (v) => /^-?\d+(\.\d{1,2})?$/.test(String(v ?? '').trim()) ? readMoney(String(v).trim(), '.', '') : null;
+  const taxNorm = (v) => String(v ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const fmt = (m, cur) => `${m < 0 ? '-' : ''}${Math.floor(Math.abs(m) / 100)}.${String(Math.abs(m) % 100).padStart(2, '0')} ${cur}`;
+  const mismatchFields = new Map();
+  for (const d of A) {
+    const L = link.get(amazonId(d)); if (L?.level !== 'CONFIRMED') continue;
+    const l = merged.get(L.ledger[0]); if (!l) continue;
+    const id = amazonId(d), key = issueKey(ctx.seller, 'DATA_MISMATCH', id + '>' + ledgerKey(l)), rows = d.evidence.rows, diffs = [], notCompared = [];
+    const subject = { amazonId: id, ledgerKey: ledgerKey(l), number: l.number, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
+    const curs = uniq(rows.map(r => String(r.currency ?? '').trim().toUpperCase())), aCur = curs.length === 1 && /^[A-Z]{3}$/.test(curs[0]) ? curs[0] : null;
+    let sameCur = false;
+    if (aCur && l.currency) { sameCur = aCur === l.currency; if (!sameCur) diffs.push({ field: 'currency', label: 'Currency', amazon: aCur, books: l.currency }); } else notCompared.push({ field: 'currency', reason: 'the currency is not stated exactly on both sides' });
+    if (!sameCur) notCompared.push({ field: 'gross', reason: aCur && l.currency ? 'the two sides use different currencies, so their totals are not compared' : 'the currency is not stated exactly on both sides' });
+    else if (l.gross === null) notCompared.push({ field: 'gross', reason: 'the accounting export has no total column' });
+    else { const parts = rows.map(r => money(r['item-vat-incl-amount']));
+      if (parts.some(x => x === null)) notCompared.push({ field: 'gross', reason: 'the Amazon report does not state the VAT-inclusive amount exactly on every row of this transaction' });
+      else { const a = parts.reduce((x, y) => x + y, 0); if (a !== l.gross) diffs.push({ field: 'gross', label: 'Total including VAT', amazon: fmt(a, aCur), books: fmt(l.gross, aCur), difference: fmt(l.gross - a, aCur), amazonMinor: a, booksMinor: l.gross }); } }
+    const btx = uniq(rows.map(r => taxNorm(r['buyer-vat-number'])).filter(Boolean));
+    if (btx.length === 1 && taxNorm(l.buyerTaxId)) { if (btx[0] !== taxNorm(l.buyerTaxId)) diffs.push({ field: 'buyerTaxId', label: 'Buyer tax id', amazon: btx[0], books: taxNorm(l.buyerTaxId) }); }
+    else notCompared.push({ field: 'buyerTaxId', reason: btx.length > 1 ? 'the Amazon rows of this transaction show different buyer tax ids' : !btx.length ? 'the Amazon report shows no buyer tax id' : 'the accounting export shows no buyer tax id' });
+    notCompared.push({ field: 'netAndVat', reason: 'net and VAT amounts are not read from the Amazon report in this version' });
+    const sources = [vidrEvidence(d), ledgerEvidence(l)];
+    if (diffs.length) { mismatchFields.set(key, new Set(diffs.map(x => x.field))); put(key, { family: 'DATA_MISMATCH', subtype: 'FIELDS_DIFFER', status: 'PRESENT', subject, evidence: { sources, differences: diffs, notCompared }, fingerprint: fp('DM', id, ledgerKey(l), diffs, l.raw), safeAction: true }); }
+    else { const was = ctx.prevMismatch.get(key);
+      if (was && [...was].some(f => notCompared.some(n => n.field === f))) put(key, { family: 'DATA_MISMATCH', subtype: 'CANNOT_CONFIRM', status: 'UNDETERMINED', subject, evidence: { sources, differences: [], notCompared }, fingerprint: fp('DM', id, ledgerKey(l), 'CANNOT'), note: 'The difference is no longer shown, but a field that differed can no longer be compared, so it cannot be called agreed.' });
+      else closed.set(key, { why: 'The compared values (currency, total, buyer tax id where both sides state them) agree on the same confirmed pair.', sources, importId: l.importId }); }
+  }
 
   // ---- coverage ----
   const booksCover = (d) => {
@@ -185,7 +222,7 @@ function evaluate(prefix, events, ctx) {
   for (const l of Le) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, 'UNMATCHED_DOCUMENT', 'L:' + lk), L = ledLink.get(lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, orderRef: l.orderRef, issueDate: l.issueDate };
     const ev = { sources: [ledgerEvidence(l)], document: { number: l.number, issueDate: l.issueDate, orderRef: l.orderRef, operationDate: l.operationDate } };
-    if (l.conflicting) { put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'MULTIPLE_CANDIDATES', status: 'PRESENT', subject, evidence: { ...ev, why: `the document ${l.number} appears more than once in one file with different content (rows ${l.conflictRows.join(', ')})` }, fingerprint: fp('UD', lk, 'CONFLICT', l.raw, l.conflictRows) }); continue; }
+    if (l.conflicting) continue; // reported as DUPLICATE_DOCUMENT
     if (L?.level === 'CONFIRMED') { const a = A.find(x => amazonId(x) === L.amazon[0]); closed.set(key, { why: `Amazon shows the same number (${l.number}) on one transaction.`, sources: a ? [vidrEvidence(a)] : [], importId: a?.current.importId }); continue; }
     if (L?.level === 'DECLARED') { put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'PROPOSED_LINK_UNCONFIRMED', status: 'PRESENT', declared: { event: L.event }, subject, evidence: ev, fingerprint: fp('UD', lk, 'DECLARED', L.amazon, L.event.id ?? L.event.createdAt), safeAction: true }); continue; }
     if (L?.level === 'PROPOSED') { const a = A.find(x => amazonId(x) === L.amazon[0]); put(key, { family: 'UNMATCHED_DOCUMENT', subtype: 'PROPOSED_LINK_UNCONFIRMED', status: 'PRESENT', subject, evidence: { ...ev, candidate: { amazonId: L.amazon[0], sources: a ? [vidrEvidence(a)] : [] } }, fingerprint: fp('UD', lk, 'PROPOSED', l.raw, L.amazon, a?.evidence.rows), safeAction: true }); continue; }
@@ -197,12 +234,12 @@ function evaluate(prefix, events, ctx) {
   }
   const covNotes = [...noteGroup.values()].sort((a, b) => a.reason.localeCompare(b.reason));
   const docsFine = A.filter(d => d.state === 'ACCEPTED' && link.get(amazonId(d))?.level === 'CONFIRMED').length;
-  return { findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
+  return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
 }
 
 /** @param {{imports:object[], events?:object[], sellerProfileId?:string}} input */
 export function project({ imports, events = [], sellerProfileId = 'local' }) {
-  const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: new Map(), rowIdx: new Map(), actions: new Map() };
+  const ordered = orderImports(imports), ctx = { seller: sellerProfileId, led: new Map(), rowIdx: new Map(), actions: new Map(), prevMismatch: new Map() };
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) { const p = eventShapeProblem(e); if (p) rejectedEvents.push({ event: e, reason: p }); else goodEvents.push(e); }
   for (const e of goodEvents) if (e.type === 'ACTION_STARTED') { if (!ctx.actions.has(e.issueKey)) ctx.actions.set(e.issueKey, []); ctx.actions.get(e.issueKey).push(e); }
@@ -215,6 +252,7 @@ export function project({ imports, events = [], sellerProfileId = 'local' }) {
     for (const [key, f] of ev.findings) { seen.add(key); if ((f.status === 'UNDETERMINED' || (f.status === 'DECLARED_LINK')) && !hist.get(key)?.some(h => h.status === 'PRESENT')) continue; if (!hist.has(key)) hist.set(key, []); hist.get(key).push({ k, importId: imp.id, fileName: imp.fileName ?? null, status: f.status, subtype: f.subtype, family: f.family, subject: f.subject, evidence: f.evidence, fingerprint: f.fingerprint, note: f.note ?? null }); }
     for (const [key, c] of ev.closed) { seen.add(key); if (hist.has(key)) hist.get(key).push({ k, importId: imp.id, fileName: imp.fileName ?? null, status: 'CLOSED', closure: c }); }
     for (const [key, h] of hist) if (!seen.has(key) && h.at(-1).k !== k) h.push({ k, importId: imp.id, fileName: imp.fileName ?? null, status: 'UNDETERMINED', note: 'Not evaluated in this set of files.' });
+    for (const [key, fs] of ev.mismatchFields ?? []) ctx.prevMismatch.set(key, fs); for (const key of ev.closed.keys()) ctx.prevMismatch.delete(key);
     last = ev;
   }
   const issues = [];
@@ -227,7 +265,7 @@ export function project({ imports, events = [], sellerProfileId = 'local' }) {
     if (final.status === 'CLOSED') { state = 'VERIFIED_CLOSED'; outcome = 'evidence'; }
     else {
       const family = f.family;
-      const decls = goodEvents.filter(e => e.issueKey === key && e.type === 'RESOLUTION_DECLARED').sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
+      const decls = goodEvents.filter(e => e.issueKey === key && DECLARATION_TYPES.includes(e.type)).sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
       for (const e of decls) { const bad = declarationProblem(e, family, f.subtype); if (bad) { rejectedEvents.push({ event: e, reason: bad }); continue; } if (final.status === 'PRESENT' && e.basedOnFingerprint === f.fingerprint) declaration = e; else lapsed.push(e); }
       const started = goodEvents.filter(e => e.issueKey === key && e.type === 'ACTION_STARTED').sort((a, b) => ms(a.createdAt) - ms(b.createdAt)).at(-1);
       const relevant = (i) => f.family === 'INVOICE_AMAZON_STATE' ? !isLedger(i) && h.some(x => x.importId === i.id) : f.family === 'SOURCE_INCOMPLETE' ? descriptor(i) === f.subject.descriptor : (f.subject.marketplace ? (i.declared?.marketplace === f.subject.marketplace) : true);

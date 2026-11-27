@@ -1,0 +1,4 @@
+Nº factura;Tipo;Fecha factura;Fecha operación;Divisa;Total;Base imponible;IVA;Pedido Amazon;Canal
+A-2001;Factura;2026-11-18;2026-11-17;EUR;121,00;100,00;21,00;405-1000011-2000011;Amazon.es
+A-2002;Factura;2026-11-18;2026-11-17;EUR;121,00;100,00;21,00;405-1000012-2000012;Amazon.es
+A-2003;Factura;2026-11-18;2026-11-17;EUR;121,00;100,00;21,00;405-1000013-2000013;Amazon.es

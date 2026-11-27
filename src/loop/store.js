@@ -4,7 +4,7 @@ import { project, LOOP_VERSION, KEY_VERSION } from './project.js';
 import { sha256 } from './sha256.js';
 import { profileProblems, readDelimited, PARSER_VERSION } from './ledger.js';
 import { parseTable } from '../manual.js';
-import { eventShapeProblem, declarationProblem } from './events.js';
+import { eventShapeProblem, declarationProblem, DECLARATION_TYPES } from './events.js';
 
 const isoDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 export class Refused extends Error { constructor(reasons) { super(reasons.join(' ')); this.code = 'REFUSED'; this.reasons = reasons; } }
@@ -60,7 +60,7 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
       } else {
         const issue = r.issues.find(i => i.key === ev.issueKey); if (!issue) throw new Refused(['That problem is not in the current results.']);
         if (issue.state === 'VERIFIED_CLOSED') throw new Refused(['That problem is already closed by evidence.']);
-        if (ev.type === 'RESOLUTION_DECLARED') { const d = declarationProblem(ev, issue.family, issue.subtype); if (d) throw new Refused([d]); ev.basedOnFingerprint = issue.fingerprint; }
+        if (DECLARATION_TYPES.includes(ev.type)) { const d = declarationProblem(ev, issue.family, issue.subtype); if (d) throw new Refused([d]); ev.basedOnFingerprint = issue.fingerprint; }
         else ev.basedOnFingerprint = issue.fingerprint;
       }
       ev.id = `ev-${ev.createdAt.replace(/\D/g, '')}-${seq++}`; await adapter.put(key('event', ev.id), ev); return ev.id;
@@ -70,7 +70,7 @@ export function createLoopStore(adapter, { now = () => new Date().toISOString() 
       const r = await this.project(), imports = await this.imports(), events = await this.events();
       const b = r.buckets;
       return { bundleVersion: 1, kind: 'problem-loop', loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId: r.sellerProfileId, createdAt: now(),
-        matchedByInvoiceNumberMeaning: 'Matched by invoice number means an Amazon transaction and an accounting document carry the same document number and no problem of the kinds checked in this version was found. Amounts, taxes and differences are not examined in this version.',
+        matchedByInvoiceNumberMeaning: 'Matched by invoice number means an Amazon transaction and an accounting document carry the same document number. For each such pair the currency, the total and the buyer tax id are compared with zero tolerance, and every difference is its own problem. Net and VAT amounts, dates, line items and tax rates are not examined in this version.',
         note: 'State of the loaded files on the dates they were loaded. Anything marked declared was said by the seller and is not confirmed by a file. No statement here is about the legal position of any document.',
         imports: imports.map(i => ({ id: i.id, kind: i.kind, fileName: i.fileName, sha256: i.sha256, importedAt: i.importedAt, declared: i.declared, profile: i.profile ?? null, text: i.text })),
         events, headline: { verifiedClosedByEvidence: b.closedWithEvidence, manuallyReportedResolutionDeclaredBySeller: b.reportedResolvedBySeller, needsActionNow: b.needsActionNow, needsHumanReading: b.needsHumanReading, awaitingNewEvidence: b.awaitingNewEvidence, cannotDetermine: b.cannotDetermine, inProgressAtAmazon: b.inProgressAtAmazon, matchedByInvoiceNumber: b.matchedByInvoiceNumber },

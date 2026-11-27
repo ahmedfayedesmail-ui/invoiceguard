@@ -75,6 +75,7 @@ function cardNode(i) {
     const b = el('div', {});
     if (i.state === 'ACTION_REQUIRED') b.append(el('button', { class: 'alt', onclick: () => ask(i, 'ACTION_STARTED') }, 'I started this'), ' ');
     if (i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'PROPOSED_LINK_UNCONFIRMED') for (const d of ['CONFIRM', 'REJECT']) b.append(el('button', { class: 'alt', onclick: async () => { const author = prompt('Your name or role:'), reasoning = author && prompt('Your reasoning, in words:'); if (!reasoning) return; try { await store.addEvent({ type: 'LINK_DECISION', ledgerKey: i.subject.ledgerKey, amazonId: i.finding.evidence.candidate.amazonId, decision: d, author, reasoning }); await render(); } catch (e) { refused(e); } } }, d === 'CONFIRM' ? 'Confirm link' : 'Reject link'), ' ');
+    if (i.family === 'DATA_MISMATCH' && i.subtype === 'FIELDS_DIFFER') b.append(el('button', { class: 'alt', onclick: () => ask(i, 'DIFFERENCE_EXPLAINED') }, 'Declare: difference explained'));
     const kind = i.family === 'UNMATCHED_DOCUMENT' ? 'NOT_AN_AMAZON_SALE' : i.family === 'BOOKS_GAP' ? 'RESOLUTION_DECLARED' : null;
     if (kind && !(i.family === 'UNMATCHED_DOCUMENT' && i.subtype !== 'NO_CANDIDATE')) b.append(el('button', { class: 'alt', onclick: () => ask(i, 'RESOLUTION_DECLARED', { kind }) }, kind === 'NOT_AN_AMAZON_SALE' ? 'Declare: not an Amazon sale' : 'Declare: resolved'));
     if (b.childNodes.length) n.append(b);
@@ -84,7 +85,7 @@ function cardNode(i) {
 }
 async function render() {
   const r = await store.project(), out = $('#results'); out.replaceChildren();
-  const b = r.buckets; out.append(el('div', { class: 'card', id: 'summary' }, el('h3', {}, 'Summary'), el('p', { class: 'kv' }, `Matched by invoice number: ${b.matchedByInvoiceNumber} (amounts, taxes and differences are not examined in this version). In progress at Amazon: ${b.inProgressAtAmazon}. Needs action: ${b.needsActionNow}. Needs a human reading: ${b.needsHumanReading}. Waiting for a newer file: ${b.awaitingNewEvidence}. Cannot determine: ${b.cannotDetermine}.`),
+  const b = r.buckets; out.append(el('div', { class: 'card', id: 'summary' }, el('h3', {}, 'Summary'), el('p', { class: 'kv' }, `Matched by invoice number: ${b.matchedByInvoiceNumber} (currency, total and buyer tax id are compared for each pair; net, VAT, dates and lines are not examined in this version). In progress at Amazon: ${b.inProgressAtAmazon}. Needs action: ${b.needsActionNow}. Needs a human reading: ${b.needsHumanReading}. Waiting for a newer file: ${b.awaitingNewEvidence}. Cannot determine: ${b.cannotDetermine}.`),
     el('p', { class: 'kv' }, el('b', {}, 'Closed with evidence: ' + b.closedWithEvidence), '. Reported resolved by you, not confirmed by a file: ' + b.reportedResolvedBySeller + '. These two numbers are never added.')));
   for (const [name, f] of GROUPS) { const xs = r.issues.filter(f); if (xs.length) out.append(el('details', { class: 'group', open: '' }, el('summary', {}, `${name} (${xs.length})`), ...xs.map(cardNode))); }
   if (r.coverageNotes.length) out.append(el('details', { class: 'group' }, el('summary', {}, `Cannot determine (${b.cannotDetermine})`), ...r.coverageNotes.map(g => el('p', { class: 'small' }, `${g.count} x ${g.note ?? g.reason ?? JSON.stringify(g)}`))));

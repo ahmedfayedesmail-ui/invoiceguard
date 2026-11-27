@@ -1,0 +1,4 @@
+marketplace-id	order-id	order-item-id	shipping-id	transaction-id	transaction-type	invoice-number	invoice-status	invoice-status-description	is-amazon-invoiced	order-date	shipment-date	is-business-order	buyer-vat-number	currency	item-vat-incl-amount
+A1RKKUPIHCS9HS	405-1000011-2000011	111	S9011	S9011	SHIPMENT	A-2001	InvoiceUploaded		FALSE	17/11/2026	2026-11-18T09:00:00Z	TRUE	DE811128135	EUR	121.00
+A1RKKUPIHCS9HS	405-1000012-2000012	112	S9012	S9012	SHIPMENT	A-2002	InvoiceUploaded		FALSE	17/11/2026	2026-11-18T09:00:00Z	TRUE	DE811128135	EUR	121.00
+A1RKKUPIHCS9HS	405-1000013-2000013	113	S9013	S9013	SHIPMENT	A-2003	InvoiceUploaded		FALSE	17/11/2026	2026-11-18T09:00:00Z	TRUE	DE811128135	EUR	121.00

@@ -1,11 +1,14 @@
 // Seller events: the only human input. Append-only. An event never writes a state; the projection reads it as evidence of what was said.
-export const EVENT_TYPES = ['ACTION_STARTED', 'RESOLUTION_DECLARED', 'LINK_DECISION'];
+export const EVENT_TYPES = ['ACTION_STARTED', 'RESOLUTION_DECLARED', 'LINK_DECISION', 'DIFFERENCE_EXPLAINED'];
+/** The types that declare a problem resolved by the seller's word. Each only ever yields MANUALLY_REPORTED_RESOLUTION. */
+export const DECLARATION_TYPES = Object.freeze(['RESOLUTION_DECLARED', 'DIFFERENCE_EXPLAINED']);
 /** D2 allowlist. RESOLUTION_DECLARED is accepted only here, and only ever yields MANUALLY_REPORTED_RESOLUTION. */
 export const DECLARATION_ALLOWED = Object.freeze({
   UNMATCHED_DOCUMENT: { kinds: ['NOT_AN_AMAZON_SALE'], subtypes: ['NO_CANDIDATE'] },
   BOOKS_GAP: { kinds: ['RESOLUTION_DECLARED'], subtypes: null },
+  DATA_MISMATCH: { kinds: ['DIFFERENCE_EXPLAINED'], subtypes: null },
 });
-export const NO_DECLARATION = Object.freeze(['INVOICE_AMAZON_STATE', 'SOURCE_INCOMPLETE', 'CREDIT_NOTE_AMAZON_STATE', 'CORRECTION_PAIR_OPEN']);
+export const NO_DECLARATION = Object.freeze(['INVOICE_AMAZON_STATE', 'SOURCE_INCOMPLETE', 'DUPLICATE_DOCUMENT', 'CREDIT_NOTE_AMAZON_STATE', 'CORRECTION_PAIR_OPEN']);
 const blank = (v) => !String(v ?? '').trim();
 /** Shape check only (who, when, why). Whether the event fits an issue is decided against the projection. Returns a plain reason or null. */
 export function eventShapeProblem(e) {
@@ -22,7 +25,9 @@ export function eventShapeProblem(e) {
 export function declarationProblem(e, family, subtype) {
   if (NO_DECLARATION.includes(family)) return 'Amazon\'s own state and the state of a file cannot be declared resolved. Only a newer file can change them.';
   const rule = DECLARATION_ALLOWED[family]; if (!rule) return 'This kind of problem does not accept a declaration.';
-  if (!rule.kinds.includes(e.kind)) return `This kind of problem accepts only: ${rule.kinds.join(', ')}.`;
+  const kind = e.type === 'DIFFERENCE_EXPLAINED' ? 'DIFFERENCE_EXPLAINED' : e.kind;
+  if (kind === 'DIFFERENCE_EXPLAINED' && e.type !== 'DIFFERENCE_EXPLAINED') return 'A difference is explained with its own kind of note, not with a general resolution.';
+  if (!rule.kinds.includes(kind)) return `This kind of problem accepts only: ${rule.kinds.join(', ')}.`;
   if (rule.subtypes && !rule.subtypes.includes(subtype)) return `This declaration applies only to problems of kind: ${rule.subtypes.join(', ')}.`;
   return null;
 }

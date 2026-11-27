@@ -219,7 +219,7 @@ test('matching: a document number is confirmed only when unique: two Amazon tran
   assert.ok(r.issues.some(i => i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'MULTIPLE_CANDIDATES' && i.state === 'OPEN')); assert.equal(r.buckets.matchedByInvoiceNumber, 0);
   const l2 = F.ledger([F.L.row('DUP-1', '2026-11-18', '2026-11-17', F.O(1)), F.L.row('DUP-1', '2026-11-19', '2026-11-17', F.O(1), 'Amazon.es', '99,00')]);
   const r2 = project({ imports: [imp('v', 'vidr', F.vidr([{ n: 1, status: 'InvoiceUploaded', num: 'DUP-1' }]), F.VDECL('2026-11-20T10:00:00Z'), '2026-11-20T10:01:00Z'), imp('l', 'ledger', l2, F.LDECL(), '2026-11-20T11:00:00Z', F.PROFILE)] });
-  assert.ok(r2.issues.some(i => i.family === 'UNMATCHED_DOCUMENT' && i.subtype === 'MULTIPLE_CANDIDATES' && /different content/.test(i.card.what))); assert.equal(r2.buckets.matchedByInvoiceNumber, 0);
+  assert.ok(r2.issues.some(i => i.family === 'DUPLICATE_DOCUMENT' && i.subtype === 'SAME_NUMBER_DIFFERENT_CONTENT' && /different content/.test(i.card.what))); assert.ok(!r2.issues.some(i => i.family === 'UNMATCHED_DOCUMENT' && i.subject.number === 'DUP-1'), 'one problem for it, not two'); assert.equal(r2.buckets.matchedByInvoiceNumber, 0);
 });
 test('matching: no match by amount or date even when they agree exactly', () => {
   const l = F.ledger([F.L.row('Q-1', '2026-11-18', '2026-11-17', '')]);
@@ -416,7 +416,7 @@ test('wording: the summary bucket is "matched by invoice number" and the bundle 
   const s = createLoopStore(memoryAdapter(), { now: clock() }); await s.addVidr({ text: F.V1, declared: F.VDECL('2026-11-20T10:00:00Z') }); await s.addLedger({ text: F.L1, profile: F.PROFILE, declared: F.LDECL() });
   const r = await s.project(), b = await s.bundle();
   assert.ok('matchedByInvoiceNumber' in r.buckets); assert.ok(!('fine' in r.buckets)); assert.ok('matchedByInvoiceNumber' in b.headline); assert.ok(!('fine' in b.headline));
-  assert.match(r.notCheckedInThisVersion.join(' '), /amounts, tax or numbers/); assert.match(b.matchedByInvoiceNumberMeaning, /amounts, taxes and differences are not examined/i);
+  assert.match(r.notCheckedInThisVersion.join(' '), /net and VAT amounts/); assert.match(b.matchedByInvoiceNumberMeaning, /Net and VAT amounts, dates, line items and tax rates are not examined/);
 });
 test('door: an export time that is not a date is refused', async () => {
   const s = createLoopStore(memoryAdapter(), { now: clock() });
