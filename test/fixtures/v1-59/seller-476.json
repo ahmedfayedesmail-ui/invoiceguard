@@ -1,0 +1,59 @@
+{
+"seller": 476,
+"scenario": "amazon_issued_invoices",
+"vText": "marketplace-id\torder-id\torder-item-id\tshipping-id\ttransaction-id\ttransaction-type\tinvoice-number\tinvoice-status\tinvoice-status-description\tis-amazon-invoiced\torder-date\tshipment-date\tis-business-order\tbuyer-vat-number\tcurrency\titem-vat-incl-amount\nA1RKKUPIHCS9HS\t513-2990342-2000010\t1001\tS024098906\tS024098906\tSHIPMENT\tFA-2026-0001\tInvoiceUploaded\t\tTRUE\t03/10/2026\t2026-10-04T00:00:00Z\tTRUE\tESB974729598\tEUR\t173.32\nA1RKKUPIHCS9HS\t945-2990343-2000014\t1002\tS889511358\tS889511358\tSHIPMENT\tFA-2026-0002\tInvoiceUploaded\t\tFALSE\t02/10/2026\t2026-10-03T00:00:00Z\tTRUE\tESB417885988\tEUR\t227.46\nA1RKKUPIHCS9HS\t415-2990344-2000025\t1003\tS582202736\tS582202736\tSHIPMENT\tFA-2026-0003\tInvoiceUploaded\t\tFALSE\t17/10/2026\t2026-10-18T00:00:00Z\tTRUE\tESB731742757\tEUR\t196.76\nA1RKKUPIHCS9HS\t419-2990345-2000032\t1004\tS304211628\tS304211628\tSHIPMENT\tFA-2026-0004\tInvoiceUploaded\t\tFALSE\t27/10/2026\t2026-10-28T00:00:00Z\tTRUE\tESB991347832\tEUR\t241.33\nA1RKKUPIHCS9HS\t431-2990346-2000035\t1005\tS412476914\tS412476914\tSHIPMENT\tFA-2026-0005\tInvoiceUploaded\t\tTRUE\t13/10/2026\t2026-10-14T00:00:00Z\tTRUE\tESB627868659\tEUR\t360.57\nA1RKKUPIHCS9HS\t689-2990347-2000046\t1006\tS082284441\tS082284441\tSHIPMENT\tFA-2026-0006\tInvoiceUploaded\t\tFALSE\t09/10/2026\t2026-10-10T00:00:00Z\tTRUE\tESB414149378\tEUR\t23.84\nA1RKKUPIHCS9HS\t334-2990348-2000051\t1007\tS716033171\tS716033171\tSHIPMENT\tFA-2026-0007\tInvoiceUploaded\t\tFALSE\t10/10/2026\t2026-10-11T00:00:00Z\tTRUE\tESB714890052\tEUR\t386.29\nA1RKKUPIHCS9HS\t203-2990349-2000058\t1008\tS419556925\tS419556925\tSHIPMENT\tFA-2026-0008\tInvoiceUploaded\t\tFALSE\t29/10/2026\t2026-10-30T00:00:00Z\tTRUE\tESB573509859\tEUR\t115.57\nA1RKKUPIHCS9HS\t897-2990350-2000066\t1009\tS064187270\tS064187270\tSHIPMENT\tFA-2026-0009\tInvoiceUploaded\t\tFALSE\t22/10/2026\t2026-10-23T00:00:00Z\tTRUE\tESB185307229\tEUR\t274.04\n",
+"lText": "Rechnungsnummer;Belegart;Rechnungsdatum;Leistungsdatum;W\u00e4hrung;Brutto;Netto;USt;Amazon Bestellnummer;Kanal\r\nFA-2026-0002;Rechnung;04.10.2026;02.10.2026;EUR;227,46;187,98;39,48;945-2990343-2000014;Amazon.es\r\nFA-2026-0003;Rechnung;19.10.2026;17.10.2026;EUR;196,76;162,61;34,15;415-2990344-2000025;Amazon.es\r\nFA-2026-0004;Rechnung;29.10.2026;27.10.2026;EUR;241,33;199,45;41,88;419-2990345-2000032;Amazon.es\r\nFA-2026-0006;Rechnung;11.10.2026;09.10.2026;EUR;23,84;19,70;4,14;689-2990347-2000046;Amazon.es\r\nFA-2026-0007;Rechnung;12.10.2026;10.10.2026;EUR;386,29;319,25;67,04;334-2990348-2000051;Amazon.es\r\nFA-2026-0008;Rechnung;31.10.2026;29.10.2026;EUR;115,57;95,51;20,06;203-2990349-2000058;Amazon.es\r\nFA-2026-0009;Rechnung;24.10.2026;22.10.2026;EUR;274,04;226,48;47,56;897-2990350-2000066;Amazon.es\n",
+"profile": {
+"delimiter": ";",
+"columns": {
+"number": "Rechnungsnummer",
+"kind": "Belegart",
+"issueDate": "Rechnungsdatum",
+"currency": "W\u00e4hrung",
+"gross": "Brutto",
+"net": "Netto",
+"operationDate": "Leistungsdatum",
+"vat": "USt",
+"orderRef": "Amazon Bestellnummer",
+"channel": "Kanal"
+},
+"constantKind": null,
+"dateOrder": "DMY",
+"decimal": ",",
+"thousands": "",
+"unknownColumnsAcknowledged": true,
+"confirmed": true
+},
+"vdecl": {
+"reportType": "GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT",
+"options": "ALL",
+"marketplace": "A1RKKUPIHCS9HS",
+"rangeFrom": "2026-10-02",
+"rangeTo": "2026-10-31",
+"createdAt": "2026-11-27T09:00:00Z",
+"createdAfterUploadConfirmed": true,
+"downloadedAt": "2026-11-27T09:00:00Z",
+"obtainedHow": "downloaded by the seller from Seller Central",
+"dateOrderConfirmed": "DD/MM/YYYY"
+},
+"ldecl": {
+"exportedAt": "2026-11-27T10:00:00Z",
+"sourceSystem": "sim-books-de",
+"marketplace": "A1RKKUPIHCS9HS",
+"periodFrom": "2026-10-02",
+"periodTo": "2026-11-27",
+"documentKinds": [
+"invoice"
+],
+"complete": true,
+"documentLevel": "DOCUMENT",
+"amazonScope": {
+"mode": "CHANNEL",
+"channelValues": [
+"Amazon.es"
+]
+}
+},
+"vSha256": "4bf4bf96b19ef2cf5f975848dde9950457b304bb2f885f73496c0c73902bd321",
+"lSha256": "b3ee636203b0418871d2a025c4975b5dcd91f37365ed28f585dbd85aa835514d"
+}
