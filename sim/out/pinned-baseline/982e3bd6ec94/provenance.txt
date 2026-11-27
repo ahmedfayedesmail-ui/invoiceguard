@@ -1,0 +1,3 @@
+engine 982e3bd6ec94d4a1c0372a31c3a1994fe934cc40
+harness 287b17e
+git status of the checkout: 0 modified tracked files

@@ -16,3 +16,6 @@ Fingerprint = sha256 over every seller row (sorted by seller) with totalMs, heap
 
 Result: the aggregate is identical for all four, and identical to the published sim/out/aggregate-v5.txt (apart from the timing line). The raw rows of the three newer SHAs are identical. The raw rows of 06e5496 differ from them in ONE way: Phase 0 added the key `historyIncomplete: 0` to each seller's `buckets`. After removing only that key, the 500 rows are identical (checked, 0 differences). No result value moved.
 The golden hashes over four synthetic scenarios (test/golden) remain a separate guard and are not offered as a substitute for this run.
+
+## Added for the blank-flag fix
+- 982e3bd6ec94 (fix/blank-flag-unknown): rowsSha256 989762af..., aggregateSha256 b33e101e..., identical to 23d7e0f0c6c0 and 8665d523629a. Run with tools/repro-v5.sh from a clean checkout. The V5 harness has no scenario with a blank is-amazon-invoiced, so identity shows there is no collateral change, not that the blank fix works (the new tests do that).
