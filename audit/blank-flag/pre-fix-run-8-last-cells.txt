@@ -1,0 +1,13 @@
+not ok 1 - newline inside buyer-tax-registration-type: the row and its fragment are both quarantined, the rows around it are untouched
+not ok 2 - newline inside citation-es: the row and its fragment are both quarantined, the rows around it are untouched
+not ok 3 - the split row is the first data row and the last: still quarantined
+ok 4 - no harm: healthy rows, and a row whose trailing optional cell was removed, are never quarantined
+ok 5 - no harm: a split in an EARLIER cell (billing-name) does not take down the healthy row before it
+not ok 6 - DOCUMENTED COST: a complete row followed by a stray short line that would exactly complete it is quarantined with that line (a valid row can be rejected here)
+ok 7 - loop path (parseTable): the same files are flagged as ragged by its own reader, so the import is shown as incomplete
+not ok 8 - entry paths: processReport is called with a ready-made shipments list from one place only (src/app.js manual issue), and that list carries the parser invalidRows
+ok 9 - option B rejoin: recovers the split row exactly (newline kept in the cell) when the join is exact
+ok 10 - option B rejoin: would also mis-join a valid row with a stray short line (garbled last cell, no warning)
+# tests 10
+# pass 5
+# fail 5
