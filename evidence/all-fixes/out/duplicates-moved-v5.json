@@ -1,0 +1,5396 @@
+[
+ {
+  "seller": 12,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A6",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-en-th|invoice||A6|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 7",
+   "row 8"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 13,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "F000001",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en-us|invoice||F000001|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 8"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000033",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000033|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 49",
+   "row 50",
+   "row 51"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000006",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000006|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 12",
+   "row 13"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000003",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000003|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 6",
+   "row 7",
+   "row 8"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000023",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000023|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 37",
+   "row 38"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000002",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000002|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 4",
+   "row 5"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000004",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000004|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 9",
+   "row 10"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000001",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000001|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 3"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000014",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000014|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 21",
+   "row 22",
+   "row 23"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000022",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000022|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 35",
+   "row 36"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000018",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000018|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 28",
+   "row 29",
+   "row 30"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000020",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000020|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 32",
+   "row 33"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000024",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000024|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 39",
+   "row 40"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 25,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "F000016",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||F000016|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 25",
+   "row 26"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 26,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026/ES/00004",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||2026/ES/00004|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 26,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026/ES/00016",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||2026/ES/00016|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 20",
+   "row 21",
+   "row 22"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 26,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026/ES/00009",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||2026/ES/00009|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 11",
+   "row 12"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 26,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026/ES/00010",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||2026/ES/00010|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 13",
+   "row 14"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 26,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026/ES/00019",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||2026/ES/00019|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 25",
+   "row 26"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 26,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026/ES/00027",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||2026/ES/00027|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 34",
+   "row 35"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 49,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "2026/ES/00053",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en-th|invoice||2026/ES/00053|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 54",
+   "row 142"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 49,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "2026/ES/00090",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en-th|invoice||2026/ES/00090|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 91",
+   "row 143"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 49,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "2026/ES/00069",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en-th|invoice||2026/ES/00069|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 70",
+   "row 144"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 50,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "FA-2026-0009",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en-us|invoice||FA-2026-0009|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 10",
+   "row 26"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 50,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "FA-2026-0016",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en-us|invoice||FA-2026-0016|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 17",
+   "row 24"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 50,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "FA-2026-0013",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en-us|invoice||FA-2026-0013|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 14",
+   "row 25"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 62,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "FA-2026-0003",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-fr|invoice||FA-2026-0003|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 4",
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 62,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "FA-2026-0004",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-fr|invoice||FA-2026-0004|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 7",
+   "row 8",
+   "row 9"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 62,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "FA-2026-0005",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-fr|invoice||FA-2026-0005|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0045",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0045|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 56",
+   "row 57"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0039",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0039|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 49",
+   "row 50"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0010",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0010|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 13",
+   "row 14",
+   "row 15"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0024",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0024|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 31",
+   "row 32",
+   "row 33"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0007",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0007|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 9",
+   "row 10"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0004",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0004|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0026",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0026|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 35",
+   "row 36"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0046",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0046|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 58",
+   "row 59",
+   "row 60"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 63,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0023",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||FA-2026-0023|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 28",
+   "row 29",
+   "row 30"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 86,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A46",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-nl|invoice||A46|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 47",
+   "row 65"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 86,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A20",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-nl|invoice||A20|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 21",
+   "row 66"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 87,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "F000016",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-es|invoice||F000016|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 17",
+   "row 32"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 87,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "F000004",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-es|invoice||F000004|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 33"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 99,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/007",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-es|invoice||RE2026/007|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 9",
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 99,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/013",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-es|invoice||RE2026/013|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 18",
+   "row 19",
+   "row 20"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 99,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/011",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-es|invoice||RE2026/011|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 15",
+   "row 16"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 99,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/005",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-es|invoice||RE2026/005|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 6",
+   "row 7"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 100,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "RE2026/006",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-es|invoice||RE2026/006|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 9",
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 100,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "RE2026/003",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-es|invoice||RE2026/003|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 100,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "RE2026/002",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-es|invoice||RE2026/002|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 3",
+   "row 4"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 100,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "RE2026/007",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-es|invoice||RE2026/007|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 12",
+   "row 13",
+   "row 14"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 123,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "RE2026/045",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-en-th|invoice||RE2026/045|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 46",
+   "row 49"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 123,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "RE2026/029",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-en-th|invoice||RE2026/029|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 30",
+   "row 50"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 124,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00001",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-nl|invoice||2026/ES/00001|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 35"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 124,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00026",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-nl|invoice||2026/ES/00026|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 27",
+   "row 36"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 124,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00018",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-nl|invoice||2026/ES/00018|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 19",
+   "row 37"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100016",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100016|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 26",
+   "row 27",
+   "row 28"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100005",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100005|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 7",
+   "row 8"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100014",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100014|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 21",
+   "row 22",
+   "row 23"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100003",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100003|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 4",
+   "row 5"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100013",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100013|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 19",
+   "row 20"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100015",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100015|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 24",
+   "row 25"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100012",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100012|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 17",
+   "row 18"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 136,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100009",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||INV-100009|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 12",
+   "row 13",
+   "row 14"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 137,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0052",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||FA-2026-0052|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 56",
+   "row 57",
+   "row 58"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 137,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0010",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||FA-2026-0010|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 11",
+   "row 12",
+   "row 13"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 137,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0051",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-pl|invoice||FA-2026-0051|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 54",
+   "row 55"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 160,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "RE2026/052",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-es|invoice||RE2026/052|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 53",
+   "row 106"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 161,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "INV-100006",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-es|invoice||INV-100006|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 7",
+   "row 66"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 161,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "INV-100045",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-es|invoice||INV-100045|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 46",
+   "row 65"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00137",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00137|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 145",
+   "row 146",
+   "row 147"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00067",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00067|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 70",
+   "row 71",
+   "row 72"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00166",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00166|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 176",
+   "row 177",
+   "row 178"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00213",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00213|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 227",
+   "row 228",
+   "row 229"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00117",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00117|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 124",
+   "row 125"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00036",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00036|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 38",
+   "row 39"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00109",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00109|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 115",
+   "row 116"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00016",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00016|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 17",
+   "row 18"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00208",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00208|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 220",
+   "row 221",
+   "row 222"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 173,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "2026/ES/00095",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-en-th|invoice||2026/ES/00095|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 100",
+   "row 101"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 174,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-5",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||2026-5|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 174,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-3",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||2026-3|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 7",
+   "row 8"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 174,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-16",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||2026-16|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 26",
+   "row 27"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 174,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-2",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||2026-2|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 4",
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 174,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-15",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||2026-15|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 23",
+   "row 24",
+   "row 25"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 174,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-1",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||2026-1|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 2",
+   "row 3"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 174,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-10",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-es|invoice||2026-10|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 16",
+   "row 17",
+   "row 18"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 197,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "INV-100015",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-it|invoice||INV-100015|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 16",
+   "row 48"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 198,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "A10",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-de|invoice||A10|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 11",
+   "row 15"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 198,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "A2",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-de|invoice||A2|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 3",
+   "row 16"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 198,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "A4",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-de|invoice||A4|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 17"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 210,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100067",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100067|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 73",
+   "row 74"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 210,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100010",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100010|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 11",
+   "row 12",
+   "row 13"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 210,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100083",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100083|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 92",
+   "row 93",
+   "row 94"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 210,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100080",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100080|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 87",
+   "row 88",
+   "row 89"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 210,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100032",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100032|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 36",
+   "row 37",
+   "row 38"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 210,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100026",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100026|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 29",
+   "row 30"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 211,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-14",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-nl|invoice||2026-14|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 17",
+   "row 18"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 211,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-2",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-nl|invoice||2026-2|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 3",
+   "row 4"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 211,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-12",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-nl|invoice||2026-12|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 14",
+   "row 15"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 234,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "INV-100036",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-it|invoice||INV-100036|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 37",
+   "row 57"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 234,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "INV-100048",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-it|invoice||INV-100048|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 49",
+   "row 58"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 235,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00006",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-es|invoice||2026/ES/00006|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 7",
+   "row 16"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 235,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00002",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-es|invoice||2026/ES/00002|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 3",
+   "row 15"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 235,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00004",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-es|invoice||2026/ES/00004|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 17"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 247,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100003",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-en|invoice||INV-100003|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 6",
+   "row 7"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 247,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100001",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-en|invoice||INV-100001|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 3",
+   "row 4"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 247,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100006",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-en|invoice||INV-100006|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 12",
+   "row 13",
+   "row 14"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 247,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100005",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-en|invoice||INV-100005|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 9",
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A3",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A3|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 7",
+   "row 8"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A2",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A2|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 4",
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A8",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A8|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 14",
+   "row 15",
+   "row 16"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A1",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A1|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 2",
+   "row 3"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A13",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A13|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 25",
+   "row 26"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A20",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A20|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 36",
+   "row 37",
+   "row 38"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A12",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A12|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 22",
+   "row 23",
+   "row 24"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A29",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A29|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 49",
+   "row 50",
+   "row 51"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A31",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A31|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 53",
+   "row 54",
+   "row 55"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A6",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A6|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 11",
+   "row 12"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A16",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A16|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 29",
+   "row 30",
+   "row 31"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A21",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A21|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 39",
+   "row 40"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A11",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A11|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 19",
+   "row 20",
+   "row 21"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A19",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A19|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 34",
+   "row 35"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 248,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "A24",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en|invoice||A24|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 43",
+   "row 44"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 271,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "INV-100001",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-en-us|invoice||INV-100001|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 23"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 272,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00002",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||2026/ES/00002|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 3",
+   "row 8"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100018",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100018|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 29",
+   "row 30"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100016",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100016|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 23",
+   "row 24",
+   "row 25"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100001",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100001|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 3"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100021",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100021|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 33",
+   "row 34",
+   "row 35"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100010",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100010|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 16",
+   "row 17"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100017",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100017|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 26",
+   "row 27",
+   "row 28"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100022",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100022|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 36",
+   "row 37",
+   "row 38"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100002",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100002|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 4",
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100006",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100006|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 284,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100008",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en-us|invoice||INV-100008|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 13",
+   "row 14"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100008",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100008|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 13",
+   "row 14",
+   "row 15"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100009",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100009|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 16",
+   "row 17",
+   "row 18"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100004",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100004|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 6",
+   "row 7"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100011",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100011|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 20",
+   "row 21",
+   "row 22"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100003",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100003|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 4",
+   "row 5"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100006",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100006|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 9",
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100014",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100014|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 26",
+   "row 27",
+   "row 28"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 285,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100013",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100013|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 24",
+   "row 25"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 308,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A16",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-pl|invoice||A16|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 17",
+   "row 54"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 308,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A50",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-pl|invoice||A50|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 51",
+   "row 53"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 309,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026-26",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en-th|invoice||2026-26|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 27",
+   "row 49"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 321,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100001",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en-us|invoice||INV-100001|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 3",
+   "row 4"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 321,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100006",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en-us|invoice||INV-100006|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 11",
+   "row 12"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 321,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "INV-100005",
+  "ledgerKey": "A1RKKUPIHCS9HS|led|sim-books-en-us|invoice||INV-100005|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 8",
+   "row 9",
+   "row 10"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 322,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-7",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-en-us|invoice||2026-7|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 8",
+   "row 9"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 322,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-23",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-en-us|invoice||2026-23|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 26",
+   "row 27",
+   "row 28"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 322,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "2026-19",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-en-us|invoice||2026-19|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 21",
+   "row 22"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 345,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A29",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-pl|invoice||A29|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 30",
+   "row 51"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 345,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A25",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-pl|invoice||A25|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 26",
+   "row 50"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 345,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "A2",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-pl|invoice||A2|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 3",
+   "row 52"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 346,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "RE2026/028",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||RE2026/028|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 29",
+   "row 44"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 346,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "RE2026/027",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||RE2026/027|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 28",
+   "row 45"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 346,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "RE2026/007",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||RE2026/007|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 8",
+   "row 43"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 358,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/005",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-de|invoice||RE2026/005|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 8",
+   "row 9",
+   "row 10"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 358,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/004",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-de|invoice||RE2026/004|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 6",
+   "row 7"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 358,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/006",
+  "ledgerKey": "AMEN7PMS3EDWL|led|sim-books-de|invoice||RE2026/006|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 11",
+   "row 12"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0056",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0056|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 65",
+   "row 66",
+   "row 67"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0027",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0027|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 29",
+   "row 30",
+   "row 31"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0043",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0043|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 48",
+   "row 49"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0053",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0053|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 60",
+   "row 61",
+   "row 62"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0041",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0041|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 45",
+   "row 46"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0048",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0048|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 54",
+   "row 55"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0012",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0012|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 13",
+   "row 14"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 359,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0057",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-fr|invoice||FA-2026-0057|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 68",
+   "row 69"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 382,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "RE2026/032",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-nl|invoice||RE2026/032|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 33",
+   "row 52"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 382,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "RE2026/003",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-nl|invoice||RE2026/003|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 4",
+   "row 53"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 382,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "RE2026/046",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-nl|invoice||RE2026/046|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 47",
+   "row 54"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 383,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "FA-2026-0011",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en-us|invoice||FA-2026-0011|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 12",
+   "row 27"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 395,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/026",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||RE2026/026|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 35",
+   "row 36"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 395,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/009",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||RE2026/009|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 395,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/016",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||RE2026/016|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 18",
+   "row 19"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 395,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/022",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||RE2026/022|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 28",
+   "row 29"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 395,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/019",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||RE2026/019|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 22",
+   "row 23",
+   "row 24"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 395,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/021",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||RE2026/021|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 26",
+   "row 27"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 395,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/024",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-en-us|invoice||RE2026/024|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 31",
+   "row 32",
+   "row 33"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 396,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100002",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-es|invoice||INV-100002|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 3",
+   "row 4"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 396,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100003",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-es|invoice||INV-100003|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 5",
+   "row 6",
+   "row 7"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 396,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "INV-100004",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-es|invoice||INV-100004|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 8",
+   "row 9",
+   "row 10"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 419,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "2026/ES/00004",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-nl|invoice||2026/ES/00004|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 12"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 419,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "2026/ES/00005",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-nl|invoice||2026/ES/00005|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 6",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 420,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "2026/ES/00004",
+  "ledgerKey": "A2NODRKZP88ZB9|led|sim-books-pl|invoice||2026/ES/00004|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 9"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 432,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "A8",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en|invoice||A8|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 12",
+   "row 13"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 432,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "A2",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en|invoice||A2|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 3",
+   "row 4"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 432,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "A6",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en|invoice||A6|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 9",
+   "row 10"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 432,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "A3",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-en|invoice||A3|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 6"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 433,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "RE2026/003",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-de|invoice||RE2026/003|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 4",
+   "row 5"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 433,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "RE2026/004",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-de|invoice||RE2026/004|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 6",
+   "row 7"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 433,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "RE2026/007",
+  "ledgerKey": "APJ6JRA9NG5V4|led|sim-books-de|invoice||RE2026/007|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 10",
+   "row 11"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 456,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "INV-100017",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-en-us|invoice||INV-100017|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 18",
+   "row 24"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 457,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "RE2026/009",
+  "ledgerKey": "A1PA6795UKMFR9|led|sim-books-en|invoice||RE2026/009|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 10",
+   "row 18"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 469,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/003",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-pl|invoice||RE2026/003|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 4",
+   "row 5"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 469,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/013",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-pl|invoice||RE2026/013|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 15",
+   "row 16"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 469,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/018",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-pl|invoice||RE2026/018|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 21",
+   "row 22"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 469,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/031",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-pl|invoice||RE2026/031|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 37",
+   "row 38",
+   "row 39"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 469,
+  "scenario": "multi_line_declared_DOCUMENT",
+  "documentNumber": "RE2026/025",
+  "ledgerKey": "A13V1IB3VIYZZH|led|sim-books-pl|invoice||RE2026/025|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 29",
+   "row 30",
+   "row 31"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "declaration-dependent"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 470,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0010",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||FA-2026-0010|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 16",
+   "row 17"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 470,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0012",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||FA-2026-0012|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 19",
+   "row 20"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 470,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0015",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||FA-2026-0015|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 24",
+   "row 25"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 470,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0005",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||FA-2026-0005|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 8",
+   "row 9",
+   "row 10"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 470,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0009",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||FA-2026-0009|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 14",
+   "row 15"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 470,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0014",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||FA-2026-0014|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 22",
+   "row 23"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 470,
+  "scenario": "multi_line_declared_UNKNOWN",
+  "documentNumber": "FA-2026-0002",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||FA-2026-0002|",
+  "subtype": "SUSPECTED_DUPLICATE",
+  "documentLevel": null,
+  "rows": [
+   "row 3",
+   "row 4",
+   "row 5"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": null,
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 493,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "INV-100008",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100008|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 9",
+   "row 27"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 493,
+  "scenario": "duplicate_same_content",
+  "documentNumber": "INV-100001",
+  "ledgerKey": "A1C3SOZRARQ6R3|led|sim-books-pl|invoice||INV-100001|",
+  "subtype": "EXACT_REPEAT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 26"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 494,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "F000013",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||F000013|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 14",
+   "row 16"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 494,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "F000004",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||F000004|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 5",
+   "row 15"
+  ],
+  "isBusinessOrder": [
+   "TRUE"
+  ],
+  "before": {
+   "state": "ACTION_REQUIRED",
+   "section": null,
+   "sim_class": "true"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ },
+ {
+  "seller": 494,
+  "scenario": "duplicate_different_content",
+  "documentNumber": "F000001",
+  "ledgerKey": "A1805IZSGTT6HS|led|sim-books-fr|invoice||F000001|",
+  "subtype": "SAME_NUMBER_DIFFERENT_CONTENT",
+  "documentLevel": "DOCUMENT",
+  "rows": [
+   "row 2",
+   "row 17"
+  ],
+  "isBusinessOrder": [
+   "FALSE"
+  ],
+  "before": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  },
+  "after": {
+   "state": "OPEN",
+   "section": "LEDGER_DATA_QUALITY",
+   "sim_class": "not-confident"
+  }
+ }
+]
