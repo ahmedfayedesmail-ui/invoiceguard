@@ -3895,7 +3895,7 @@ function preflight({ vidrText, vidrDeclared, ledgerText, profile, ledgerDeclared
       checks.push(!r.ok ? c("LEDGER_ROWS", "FAIL", "The accounting export could not be read with this column mapping.") : n + rej > LEDGER_MAX_ROWS ? c("LEDGER_ROWS", "FAIL", `More than ${LEDGER_MAX_ROWS} rows.`) : rej ? c("LEDGER_ROWS", "WARN", `${n} documents read, ${rej} rows rejected by the parser.`) : c("LEDGER_ROWS", "PASS", `${n} documents read, 0 rejected.`));
     }
   }
-  if (!(hasV && hasL)) checks.push(c("PAIR", "WARN", "Only one of the two files is being checked now. The checks that compare both files run when the second file is loaded."));
+  if (!(hasV && hasL)) checks.push(c("PAIR", "NOTE", "Only one of the two files is being checked now. The checks that compare both files run when the second file is loaded."));
   return { ready: !checks.some((x) => x.status === "FAIL"), checks, warnings: checks.filter((x) => x.status === "WARN").map((x) => x.id), note: "Counts and fixed wording only. Everything about the source is declared by the seller, not verified." };
 }
 function preflightStored(imports) {

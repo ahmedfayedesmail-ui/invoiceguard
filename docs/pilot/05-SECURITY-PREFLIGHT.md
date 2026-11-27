@@ -3,6 +3,7 @@
 | # | Gate | How it is checked | Stop if |
 |---|---|---|---|
 | 1 | Vault is active | The page shows the unlock gate first and the status bar shows it unlocked; real storage shows only opaque encrypted records (automated in `test/vault-ui.test.js`; the seller can look in the browser's Application > IndexedDB tab: values are unreadable) | any readable seller text in storage |
+| 1b | Files are not stored before the check | The staged import shows the preflight first; storage stays unchanged until "Store this file" (tested in Chrome against the real IndexedDB) | anything persisted before the decision |
 | 2 | Correct route | The address ends in `/local/loop`. Not `/local` | the older page is open |
 | 3 | Zero outbound network | Developer tools > Network stays empty after the page loaded while importing and reading findings. The page's content security policy also blocks fetch, XHR, beacons and form posts (tested) | any request after load |
 | 4 | No sensitive values in logs | The code has no logging calls and error messages carry no file values (static scan and tests) | a console message that shows file content |

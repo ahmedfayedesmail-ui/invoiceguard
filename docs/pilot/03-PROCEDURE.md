@@ -10,8 +10,9 @@ This is the baseline. If the seller cannot do the manual pass first, the pilot c
 
 ## 1. Security gates (see 05-SECURITY-PREFLIGHT.md). Stop if any fails.
 
-## 2. Preflight
-Check, before import: source type (VIDR, all statuses), one period of at most 92 days, the accounting export covers the period, same marketplace, the accounting export declared complete, files readable. FAIL stops the pilot. WARN is explained to the seller.
+## 2. Preflight (staged, before anything is stored)
+Each file is chosen, read in memory and declared. "Check before storing" runs the preflight on that file (and against the other stored file, once there is one). Nothing is written to the browser's storage until the seller presses "Store this file". A FAIL blocks storing. Each WARN must be acknowledged with a tick. "Re-check the stored files" in the pilot card repeats the same check on everything stored, and the aggregate file records its result.
+Checks: source type (seller-declared Amazon VAT invoice report; the tool reads the table but cannot verify where the file came from; all statuses), one period of at most 92 days, the accounting export covers the period, same marketplace, the accounting export declared complete, files readable. FAIL stops the pilot. WARN is explained to the seller.
 
 ## 3. Import and read
 Import the two files. Record the minutes from import to the end of reading the findings ("with InvoiceGuard" time, stopwatch).
@@ -28,3 +29,6 @@ Create the aggregate results file (numbers and fixed words only; see 04). The se
 
 ## 7. Write-up
 The assessment is written from the aggregate file plus the seller's own words, with the sample size stated: one seller, one period.
+
+## Scope rule
+One pilot is one marketplace and one reporting period (taken from the first Amazon report stored). Follow-up imports must be for the same marketplace and period; otherwise the preflight blocks them. If the stored files cover more than one marketplace or period, the aggregate file refuses to build. Use a separate vault for a different period.

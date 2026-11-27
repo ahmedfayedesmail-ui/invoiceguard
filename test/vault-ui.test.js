@@ -141,3 +141,31 @@ test('pilot panel in real Chrome: preflight, seller-reported numbers stay in the
     assert.deepEqual(t.errors, []);
   } finally { await t.close(); }
 });
+
+test('staged import in real Chrome: preflight is shown BEFORE anything is persisted; a FAIL stores nothing; a WARN needs a tick', { timeout: 150000, skip }, async () => {
+  const t = await boot();
+  try {
+    const { page } = t; await makeVault(page);
+    const count = async () => (await idb(page)).keys.filter(k => /import/.test(String(k))).length, total = async () => (await idb(page)).keys.length;
+    const base0 = await total();
+    // 1) good Amazon file declared with a pending-only option: FAIL, nothing stored
+    await (await page.$('#vfile')).uploadFile('fixtures/loop/p2-vidr.tsv'); await page.waitForSelector('#v-mkt'); await setv(page, '#v-from', '2026-11-01'); await setv(page, '#v-to', '2026-11-30'); await setv(page, '#v-opt', 'PENDING'); await setv(page, '#v-created', '2026-11-20T10:00'); await setv(page, '#v-down', '2026-11-20T10:30'); await page.$eval('#v-after', e => { e.checked = true; });
+    await click(page, 'Check before storing'); await page.waitForSelector('#st-store');
+    const txt1 = await page.$eval('#stage', e => e.innerText); console.log('STAGED (FAIL case):', txt1.replace(/\n+/g, ' | ').slice(0, 300));
+    assert.match(txt1, /Preflight \(nothing is stored yet\)/); assert.match(txt1, /Blocked/); assert.equal(await page.$eval('#st-store', e => e.disabled), true);
+    await page.evaluate(() => document.querySelector('#st-store').click()); await sleep(500);
+    assert.equal(await total(), base0, 'a FAIL persisted something'); assert.equal(await count(), 0);
+    // 2) fix the option, leave "created after upload" unticked: WARN, store needs the tick; still nothing persisted while the preflight shows
+    await setv(page, '#v-opt', 'ALL'); await page.$eval('#v-after', e => { e.checked = false; });
+    await click(page, 'Check before storing'); await page.waitForSelector('#st-store');
+    assert.equal(await total(), base0, 'preflight display persisted something'); assert.equal(await page.$eval('#st-store', e => e.disabled), true, 'store enabled without acknowledging the WARN');
+    await page.$eval('[data-warn]', e => { e.checked = true; e.dispatchEvent(new Event('change')); }); assert.equal(await page.$eval('#st-store', e => e.disabled), false);
+    await page.evaluate(() => document.querySelector('#st-store').click()); await page.waitForFunction(() => document.querySelector('#results').innerText.includes('Loaded files (1)'), { timeout: 15000 });
+    assert.ok((await total()) > base0, 'nothing stored after the decision');
+    // 3) a second Amazon report for another period is blocked by the pilot scope
+    await (await page.$('#vfile')).uploadFile('fixtures/loop/p2-vidr.tsv'); await page.waitForSelector('#v-mkt'); await setv(page, '#v-from', '2026-10-01'); await setv(page, '#v-to', '2026-10-31'); await setv(page, '#v-created', '2026-11-20T10:00'); await setv(page, '#v-down', '2026-11-20T10:30'); await page.$eval('#v-after', e => { e.checked = true; });
+    await click(page, 'Check before storing'); await page.waitForSelector('#st-store');
+    const txt3 = await page.$eval('#stage', e => e.innerText); assert.match(txt3, /different marketplace or period/); assert.equal(await page.$eval('#st-store', e => e.disabled), true);
+    assert.equal(t.requests.filter(u => !u.startsWith('blob:') && !u.startsWith('data:') && !/\/local\/loop(\.js|-engine\.js)?$/.test(u)).length, 0); assert.deepEqual(t.errors, []);
+  } finally { await t.close(); }
+});

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as F from '../tools/make-loop-fixtures.mjs';
-import { preflight, createPilotRecord, aggregateMetrics, assertAggregateOnly, ADJUDICATIONS } from '../src/loop/pilot.js';
+import { preflight, preflightStored, pilotScope, createPilotRecord, aggregateMetrics, assertAggregateOnly, ADJUDICATIONS } from '../src/loop/pilot.js';
 import { createLoopStore } from '../src/loop/store.js';
 import { createVault } from '../src/loop/vault.js';
 import { memoryAdapter } from '../src/history.js';
@@ -69,4 +69,25 @@ test('correction 2: both times must be present, finite and non-negative; empty i
   await rec.setTimes({ manualMinutesBefore: 0, toolMinutesWith: 0 }); assert.equal(aggregateMetrics({ projection: p, record: await rec.read(), imports }).time.minutesSaved, 0);
   await rec.setTimes({ manualMinutesBefore: '30', toolMinutesWith: '12.5' }); assert.equal(aggregateMetrics({ projection: p, record: await rec.read(), imports }).time.minutesSaved, 17.5);
   assert.equal(aggregateMetrics({ projection: p, record: { times: { basis: 'SELLER_REPORTED', manualMinutesBefore: 5, toolMinutesWith: null } }, imports }).time, null);
+});
+
+test('correction 3: pilot scope is one marketplace and one period; a different scope is refused at preflight and blocks the aggregate', async () => {
+  const { s, rec, p, imports } = await setup();
+  const sc = pilotScope(imports); assert.equal(sc.distinctScopes, 1);
+  const other = { ...vd(), rangeFrom: '2026-10-01', rangeTo: '2026-10-31' };
+  const pf = preflight({ ...base(), vidrDeclared: other, ledgerText: undefined, ledgerDeclared: undefined, scope: sc }); assert.equal(status(pf, 'PILOT_SCOPE'), 'FAIL'); assert.equal(pf.ready, false);
+  const mk = preflight({ ...base(), vidrDeclared: { ...vd(), marketplace: 'A13V1IB3VIYZZH' }, ledgerText: undefined, ledgerDeclared: undefined, scope: sc }); assert.equal(status(mk, 'PILOT_SCOPE'), 'FAIL');
+  const same = preflight({ ...base(), ledgerText: undefined, ledgerDeclared: undefined, scope: sc }); assert.equal(status(same, 'PILOT_SCOPE'), 'PASS');
+  const m = aggregateMetrics({ projection: p, record: await rec.read(), imports }); assert.deepEqual([m.pilotScope.distinctMarketplaces, m.pilotScope.distinctPeriods, m.pilotScope.periodDays], [1, 1, 30]); assert.equal(m.preflightOnThisData.ready, true); assert.equal(m.sampleSize, undefined);
+  await s.addVidr({ text: F.PV, declared: other });  // forced past the page: the aggregate must still refuse
+  const imps2 = await s.imports(); assert.equal(pilotScope(imps2).distinctScopes, 2);
+  assert.throws(() => aggregateMetrics({ projection: p, record: await_free(rec), imports: imps2 }), /more than one marketplace or period/);
+  assert.equal(preflightStored(imps2).ready, false);
+});
+const await_free = () => ({});
+test('wording: source type is labelled seller-declared and the file origin is not claimed as verified', () => {
+  const d = preflight(base()).checks.find(x => x.id === 'SOURCE_TYPE').detail; assert.match(d, /Seller-declared/); assert.match(d, /cannot be verified/); assert.ok(!/verified as|is verified|confirmed as/.test(d));
+});
+test('preflight works one file at a time and says the pair checks wait', () => {
+  const v = preflight({ vidrText: F.PV, vidrDeclared: vd() }); assert.ok(v.checks.some(x => x.id === 'PAIR' && x.status === 'NOTE')); assert.equal(status(v, 'PERIOD_COVERAGE'), undefined); assert.ok(!v.warnings.includes('PAIR'));
 });

@@ -7,6 +7,6 @@
 5. Get the two files for ONE period of at most 92 days:
    - the Amazon VAT invoice data report (VIDR) with **all statuses**, created after your last invoice uploads;
    - the invoice export of your accounting system for the same period, complete, with the Amazon documents identifiable.
-6. Run the preflight (procedure step 2) before importing. Fix every FAIL it reports.
+6. For each file the page runs the preflight before storing it (procedure step 2). Fix every FAIL it reports; acknowledge each WARN only if you understand it.
 7. Open the browser developer tools, Network tab, before importing, and keep it visible. It must show no requests while you load files. If any request appears after the page loaded, stop, do not continue, and tell us.
 8. Backup: use "Download encrypted backup" only to a place you control. It is encrypted with your vault, and restoring needs your password.
