@@ -69,11 +69,24 @@ function evaluate(prefix, events, ctx) {
   }
   const usableVidr = (i) => { const { defects } = importDefects.get(i.id); const c = clsOf(i.id); return !defects.length && c && c.declared.options === 'ALL'; };
 
+  const noteGroup = new Map(); const noteAdd = (reason, subject) => { const k = reason; if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] }); const g = noteGroup.get(k); g.count++; if (g.sample.length < 5) g.sample.push(subject); };
   // ---- Amazon side: ordinary invoices only ----
-  const A = rec.docs.filter(d => d.parts['transaction-type'] === 'SHIPMENT' && !d.correction && d.state !== 'CREATED_BY_AMAZON');
-  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter(d => d.state === 'CREATED_BY_AMAZON').length, notOrdinaryInvoice: rec.docs.filter(d => d.parts['transaction-type'] !== 'SHIPMENT' || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
+  // is-amazon-invoiced is read from the field itself, never inferred from invoice-status. Rows of one shipment that disagree, or a value that is not TRUE or FALSE, are shown as undetermined and never become a confident finding.
+  const amazonFlag = (d) => { const v = new Set((d.evidence.rows ?? []).map(r => String(r['is-amazon-invoiced'] ?? '').trim().toUpperCase())); if ([...v].some(x => !['TRUE', 'FALSE', ''].includes(x))) return 'UNREADABLE'; if (v.has('TRUE')) return v.size > 1 ? 'CONFLICT' : 'TRUE'; return v.has('FALSE') ? 'FALSE' : 'BLANK'; };
+  // The field and invoice-status must agree. Field TRUE with a status other than InvoiceCreatedByAmazon, or field FALSE with InvoiceCreatedByAmazon, is a CONFLICT: shown as undetermined, never confident. A blank field falls back to the status.
+  const ordinary = rec.docs.filter(d => d.parts['transaction-type'] === 'SHIPMENT' && !d.correction);
+  const flagged = new Map(ordinary.map(d => { const f = amazonFlag(d), byAmazon = d.state === 'CREATED_BY_AMAZON'; return [d, f === 'TRUE' ? (byAmazon ? 'TRUE' : 'CONFLICT') : f === 'FALSE' ? (byAmazon ? 'CONFLICT' : 'FALSE') : f === 'BLANK' ? (byAmazon ? 'TRUE' : 'FALSE') : f]; }));
+  const A = ordinary.filter(d => flagged.get(d) === 'FALSE');
+  const flagUndetermined = ordinary.filter(d => ['CONFLICT', 'UNREADABLE'].includes(flagged.get(d)));
+  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter(d => d.state === 'CREATED_BY_AMAZON').length - ordinary.filter(d => d.state === 'CREATED_BY_AMAZON' && flagged.get(d) !== 'TRUE').length + ordinary.filter(d => d.state !== 'CREATED_BY_AMAZON' && flagged.get(d) === 'TRUE').length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter(d => d.parts['transaction-type'] !== 'SHIPMENT' || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   // Closure after an action: if the seller recorded ACTION_STARTED before this report was loaded, only a report CREATED after that event can close the problem. Upload time never stands in for creation time; an unknown creation time is never evidence.
   const afterAction = (key, d) => { const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter(e => ms(e.createdAt) <= (ms(imp?.importedAt) ?? Infinity)); if (!acts.length) return true; const t = imp ? createdMs(imp) : null; return t !== null && t > Math.max(...acts.map(e => ms(e.createdAt))); };
+  for (const d of flagUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
+    const why = flagged.get(d) === 'CONFLICT' ? 'the rows of this shipment disagree about whether Amazon issued the invoice' : 'the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE';
+    put(key, { family: 'INVOICE_AMAZON_STATE', subtype: 'UNDETERMINED', status: 'UNDETERMINED', subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp('IAS', id, 'AMZFLAG', flagged.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}.` });
+    noteAdd(`Amazon invoice flag could not be read (${flagged.get(d)}): ${why}`, id);
+  }
   for (const d of A) {
     const id = amazonId(d), key = issueKey(ctx.seller, 'INVOICE_AMAZON_STATE', id), subject = { amazonId: id, marketplace: d.parts['marketplace-id'], orderId: d.parts['order-id'], shippingId: d.parts['shipping-id'], transactionId: d.parts['transaction-id'] };
     const ev = { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, amazonDescription: d.evidence.statusDescription ?? null, invoiceNumber: d.evidence.invoiceNumber ?? null };
@@ -204,7 +217,6 @@ function evaluate(prefix, events, ctx) {
       why.push(`${i.fileName ?? i.id}: ${r.join('; ')}`); }
     return { ok: false, why: why.length ? why : ['no Amazon report has been loaded'] };
   };
-  const noteGroup = new Map(); const noteAdd = (reason, subject) => { const k = reason; if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] }); const g = noteGroup.get(k); g.count++; if (g.sample.length < 5) g.sample.push(subject); };
 
   // ---- BOOKS_GAP ----
   for (const d of A) {

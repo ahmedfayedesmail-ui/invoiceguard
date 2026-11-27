@@ -2834,14 +2834,40 @@ function evaluate(prefix, events, ctx) {
     const c2 = clsOf(i.id);
     return !defects.length && c2 && c2.declared.options === "ALL";
   };
-  const A = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction && d.state !== "CREATED_BY_AMAZON");
-  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
+  const noteGroup = /* @__PURE__ */ new Map();
+  const noteAdd = (reason, subject) => {
+    const k = reason;
+    if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] });
+    const g = noteGroup.get(k);
+    g.count++;
+    if (g.sample.length < 5) g.sample.push(subject);
+  };
+  const amazonFlag = (d) => {
+    const v = new Set((d.evidence.rows ?? []).map((r) => String(r["is-amazon-invoiced"] ?? "").trim().toUpperCase()));
+    if ([...v].some((x) => !["TRUE", "FALSE", ""].includes(x))) return "UNREADABLE";
+    if (v.has("TRUE")) return v.size > 1 ? "CONFLICT" : "TRUE";
+    return v.has("FALSE") ? "FALSE" : "BLANK";
+  };
+  const ordinary = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction);
+  const flagged = new Map(ordinary.map((d) => {
+    const f = amazonFlag(d), byAmazon = d.state === "CREATED_BY_AMAZON";
+    return [d, f === "TRUE" ? byAmazon ? "TRUE" : "CONFLICT" : f === "FALSE" ? byAmazon ? "CONFLICT" : "FALSE" : f === "BLANK" ? byAmazon ? "TRUE" : "FALSE" : f];
+  }));
+  const A = ordinary.filter((d) => flagged.get(d) === "FALSE");
+  const flagUndetermined = ordinary.filter((d) => ["CONFLICT", "UNREADABLE"].includes(flagged.get(d)));
+  const stats = { amazonInvoices: A.length, createdByAmazon: rec.docs.filter((d) => d.state === "CREATED_BY_AMAZON").length - ordinary.filter((d) => d.state === "CREATED_BY_AMAZON" && flagged.get(d) !== "TRUE").length + ordinary.filter((d) => d.state !== "CREATED_BY_AMAZON" && flagged.get(d) === "TRUE").length, amazonFlagUndetermined: flagUndetermined.length, notOrdinaryInvoice: rec.docs.filter((d) => d.parts["transaction-type"] !== "SHIPMENT" || d.correction).length, processing: 0, ledgerAmazonInvoices: 0, ledgerExcludedNotAmazon: 0, ledgerCreditNotes: 0, ledgerUnknownScope: 0, ledgerRejectedRows: 0 };
   const afterAction = (key, d) => {
     const imp = impById.get(d.current.importId), acts = (ctx.actions.get(key) ?? []).filter((e) => ms2(e.createdAt) <= (ms2(imp?.importedAt) ?? Infinity));
     if (!acts.length) return true;
     const t = imp ? createdMs(imp) : null;
     return t !== null && t > Math.max(...acts.map((e) => ms2(e.createdAt)));
   };
+  for (const d of flagUndetermined) {
+    const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
+    const why = flagged.get(d) === "CONFLICT" ? "the rows of this shipment disagree about whether Amazon issued the invoice" : "the is-amazon-invoiced column holds a value that is neither TRUE nor FALSE";
+    put(key, { family: "INVOICE_AMAZON_STATE", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, invoiceNumber: d.evidence.invoiceNumber ?? null }, fingerprint: fp("IAS", id, "AMZFLAG", flagged.get(d), d.evidence.rows), note: `Nothing is concluded for this shipment: ${why}.` });
+    noteAdd(`Amazon invoice flag could not be read (${flagged.get(d)}): ${why}`, id);
+  }
   for (const d of A) {
     const id = amazonId(d), key = issueKey(ctx.seller, "INVOICE_AMAZON_STATE", id), subject = { amazonId: id, marketplace: d.parts["marketplace-id"], orderId: d.parts["order-id"], shippingId: d.parts["shipping-id"], transactionId: d.parts["transaction-id"] };
     const ev = { sources: [vidrEvidence(d)], state: d.state, statusAsShown: d.rawStatus, amazonDescription: d.evidence.statusDescription ?? null, invoiceNumber: d.evidence.invoiceNumber ?? null };
@@ -3055,14 +3081,6 @@ function evaluate(prefix, events, ctx) {
       why.push(`${i.fileName ?? i.id}: ${r.join("; ")}`);
     }
     return { ok: false, why: why.length ? why : ["no Amazon report has been loaded"] };
-  };
-  const noteGroup = /* @__PURE__ */ new Map();
-  const noteAdd = (reason, subject) => {
-    const k = reason;
-    if (!noteGroup.has(k)) noteGroup.set(k, { reason, count: 0, sample: [] });
-    const g = noteGroup.get(k);
-    g.count++;
-    if (g.sample.length < 5) g.sample.push(subject);
   };
   for (const d of A) {
     if (!["PENDING", "SELLER_UPLOAD_REQUIRED", "REJECTED", "PROCESSING", "ACCEPTED"].includes(d.state)) continue;
