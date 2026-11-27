@@ -2965,6 +2965,11 @@ function evaluate(prefix, events, ctx) {
     const n = d.evidence.invoiceNumber, mk = d.parts["marketplace-id"];
     if (n) {
       const Lc = byNum.get(mk + "|" + n) ?? [];
+      if (Lc.length === 1 && !Lc[0].conflicting && aNum.get(mk + "|" + n).length === 1 && Lc[0].orderRef && Lc[0].orderRef !== d.parts["order-id"]) {
+        setA(d, { level: "ORDER_MISMATCH", ledger: [ledgerKey(Lc[0])], why: `the accounting document ${n} names the order ${Lc[0].orderRef}, but Amazon shows ${n} on the order ${d.parts["order-id"]}` });
+        addL(Lc[0], { level: "ORDER_MISMATCH", amazon: [amazonId(d)], why: `the accounting document ${n} names the order ${Lc[0].orderRef}, but Amazon shows ${n} on the order ${d.parts["order-id"]}` });
+        continue;
+      }
       if (Lc.length === 1 && !Lc[0].conflicting && aNum.get(mk + "|" + n).length === 1) {
         setA(d, { level: "CONFIRMED", ledger: [ledgerKey(Lc[0])] });
         addL(Lc[0], { level: "CONFIRMED", amazon: [amazonId(d)] });
@@ -3113,6 +3118,11 @@ function evaluate(prefix, events, ctx) {
       put(key, { family: "BOOKS_GAP", subtype: number ? "NUMBER_AT_AMAZON_NOT_IN_BOOKS" : "NOT_IN_BOOKS", status: "DECLARED_LINK", declared: { event: L.event }, subject, evidence: { ...base, declaredLink: { document: l.number, by: L.event.author, reasoning: L.event.reasoning } }, fingerprint: fp("BG", id, "DECLARED", ledgerKey(l), L.event.id ?? L.event.createdAt), safeAction: true });
       continue;
     }
+    if (L?.level === "ORDER_MISMATCH") {
+      put(key, { family: "BOOKS_GAP", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: base, fingerprint: fp("BG", id, "ORDER_MISMATCH", L.ledger), note: `Nothing is concluded: ${L.why}.` });
+      noteAdd(`An accounting document and Amazon disagree about which order a document number belongs to: ${L.why}`, id);
+      continue;
+    }
     if (L && ["PROPOSED", "AMBIGUOUS", "OTHER_NUMBER"].includes(L.level)) {
       put(key, { family: "BOOKS_GAP", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: base, fingerprint: fp("BG", id, L.level, L.ledger), note: L.level === "PROPOSED" ? "An accounting document for this order exists but is not confirmed as the same document. See the matching problem." : L.level === "AMBIGUOUS" ? `More than one document could belong to this transaction: ${L.why}.` : "An accounting document for the same order exists under a different number. Comparing numbers is not part of this version." });
       if (L.level === "OTHER_NUMBER") noteAdd("A document for the same order is in the books under a different number than Amazon shows (comparison not part of this version)", id);
@@ -3133,6 +3143,11 @@ function evaluate(prefix, events, ctx) {
     if (l.conflicting) continue;
     if (!ledLink.get(lk)?.level && (heldOutNum.has(l.marketplace + "|" + l.number) || heldOutOrder.has(l.marketplace + "|" + l.orderRef))) {
       noteAdd("This accounting document belongs to an Amazon shipment that is not judged (is-business-order is FALSE or could not be read), so its absence from the judged shipments says nothing", lk);
+      continue;
+    }
+    if (L?.level === "ORDER_MISMATCH") {
+      put(key, { family: "UNMATCHED_DOCUMENT", subtype: "UNDETERMINED", status: "UNDETERMINED", subject, evidence: ev, fingerprint: fp("UD", lk, "ORDER_MISMATCH", L.amazon), note: `Nothing is concluded: ${L.why}.` });
+      noteAdd(`An accounting document and Amazon disagree about which order a document number belongs to: ${L.why}`, lk);
       continue;
     }
     if (L?.level === "CONFIRMED") {
