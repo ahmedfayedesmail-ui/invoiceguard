@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { reconcile, evidenceLog, stages, STATUS_MAP, KNOWN_STATUSES, correctionRole } from '../src/reconcile.js';
+import { reconcile, evidenceLog, stages, STATUS_MAP, KNOWN_STATUSES, correctionRole, statusTypeCompatibility } from '../src/reconcile.js';
 
 const DECL = JSON.parse(readFileSync('fixtures/recon/declared.json', 'utf8'));
 const load = (name, over = {}) => { const text = readFileSync('fixtures/recon/' + name, 'utf8'); return { id: name.replace('.tsv', ''), fileName: name, text, sha256: createHash('sha256').update(text).digest('hex'), importedAt: '2026-11-20T10:00:00Z', declared: { ...DECL[name], ...over } }; };
@@ -55,7 +55,7 @@ test('WORKED EXAMPLE (b): a pending-only import cannot reach ACCEPTED; it classi
   // Even a row that says Uploaded inside a pending-only import is not shown as accepted.
   const t = readFileSync('fixtures/recon/pending-only.tsv', 'utf8').replace('InvoicePending', 'InvoiceUploaded').replace('\t\tInvoiceUploaded', '\tA-2026-000999\tInvoiceUploaded');
   const o2 = reconcile([{ ...PO(), text: t }]);
-  assert.equal(doc(o2, 'S9701').state, 'INCOMPLETE_SOURCE'); assert.equal(o2.headline.accepted, 0); assert.match(doc(o2, 'S9701').explanation, /cannot support showing it as accepted/);
+  assert.equal(doc(o2, 'S9701').state, 'INCOMPLETE_SOURCE'); assert.equal(o2.headline.accepted, 0); assert.match(doc(o2, 'S9701').explanation, /it is not shown as accepted/);
   assert.match(doc(o2, 'S9701').evidence.preconditions.find(p => p.name === 'all-status report').detail, /PENDING_ONLY/);
   console.log('EXAMPLE (b) import:', out.imports[0].scope, '|', out.imports[0].problems.join(' '), '| accepted =', out.headline.accepted);
 });
@@ -117,7 +117,7 @@ test('H: conflicting rows inside one document block ACCEPTED (UNMATCHED, reason 
   assert.equal(doc(clash, A).state, 'UNMATCHED');
   // row with a blank key field cannot be tied to a document
   const blank = R3().text.split('\n'); blank[1] = blank[1].replace('\tS9001\tS9001\t', '\t\tS9001\t');
-  const ob = reconcile([{ ...R3(), text: blank.join('\n') }]); assert.equal(ob.unkeyed.length, 1); assert.ok(ob.headline.cannotDetermineParts.rowsWithoutKey >= 1);
+  const ob = reconcile([{ ...R3(), text: blank.join('\n') }]); assert.equal(ob.unkeyed.length, 1); assert.ok(ob.headline.rowsWithoutKey >= 1);
 });
 
 test('E: a correction cycle closes only when BOTH sides are independently accepted', () => {
@@ -136,9 +136,9 @@ test('E: a correction cycle closes only when BOTH sides are independently accept
 test('I: headline counts come from the evidence; cannot-determine is its own count; no accounting claim is made', () => {
   const out = reconcile([R1(), R2(), R3(), PO()]); const h = out.headline;
   assert.equal(h.documents, out.docs.length);
-  assert.equal(h.accepted + h.processing + h.pending + h.rejected + h.sellerUploadRequired + h.createdByAmazon + h.cannotDetermineParts.incompleteSource + h.cannotDetermineParts.unmatched + h.cannotDetermineParts.unknownStatus + h.cannotDetermineParts.unknownTransactionIdFormat + out.docs.filter(d => d.state === 'PARTIALLY_ACCEPTED').length, h.documents);
-  assert.equal(h.exceptions, h.rejected + h.sellerUploadRequired + h.correctionCyclesNotClosed + h.cannotDetermine);
-  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ exception\(s\)/); assert.match(h.sentence, /we cannot determine \(\d+ incomplete source, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ rows without a key\)/); assert.match(h.accountingComparison, /needs the seller invoice export/);
+  assert.equal(h.accepted + h.partiallyAccepted + h.processing + h.pending + h.rejected + h.sellerUploadRequired + h.createdByAmazon + h.cannotDetermine, h.documents);
+  assert.ok(h.exceptions <= h.documents); assert.equal(h.cannotDetermine, Object.values(h.cannotDetermineParts).reduce((a, b) => a + b, 0));
+  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ document\(s\) with an exception/); assert.match(h.sentence, /we cannot determine \(\d+ from a partly read file, \d+ from a file with missing columns, \d+ from another incomplete import, \d+ with an unmet check, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ status that does not fit the transaction type\)/); assert.match(h.sentence, /Separately, \d+ row\(s\) have a blank key field and are not counted as documents/); assert.match(h.accountingComparison, /needs the seller invoice export/);
   const inc = reconcile([PO()]).headline; assert.equal(inc.anyCompleteImport, false);
   console.log('HEADLINE (R1+R2+R3 all-status):', reconcile([R1(), R2(), R3()]).headline.sentence);
   console.log('HEADLINE (pending-only only):', inc.sentence);
@@ -164,7 +164,7 @@ test('Amazon-created documents are strictly apart from seller-uploaded ones: not
     const d = byShip(out, ship)[0]; assert.equal(d.state, 'CREATED_BY_AMAZON'); assert.equal(d.rawStatus, raw);
     const st = stages(d); assert.equal(st.expected.state, 'NOT DUE'); assert.equal(st.uploaded.state, 'NOT APPLICABLE'); assert.match(d.explanation, /seller has nothing to upload/);
   }
-  assert.equal(out.headline.createdByAmazon, 2); assert.equal(out.headline.pending, 0); assert.equal(out.headline.exceptions - out.headline.cannotDetermine - out.headline.correctionCyclesNotClosed - out.headline.rejected, out.headline.sellerUploadRequired);
+  assert.equal(out.headline.createdByAmazon, 2); assert.equal(out.headline.pending, 0); assert.equal(out.headline.createdByAmazon, 2);
 });
 
 test('NoTaxCalculated creates an obligation: Expected is due, it is an exception while nothing is uploaded, and it clears only on a later report that shows an upload', () => {
@@ -186,7 +186,7 @@ test('correction ids: allow-list. current and legacy shapes both close a cycle; 
     assert.equal(out.cycles.find(c => c.key.endsWith(ship)).state, 'ACCEPTED');
   }
   for (const ship of ['S9830', 'S9831', 'S9832', 'S9833', 'S9834', 'S9835', 'S9836']) { const d = byShip(out, ship)[0]; assert.equal(d.state, 'UNKNOWN_TRANSACTION_ID_FORMAT', ship + ' ' + d.parts['transaction-id']); assert.equal(d.correction, null); assert.ok(!out.cycles.some(c => c.key.endsWith(ship))); assert.match(d.explanation, /did not treat it as a correction and did not treat it as an ordinary transaction/); }
-  assert.equal(out.headline.cannotDetermineParts.unknownTransactionIdFormat, 7);
+  assert.equal(out.headline.cannotDetermineParts.unknownTransactionIdFormat, 7); assert.ok(out.headline.exceptions <= out.headline.documents);
   assert.equal(byShip(out, 'S9837')[0].state, 'ACCEPTED', 'lower-case word is an ordinary id, not a correction'); assert.equal(byShip(out, 'S9837')[0].correction, null);
   // one side alone never closes the cycle
   const half = reconcile([{ ...SR1(), text: SR1().text.split('\n').filter(l => !l.includes('S9810') || l.includes('CorrectionReversal')).join('\n') }]);
@@ -204,4 +204,113 @@ test('timestamps: three separate times with their source, "observed as X in the 
   // a report seen first as Uploaded weeks later says nothing about when it happened: only the report date is claimed
   const late = reconcile([R3()]); assert.equal(doc(late, A).firstObserved.rawStatus, 'InvoiceUploaded'); assert.match(doc(late, A).firstObserved.meaning, /not the moment it happened/);
   assert.doesNotMatch(JSON.stringify([out.docs.map(x => x.explanation), log]), /accepted on|date accepted|accepted at/i);
+});
+
+// ---------------------------------------------------------------- round 3: the gate, truncation, family/type matrix, arithmetic, snapshots
+const HEADER = () => readFileSync('fixtures/recon/all-r3-uploaded.tsv', 'utf8').split('\n')[0];
+const cellsOf = (line) => line.split('\t');
+const col = (h, name) => h.split('\t').indexOf(name);
+const invariant = (out, label) => { // the contract's own conditions: any ACCEPTED document comes from a complete, fully read import
+  for (const d of out.docs.filter(x => x.state === 'ACCEPTED')) { const c = out.imports.find(i => i.id === d.current.importId); assert.ok(c.scope === 'COMPLETE_SCOPE' && !c.truncated && !c.problems.length, `${label}: ${d.key} ACCEPTED from an incomplete import`); }
+  assert.ok(out.headline.exceptions <= out.headline.documents, `${label}: exceptions exceed documents`);
+};
+
+test('P1-a: one row outside the declared period makes the WHOLE import incomplete; an InvoiceUploaded document inside the period is not accepted', () => {
+  const h = HEADER(), lines = R3().text.split('\n').filter(Boolean), out0 = lines[1].split('\t');
+  const extra = [...out0]; extra[col(h, 'order-date')] = '2026-12-15T10:00:00Z'; extra[col(h, 'shipping-id')] = 'S9999'; extra[col(h, 'transaction-id')] = 'S9999'; extra[col(h, 'order-id')] = '405-0000000-0000009';
+  const text = [...lines, extra.join('\t')].join('\n') + '\n';
+  const out = reconcile([{ ...R3(), text }]);
+  assert.equal(out.imports[0].scope, 'INCOMPLETE_SOURCE'); assert.ok(out.imports[0].problemCodes.includes('ROWS_OUTSIDE_RANGE'));
+  assert.equal(out.headline.accepted, 0); assert.ok(out.docs.every(d => d.state !== 'ACCEPTED'));
+  assert.equal(doc(out, 'S9001').state, 'INCOMPLETE_SOURCE'); assert.equal(doc(out, 'S9001').reasonCode, 'IMPORT_NOT_COMPLETE'); assert.match(doc(out, 'S9001').explanation, /order date outside the declared range/);
+  invariant(out, 'P1-a(1)');
+  console.log('P1-a outside-period import ->', out.imports[0].scope, out.imports[0].problemCodes.join(','), '| accepted =', out.headline.accepted, '| S9001 (InvoiceUploaded inside the period):', doc(out, 'S9001').state, doc(out, 'S9001').reasonCode);
+});
+
+test('P1-a: a report missing a required column (order-item-id) with an InvoiceUploaded document yields no ACCEPTED', () => {
+  for (const missing of ['order-item-id', 'order-date', 'invoice-number', 'marketplace-id']) {
+    const lines = R3().text.split('\n').filter(Boolean), h = lines[0].split('\t'), i = h.indexOf(missing);
+    const text = lines.map(l => { const c = l.split('\t'); c.splice(i, 1); return c.join('\t'); }).join('\n') + '\n';
+    const out = reconcile([{ ...R3(), text }]);
+    assert.ok(out.imports[0].problemCodes.includes('MISSING_COLUMNS'), missing); assert.equal(out.headline.accepted, 0, missing); invariant(out, missing);
+    if (missing !== 'marketplace-id') assert.ok(out.docs.some(d => d.state === 'INCOMPLETE_SOURCE' && d.reasonCode === 'MISSING_COLUMNS'), missing);
+  }
+});
+
+test('P1-b: a truncated file (over 20,000 rows) never reaches ACCEPTED, says only part was read, and has its own reason in the breakdown', () => {
+  const lines = R3().text.split('\n').filter(Boolean), h = lines[0], row = lines[1].split('\t'), body = [lines[1]];
+  for (let i = 0; i < 20005; i++) { const c = [...row]; c[col(h, 'order-id')] = `405-7${String(i).padStart(6, '0')}-0000001`; c[col(h, 'shipping-id')] = `T${i}`; c[col(h, 'transaction-id')] = `T${i}`; c[col(h, 'invoice-number')] = `A-2026-T${i}`; body.push(c.join('\t')); }
+  const text = [h, ...body].join('\n') + '\n';
+  const out = reconcile([{ ...R3(), text }]);
+  assert.equal(out.imports[0].truncated, true); assert.ok(out.imports[0].problemCodes.includes('TRUNCATED_FILE')); assert.match(out.imports[0].problems.join(' '), /Only part of the file was read/);
+  assert.equal(out.headline.accepted, 0, 'the readable part contains InvoiceUploaded and none of it is accepted'); assert.ok(out.docs.length >= 20000);
+  assert.ok(out.docs.every(d => d.state === 'INCOMPLETE_SOURCE' && d.reasonCode === 'TRUNCATED_FILE'));
+  assert.equal(out.headline.cannotDetermineParts.truncatedFile, out.docs.length); assert.equal(out.headline.cannotDetermineParts.missingColumns, 0);
+  assert.match(out.headline.sentence, /\d+ from a partly read file/); assert.ok(out.warnings.some(w => /Only part of this file was read/.test(w.warning)));
+  assert.match(out.docs[0].explanation, /Only part of the file was read/); invariant(out, 'P1-b');
+  console.log('P1-b truncated import ->', out.imports[0].scope, out.imports[0].problemCodes.join(','), `| rows read ${out.imports[0].rows} | accepted = ${out.headline.accepted} | first doc:`, out.docs[0].state, out.docs[0].reasonCode, '|', out.docs[0].explanation.slice(0, 160));
+  // the same through the structured entry point
+  const viaRows = reconcile([{ ...R3(), text: undefined, rows: R3().text.split('\n').filter(Boolean).slice(1).map(l => Object.fromEntries(cellsOf(HEADER()).map((k, i) => [k, l.split('\t')[i]]))), truncated: true }]);
+  assert.equal(viaRows.headline.accepted, 0); invariant(viaRows, 'P1-b rows');
+});
+
+test('P1-c MATRIX: every one of the 11 statuses against every transaction type, each cell asserted', () => {
+  const OK = { // hand-written: which statuses belong with which type (Invoice* with SHIPMENT, CreditNote* with REFUND/RETURN, NoTaxCalculated not restricted by Amazon's table)
+    SHIPMENT: ['InvoicePending', 'InvoiceProcessing', 'InvoiceUploaded', 'InvoiceRejected', 'InvoiceCreatedByAmazon', 'NoTaxCalculated'],
+    REFUND: ['CreditNotePending', 'CreditNoteProcessing', 'CreditNoteUploaded', 'CreditNoteRejected', 'CreditNoteCreatedByAmazon', 'NoTaxCalculated'],
+    RETURN: ['CreditNotePending', 'CreditNoteProcessing', 'CreditNoteUploaded', 'CreditNoteRejected', 'CreditNoteCreatedByAmazon', 'NoTaxCalculated'],
+    FOO: [],
+  };
+  const lines = R3().text.split('\n').filter(Boolean), h = lines[0], base = lines[1].split('\t'); let cells = 0;
+  const expectedState = { InvoicePending: 'PENDING', CreditNotePending: 'PENDING', InvoiceProcessing: 'PROCESSING', CreditNoteProcessing: 'PROCESSING', InvoiceUploaded: 'ACCEPTED', CreditNoteUploaded: 'ACCEPTED', InvoiceRejected: 'REJECTED', CreditNoteRejected: 'REJECTED', InvoiceCreatedByAmazon: 'CREATED_BY_AMAZON', CreditNoteCreatedByAmazon: 'CREATED_BY_AMAZON', NoTaxCalculated: 'SELLER_UPLOAD_REQUIRED' };
+  assert.equal(Object.keys(expectedState).length, 11);
+  for (const type of ['SHIPMENT', 'REFUND', 'RETURN', 'FOO']) for (const status of Object.keys(expectedState)) {
+    const c = [...base]; c[col(h, 'invoice-status')] = status; c[col(h, 'transaction-type')] = type; c[col(h, 'transaction-id')] = type === 'SHIPMENT' || type === 'FOO' ? 'S9001' : 'amzn1:crow:X1';
+    const out = reconcile([{ ...R3(), text: h + '\n' + c.join('\t') + '\n' }]), d = out.docs[0]; cells++;
+    const want = OK[type].includes(status) ? expectedState[status] : 'INCOMPATIBLE_STATUS_AND_TYPE';
+    assert.equal(d.state, want, `${type} + ${status}`); assert.equal(d.rawStatus, status);
+    if (want === 'INCOMPATIBLE_STATUS_AND_TYPE') { assert.notEqual(d.state, 'ACCEPTED'); assert.notEqual(d.state, 'UNMATCHED'); assert.match(d.explanation, /cannot go with this transaction type/); assert.equal(out.headline.cannotDetermineParts.incompatibleStatusAndType, 1); assert.equal(out.headline.accepted, 0); }
+    invariant(out, `${type}+${status}`);
+  }
+  assert.equal(cells, 44);
+  for (const [s, t] of [['InvoiceUploaded', 'REFUND'], ['CreditNoteUploaded', 'SHIPMENT'], ['InvoiceUploaded', 'RETURN']]) { const f = statusTypeCompatibility(s, t); assert.equal(f.ok, false); assert.equal(f.code, 'FAMILY_MISMATCH'); }
+  assert.equal(statusTypeCompatibility('InvoiceUploaded', 'FOO').code, 'UNKNOWN_TRANSACTION_TYPE');
+  console.log('P1-c matrix cells asserted:', cells, '| e.g. REFUND+InvoiceUploaded ->', 'INCOMPATIBLE_STATUS_AND_TYPE');
+});
+
+test('P2-a: exceptions never exceed documents; rows without a key are their own line outside the denominator', () => {
+  const sets = [[R1()], [R2()], [R3()], [PO()], [SR1()], [SR2()], [R1(), R2(), R3(), PO(), SR1(), SR2()]];
+  for (const [i, set] of sets.entries()) { const o = reconcile(set), h = o.headline; assert.ok(h.exceptions <= h.documents, 'set ' + i); assert.equal(h.documents, o.docs.length); invariant(o, 'set ' + i); }
+  // only unkeyed rows: zero documents, zero exceptions, the rows reported separately
+  const lines = R3().text.split('\n').filter(Boolean), c = lines[1].split('\t'); c[col(lines[0], 'shipping-id')] = '';
+  const only = reconcile([{ ...R3(), text: lines[0] + '\n' + c.join('\t') + '\n' + c.join('\t') + '\n' }]);
+  assert.equal(only.headline.documents, 0); assert.equal(only.headline.exceptions, 0); assert.equal(only.headline.rowsWithoutKey, 2); assert.equal(only.headline.cannotDetermine, 0);
+  // a document that is both REJECTED and in an open correction cycle is one exception, not two
+  const t = SR1().text.split('\n').map(l => l.includes('CorrectionReversal:X:200000001') ? l.replace('CreditNoteUploaded', 'CreditNoteRejected') : l).join('\n');
+  const o2 = reconcile([{ ...SR1(), text: t }]); assert.ok(o2.headline.exceptions <= o2.headline.documents); assert.ok(o2.headline.rejected >= 1 && o2.headline.correctionCyclesNotClosed >= 1);
+});
+
+test('P2-b: each stage reads only ITS OWN report snapshot, never the current report', () => {
+  const r1 = R1(), r2 = R2(), r3 = R3();
+  r1.text = r1.text.replace(/(\tS9001\tS9001\tSHIPMENT\t\tInvoicePending\t\tFALSE\t[^\t]*\t)2026-11-06T09:00:00Z/, '$12026-11-07T01:02:03Z');
+  assert.match(r1.text, /2026-11-07T01:02:03Z/);
+  r2.text = r2.text.replace('A-2026-000123', ''); // the Processing report shows the upload without a number
+  r3.text = r3.text.replace('A-2026-000123', 'A-2026-000999'); // the final report shows a different (re-uploaded) number
+  const out = reconcile([r1, r2, r3]), d = doc(out, A), st = stages(d);
+  assert.equal(d.state, 'ACCEPTED'); assert.equal(d.evidence.invoiceNumber, 'A-2026-000999');
+  assert.equal(st.expected.columns['shipment-date'], '2026-11-07T01:02:03Z', 'Expected reads the shipment-date in its own (first) report, not the current one');
+  assert.equal(st.expected.source, 'import all-r1-pending'); assert.equal(st.uploaded.source, 'import all-r2-processing');
+  assert.equal(st.uploaded.documentId, 'NOT VISIBLE in that report', 'Uploaded must not borrow the number from the current report');
+  assert.equal(st.accepted.documentId, 'A-2026-000999'); assert.equal(st.accepted.source, 'import all-r3-uploaded');
+  assert.ok(d.history.every(x => Array.isArray(x.rows) && x.rows.length >= 1), 'every observation keeps its own matched-row snapshot');
+  // a stage that its own snapshot cannot support says so
+  assert.equal(stages(doc(reconcile([PO()]), 'S9701')).accepted.state, 'NOT SHOWN');
+});
+
+test('structure: ACCEPTED is produced in one place (gateAccepted) and every ACCEPTED in every fixture combination passes the invariant', () => {
+  const src = readFileSync('src/reconcile.js', 'utf8');
+  const assigns = src.split('\n').filter(l => /(state|mapped)\s*[:=]\s*[^=]*'ACCEPTED'/.test(l) && !/===|!==|\?\s*'ACCEPTED'\s*:\s*accepted/.test(l) && !l.trim().startsWith('//') && !l.includes('STATUS_MAP') && !l.includes('InvoiceUploaded:'));
+  assert.deepEqual(assigns.map(l => l.trim().slice(0, 90)), [assigns[0].trim().slice(0, 90)], 'exactly one line assigns the ACCEPTED state: ' + JSON.stringify(assigns));
+  assert.match(assigns[0], /unmet\.length \? 'INCOMPLETE_SOURCE' : 'ACCEPTED'/);
+  for (const set of [[R1(), R2(), R3()], [R3(), PO()], [PO(), R2()], [SR1(), SR2()]]) invariant(reconcile(set), 'combo');
 });
