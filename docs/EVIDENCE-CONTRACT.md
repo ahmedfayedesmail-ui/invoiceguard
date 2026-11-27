@@ -103,6 +103,9 @@ The imported report (id, name, SHA-256 and what that proves), how it was obtaine
 - Wording: no compliant, filed, valid, issuance-ready, penalty, fine, "you are covered". Only the state of the loaded files, on the date they were loaded. Fixtures and demos are synthetic. Allowed privacy sentence: "analysed locally in your browser after this page has loaded; the test saw no network request during processing".
 - Seller Central instruction: say what the report must contain (all invoice statuses, a period of up to 30 days) and ask for the period and the download day. The menu path is not invented; it is marked pending a seller's screenshot. The text shown to the seller: "Download the VAT Invoice Data Report with all invoice statuses for a period of up to 30 days. Do not use the default pending-only report: it hides invoices Amazon already accepted, so we could not tell what was accepted. Then tell us the period, the day the report was made and the day you downloaded it."
 
+### 10.1 Plain-language text for a partly read file (reserved for the UI)
+The 20,000-row cap is InvoiceGuard's own reader limit, not an Amazon figure. It stays; it is not raised. A file that reaches it is INCOMPLETE_SOURCE (TRUNCATED_FILE) and nothing in it is shown as accepted. The message must give a next step, in these words: "Only part of this file was read, so nothing in it can be shown as accepted. Split the download into shorter date ranges, never more than 30 days each, and load them one by one. Each file that is read in full gives a complete result."
+
 ## 12. Open questions
 1. The Seller Central menu wording for choosing the all-statuses report: unverified, needs a seller's redacted screenshot.
 2. Whether `invoice-number` is filled for Processing rows and which column dates a refund: not confirmed. The engine prints `NOT VISIBLE` when blank.
