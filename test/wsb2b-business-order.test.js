@@ -80,3 +80,13 @@ test('b2b: the BLANK / conflict state is shown as a note naming the column, not 
   assert.equal(r.issues.some(x => x.family === 'INVOICE_AMAZON_STATE' && x.state === 'ACTION_REQUIRED'), false);
   assert.ok(noteFor(r, /is-business-order/));
 });
+const unmatched = (r) => r.issues.filter(i => i.family === 'UNMATCHED_DOCUMENT' && i.state === 'ACTION_REQUIRED' && JSON.stringify(i).includes(F.O(1)));
+test('b2b: the books document of a non-business shipment is not turned into an unmatched-document finding (by number and by order)', () => {
+  for (const books of [F.ledger([lrow('AMZ-1', F.O(1))]), F.ledger([lrow('OTHER-77', F.O(1))])]) {
+    assert.equal(unmatched(run(setB(base(), 'FALSE'), books)).length, 0);
+    assert.equal(unmatched(run(setB(base(), ''), books)).length, 0);
+  }
+});
+test('b2b: a books document that belongs to no shipment at all is still unmatched (control, the exclusion is narrow)', () => {
+  assert.equal(run(setB(base(), 'FALSE'), F.ledger([lrow('NOWHERE-1', F.O(77))])).issues.filter(i => i.family === 'UNMATCHED_DOCUMENT' && i.state === 'ACTION_REQUIRED').length, 1);
+});
