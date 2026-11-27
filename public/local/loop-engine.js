@@ -2696,7 +2696,7 @@ function buildCard(i) {
       const fs = e.disagreeingFields ?? [];
       c.title = `The rows of document ${s.number ?? ""} disagree on data that belongs to the whole document`;
       c.what = `You declared that each row of this export is one line item of a document. Rows ${(e.rowNumbers ?? []).join(", ")} share the document number ${s.number ?? ""}, but they do not agree on ` + (fs.length ? fs.map((f) => `the ${f.label} (${f.values.map((v) => `${v.row}: ${v.value ?? "empty"}`).join("; ")})`).join("; ") : "a document-level field") + ".";
-      c.why = "Line items may differ from each other, but the issue date, operation date, currency, order reference and buyer tax id are the same for every line of one document. We do not pick one of the rows.";
+      c.why = "Line items may differ from each other, but the issue date, operation date, currency, order reference and buyer tax id are supposed to be the same on every line of one document. The rows shown here mark where they differ. We do not pick one of the rows.";
       c.action = "Check these rows in your accounting system and make the document-level data the same on every line of the document, if that is what the document says. Nothing in this message means that a row should be deleted.";
       c.closesWhen = "A newer complete accounting export of the same scope in which the document-level data agrees across the lines.";
       return c;

@@ -178,6 +178,7 @@ test('fix-3: where the file does not say what one row is, repeated rows are an U
   const cc = dup(identityClash)[0].card, txt = JSON.stringify(cc);
   assert.match(cc.title, /disagree on data that belongs to the whole document/); assert.match(cc.what, /declared that each row of this export is one line item/); assert.match(cc.what, /buyer tax id \(row 2: DE811128135; row 3: DE000000000\)/); assert.match(cc.what, /Rows row 2, row 3/);
   assert.doesNotMatch(txt, /You declared that one row of this export is a whole document/); assert.doesNotMatch(txt, /declare that one row is one line item/); assert.doesNotMatch(txt, /Correct the export so the document appears once/);
+  assert.match(cc.why, /are supposed to be the same on every line of one document/); assert.match(cc.why, /The rows shown here mark where they differ/); assert.doesNotMatch(cc.why, /are the same for every line/);
   assert.match(cc.action, /Nothing in this message means that a row should be deleted/); assert.doesNotMatch(cc.action, /delete (the|a|any) row|remove rows/i);
   console.log('LINE-conflict card:', JSON.stringify({ title: cc.title, what: cc.what, action: cc.action }));
   const later = project({ imports: [v, LV(lines, 1, '2026-11-20T11:00:00Z', undefined), LV(lines, 2, '2026-11-21T11:00:00Z', 'LINE')] }); assert.equal(dup(later)[0].state, 'VERIFIED_CLOSED', 'a later complete export that declares the level settles it'); assert.match(dup(later)[0].episodes[0].closedBy.why, /declared by the seller/);
