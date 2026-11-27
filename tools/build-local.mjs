@@ -1,5 +1,5 @@
 // Builds public/local/engine.js: the server app's parsing, checks and PDF code, bundled for the browser.
-// Dev tool only: run `npm i --no-save esbuild buffer` first. The output is committed, so deploys need no build.
+// Dev tool (esbuild and buffer are devDependencies). The output is committed, so deploys need no build.
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
