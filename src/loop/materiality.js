@@ -1,3 +1,6 @@
+// STATUS: Implemented as isolated logic - Engine integration deferred.
+// This module feeds no finding, no result and no customer-facing claim. It stays unwired until the engine makes a real, equivalent financial comparison.
+// Amazon's report states the item price, which is not the invoice total: it must never be compared against a total, a net or a VAT figure from the seller's books.
 // Materiality: is the amount at stake large enough, for THIS seller, to ask them to act? A dimension separate from proof (Observation) and from obligation (Applicability).
 // Inputs: a threshold the seller declares (one absolute amount per currency, no default), the currency, and the tax relevance class of the field. Never invented, never converted.
 

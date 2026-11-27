@@ -28,7 +28,7 @@ test('undetermined flags are not folded into any denominator', () => {
   const c = project(MIXED()).coverage; assert.equal(c.business.entered, 2); assert.equal(c.business.matched + c.business.notMatched, c.business.entered);
 });
 test('with no shipments at all every count is 0 and the reasons still exist', () => {
-  const c = project({ imports: [], events: [] }).coverage ?? null; if (c) assert.equal(c.shipmentsInScope, 0);
+  const c = project({ imports: [], events: [] }).coverage; assert.ok(c, 'coverage exists even with nothing loaded'); assert.equal(c.shipmentsInScope, 0); assert.equal(c.business.entered + c.nonBusiness.count + c.undetermined.count, 0);
 });
 test('shipments outside the check altogether (Amazon-invoiced, corrections) are counted apart, with the reason', () => {
   const c = project(MIXED()).coverage; assert.equal(typeof c.outsideScope.createdByAmazon, 'number'); assert.equal(typeof c.outsideScope.notOrdinaryInvoice, 'number'); assert.match(c.outsideScope.reason, /Amazon|not the seller/i);

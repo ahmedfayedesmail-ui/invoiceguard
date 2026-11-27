@@ -267,7 +267,14 @@ function evaluate(prefix, events, ctx) {
   }
   const covNotes = [...noteGroup.values()].sort((a, b) => a.reason.localeCompare(b.reason));
   const docsFine = A.filter(d => d.state === 'ACCEPTED' && link.get(amazonId(d))?.level === 'CONFIRMED').length;
-  return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
+  // Coverage: what the check looked at and what it did not. A separate metric: it feeds no finding and changes no number above. Unique shipments, never rows.
+  const byFlag = (f) => sellerSet.filter(d => bflag.get(d) === f).length, matchedBiz = A.filter(d => link.get(amazonId(d))?.level === 'CONFIRMED').length;
+  const coverage = { shipmentsInScope: sellerSet.length, scopeMeans: 'unique shipments the seller must invoice themselves (is-amazon-invoiced FALSE); one shipment is counted once however many item rows it has',
+    business: { entered: A.length, matched: matchedBiz, notMatched: A.length - matchedBiz, matchedMeans: 'the shipment is linked to a document in the books by its invoice number' },
+    nonBusiness: { count: byFlag('FALSE'), status: 'NOT_EVALUATED', reason: 'These shipments are marked is-business-order FALSE. They were not checked against the books because of the current check rule. That is not a result: they are neither matched nor unmatched.' },
+    undetermined: { count: bizUndetermined.length, byReason: { BLANK: byFlag('BLANK'), CONFLICT: byFlag('CONFLICT'), UNREADABLE: byFlag('UNREADABLE') }, reason: 'The is-business-order column is blank, holds a value that is neither TRUE nor FALSE, or the rows of one shipment disagree. They sit in no denominator.' },
+    outsideScope: { createdByAmazon: stats.createdByAmazon, amazonFlagUndetermined: stats.amazonFlagUndetermined, notOrdinaryInvoice: stats.notOrdinaryInvoice, reason: 'Invoices created by Amazon are not the seller\'s to issue; corrections and non-shipment rows are not ordinary invoices; an unreadable is-amazon-invoiced field is not judged. None of them is in the scope above.' } };
+  return { mismatchFields, findings, closed, notes: covNotes, stats: { ...stats, matchedByInvoiceNumber: docsFine }, coverage, links: { link, ledLink }, amazonDocs: A, importDefects, ledgerDocs: Le };
 }
 
 /** @param {{imports:object[], events?:object[], sellerProfileId?:string}} input */
@@ -277,7 +284,7 @@ export function project({ imports, events = [], sellerProfileId = 'local', delet
   const rejectedEvents = [], goodEvents = [];
   for (const e of events) { const p = eventShapeProblem(e); if (p) rejectedEvents.push({ event: e, reason: p }); else goodEvents.push(e); }
   for (const e of goodEvents) if (e.type === 'ACTION_STARTED') { if (!ctx.actions.has(e.issueKey)) ctx.actions.set(e.issueKey, []); ctx.actions.get(e.issueKey).push(e); }
-  const hist = new Map(); let last = { findings: new Map(), closed: new Map(), notes: [], stats: {}, links: {}, amazonDocs: [], importDefects: new Map(), ledgerDocs: [] };
+  const hist = new Map(); let last = { findings: new Map(), closed: new Map(), notes: [], stats: {}, coverage: { shipmentsInScope: 0, business: { entered: 0, matched: 0, notMatched: 0 }, nonBusiness: { count: 0, status: 'NOT_EVALUATED' }, undetermined: { count: 0, byReason: { BLANK: 0, CONFLICT: 0, UNREADABLE: 0 } }, outsideScope: { createdByAmazon: 0, amazonFlagUndetermined: 0, notOrdinaryInvoice: 0 } }, links: {}, amazonDocs: [], importDefects: new Map(), ledgerDocs: [] };
   const n = ordered.length;
   for (let k = 0; k < n; k++) {
     const horizon = k < n - 1 ? Math.min(...ordered.slice(k + 1).map(i => ms(i.importedAt) ?? Infinity)) : Infinity;
@@ -339,6 +346,6 @@ export function project({ imports, events = [], sellerProfileId = 'local', delet
   const count = (s) => issues.filter(i => i.state === s).length;
   const buckets = { matchedByInvoiceNumber: last.stats.matchedByInvoiceNumber ?? 0, inProgressAtAmazon: last.stats.processing ?? 0, needsActionNow: count('ACTION_REQUIRED'), needsHumanReading: issues.filter(i => i.state === 'OPEN' && i.section !== 'LEDGER_DATA_QUALITY').length, ledgerDataQuality: issues.filter(i => i.section === 'LEDGER_DATA_QUALITY').length, awaitingNewEvidence: count('AWAITING_NEW_EVIDENCE'),
     historyIncomplete: issues.filter(i => i.historyIncomplete).length, cannotDetermine: last.notes.reduce((n, g) => n + g.count, 0), reportedResolvedBySeller: count('MANUALLY_REPORTED_RESOLUTION'), closedWithEvidence: count('VERIFIED_CLOSED') };
-  return { loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId, issues, buckets, coverageNotes: last.notes, stats: last.stats, rejectedEvents, notCheckedInThisVersion: NOT_CHECKED_IN_THIS_VERSION,
+  return { loopVersion: LOOP_VERSION, keyVersion: KEY_VERSION, sellerProfileId, issues, buckets, coverageNotes: last.notes, stats: last.stats, coverage: last.coverage, rejectedEvents, notCheckedInThisVersion: NOT_CHECKED_IN_THIS_VERSION,
     imports: ordered.map(i => ({ id: i.id, kind: isLedger(i) ? 'ledger' : 'vidr', fileName: i.fileName ?? null, importedAt: i.importedAt, descriptor: descriptor(i), defects: last.importDefects.get(i.id)?.defects ?? [], scopeNotes: last.importDefects.get(i.id)?.scopeNotes ?? [] })) };
 }
