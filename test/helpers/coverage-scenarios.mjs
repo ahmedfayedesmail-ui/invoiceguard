@@ -40,3 +40,9 @@ export const FULL = () => { const L = [
   rawRow({ n: 9, status: 'InvoiceUploaded', num: 'M-9' }, { 'is-amazon-invoiced': 'TRUE', 'is-business-order': 'TRUE' }),
   rawRow({ n: 10, status: 'CreditNoteUploaded', num: 'C-10' }, { 'transaction-type': 'REFUND', 'transaction-id': 'R-10', 'is-business-order': 'TRUE' })];
   return { imports: [V([cols.join('\t'), ...L].join('\n') + '\n'), Lg([lr('M-1', 1), lr('M-3', 3)])], events: [] }; };
+
+/** One shipment (one shipping id, one order id) carrying two transactions (two transaction ids). */
+export const TWO_TX_ONE_SHIPMENT = () => { const rows = [rawRow({ n: 1, status: 'InvoiceUploaded', num: 'T-1' }, { 'transaction-id': 'TX-A' }), rawRow({ n: 1, status: 'InvoiceUploaded', num: 'T-2' }, { 'transaction-id': 'TX-B', 'order-item-id': '999' })];
+  const split = rows.map(r => r.split('\t'));
+  return { distinctShippingIds: new Set(split.map(c => c[COL('shipping-id')])).size, distinctTransactionIds: new Set(split.map(c => c[COL('transaction-id')])).size,
+    scenario: { imports: [V([cols.join('\t'), ...rows].join('\n') + '\n')], events: [] } }; };

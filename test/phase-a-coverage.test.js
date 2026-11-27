@@ -1,11 +1,11 @@
-// Phase A, coverage: a NEW metric, independent of the reconciliation numbers. It says what the check looked at and what it did not, counting unique shipments (never rows).
-// Non-business shipments are NOT EVALUATED under the current check rule: never "unmatched". Blank, unreadable or conflicting flags are shown separately as undetermined.
+// Phase A, coverage: a NEW metric, independent of the reconciliation numbers. It says what the check looked at and what it did not, counting unique transactions (never rows).
+// Non-business transactions are NOT EVALUATED under the current check rule: never "unmatched". Blank, unreadable or conflicting flags are shown separately as undetermined.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { project } from '../src/loop/project.js';
 import { sha256 } from '../src/loop/sha256.js';
-import { SCENARIOS, FULL } from './helpers/coverage-scenarios.mjs';
+import { SCENARIOS, FULL, TWO_TX_ONE_SHIPMENT } from './helpers/coverage-scenarios.mjs';
 import { coverageStatement } from '../src/loop/coverage.js';
 
 test('adding the coverage metric leaves every current result unchanged (issues, buckets, stats, notes, imports are byte-identical to the engine before the change)', () => {
@@ -49,13 +49,13 @@ test('the invariant holds for every synthetic scenario', () => { for (const [k, 
 // ---- the words the seller reads ----
 test('the statement names its scope and denominators, and never presents the business-only figure as covering every shipment', () => {
   const c = project(FULL()).coverage, t = coverageStatement(c).join('\n');
-  assert.match(t, /1 of 2 business shipments/); assert.match(t, /business shipments only/i); assert.match(t, /not all 4 shipments in scope/i);
-  assert.match(t, /2 shipments in scope were NOT EVALUATED/); assert.match(t, /current check rule/); assert.match(t, /4 could not be classified/); assert.match(t, /10 unique transactions = 4 in scope \+ 4 undetermined \+ 2 outside the check/);
+  assert.match(t, /1 of 2 business transactions/); assert.match(t, /business transactions only/i); assert.match(t, /not all 4 transactions in scope/i);
+  assert.match(t, /2 transactions in scope were NOT EVALUATED/); assert.match(t, /current check rule/); assert.match(t, /4 could not be classified/); assert.match(t, /10 unique transactions = 4 in scope \+ 4 undetermined \+ 2 outside the check/);
   assert.doesNotMatch(t, /undefined|\[object|NaN/); assert.doesNotMatch(t, /\bunmatched\b/i);
 });
 test('when every shipment in scope is a business shipment the statement says the figure covers all of them', () => {
   const t = coverageStatement({ transactionsTotal: 3, scope: { count: 3, business: { entered: 3, matched: 2, notMatched: 1 }, nonBusiness: { count: 0 } }, undetermined: { count: 0, byReason: {} }, outsideScope: { count: 0, byReason: {} } }).join('\n');
-  assert.match(t, /2 of 3 business shipments/); assert.match(t, /all 3 shipments in scope/); assert.doesNotMatch(t, /business shipments only/i);
+  assert.match(t, /2 of 3 business transactions/); assert.match(t, /all 3 transactions in scope/); assert.doesNotMatch(t, /business transactions only/i);
 });
 test('nothing loaded: the statement says so instead of showing zeros as a result', () => { assert.match(coverageStatement(project({ imports: [], events: [] }).coverage).join(' '), /No Amazon report/); });
 test('the statement is part of the data, the export carries it, and the page renders it from that one source', () => {
@@ -63,3 +63,13 @@ test('the statement is part of the data, the export carries it, and the page ren
   const ui = readFileSync(new URL('../public/local/loop.js', import.meta.url), 'utf8'), st = readFileSync(new URL('../src/loop/store.js', import.meta.url), 'utf8');
   assert.match(ui, /id: 'coverage'/); assert.match(ui, /coverage\.statement/); assert.match(st, /coverage: r\.coverage/);
 });
+
+test('KEY: the count is by Amazon transaction, not by shipment. One shipping id with two transaction ids counts twice, and the words say transactions and name the key', () => {
+  const { scenario, distinctShippingIds, distinctTransactionIds } = TWO_TX_ONE_SHIPMENT(), c = project(scenario).coverage, t = coverageStatement(c).join('\n');
+  assert.equal(distinctShippingIds, 1, 'the fixture really is one shipment'); assert.equal(distinctTransactionIds, 2);
+  assert.equal(c.transactionsTotal, 2, 'two transactions are two units: the shipping id is not proven to be a shipment key');
+  assert.equal(c.scope.business.entered, 2);
+  assert.match(t, /Counted by Amazon transaction/); assert.match(t, /marketplace, transaction type, transaction id, order id and shipping id/); assert.match(t, /not proven/i);
+  assert.doesNotMatch(t, /\bshipments?\b[^.]*\bunique\b|\bunique shipments\b|\d+ (business )?shipments/i, 'no number is displayed as a count of shipments');
+});
+test('KEY: the data names the key it counts by', () => { const c = project(FULL()).coverage; assert.match(c.countedBy.key, /marketplace.*transaction type.*transaction id.*order id.*shipping id/); assert.equal(c.countedBy.unit, 'TRANSACTION'); assert.equal(c.countedBy.shipmentKeyProven, false); });
