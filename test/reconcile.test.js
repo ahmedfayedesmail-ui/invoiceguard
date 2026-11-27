@@ -64,7 +64,7 @@ test('TEST G: Processing earlier, Uploaded later. State advances on evidence, an
   assert.equal(doc(late, A).history.find(h => h.importId === 'all-r1-pending').current, false, 'older report goes to history only');
   // a later report that says Processing after Uploaded: the later evidence decides and the step back is flagged
   const back = reconcile([R3(), { ...R2(), declared: { ...DECL['all-r2-processing.tsv'], createdAt: '2026-11-20T08:00:00Z' } }]);
-  assert.equal(doc(back, A).state, 'PROCESSING'); assert.match(doc(back, A).anomalies[0], /later report shows InvoiceProcessing/);
+  assert.equal(doc(back, A).state, 'PROCESSING'); assert.match(doc(back, A).anomalies[0], /A later report shows InvoiceProcessing \(processing\); we kept the earlier InvoiceUploaded in history/); assert.doesNotMatch(doc(back, A).anomalies[0], /reject/i);
   console.log('TEST G: R2 alone ->', doc(only2, A).state, '| R3+R2 / R2+R3 / all 6 orders ->', doc(reconcile([R3(), R2()]), A).state, '| old R1 imported last ->', doc(late, A).state, '(current import', doc(late, A).current.importId + ')');
 });
 
@@ -131,7 +131,7 @@ test('I: headline counts come from the evidence; cannot-determine is its own cou
   assert.equal(h.documents, out.docs.length);
   assert.equal(h.accepted + h.processing + h.pending + h.rejected + h.notApplicable + h.cannotDetermineParts.incompleteSource + h.cannotDetermineParts.unmatched + h.cannotDetermineParts.unknownStatus + out.docs.filter(d => d.state === 'PARTIALLY_ACCEPTED').length, h.documents);
   assert.equal(h.exceptions, h.rejected + h.correctionCyclesNotClosed + h.cannotDetermine);
-  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ exception\(s\)/); assert.match(h.accountingComparison, /needs the seller invoice export/);
+  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ exception\(s\)/); assert.match(h.sentence, /we cannot determine \(\d+ incomplete source, \d+ unmatched, \d+ unknown status, \d+ rows without a key\)/); assert.match(h.accountingComparison, /needs the seller invoice export/);
   const inc = reconcile([PO()]).headline; assert.equal(inc.anyCompleteImport, false);
   console.log('HEADLINE (R1+R2+R3 all-status):', reconcile([R1(), R2(), R3()]).headline.sentence);
   console.log('HEADLINE (pending-only only):', inc.sentence);

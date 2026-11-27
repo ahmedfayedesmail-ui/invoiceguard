@@ -39,7 +39,7 @@ export function parseVidr(text) {
         poNumber: r['purchase-order-number'] || null,
         billing: { name: r['billing-name'], lines: [r['bill-address-1'], r['bill-address-2'], r['bill-address-3']].filter(Boolean), city: r['bill-city'], postal: r['bill-postal-code'], country: r['bill-country'] },
         shipCountry: r['ship-country'], shipFromCountry: r['ship-from-country'], isCorrection: bool(r['is-invoice-corrected']),
-        isCorrectionReversal: String(r['transaction-id']).startsWith('CorrectionReversal'), isCorrectedTx: String(r['transaction-id']).startsWith('Correction::'), originalInvoiceNumber: r['original-vat-invoice-number'] || null, correctionDetails: r['invoice-correction-details'] || null,
+        isCorrectionReversal: String(r['transaction-id']).startsWith('CorrectionReversal'), isCorrectedTx: String(r['transaction-id']).startsWith('Correction:'), originalInvoiceNumber: r['original-vat-invoice-number'] || null, correctionDetails: r['invoice-correction-details'] || null,
         citation: r['citation-es'] || r['citation-en'] || null, items: [], incl: 0, vat: 0, excl: 0,
       }).get(key);
     }

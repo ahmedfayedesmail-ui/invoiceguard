@@ -148,7 +148,7 @@ export function reconcile(imports) {
     const anomalies = [];
     const rank = { PENDING: 0, PROCESSING: 1, REJECTED: 1, ACCEPTED: 2 };
     const prevBest = sorted.slice(0, -1).filter(o => o.mapped in rank).sort((a, b) => rank[b.mapped] - rank[a.mapped])[0];
-    if (prevBest && cur.mapped in rank && rank[cur.mapped] < rank[prevBest.mapped]) anomalies.push(`A later report shows ${cur.raw}, an earlier one showed ${prevBest.raw}. The later report decides the current state.`);
+    if (prevBest && cur.mapped in rank && rank[cur.mapped] < rank[prevBest.mapped]) anomalies.push(`A later report shows ${cur.raw} (${cur.mapped.toLowerCase()}); we kept the earlier ${prevBest.raw} in history. The later report decides the current state.`);
     const role = correctionRole(cur.parts['transaction-id'], cur.parts['transaction-type']);
     const date = cur.et.iso ? cur.et.iso.slice(0, 10) : 'unknown date';
     const ctx = { raw: cur.raw, date, why: why ?? (cur.unmet?.length ? `unmet: ${cur.unmet.join(', ')}.` : 'import scope is incomplete.') };
@@ -191,7 +191,7 @@ export function headline(docs, cycles, unkeyed, importSummaries) {
   const counts = { documents: docs.length, accepted: n('ACCEPTED'), processing: n('PROCESSING'), pending: n('PENDING'), rejected: n('REJECTED'), notApplicable: n('NOT_APPLICABLE'), correctionCyclesNotClosed: open, cannotDetermine: cannot,
     cannotDetermineParts: { incompleteSource: n('INCOMPLETE_SOURCE'), unmatched: n('UNMATCHED'), unknownStatus: n('UNKNOWN_STATUS'), rowsWithoutKey: unkeyed.length } };
   const exceptions = counts.rejected + open + cannot;
-  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} exception(s): ${counts.rejected} rejected by Amazon, ${open} correction(s) not closed on both sides, ${cannot} we cannot determine. ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} accepted. State of the files as loaded; it says nothing about files that were not loaded.`;
+  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} exception(s): ${counts.rejected} rejected by Amazon, ${open} correction(s) not closed on both sides, ${cannot} we cannot determine (${counts.cannotDetermineParts.incompleteSource} incomplete source, ${counts.cannotDetermineParts.unmatched} unmatched, ${counts.cannotDetermineParts.unknownStatus} unknown status, ${counts.cannotDetermineParts.rowsWithoutKey} rows without a key). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} accepted. State of the files as loaded; it says nothing about files that were not loaded.`;
   return { ...counts, exceptions, accountingComparison: 'not available: needs the seller invoice export (Issued is not visible in the Amazon files)', sentence, anyCompleteImport: importSummaries.some(i => i.scope === 'COMPLETE_SCOPE') };
 }
 

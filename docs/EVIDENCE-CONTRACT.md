@@ -115,6 +115,9 @@ Priority when more than one applies: INCOMPLETE_SOURCE and AMBIGUOUS and UNMATCH
 ### 9.1 Vocabulary
 `ACCEPTED, PROCESSING, REJECTED, PENDING, INCOMPLETE_SOURCE, UNMATCHED, PARTIALLY_ACCEPTED`. Also used, because a real status has to land somewhere and must never land in PENDING: `NOT_APPLICABLE` (Amazon says no seller invoice is due) and `UNKNOWN_STATUS` (a status string we do not recognise; counted as cannot determine). PENDING_AT_AMAZON is gone (now PENDING). MISSING_IN_VIDR and MISSING_IN_ACCOUNTING are not produced in this version. A conflict inside or across reports is `UNMATCHED` with reason `AMBIGUOUS`. A non-final state never promotes itself to ACCEPTED: only a later report that literally says Uploaded can.
 
+### 9.1a Absence in a pending-only report
+A pending-only report filters by design, so a missing row in it proves nothing. That rules out an ACCEPTED conclusion and it equally rules out any "missing from Amazon's data" (MISSING_IN_VIDR style) conclusion. Absence in a file that filters by design is not absence. Such a conclusion is only possible from an import classed COMPLETE_SCOPE, for orders inside its declared range, and it is not produced in this version.
+
 ### 9.2 Status mapping (exact strings, no case folding, whitespace trimmed only)
 Checked against the VCS developer guide section 6.1 (status table): https://m.media-amazon.com/images/G/01/B2B/DeveloperGuide/vat_calculation_service__dev_guide_H383rf73k4hsu1TYRH139kk134yzs.pdf
 

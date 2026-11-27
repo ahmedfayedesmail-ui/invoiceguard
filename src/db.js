@@ -33,7 +33,7 @@ export function openDb(file = ':memory:') {
   // unprotected. Post-check: verify both indexes actually exist.
   // Round-11 (critic round-9): name the actual document NUMBERS, not just keys and counts.
   const dupInv = db.prepare("SELECT seller_id, shipment_key, group_concat(number, ', ') numbers, count(*) c FROM invoices WHERE kind='invoice' GROUP BY 1,2 HAVING c>1").all();
-  const dupRect = db.prepare("SELECT seller_id, shipment_key, group_concat(number, ', ') numbers, count(*) c FROM invoices WHERE kind='rectificativa' AND (shipment_key NOT LIKE 'SHIPMENT:%' OR shipment_key LIKE 'SHIPMENT:Correction::%') GROUP BY 1,2 HAVING c>1").all();
+  const dupRect = db.prepare("SELECT seller_id, shipment_key, group_concat(number, ', ') numbers, count(*) c FROM invoices WHERE kind='rectificativa' AND (shipment_key NOT LIKE 'SHIPMENT:%' OR shipment_key LIKE 'SHIPMENT:Correction:%') GROUP BY 1,2 HAVING c>1").all();
   if (dupInv.length || dupRect.length) throw new Error(`Refusing to start: duplicate financial documents exist, so the uniqueness migration cannot run safely. Resolve these rows manually first (keep the earliest document of each pair): ${JSON.stringify([...dupInv, ...dupRect]).slice(0, 900)}`);
   // Round-9 (N2): the round-8 predicate exempted every SHIPMENT: key, which silently left Amazon
   // Correction:: events uncovered - their record keys are 'SHIPMENT:Correction::...'. The drop
@@ -42,7 +42,7 @@ export function openDb(file = ':memory:') {
   // several corrections can be legitimate) stay exempt.
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_invoice_per_shipment ON invoices (seller_id, shipment_key) WHERE kind='invoice'`);
   db.exec(`DROP INDEX IF EXISTS uniq_rect_per_event`);
-  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_rect_per_event ON invoices (seller_id, shipment_key) WHERE kind='rectificativa' AND (shipment_key NOT LIKE 'SHIPMENT:%' OR shipment_key LIKE 'SHIPMENT:Correction::%')`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_rect_per_event ON invoices (seller_id, shipment_key) WHERE kind='rectificativa' AND (shipment_key NOT LIKE 'SHIPMENT:%' OR shipment_key LIKE 'SHIPMENT:Correction:%')`);
   for (const idx of ['uniq_invoice_per_shipment', 'uniq_rect_per_event'])
     if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name=?").get(idx)) throw new Error(`Refusing to start: required dedup index ${idx} is missing.`);
   // One-time repair for the stage-2 limbo defect: corrections approved before the fix sit at

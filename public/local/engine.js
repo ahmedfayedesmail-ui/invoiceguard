@@ -48895,7 +48895,7 @@ function parseVidr(text) {
         shipFromCountry: r["ship-from-country"],
         isCorrection: bool(r["is-invoice-corrected"]),
         isCorrectionReversal: String(r["transaction-id"]).startsWith("CorrectionReversal"),
-        isCorrectedTx: String(r["transaction-id"]).startsWith("Correction::"),
+        isCorrectedTx: String(r["transaction-id"]).startsWith("Correction:"),
         originalInvoiceNumber: r["original-vat-invoice-number"] || null,
         correctionDetails: r["invoice-correction-details"] || null,
         citation: r["citation-es"] || r["citation-en"] || null,
