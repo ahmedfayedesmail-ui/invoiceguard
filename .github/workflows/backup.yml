@@ -1,12 +1,12 @@
 name: Off-server backup and restore drill
-# Every 12 hours: pull a consistent snapshot of the live database, PROVE it restores (validation + boot of the real app on it),
+# Every 6 hours (GitHub sometimes skips or delays scheduled runs, so the interval is short): pull a consistent snapshot of the live database, PROVE it restores (validation + boot of the real app on it),
 # encrypt it, and keep it as an artifact for 30 days. A failure (secrets missing, service down, snapshot bad, drill failed)
 # fails the run, and GitHub emails the repository owner about failed runs.
 # Needs repository secrets: APP_URL (https://... live address), ADMIN_TOKEN, BACKUP_PASSPHRASE (long random). The artifact is encrypted
 # (AES-256, PBKDF2) because artifacts of a public repository can be downloaded by any signed-in GitHub user.
 on:
   schedule:
-    - cron: '17 */12 * * *'
+    - cron: '43 */6 * * *'
   workflow_dispatch:
   push:
     paths: ['.github/workflows/backup.yml', 'tools/restore-drill.mjs', 'src/restore.js']
