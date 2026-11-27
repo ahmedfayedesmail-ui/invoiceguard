@@ -108,7 +108,7 @@ Coverage (what a source may conclude): declared period, marketplaces, series, do
 
 No fuzzy matching. Ladder, each link records its method and level:
 1. Document number equality (trim whitespace only) against the VIDR invoice number: CONFIRMED.
-2. Amazon order id equality with the ledger order reference, one candidate on each side: PROPOSED. An order id match alone does not confirm a link. The seller confirms the proposal with a LINK_DECISION event (bulk confirmation of a listed set is one event naming each pair). A confirmed decision is a human declaration of identity, displayed as declared.
+2. Amazon order id equality with the ledger order reference, one candidate on each side: PROPOSED. An order id match alone does not confirm a link. The seller confirms the proposal with a LINK_DECISION event (bulk confirmation of a listed set is one event naming each pair). A confirmed decision is a human declaration of identity, displayed as declared: a link that exists only by LINK_DECISION lets later findings run on it, marks them "declared link", and any closure that depends on it is MANUALLY_REPORTED_RESOLUTION, never VERIFIED_CLOSED.
 3. Several candidates: UNMATCHED_DOCUMENT (multiple candidates), naming them.
 4. No match by amount, date or buyer, ever.
 
@@ -123,10 +123,10 @@ Eight families. The sub-type may change between imports without changing the iss
 | Family (critic's types it holds) | Sub-types | Closure predicate |
 |---|---|---|
 | SOURCE_INCOMPLETE (SOURCE_INCOMPLETE) | unreadable, truncated, rejected rows, ambiguous mapping, scope not declared, blank line in data | A complete replacement import for the same scope, or the declaration the contract allows. |
-| UNMATCHED_DOCUMENT (UNMATCHED_DOCUMENT; v0.1 LEDGER_DOC_NOT_IN_AMAZON, AMBIGUOUS_LINK) | no candidate (needs all-status VIDR covering the date and marketplace), proposed link unconfirmed, multiple candidates | A CONFIRMED link by number, or by a confirmed LINK_DECISION is MANUALLY_REPORTED only (see 9.2). Closed with evidence only when a later import supplies a number-equal link. |
+| UNMATCHED_DOCUMENT (UNMATCHED_DOCUMENT; v0.1 LEDGER_DOC_NOT_IN_AMAZON, AMBIGUOUS_LINK) | no candidate (needs all-status VIDR covering the date and marketplace), proposed link unconfirmed, multiple candidates | A later import that supplies a number-equal link (closed with evidence). A seller's LINK_DECISION alone gives MANUALLY_REPORTED_RESOLUTION (9.2). |
 | DUPLICATE_DOCUMENT (DUPLICATE_DOCUMENT) | same identity twice with different content, true duplicate | A corrected source in which one document holds the identity. |
 | INVOICE_AMAZON_STATE (INVOICE_ACTION_REQUIRED, INVOICE_REJECTED) | action required (InvoicePending, NoTaxCalculated), rejected (with Amazon's description verbatim) | A newer all-status report where the engine reaches ACCEPTED for the subject through its gate. Reviews cannot close it. PROCESSING is not a sub-type. |
-| BOOKS_GAP (INVOICE_MISSING_IN_BOOKS, INVOICE_ACCEPTED_NOT_IN_BOOKS, CREDIT_NOTE_MISSING_IN_BOOKS) | invoice not in books, accepted at Amazon but not in books, credit note not in books (later phase) | A later accounting import covering the scope with a CONFIRMED link to the transaction. The card differs by what Amazon shows (create and record, or record). |
+| BOOKS_GAP (INVOICE_MISSING_IN_BOOKS, INVOICE_ACCEPTED_NOT_IN_BOOKS, CREDIT_NOTE_MISSING_IN_BOOKS) | invoice not in books, accepted at Amazon but not in books, credit note not in books (later phase) | A later accounting import covering the scope with a number-equal link to the transaction (a declared link gives MANUALLY_REPORTED_RESOLUTION only). The card differs by what Amazon shows (create and record, or record). |
 | DATA_MISMATCH (INVOICE_DATA_MISMATCH, CREDIT_NOTE_DATA_MISMATCH) | field list: number, gross, net, vat, currency, buyer tax id | A later accounting document on the same confirmed link whose compared values agree. One issue per pair. |
 | CORRECTION_PAIR_OPEN (CORRECTION_PAIR_OPEN, CREDIT_NOTE_ACTION_REQUIRED for correction roles) | reversal side open, corrected side open, both | Both sides ACCEPTED independently through the engine cycle. Later phase. |
 | CREDIT_NOTE_AMAZON_STATE (CREDIT_NOTE_ACTION_REQUIRED) | CreditNotePending, CreditNoteRejected | A newer report where the engine reaches ACCEPTED for it. Later phase. |
