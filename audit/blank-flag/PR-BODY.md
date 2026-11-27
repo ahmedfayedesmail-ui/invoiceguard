@@ -13,7 +13,7 @@ A blank, unreadable or conflicting is-amazon-invoiced or is-business-order is UN
 - Visibility: manual/preview and manual/issue return invalidRowsCount, invalidRows (max 50, each {line, reason, cells, expected}, no cell content) and a warning (string, or null for a clean file). The upload page shows the warning above the counts and in the note after issuing.
 
 ## Where to look
-- Production code: `git diff 35bb98a..4aaefd8 -- src public` . src: app.js, manual.js, pipeline.js, reconcile.js, vidr.js, loop/cards.js, loop/coverage.js, loop/materiality.js, loop/project.js, loop/store.js (10 files, +341 / -93); public/index.html for the warning.
+- Production code: `git diff 35bb98a..4aaefd8 -- src public` . src: app.js, manual.js, pipeline.js, reconcile.js, vidr.js, loop/cards.js, loop/coverage.js, loop/materiality.js, loop/project.js, loop/store.js (10 files, +341 / -93). public/ adds 4 files (upload page warning and rebuilt bundles): 14 files, +759 / -303 for src and public together.
 - Phase A row integrity: src/vidr.js (checkTsv, parseVidr), src/manual.js (planUpload), src/pipeline.js, src/app.js.
 - Tests: test/row-integrity.test.js (10), test/row-integrity-last-cells.test.js (10), test/manual-invalid-rows-api.test.js (5), test/security-clock.test.js (2).
 - Bulk, not production: sim/, evidence/, audit/, tools/.
