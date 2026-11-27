@@ -162,7 +162,7 @@ test('Amazon-created documents are strictly apart from seller-uploaded ones: not
   const out = reconcile([SR1()]);
   for (const [ship, raw] of [['S9701', 'CreditNoteCreatedByAmazon'], ['S9801', 'InvoiceCreatedByAmazon']]) {
     const d = byShip(out, ship)[0]; assert.equal(d.state, 'CREATED_BY_AMAZON'); assert.equal(d.rawStatus, raw);
-    const st = stages(d); assert.equal(st.expected.state, 'NOT DUE'); assert.equal(st.uploaded.state, 'NOT APPLICABLE'); assert.match(d.explanation, /seller has nothing to upload/);
+    const st = stages(d); if (ship === 'S9701') { assert.equal(st.expected.state, 'UNDETERMINED', 'the fixture row says is-amazon-invoiced FALSE while the status says CreditNoteCreatedByAmazon: they disagree, and the status does not decide who issued it'); } else assert.equal(st.expected.state, 'NOT DUE'); assert.equal(st.uploaded.state, 'NOT APPLICABLE'); assert.match(d.explanation, /seller has nothing to upload/);
   }
   assert.equal(out.headline.createdByAmazon, 2); assert.equal(out.headline.pending, 0); assert.equal(out.headline.createdByAmazon, 2);
 });

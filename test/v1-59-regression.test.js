@@ -18,7 +18,7 @@ const projectSeller = async (d) => { let n = 0; const s = createLoopStore(memory
 const results = new Map();
 for (const s of all) { const d = rd(`seller-${s}.json`); results.set(s, { d, p: await projectSeller(d) }); }
 
-test('v1-59: the fixture is the original: 59 transactions, 14 sellers, files pinned by sha256', () => {
+test('v1-59: the fixture is the original: 59 transactions in 11 affected sellers (the fixture holds 14 sellers: 3 of them carry no case in the 59), files pinned by sha256', () => {
   assert.equal(ids.length, 59); assert.equal(new Set(ids.map(i => i.amazonTransactionId + '|' + i.orderId + '|' + i.shippingId)).size, 59); assert.equal(sellers.length, 11);
   for (const s of all) { const { d } = results.get(s); assert.equal(sha(d.vText), d.vSha256, 'VIDR file of seller ' + s); assert.equal(sha(d.lText), d.lSha256, 'books file of seller ' + s); assert.equal(d.scenario, 'amazon_issued_invoices'); }
 });
@@ -43,6 +43,6 @@ test('v1-59: the engine shows exactly the contradicting transactions of each sel
     if (tx.size) { assert.ok(p.coverageNotes.some(n => /is-amazon-invoiced column \(TRUE\) and invoice-status \(InvoiceUploaded\) disagree/.test(n.reason)), 'note for seller ' + s); assert.equal(p.coverage.undetermined.byReason.AMAZON_INVOICED_FLAG_UNREADABLE_OR_CONFLICTING, tx.size); } }
   assert.equal(ids.length, 59);
 });
-test('v1-59: the three other sellers of the scenario give no confident finding either; no seller of the 14 has any BOOKS_GAP', () => {
+test('v1-59: the three other sellers of the scenario give no confident finding either; none of the 14 fixture sellers has any BOOKS_GAP', () => {
   for (const s of all) assert.deepEqual(results.get(s).p.issues.filter(x => x.family === 'BOOKS_GAP' || x.state === 'ACTION_REQUIRED').map(x => x.family), [], 'seller ' + s);
 });

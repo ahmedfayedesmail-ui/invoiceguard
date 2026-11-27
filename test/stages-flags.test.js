@@ -25,17 +25,19 @@ test('stages: explicit values are read as written (characterization)', () => {
 });
 for (const bad of ['', 'yes', 'maybe', '1']) {
   test(`stages: is-amazon-invoiced "${bad}" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload`, () => {
-    for (const st of [PEND, AMZ, { 'invoice-status': 'InvoiceUploaded' }, { 'invoice-status': 'NoTaxCalculated' }]) { const e = expectedOf(ONE, [{ ...st, 'is-amazon-invoiced': bad, 'is-business-order': 'TRUE' }]); if (st['invoice-status'] === 'InvoiceUploaded') assert.notEqual(e.state, 'NOT DUE'); else U(e); assert.match(e.why ?? 'is-amazon-invoiced', /is-amazon-invoiced/); }
+    for (const st of [PEND, AMZ, { 'invoice-status': 'InvoiceUploaded' }, { 'invoice-status': 'NoTaxCalculated' }]) { const e = expectedOf(ONE, [{ ...st, 'is-amazon-invoiced': bad, 'is-business-order': 'TRUE' }]); if (st['invoice-status'] === 'InvoiceUploaded') assert.notEqual(e.state, 'NOT DUE'); else { U(e); assert.match(e.why, /is-amazon-invoiced/); } }
   });
   test(`stages: is-business-order "${bad}" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"`, () => {
     const e = expectedOf(ONE, [{ ...PEND, 'is-amazon-invoiced': 'FALSE', 'is-business-order': bad }]); U(e); assert.match(e.why, /is-business-order/);
   });
 }
 test('stages: rows of one document that disagree on a flag are unknown; the first row is not enough', () => {
-  const e1 = expectedOf(MANY, [{ ...PEND, 'is-amazon-invoiced': 'FALSE', 'is-business-order': 'TRUE' }, { 'is-amazon-invoiced': 'TRUE' }, { 'is-amazon-invoiced': 'FALSE' }]); U(e1); assert.match(e1.why, /is-amazon-invoiced/);
-  const e2 = expectedOf(MANY, [{ ...PEND, 'is-amazon-invoiced': 'FALSE', 'is-business-order': 'TRUE' }, { 'is-amazon-invoiced': 'FALSE', 'is-business-order': 'FALSE' }, { 'is-business-order': 'TRUE' }]); U(e2); assert.match(e2.why, /is-business-order/);
-  const e3 = expectedOf(MANY, [{ ...PEND, 'is-amazon-invoiced': 'FALSE', 'is-business-order': 'TRUE' }, { 'is-amazon-invoiced': '' }, { 'is-amazon-invoiced': 'FALSE' }]); U(e3);
-  const e4 = expectedOf(MANY, [{ ...AMZ, 'is-amazon-invoiced': 'TRUE', 'is-business-order': 'TRUE' }, { 'is-amazon-invoiced': 'FALSE' }, { 'is-amazon-invoiced': 'TRUE' }]); U(e4);
+  const rows = (st, a, b) => a.map((x, i) => ({ ...st, 'is-amazon-invoiced': x, 'is-business-order': b[i] }));
+  const e1 = expectedOf(MANY, rows(PEND, ['FALSE', 'TRUE', 'FALSE'], ['TRUE', 'TRUE', 'TRUE'])); U(e1); assert.match(e1.why, /is-amazon-invoiced/);
+  const e2 = expectedOf(MANY, rows(PEND, ['FALSE', 'FALSE', 'FALSE'], ['TRUE', 'FALSE', 'TRUE'])); U(e2); assert.match(e2.why, /is-business-order/);
+  const e3 = expectedOf(MANY, rows(PEND, ['FALSE', '', 'FALSE'], ['TRUE', 'TRUE', 'TRUE'])); U(e3);
+  const e4 = expectedOf(MANY, rows(AMZ, ['TRUE', 'FALSE', 'TRUE'], ['TRUE', 'TRUE', 'TRUE'])); U(e4);
+  const e5 = expectedOf(MANY, rows(PEND, ['FALSE', 'FALSE', 'FALSE'], ['TRUE', 'TRUE', ''])); U(e5);
 });
 test('stages: rows that all agree are read once: TRUE on every row is TRUE', () => {
   assert.equal(expectedOf(MANY, [{ ...PEND, 'is-amazon-invoiced': 'FALSE', 'is-business-order': 'TRUE' }]).state, 'EVIDENCE');

@@ -6,6 +6,7 @@
 // ACCEPTED_CANDIDATE, which is not a state anyone sees. The gate takes the import classification and the truncation flag.
 import { parseTable } from './manual.js';
 import { classifyTransactionId } from './txid.js';
+import { readFlag } from './vidr.js';
 
 /** Literal strings, from Amazon's status table (SP-API "Create and upload invoices"; VCS guide 6.1 has 10 of the 11). Exact match, whitespace trimmed only. */
 export const STATUS_MAP = Object.freeze({
@@ -334,11 +335,26 @@ export function stages(doc) {
   const dueStates = ['PENDING', 'REJECTED', 'SELLER_UPLOAD_REQUIRED'];
   const processing = h.find(x => x.mapped === 'PROCESSING');
   const amzEntry = h.find(x => x.mapped === 'CREATED_BY_AMAZON'), first = h.find(x => dueStates.includes(x.mapped)), upl = h.find(isUploadState);
+  // Expected is decided from the FIELDS: is-amazon-invoiced (who issues) and is-business-order, each read across EVERY row of the document: only an explicit TRUE or FALSE counts; blank, unreadable or disagreeing rows are UNKNOWN.
+  // invoice-status says what state the document is in. It is shown as an independent fact and never fills in an unknown flag or proves who issued the invoice.
+  const flagsOf = (entry) => ({ amz: readFlag(entry.rows.map(r => r['is-amazon-invoiced'])), biz: readFlag(entry.rows.map(r => r['is-business-order'])) });
+  const undetermined = (entry, why) => ({ state: 'UNDETERMINED', why: why + ' To resolve it, load a VAT Invoice Data Report in which the column holds the same TRUE or FALSE on every row of this document. Nothing is concluded about who issues it or whether an upload is owed.', source: `import ${entry.importId}`, ...statusFact(entry) });
+  const statusFact = (entry) => ({ invoiceStatusAsReported: entry.rawStatus, invoiceStatusNote: 'The invoice-status is shown as the report states it. It is not proof of who issues the invoice.' });
+  // Returns null when the fields agree with the status-based reading (the caller then builds its normal result), else the result that replaces it.
+  const byFields = (entry, kind) => { const { amz, biz } = flagsOf(entry), st = entry.rawStatus;
+    if (amz === null) return undetermined(entry, `is-amazon-invoiced is blank, unreadable or differs between the rows of this document, so the report does not show who issues the invoice (invoice-status ${st}).`);
+    if (kind === 'AMZ') return amz === true ? null : undetermined(entry, `is-amazon-invoiced is FALSE while the invoice-status is ${st}: the two disagree, so the report does not show who issues the invoice.`);
+    if (amz === true) return undetermined(entry, `is-amazon-invoiced is TRUE while the invoice-status is ${st}: the two disagree, so the report does not show who issues the invoice.`);
+    if (biz === null) return undetermined(entry, 'is-business-order is blank, unreadable or differs between the rows of this document, so the report does not show whether this is a business order.');
+    if (biz === false) return { state: 'NOT DUE', why: 'The report says is-business-order FALSE for this document, so no seller invoice is owed on this evidence.', source: `import ${entry.importId}`, ...statusFact(entry) };
+    return null; };
+  const override = (amzEntry ? byFields(amzEntry, 'AMZ') : null) ?? (first ? byFields(first, 'DUE') : null);
+  const withFact = (r, entry) => ({ ...r, ...statusFact(entry) });
   const col = (entry, c) => entry.rows[0]?.[c] ?? null;
   return {
-    expected: amzEntry ? { state: 'NOT DUE', why: 'Amazon made this document. The seller owes no upload.', value: amzEntry.rawStatus, source: `import ${amzEntry.importId}` }
-      : first ? { state: 'EVIDENCE', source: `import ${first.importId}`, columns: { 'is-business-order': col(first, 'is-business-order'), 'is-amazon-invoiced': col(first, 'is-amazon-invoiced'), 'invoice-status': first.rawStatus, 'shipment-date': col(first, 'shipment-date') }, observedInReportDated: first.effectiveTime, times: first.times, documentId: doc.key, obligation: first.rawStatus === 'NoTaxCalculated' ? 'Amazon did not calculate the tax: the seller must upload the invoice (Amazon status table)' : first.mapped === 'REJECTED' ? 'Re-upload required: Amazon found errors in the upload and says the seller must upload this document again' : 'Amazon is waiting for the seller\'s upload' }
-      : processing ? { state: 'NO NEW UPLOAD REQUIRED', why: 'Amazon has the upload and is processing it. No new action is required of the seller on this evidence.', source: `import ${processing.importId}` }
+    expected: override ? override : amzEntry ? withFact({ state: 'NOT DUE', why: 'Amazon made this document. The seller owes no upload.', value: amzEntry.rawStatus, source: `import ${amzEntry.importId}` }, amzEntry)
+      : first ? withFact({ state: 'EVIDENCE', source: `import ${first.importId}`, columns: { 'is-business-order': col(first, 'is-business-order'), 'is-amazon-invoiced': col(first, 'is-amazon-invoiced'), 'invoice-status': first.rawStatus, 'shipment-date': col(first, 'shipment-date') }, observedInReportDated: first.effectiveTime, times: first.times, documentId: doc.key, obligation: first.rawStatus === 'NoTaxCalculated' ? 'Amazon did not calculate the tax: the seller must upload the invoice (Amazon status table)' : first.mapped === 'REJECTED' ? 'Re-upload required: Amazon found errors in the upload and says the seller must upload this document again' : 'Amazon is waiting for the seller\'s upload' }, first)
+      : processing ? withFact({ state: 'NO NEW UPLOAD REQUIRED', why: 'Amazon has the upload and is processing it. No new action is required of the seller on this evidence.', source: `import ${processing.importId}` }, processing)
       : { state: 'NOT VISIBLE', why: 'No loaded report shows a state that proves an upload is owed. An accepted or incomplete document is not evidence of Expected.' },
     issued: { state: 'NOT VISIBLE in these files', why: 'The seller invoice system is not one of the loaded files. invoice-number in the Amazon report is Amazon\'s record of an upload.' },
     uploaded: amzEntry && !upl ? { state: 'NOT APPLICABLE', why: 'Created by Amazon, not uploaded by the seller.' } : upl ? { state: 'EVIDENCE', source: `import ${upl.importId}`, column: 'invoice-status', value: upl.rawStatus, firstObservedInReportDated: upl.effectiveTime, times: upl.times, documentId: upl.invoiceNumber ?? 'NOT VISIBLE in that report', note: 'first report that shows an upload; the dates are when that report was made or downloaded, not the upload time. The document id is the number in that same report.' } : { state: 'NOT VISIBLE' },
