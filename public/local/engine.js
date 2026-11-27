@@ -48945,13 +48945,14 @@ var clean = (v) => String(v).replace(/[^\w:.+\- ]/g, "").slice(0, 40);
 var upper = /* @__PURE__ */ new Set(["currency", "ship-country", "ship-from-country", "bill-country"]);
 function assessShipment(s) {
   const findings = [], notChecked = [], rows = s.src ?? [];
-  const add = (code, severity, resolution, field, lines, evidence, explanation, action, raw) => {
-    const key = code + "|" + field, entry = { lines: [...new Set(lines)].sort((a, b) => a - b), ...evidence };
+  const add = (code, severity, resolution, field, lines, evidence, explanation, action, raw, pl) => {
+    const key = code + "|" + field, ls = [...new Set(lines)].sort((a, b) => a - b), multi = ls.length > 1 && !!pl;
+    const entries = ls.map((l) => ({ lines: [l], ...multi ? {} : evidence, ...pl ? pl(l) : {} }));
     let f = findings.find((x) => x.k === key);
     if (f) {
-      for (const l of lines) if (!f.evidence.lines.includes(l)) f.evidence.lines.push(l);
+      for (const l of ls) if (!f.evidence.lines.includes(l)) f.evidence.lines.push(l);
       f.evidence.lines.sort((a, b) => a - b);
-      f.evidence.rows.push(entry);
+      f.evidence.rows.push(...entries);
       if (!f.explanations.includes(explanation)) {
         f.explanations.push(explanation);
         f.explanation = f.explanations.join(" ");
@@ -48959,15 +48960,16 @@ function assessShipment(s) {
       f.raw.push(...raw);
       return;
     }
-    findings.push({ k: key, code, severity, resolution, evidence: { field, lines: [...entry.lines], ...evidence, rows: [entry] }, explanation, explanations: [explanation], action, raw: [...raw] });
+    findings.push({ k: key, code, severity, resolution, evidence: { field, lines: [...ls], ...evidence, rows: entries }, explanation, explanations: [explanation], action, raw: [...raw] });
   };
   const ln = (r) => r.line ?? 0;
   const NEW = "Download the report again, or correct the value in your own copy, and upload it. Nothing can be approved for this by hand.";
   const txType = String(s.transactionType ?? "SHIPMENT").trim().toUpperCase();
-  if (txType !== "SHIPMENT") add("TRANSACTION_TYPE_UNSUPPORTED", "HOLD", "UNSUPPORTED_PATH", "transaction-type", rows.map(ln), { transactionType: clean(txType) || "(blank)" }, `This row is a ${clean(txType) || "blank"} transaction. Only shipment invoices are built here, so nothing was issued. The amounts are not treated as wrong: refunds and returns legitimately carry negative amounts, and the credit note path is not built yet.`, "No action on the amounts. This type needs a path that is not built yet.", [txType]);
+  if (txType !== "SHIPMENT") add("TRANSACTION_TYPE_UNSUPPORTED", "HOLD", "UNSUPPORTED_PATH", "transaction-type", rows.map(ln), { transactionType: clean(txType) || "(blank)" }, `This row is a ${clean(txType) || "blank"} transaction. Only shipment invoices are built here, so nothing was issued. The amounts are not treated as wrong: refunds and returns legitimately carry negative amounts, and the credit note path is not built yet.`, "No action on the amounts. This type needs a path that is not built yet.", [txType], () => ({ transactionType: clean(txType) || "(blank)" }));
   const curs = [...new Set(rows.map((r) => String(r.attrs.currency ?? "").trim().toUpperCase()))];
-  for (const c of curs) if (!SUPPORTED_CURRENCIES.includes(c)) add("CURRENCY_UNSUPPORTED", "HOLD", "NEW_EVIDENCE", "currency", rows.filter((r) => String(r.attrs.currency ?? "").trim().toUpperCase() === c).map(ln), { currency: c ? clean(c) : "(blank)", supported: SUPPORTED_CURRENCIES }, `The currency ${c ? clean(c) : "(blank)"} is outside the supported list (${SUPPORTED_CURRENCIES.join(", ")}), so nothing was issued. Its decimal places are not assumed.`, "Only a version that has verified this currency can issue it. Nothing can be approved by hand.", [c]);
+  for (const c of curs) if (!SUPPORTED_CURRENCIES.includes(c)) add("CURRENCY_UNSUPPORTED", "HOLD", "NEW_EVIDENCE", "currency", rows.filter((r) => String(r.attrs.currency ?? "").trim().toUpperCase() === c).map(ln), { currency: c ? clean(c) : "(blank)", supported: SUPPORTED_CURRENCIES }, `The currency ${c ? clean(c) : "(blank)"} is outside the supported list (${SUPPORTED_CURRENCIES.join(", ")}), so nothing was issued. Its decimal places are not assumed.`, "Only a version that has verified this currency can issue it. Nothing can be approved by hand.", [c], () => ({ currency: c ? clean(c) : "(blank)" }));
   let totalCents = 0n, totalKnown = rows.length > 0;
+  const rowTot = /* @__PURE__ */ new Map();
   const rateSeen = /* @__PURE__ */ new Set();
   for (const r of rows) {
     const q = String(r.qty ?? "").trim();
@@ -48996,10 +48998,11 @@ function assessShipment(s) {
       }
       const incl = A.incl.cents, vat = A.vat.cents, excl = A.excl.cents;
       totalCents += incl;
+      rowTot.set(ln(r), (rowTot.get(ln(r)) ?? 0n) + incl);
       const tol = p === "item" && qty > 1 ? 2n : 1n, diff = incl - (excl + vat);
       if ((diff < 0n ? -diff : diff) > tol) add("AMOUNT_INCONSISTENT", "HOLD", "NEW_EVIDENCE", p, [ln(r)], { values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, toleranceCents: Number(tol) }, `On line ${ln(r)} the ${p} amounts do not add up: the gross amount differs from net plus VAT by more than ${tol} cent. Nothing was issued, and we do not decide which number is right.`, NEW, [t.incl, t.vat, t.excl]);
       if (diff !== 0n && (diff < 0n ? -diff : diff) <= tol) {
-        const row = { line: ln(r), values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, differenceCents: Number(diff), toleranceCents: Number(tol) };
+        const row = { line: ln(r), lines: [ln(r)], values: { incl: fmt(incl), vat: fmt(vat), excl: fmt(excl) }, differenceCents: Number(diff), toleranceCents: Number(tol) };
         const sentence = `On line ${ln(r)} the ${p} gross differs from net plus VAT by ${fmt(diff)} (tolerance ${tol} cent).`;
         const f0 = findings.find((x) => x.k === "RND" + p);
         if (f0) {
@@ -49025,7 +49028,7 @@ function assessShipment(s) {
     else if (od && isoMs(od) === null) notChecked.push({ check: "order-date", reason: "the order-date is not a complete ISO date, so its order against the shipment date was not compared" });
   }
   for (const why of rateSeen) notChecked.push({ check: "vat-vs-rate", reason: why });
-  if (txType === "SHIPMENT" && rows.length && totalKnown && totalCents <= 0n) add("NONPOSITIVE_TOTAL", "HOLD", "NEW_EVIDENCE", "total", rows.map(ln), { values: { incl: fmt(totalCents) } }, `The total of this shipment (all amounts added) is ${fmt(totalCents)}, which is not an amount to invoice, so nothing was issued. A refund is a credit note, not a shipment invoice.`, NEW, [String(totalCents)]);
+  if (txType === "SHIPMENT" && rows.length && totalKnown && totalCents <= 0n) add("NONPOSITIVE_TOTAL", "HOLD", "NEW_EVIDENCE", "total", rows.map(ln), { values: { incl: fmt(totalCents) } }, `The total of this shipment (all amounts added) is ${fmt(totalCents)}, which is not an amount to invoice, so nothing was issued. A refund is a credit note, not a shipment invoice.`, NEW, [String(totalCents)], (l) => ({ values: { incl: fmt(rowTot.get(l) ?? 0n) } }));
   const fields = Object.keys(rows[0]?.attrs ?? {}), shown = [];
   for (const f of fields) {
     const norm2 = (v) => {
@@ -49033,7 +49036,10 @@ function assessShipment(s) {
       return upper.has(f) ? x.toUpperCase() : x;
     };
     const vals = rows.map((r) => norm2(r.attrs[f])), distinct = [...new Set(vals)];
-    if (distinct.length > 1) add("SHIPMENT_FIELD_CONFLICT", "BLOCK", null, f, rows.map(ln), { values: distinct.map((v, i2) => v === "" ? "(blank)" : PLAIN.has(f) ? clean(v) : `value ${i2 + 1}`) }, `The rows of this shipment disagree on ${f}. The file contradicts itself, so nothing was issued, and the first row is not taken as the right one.`, "Only a corrected report can resolve this. Download the report again and check these lines.", [JSON.stringify(distinct)]);
+    if (distinct.length > 1) add("SHIPMENT_FIELD_CONFLICT", "BLOCK", null, f, rows.map(ln), { values: distinct.map((v, i2) => v === "" ? "(blank)" : PLAIN.has(f) ? clean(v) : `value ${i2 + 1}`) }, `The rows of this shipment disagree on ${f}. The file contradicts itself, so nothing was issued, and the first row is not taken as the right one.`, "Only a corrected report can resolve this. Download the report again and check these lines.", [JSON.stringify(distinct)], (l) => {
+      const r = rows.find((x) => ln(x) === l), v = norm2(r.attrs[f]);
+      return { value: v === "" ? "(blank)" : PLAIN.has(f) ? clean(v) : `value ${distinct.indexOf(v) + 1}` };
+    });
     void shown;
   }
   const byId = /* @__PURE__ */ new Map(), bySig = /* @__PURE__ */ new Map();
@@ -49045,9 +49051,9 @@ function assessShipment(s) {
       bySig.set(r.sig, [...bySig.get(r.sig) ?? [], r]);
     }
   }
-  for (const [id, g] of byId) if (g.length > 1) add("DUPLICATE_ITEM_ROW", "HOLD", "NEW_EVIDENCE", "order-item-id", g.map(ln), {}, `The same order-item-id appears on ${g.length} rows of this shipment (lines ${g.map(ln).join(", ")}), so the same item may be counted twice. Nothing was issued.`, NEW, [id]);
-  for (const g of bySig.values()) if (g.length > 1) add("DUPLICATE_ITEM_ROW", "HOLD", "HUMAN_DECISION", "row", g.map(ln), {}, `Lines ${g.map(ln).join(", ")} are identical in every cell and have no order-item-id. Two identical units can be legitimate, a repeated row is not, and the file cannot tell which.`, "Check the order in Seller Central. If the order really has these identical units, record a decision with your reason. If not, upload a corrected report.", [g[0].sig, String(g.length)]);
-  if ((s.orderShipments ?? 1) > 1) findings.push({ k: "SPLIT", code: "SPLIT_SHIPMENT", severity: "INFO", resolution: null, evidence: { field: "order-id", lines: rows.map(ln), shipments: s.orderShipments }, explanation: `This order has ${s.orderShipments} shipments in the file. They are kept separate and never merged.`, action: "No action needed.", raw: [] });
+  for (const [id, g] of byId) if (g.length > 1) add("DUPLICATE_ITEM_ROW", "HOLD", "NEW_EVIDENCE", "order-item-id", g.map(ln), {}, `The same order-item-id appears on ${g.length} rows of this shipment (lines ${g.map(ln).join(", ")}), so the same item may be counted twice. Nothing was issued.`, NEW, [id], (l) => ({ sharesItemIdWithLines: g.map(ln).filter((x) => x !== l) }));
+  for (const g of bySig.values()) if (g.length > 1) add("DUPLICATE_ITEM_ROW", "HOLD", "HUMAN_DECISION", "row", g.map(ln), {}, `Lines ${g.map(ln).join(", ")} are identical in every cell and have no order-item-id. Two identical units can be legitimate, a repeated row is not, and the file cannot tell which.`, "Check the order in Seller Central. If the order really has these identical units, record a decision with your reason. If not, upload a corrected report.", [g[0].sig, String(g.length)], (l) => ({ identicalToLines: g.map(ln).filter((x) => x !== l) }));
+  if ((s.orderShipments ?? 1) > 1) findings.push({ k: "SPLIT", code: "SPLIT_SHIPMENT", severity: "INFO", resolution: null, evidence: { field: "order-id", lines: rows.map(ln), shipments: s.orderShipments, rows: rows.map((r) => ({ lines: [ln(r)], shipments: s.orderShipments })) }, explanation: `This order has ${s.orderShipments} shipments in the file. They are kept separate and never merged.`, action: "No action needed.", raw: [] });
   const out = findings.map(({ k, raw, sentences, explanations, ...f }) => ({ ...f, fingerprint: sha([f.code, f.evidence.field, f.evidence.lines, raw]) }));
   const verdict = out.some((f) => f.severity === "BLOCK") ? "BLOCK" : out.some((f) => f.severity === "HOLD") ? "HOLD" : "CLEAR";
   return { verdict, findings: out, notChecked };

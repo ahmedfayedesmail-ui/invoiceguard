@@ -328,3 +328,30 @@ test('review 11, any finding merged over several rows keeps one evidence entry p
   const q = a.findings.find(f => f.code === 'QUANTITY_UNREADABLE'); assert.equal(q.evidence.rows.length, 2); assert.deepEqual(q.evidence.rows.map(r => r.lines[0]).sort(), [...q.evidence.lines].sort());
   const d = a.findings.find(f => f.code === 'DATE_MISSING'); assert.equal(d.evidence.rows.length, 2);
 });
+
+// ---- Night mission WP0 (23:05): a finding that covers several physical lines keeps one independent evidence entry PER LINE. Written BEFORE the fix ----
+const perLine = (f) => { const ls = [...f.evidence.lines].sort((a, b) => a - b), rs = f.evidence.rows.flatMap(r => r.lines ?? [r.line]).sort((a, b) => a - b); assert.deepEqual(rs, ls, f.code + ': one entry per physical line'); assert.ok(f.evidence.rows.every(r => (r.lines ?? [r.line]).length === 1), f.code + ': no entry spans several lines'); };
+const M = (n, over = {}) => rowOf(0, { 'quantity-purchased': '1', 'order-item-id': String(500 + n), sku: 'SKU-W' + n, ...over });
+test('WP0: SHIPMENT_FIELD_CONFLICT keeps, for every line, which value it carries; personal fields show placeholders only', () => {
+  const a = assessShipment(one(file(M(1, { currency: 'EUR' }), M(2, { currency: 'GBP' }), M(3, { currency: 'EUR' }), M(4, { 'billing-name': 'Zed Secret Person' }))));
+  const c = a.findings.find(f => f.code === 'SHIPMENT_FIELD_CONFLICT' && f.evidence.field === 'currency'); perLine(c); assert.equal(c.evidence.rows.length, 4);
+  const byLine = Object.fromEntries(c.evidence.rows.map(r => [r.lines[0], r.value])); const vals = c.evidence.lines.map(l => byLine[l]); assert.deepEqual(vals, ['EUR', 'GBP', 'EUR', 'EUR']);
+  const n = a.findings.find(f => f.code === 'SHIPMENT_FIELD_CONFLICT' && f.evidence.field === 'billing-name'); perLine(n); assert.ok(!JSON.stringify(n).includes('Secret'), 'no personal value'); assert.ok(n.evidence.rows.every(r => /^value \d$|^\(blank\)$/.test(r.value)));
+});
+test('WP0: DUPLICATE_ITEM_ROW, NONPOSITIVE_TOTAL, CURRENCY_UNSUPPORTED and TRANSACTION_TYPE_UNSUPPORTED keep one entry per line, each with its own safe value', () => {
+  const dup = assessShipment(one(file(M(1, { 'order-item-id': '77' }), M(2, { 'order-item-id': '77', sku: 'SKU-Q' }), M(3, { 'order-item-id': '77', sku: 'SKU-R' })))).findings.find(f => f.code === 'DUPLICATE_ITEM_ROW'); perLine(dup); assert.equal(dup.evidence.rows.length, 3); assert.ok(!JSON.stringify(dup.evidence).includes('"77"'), 'the raw item id is not stored');
+  const z = { 'item-vat-incl-amount': '0.00', 'item-vat-amount': '0.00', 'item-vat-excl-amount': '0.00', 'shipping-vat-incl-amount': '', 'shipping-vat-amount': '', 'shipping-vat-excl-amount': '' };
+  const np = assessShipment(one(file(M(1, z), M(2, z)))).findings.find(f => f.code === 'NONPOSITIVE_TOTAL'); perLine(np); assert.ok(np.evidence.rows.every(r => r.values?.incl === '0.00'), 'each line states its own gross');
+  const cu = assessShipment(one(file(M(1, { currency: 'JPY' }), M(2, { currency: 'JPY' })))).findings.find(f => f.code === 'CURRENCY_UNSUPPORTED'); perLine(cu); assert.ok(cu.evidence.rows.every(r => r.currency === 'JPY'));
+  const tt = assessShipment(one(file(M(1, { 'transaction-type': 'REFUND' }), M(2, { 'transaction-type': 'REFUND' })))).findings.find(f => f.code === 'TRANSACTION_TYPE_UNSUPPORTED'); perLine(tt); assert.ok(tt.evidence.rows.every(r => r.transactionType === 'REFUND'));
+});
+test('WP0: SPLIT_SHIPMENT (which bypasses add) and ROUNDING_DIFFERENCE use the same per-line shape', () => {
+  const id = parseVidr(file(rowOf(0)))[0].orderId; const s = parseVidr(file(M(1), M(2), rowOf(1, { 'order-id': id })))[0]; const sp = assessShipment(s).findings.find(f => f.code === 'SPLIT_SHIPMENT'); assert.ok(sp); perLine(sp); assert.ok(sp.evidence.rows.every(r => r.shipments === 2));
+  const rd = assessShipment(one(file(M(1, { 'item-vat-incl-amount': '48.41' }), M(2, { 'item-vat-incl-amount': '48.39' })))).findings.find(f => f.code === 'ROUNDING_DIFFERENCE'); perLine(rd);
+});
+test('WP0: through processReport a multi-line BLOCK stores one ledger record and one evidence entry per line, and nothing raw reaches the ledger or the events', async () => {
+  const { db, out } = await run(file(M(1, { 'billing-name': 'Zed Secret Person', 'buyer-vat-number': 'ESB10000009' }), M(2, { 'billing-name': 'Other Secret Name' }), M(3, { 'billing-name': 'Zed Secret Person' })));
+  assert.equal(out.uploaded, 0); const r = db.prepare("SELECT evidence FROM integrity_findings WHERE code='SHIPMENT_FIELD_CONFLICT' AND field='billing-name'").all(); assert.equal(r.length, 1); const ev = JSON.parse(r[0].evidence); assert.equal(ev.rows.length, 3); assert.equal(new Set(ev.rows.map(x => x.lines[0])).size, 3);
+  const dump = JSON.stringify(['integrity_findings', 'integrity_history'].map(t => db.prepare(`SELECT * FROM ${t}`).all())) + JSON.stringify(db.prepare("SELECT detail FROM events WHERE type IN ('integrity','held')").all()); assert.ok(!/Secret|ESB10000009/.test(dump));
+  await run(file(M(1, { 'billing-name': 'Zed Secret Person' }), M(2, { 'billing-name': 'Other Secret Name' }), M(3, { 'billing-name': 'Zed Secret Person' })), db); assert.equal(count(db, "SELECT count(*) c FROM integrity_findings WHERE code='SHIPMENT_FIELD_CONFLICT' AND field='billing-name'"), 1, 'no duplicate record on re-run');
+});
