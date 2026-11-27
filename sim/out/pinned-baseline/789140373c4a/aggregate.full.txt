@@ -1,0 +1,27 @@
+sellers 500
+outcomes {'analysed_preflight_pass': 441, 'analysed_preflight_blocked': 41, 'blocked_mapping': 2, 'refused_at_door': 11, 'truncated_preflight_only': 2, 'blocked_kind_words': 3}
+crashes []
+
+CONFIDENT COMMERCIAL findings (state ACTION_REQUIRED, family other than SOURCE_INCOMPLETE): 884
+  = true 884 + false 0 + declaration-dependent 0 + on conflicting evidence 0 + unscored non-B2B 0   (sum check: 884 )
+  precision, strict   = true / total                            = 884/884 = 100.0%
+  precision, scored   = true / (true + false)                   = 884/884 = 100.0%  (leaves out declaration-dependent, conflicting-evidence, non-B2B)
+  precision, decided  = true / (true + false + conflicting)      = 884/884 = 100.0%  (the 28 conflicting-evidence findings counted as errors; leaves out only declaration-dependent and non-B2B)
+  false-confident rate on conflicting evidence =  0/0 = n/a (every confident finding there is wrong by definition)
+CONFIDENT SOURCE_INCOMPLETE findings (the file was refused or is unusable): 13 = expected 13 + unexpected 0 . These are data-quality results, not commercial claims, and are not in the precision above.
+per scenario, non-zero false / declaration-dependent / conflict / unexpected-source:
+
+RECALL in scope, books exported through the report day: 751/805 = 93.3% injected problems found / injected problems
+  missed by type {'number_differs_amazon_vs_books': 34, 'books_doc_points_to_other_order': 20}
+RECALL month-only books cohort: 76/143 = 53.1%  coverage notes shown: 669
+misclassified (found, wrong family): 0
+
+ONBOARDING no manual column or format choice: 212/495 = 42.8%
+  by dialect {'de': '0/55 = 0.0%', 'en': '65/65 = 100.0%', 'en-th': '44/45 = 97.8%', 'en-us': '50/51 = 98.0%', 'es': '53/55 = 96.4%', 'fr': '0/54 = 0.0%', 'it': '0/58 = 0.0%', 'nl': '0/54 = 0.0%', 'pl': '0/58 = 0.0%'}
+
+PREFLIGHT ready: 441/495 = 89.1%  blocked-as-expected: 28  passed but expected block: 0
+preflight passed, then the Amazon file was refused (SOURCE_INCOMPLETE confident, not expected): []
+projection ms (<1000 rows) p50 7 p95 51 max 156 | big [(30, 3000, 2441), (77, 20001, None), (250, 3000, 2404), (388, 20001, None), (400, 5000, 6894)]
+out of contract sellers 40/500 = 8.0%
+
+FOLLOW-UP (through-report-day cohort): {'closedCorrect': 127, 'closedWrong': 36, 'stillOpenCorrect': 244, 'stillOpenWrong': 0, 'lost': 42, 'declaredAsClosedWrong': 0}
