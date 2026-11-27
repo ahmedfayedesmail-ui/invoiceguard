@@ -1,0 +1,367 @@
+TAP version 13
+# Subtest: stages: explicit values are read as written (characterization)
+ok 1 - stages: explicit values are read as written (characterization)
+  ---
+  duration_ms: 14.122953
+  type: 'test'
+  ...
+# Subtest: stages: is-amazon-invoiced "" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+not ok 2 - stages: is-amazon-invoiced "" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 1.367904
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:27:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"TRUE","is-amazon-invoiced":"","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"decla
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:28:305)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: stages: is-business-order "" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+not ok 3 - stages: is-business-order "" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 0.702534
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:30:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"","is-amazon-invoiced":"FALSE","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"decl
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:31:104)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: is-amazon-invoiced "yes" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+not ok 4 - stages: is-amazon-invoiced "yes" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 1.14255
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:27:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"TRUE","is-amazon-invoiced":"yes","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"de
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:28:305)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: is-business-order "yes" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+not ok 5 - stages: is-business-order "yes" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 0.551989
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:30:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"yes","is-amazon-invoiced":"FALSE","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"d
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:31:104)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: is-amazon-invoiced "maybe" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+not ok 6 - stages: is-amazon-invoiced "maybe" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 0.582141
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:27:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"TRUE","is-amazon-invoiced":"maybe","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:28:305)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: is-business-order "maybe" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+not ok 7 - stages: is-business-order "maybe" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 0.887272
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:30:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"maybe","is-amazon-invoiced":"FALSE","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:31:104)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: is-amazon-invoiced "1" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+not ok 8 - stages: is-amazon-invoiced "1" is unknown: UNDETERMINED with Pending, with InvoiceCreatedByAmazon, and with InvoiceUploaded; never NOT DUE, never seller-must-upload
+  ---
+  duration_ms: 0.613607
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:27:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"TRUE","is-amazon-invoiced":"1","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"decl
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:28:305)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: is-business-order "1" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+not ok 9 - stages: is-business-order "1" is unknown: a Pending document whose Amazon flag is FALSE is UNDETERMINED, not "the seller must upload"
+  ---
+  duration_ms: 0.659916
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:30:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"1","is-amazon-invoiced":"FALSE","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"dec
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:31:104)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: rows of one document that disagree on a flag are unknown; the first row is not enough
+not ok 10 - stages: rows of one document that disagree on a flag are unknown; the first row is not enough
+  ---
+  duration_ms: 0.905336
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:34:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"TRUE","is-amazon-invoiced":"FALSE","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:35:176)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: rows that all agree are read once: TRUE on every row is TRUE
+ok 11 - stages: rows that all agree are read once: TRUE on every row is TRUE
+  ---
+  duration_ms: 0.561236
+  type: 'test'
+  ...
+# Subtest: stages: a flag that conflicts with the invoice-status is UNDETERMINED (status never decides the issuer)
+not ok 12 - stages: a flag that conflicts with the invoice-status is UNDETERMINED (status never decides the issuer)
+  ---
+  duration_ms: 0.658172
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:43:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"state":"EVIDENCE","source":"import r1","columns":{"is-business-order":"TRUE","is-amazon-invoiced":"TRUE","invoice-status":"InvoicePending","shipment-date":"2026-11-06T09:00:00Z"},"observedInReportDated":"2026-11-10T08:00:00.000Z","times":{"reportCreated":{"value":"2026-11-10T08:00:00Z","source":"d
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'UNDETERMINED'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'UNDETERMINED'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    U (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:19:27)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:44:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: an explicit business FALSE with a Pending document: no seller invoice is owed, as the report says, and not "must upload"
+not ok 13 - stages: an explicit business FALSE with a Pending document: no seller invoice is owed, as the report says, and not "must upload"
+  ---
+  duration_ms: 0.590325
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:47:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'EVIDENCE'
+    - 'NOT DUE'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'NOT DUE'
+  actual: 'EVIDENCE'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:48:113)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stages: invoice-status is shown as an independent fact in every result, and is not offered as proof of the issuer
+not ok 14 - stages: invoice-status is shown as an independent fact in every result, and is not offered as proof of the issuer
+  ---
+  duration_ms: 0.571161
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stages-flags.test.js:50:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + undefined
+    - 'InvoicePending'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'InvoicePending'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stages-flags.test.js:52:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 2
+# fail 12
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 107.171003
