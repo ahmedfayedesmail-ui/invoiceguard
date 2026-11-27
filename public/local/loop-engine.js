@@ -3849,6 +3849,7 @@ init_buffer_shim();
 var isoDay3 = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
 var days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5) + 1;
 var PILOT_MAX_DAYS = 92;
+var VIDR_MAX_ROWS = 2e4;
 var c = (id, status, detail) => ({ id, status, detail });
 function pilotScope(imports = []) {
   const v = imports.filter((i) => i.kind === "vidr"), keys = new Set(v.map((i) => `${i.declared?.marketplace}|${i.declared?.rangeFrom}|${i.declared?.rangeTo}`));
@@ -3865,6 +3866,7 @@ function preflight({ vidrText, vidrDeclared, ledgerText, profile, ledgerDeclared
   if (hasV) {
     const t = parseTable(String(vidrText ?? ""));
     checks.push(t.unsupported || !t.rows?.length ? c("SOURCE_TYPE", "FAIL", "The Amazon file is not a readable tab-delimited table with data rows.") : vd.reportType !== REPORT_TYPE ? c("SOURCE_TYPE", "FAIL", "It was not declared that this is the Amazon VAT invoice data report.") : c("SOURCE_TYPE", "PASS", `Seller-declared as the Amazon VAT invoice report. The table was read (${t.rows.length} data rows); the origin of the file cannot be verified by this tool.`));
+    if (t.truncated === true) checks.push(c("VIDR_ROWS", "FAIL", `The Amazon report has more than ${VIDR_MAX_ROWS} data rows, which is the supported limit. Only the first ${VIDR_MAX_ROWS} rows would be read, so the file would not be fully processed. Request a shorter period.`));
     checks.push(vd.options === "ALL" ? c("REPORT_OPTIONS", "PASS", "Declared by the seller: all statuses.") : c("REPORT_OPTIONS", "FAIL", "The pilot needs the all-status report; pending-only or undeclared hides problems."));
     if (!isoDay3(vd.rangeFrom) || !isoDay3(vd.rangeTo) || vd.rangeFrom > vd.rangeTo) checks.push(c("PERIOD", "FAIL", "The Amazon report period is missing or reversed."));
     else if (days(vd.rangeFrom, vd.rangeTo) > maxDays) checks.push(c("PERIOD", "FAIL", `The period is ${days(vd.rangeFrom, vd.rangeTo)} days; the pilot is bounded to ${maxDays}.`));
@@ -3892,7 +3894,7 @@ function preflight({ vidrText, vidrDeclared, ledgerText, profile, ledgerDeclared
     if (!lp.length) {
       const r = readLedger(String(ledgerText ?? ""), profile, {});
       const n = r.documents?.length ?? 0, rej = r.rejected?.length ?? 0;
-      checks.push(!r.ok ? c("LEDGER_ROWS", "FAIL", "The accounting export could not be read with this column mapping.") : n + rej > LEDGER_MAX_ROWS ? c("LEDGER_ROWS", "FAIL", `More than ${LEDGER_MAX_ROWS} rows.`) : rej ? c("LEDGER_ROWS", "WARN", `${n} documents read, ${rej} rows rejected by the parser.`) : c("LEDGER_ROWS", "PASS", `${n} documents read, 0 rejected.`));
+      checks.push(!r.ok ? c("LEDGER_ROWS", "FAIL", "The accounting export could not be read with this column mapping.") : r.truncated === true || n + rej > LEDGER_MAX_ROWS ? c("LEDGER_ROWS", "FAIL", `The accounting export has more than ${LEDGER_MAX_ROWS} data rows, which is the supported limit. Only the first ${LEDGER_MAX_ROWS} rows would be read, so the file would not be fully processed. Split it by period or marketplace and load a smaller export.`) : rej ? c("LEDGER_ROWS", "WARN", `${n} documents read, ${rej} rows rejected by the parser.`) : c("LEDGER_ROWS", "PASS", `${n} documents read, 0 rejected.`));
     }
   }
   if (!(hasV && hasL)) checks.push(c("PAIR", "NOTE", "Only one of the two files is being checked now. The checks that compare both files run when the second file is loaded."));

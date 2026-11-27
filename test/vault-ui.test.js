@@ -70,7 +70,7 @@ test('vault page: inactivity auto-lock locks, drops the page content and keeps s
   const t = await boot(); nFiles = 0;
   try {
     const { page } = t; await makeVault(page); await load(page, 'fixtures/loop/p2-vidr.tsv', 'fixtures/loop/p2-ledger-1.csv');
-    await page.select('#s-lock', '5'); await page.waitForFunction("document.querySelector('#msg').textContent.includes('Auto-lock updated')");
+    await page.select('#s-lock', '5'); await page.waitForFunction("document.querySelector('#msg').textContent.includes('Auto-lock updated') || document.querySelector('#app').hidden === true"); // on a slow machine the 1.5 s timer can fire before the message is polled
     await page.waitForFunction("document.querySelector('#app').hidden === true", { timeout: 8000 }); // the test hook shortens the 5 minute timer to 1.5 seconds
     assert.match(await page.$eval('#g-msg', e => e.textContent), /Locked after inactivity/); assert.ok(!(await page.evaluate(() => document.body.innerText)).includes('A-2001'));
     await page.type('#g-pw', PAGE_PW); await click(page, 'Unlock'); await page.waitForFunction("document.querySelector('#results').innerText.includes('Loaded files (2)')");

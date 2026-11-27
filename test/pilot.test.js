@@ -137,3 +137,21 @@ test('staged: the pending file is checked against EVERY stored file, not the lat
   const first = preflightPending('vidr', { text: F.PV, declared: { ...vd(), rangeFrom: '2026-10-01', rangeTo: '2026-10-31' } }, (await s.imports()).filter(i => i.kind === 'ledger'));
   assert.equal(first.ready, false, 'a first Amazon report outside the stored export period must be refused');
 });
+
+// ---- truncated files: a partial read is never a complete pilot ----
+const bigLedger = (n) => { const rows = []; for (let k = 1; k <= n; k++) rows.push([`B-${k}`, 'Factura', '2026-11-18', '2026-11-17', 'EUR', '121,00', '100,00', '21,00', F.O(100 + k), 'Amazon.es'].join(';')); return F.LH + '\n' + rows.join('\n') + '\n'; };
+const bigVidr = (n) => { const rows = []; for (let k = 1; k <= n; k++) rows.push({ n: 100 + k, status: 'InvoiceUploaded', num: 'B-' + k }); return F.vidr(rows); };
+test('truncation: a pending accounting export over the row limit is blocked, with an explanation', () => {
+  const r = preflight({ ...base(), ledgerText: bigLedger(20001) }); assert.equal(status(r, 'LEDGER_ROWS'), 'FAIL'); assert.equal(r.ready, false);
+  assert.match(r.checks.find(x => x.id === 'LEDGER_ROWS').detail, /more than 20000 data rows.*not be fully processed/);
+  const pend = preflightPending('ledger', { text: bigLedger(20001), profile: F.PROFILE, declared: ld() }, []); assert.equal(pend.ready, false); assert.ok(ids(pend, 'FAIL').includes('LEDGER_ROWS'));
+  const v = preflight({ ...base(), vidrText: bigVidr(20001) }); assert.equal(status(v, 'VIDR_ROWS'), 'FAIL'); assert.equal(v.ready, false);
+});
+test('truncation: a stored truncated import fails the whole dataset and the aggregate is refused; exactly at the limit still passes', async () => {
+  const s = mkStore(); await s.addVidr({ text: F.PV, declared: vd() }); await s.addLedger({ text: bigLedger(20001), profile: F.PROFILE, declared: ld() });
+  const r = preflightStored(await s.imports()); assert.equal(r.ready, false); assert.ok(ids(r, 'FAIL').includes('LEDGER_ROWS')); await assert.rejects(agg(s), /LEDGER_ROWS/);
+  const t = mkStore(); await t.addVidr({ text: bigVidr(20001), declared: vd() }); await t.addLedger({ text: F.PL1, profile: F.PROFILE, declared: ld() });
+  assert.ok(ids(preflightStored(await t.imports()), 'FAIL').includes('VIDR_ROWS')); await assert.rejects(agg(t), /VIDR_ROWS/);
+  const ok = preflight({ ...base(), ledgerText: bigLedger(20000), vidrText: bigVidr(20000) }); assert.notEqual(status(ok, 'LEDGER_ROWS'), 'FAIL'); assert.notEqual(status(ok, 'VIDR_ROWS'), 'FAIL'); assert.equal(ok.checks.find(x => x.id === 'VIDR_ROWS'), undefined);
+  assert.equal(preflight(base()).ready, true);
+});
