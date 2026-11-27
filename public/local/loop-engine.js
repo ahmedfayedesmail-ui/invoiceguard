@@ -3300,6 +3300,11 @@ function ledgerDoorProblems(text, profile, d = {}) {
   else p.push(...profileProblems(profile, t.head));
   return p;
 }
+var sig = (r) => JSON.stringify(r.issues.map((i) => [i.key, i.state, i.fingerprint]).sort());
+function orphanedEvents(events, after, imports, pid) {
+  const keys = new Set(after.issues.map((i) => i.key)), base = sig(after);
+  return events.filter((e) => e.type === "LINK_DECISION" ? sig(project({ imports, events: events.filter((x) => x !== e), sellerProfileId: pid })) === base : !keys.has(e.issueKey));
+}
 function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toISOString() } = {}) {
   const key = (k, id) => `loop:${k}:${id}`;
   const list = async (k) => {
@@ -3386,6 +3391,70 @@ function createLoopStore(adapter, { now = () => (/* @__PURE__ */ new Date()).toI
     },
     async deleteEverything() {
       await adapter.clear();
+    },
+    // ---- P3: lifecycle. Deletion removes stored records (logical deletion); see docs/LOCAL-DATA-SECURITY-THREAT-MODEL.md for what that does and does not guarantee. ----
+    async settings() {
+      return { retention: { mode: "KEEP" }, autoLockMinutes: 15, ...await adapter.get("loop:settings") ?? {} };
+    },
+    async setSettings(next) {
+      const cur = await this.settings(), s = { ...cur, ...next }, r = s.retention ?? { mode: "KEEP" };
+      if (!["KEEP", "AFTER_DAYS"].includes(r.mode) || r.mode === "AFTER_DAYS" && !(Number.isInteger(r.days) && r.days >= 30 && r.days <= 3650)) throw new Refused(['Retention is either "keep until I delete" or a whole number of days between 30 and 3650.']);
+      if (r.mode === "AFTER_DAYS" && r.confirmedAt === void 0) throw new Refused(["Turning on automatic deletion needs your explicit confirmation of what it deletes."]);
+      if (!(Number.isInteger(s.autoLockMinutes) && s.autoLockMinutes >= 0 && s.autoLockMinutes <= 240)) throw new Refused(["Auto-lock is 0 (off) to 240 minutes."]);
+      await adapter.put("loop:settings", s);
+      return s;
+    },
+    /** What deleting this import would do, computed from the data, nothing is changed. */
+    async deletionImpact(importId) {
+      const imports = await this.imports(), events = await this.events(), target = imports.find((i) => i.id === importId);
+      if (!target) throw new Refused(["That import is not stored."]);
+      const pid = await this.profileId(), before = project({ imports, events, sellerProfileId: pid }), rest = imports.filter((i) => i.id !== importId), after = project({ imports: rest, events, sellerProfileId: pid });
+      const orphans = orphanedEvents(events, after, rest, pid), ak = new Map(after.issues.map((i) => [i.key, i]));
+      const gone = before.issues.filter((i) => !ak.has(i.key)), changed = before.issues.filter((i) => ak.has(i.key) && (ak.get(i.key).state !== i.state || ak.get(i.key).fingerprint !== i.fingerprint));
+      const tally = (xs, f) => xs.reduce((m, x) => {
+        const k = f(x);
+        m[k] = (m[k] ?? 0) + 1;
+        return m;
+      }, {});
+      return {
+        import: { id: target.id, kind: target.kind, fileName: target.fileName, importedAt: target.importedAt, sha256: target.sha256 },
+        issuesDisappearing: tally(gone, (i) => i.family),
+        issuesChanging: changed.length,
+        eventsRemoved: tally(orphans, (e) => e.type),
+        eventsKept: events.length - orphans.length,
+        importsRemaining: rest.length,
+        removes: ["the stored file text and its declarations and mapping profile", "every problem that exists only because of this file (computed, not stored, so nothing else to erase)", "the seller statements attached to those problems (listed above)"],
+        keeps: ["all other imports", "seller statements on problems that still exist", "any copy you downloaded (evidence bundle or backup) outside this page"]
+      };
+    },
+    /** Deletes the import, then the seller statements that no longer attach to anything. Needs {confirmed:true}. Import first: an interruption leaves orphaned statements, never a lost import and never a half-deleted file. */
+    async deleteImport(importId, { confirmed = false } = {}) {
+      if (confirmed !== true) throw new Refused(["Deleting needs your confirmation after you have seen what it removes."]);
+      if (!adapter.del) throw new Refused(["This storage cannot delete single records."]);
+      const impact = await this.deletionImpact(importId);
+      await adapter.del(key("import", importId));
+      const imports = await this.imports(), events = await this.events(), pid = await this.profileId(), after = project({ imports, events, sellerProfileId: pid });
+      let removed = 0;
+      for (const e of orphanedEvents(events, after, imports, pid)) {
+        await adapter.del(key("event", e.id));
+        removed++;
+      }
+      return { ...impact, deleted: true, eventsDeleted: removed };
+    },
+    /** Imports older than the retention days. Only ever acts when the seller turned retention on and confirmed. */
+    async retentionPreview(asOf = now()) {
+      const s = await this.settings();
+      if (s.retention.mode !== "AFTER_DAYS") return { enabled: false, due: [] };
+      const cut = Date.parse(asOf) - s.retention.days * 864e5;
+      return { enabled: true, days: s.retention.days, due: (await this.imports()).filter((i) => Date.parse(i.importedAt) < cut).map((i) => ({ id: i.id, kind: i.kind, fileName: i.fileName, importedAt: i.importedAt })) };
+    },
+    async applyRetention(asOf = now()) {
+      const p = await this.retentionPreview(asOf), done = [];
+      for (const i of p.due) {
+        await this.deleteImport(i.id, { confirmed: true });
+        done.push(i.id);
+      }
+      return { enabled: p.enabled, deleted: done };
     }
   };
   return api;
@@ -3401,6 +3470,8 @@ var memoryAdapter = () => {
     return m.get(k) ?? null;
   }, async list() {
     return [...m.keys()];
+  }, async del(k) {
+    m.delete(k);
   }, async clear() {
     m.clear();
   } };
@@ -3426,7 +3497,7 @@ var indexedDbAdapter = (name = "invoiceguard-local") => {
       };
     });
   };
-  return { put: (k, v) => tx("readwrite", (s) => s.put(v, k)), get: async (k) => await tx("readonly", (s) => s.get(k)) ?? null, list: () => tx("readonly", (s) => s.getAllKeys()), clear: () => tx("readwrite", (s) => s.clear()) };
+  return { put: (k, v) => tx("readwrite", (s) => s.put(v, k)), get: async (k) => await tx("readonly", (s) => s.get(k)) ?? null, list: () => tx("readonly", (s) => s.getAllKeys()), del: (k) => tx("readwrite", (s) => s.delete(k)), clear: () => tx("readwrite", (s) => s.clear()) };
 };
 var enc = new TextEncoder();
 var dec = new TextDecoder();

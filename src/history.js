@@ -4,13 +4,13 @@
 // so the Evidence Bundle export is the durable copy.
 import { reconcile, evidenceLog, CONTRACT_LABEL } from './reconcile.js';
 
-export const memoryAdapter = () => { const m = new Map(); return { async put(k, v) { m.set(k, v); }, async get(k) { return m.get(k) ?? null; }, async list() { return [...m.keys()]; }, async clear() { m.clear(); } }; };
+export const memoryAdapter = () => { const m = new Map(); return { async put(k, v) { m.set(k, v); }, async get(k) { return m.get(k) ?? null; }, async list() { return [...m.keys()]; }, async del(k) { m.delete(k); }, async clear() { m.clear(); } }; };
 
 /** IndexedDB adapter (browser only). One object store, string keys. */
 export const indexedDbAdapter = (name = 'invoiceguard-local') => {
   const open = () => new Promise((res, rej) => { const r = indexedDB.open(name, 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
   const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => { const t = db.transaction('kv', mode), out = fn(t.objectStore('kv')); t.oncomplete = () => { db.close(); res(out.result); }; t.onerror = () => { db.close(); rej(t.error); }; }); };
-  return { put: (k, v) => tx('readwrite', s => s.put(v, k)), get: async (k) => (await tx('readonly', s => s.get(k))) ?? null, list: () => tx('readonly', s => s.getAllKeys()), clear: () => tx('readwrite', s => s.clear()) };
+  return { put: (k, v) => tx('readwrite', s => s.put(v, k)), get: async (k) => (await tx('readonly', s => s.get(k))) ?? null, list: () => tx('readonly', s => s.getAllKeys()), del: (k) => tx('readwrite', s => s.delete(k)), clear: () => tx('readwrite', s => s.clear()) };
 };
 
 const enc = new TextEncoder(), dec = new TextDecoder();
