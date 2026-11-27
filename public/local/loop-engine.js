@@ -2692,6 +2692,15 @@ function buildCard(i) {
     c.closesWhen = "A newer file, loaded here, shows the same pair with the compared values agreeing. Saying the difference is explained records your statement and does not change what the files show.";
   } else if (i.family === "DUPLICATE_DOCUMENT") {
     c.title = `Document ${s.number ?? ""} appears more than once in one accounting file`;
+    if (e.documentLevel === "LINE" && t === "SAME_NUMBER_DIFFERENT_CONTENT") {
+      const fs = e.disagreeingFields ?? [];
+      c.title = `The rows of document ${s.number ?? ""} disagree on data that belongs to the whole document`;
+      c.what = `You declared that each row of this export is one line item of a document. Rows ${(e.rowNumbers ?? []).join(", ")} share the document number ${s.number ?? ""}, but they do not agree on ` + (fs.length ? fs.map((f) => `the ${f.label} (${f.values.map((v) => `${v.row}: ${v.value ?? "empty"}`).join("; ")})`).join("; ") : "a document-level field") + ".";
+      c.why = "Line items may differ from each other, but the issue date, operation date, currency, order reference and buyer tax id are the same for every line of one document. We do not pick one of the rows.";
+      c.action = "Check these rows in your accounting system and make the document-level data the same on every line of the document, if that is what the document says. Nothing in this message means that a row should be deleted.";
+      c.closesWhen = "A newer complete accounting export of the same scope in which the document-level data agrees across the lines.";
+      return c;
+    }
     if (t === "SUSPECTED_DUPLICATE") {
       c.title = `Document ${s.number ?? ""} is on several rows: cannot tell if it is a duplicate`;
       c.what = `Rows ${(e.rowNumbers ?? []).join(", ")} carry the same document number.`;
@@ -2958,6 +2967,11 @@ function evaluate(prefix, events, ctx) {
       void lk;
     }
   }
+  const FIELD_LABEL = { issueDate: "issue date", operationDate: "operation date", currency: "currency", orderRef: "order reference", buyerTaxId: "buyer tax id" };
+  const disagreeing = (l) => {
+    const rd = readOf(impById.get(l.importId)), docs = rd.documents.filter((x) => x.identity === l.identity);
+    return Object.keys(FIELD_LABEL).filter((f) => new Set(docs.map((x) => String(x[f] ?? ""))).size > 1).map((f) => ({ field: f, label: FIELD_LABEL[f], values: docs.map((x) => ({ row: `row ${x.row}`, value: x[f] ?? null })) }));
+  };
   const rowsOfIdentity = (l) => {
     const imp = impById.get(l.importId), rd = readOf(imp);
     return rd.documents.filter((x) => x.identity === l.identity).map((x) => ({ ref: `row ${x.row}`, cells: Object.fromEntries((rd.head ?? []).map((h, i) => [h, x.raw[i]])) }));
@@ -2966,7 +2980,7 @@ function evaluate(prefix, events, ctx) {
     const lk = ledgerKey(l), key = issueKey(ctx.seller, "DUPLICATE_DOCUMENT", "L:" + lk), subject = { ledgerKey: lk, number: l.number, marketplace: l.marketplace, issueDate: l.issueDate };
     if (l.conflicting || l.repeatRows) {
       const rows = rowsOfIdentity(l), unknownLevel = l.level === null, sub = unknownLevel ? "SUSPECTED_DUPLICATE" : l.conflicting ? "SAME_NUMBER_DIFFERENT_CONTENT" : "EXACT_REPEAT";
-      put(key, { family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref) }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : { safeAction: true } });
+      put(key, { family: "DUPLICATE_DOCUMENT", subtype: sub, status: "PRESENT", subject, evidence: { sources: [{ importId: l.importId, fileName: impById.get(l.importId)?.fileName ?? null, role: "accounting", rows }], rowNumbers: rows.map((r) => r.ref), documentLevel: l.level, ...l.level === "LINE" && l.conflicting ? { disagreeingFields: disagreeing(l) } : {} }, fingerprint: fp("DUP", lk, sub, rows.map((r) => r.cells)), ...unknownLevel ? { note: "The export does not say whether one row is a whole document or one line of a document, so repeated rows cannot be called a duplicate." } : { safeAction: true } });
     } else closed.set(key, { why: l.level === "LINE" ? `The file is declared by the seller as one row per line item, so repeated rows of ${l.number} are expected.` : `The latest active accounting file holds the document ${l.number} once.`, sources: [ledgerEvidence(l)], importId: l.importId });
   }
   const money = (v) => /^-?\d+(\.\d{1,2})?$/.test(String(v ?? "").trim()) ? readMoney(String(v).trim(), ".", "") : null;
