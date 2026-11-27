@@ -48843,6 +48843,20 @@ init_buffer_shim();
 
 // src/vidr.js
 init_buffer_shim();
+
+// src/txid.js
+init_buffer_shim();
+function classifyTransactionId(id, type) {
+  const s = String(id ?? ""), t = String(type ?? "");
+  if (!/^Correction/.test(s)) return { role: null, format: null, unknown: false };
+  const p = s.split(":"), full = (...i2) => i2.every((k) => p[k] !== void 0 && p[k] !== "");
+  if (p[0] === "CorrectionReversal" && p.length === 3 && full(1, 2)) return t === "REFUND" ? { role: "REVERSAL", format: "reversal", unknown: false } : { role: null, format: null, unknown: true, why: `CorrectionReversal id with transaction type ${JSON.stringify(t)} (expected REFUND)` };
+  if (p[0] === "Correction" && p.length === 4 && p[1] === "" && full(2, 3)) return t === "SHIPMENT" ? { role: "CORRECTED", format: "current", unknown: false } : { role: null, format: null, unknown: true, why: `Correction id with transaction type ${JSON.stringify(t)} (expected SHIPMENT)` };
+  if (p[0] === "Correction" && p.length === 3 && full(1, 2)) return t === "SHIPMENT" ? { role: "CORRECTED", format: "legacy", unknown: false } : { role: null, format: null, unknown: true, why: `Correction id with transaction type ${JSON.stringify(t)} (expected SHIPMENT)` };
+  return { role: null, format: null, unknown: true, why: 'the id starts with "Correction" but matches none of the known shapes' };
+}
+
+// src/vidr.js
 var num = (x) => {
   let s = String(x ?? "").trim();
   if (!s) return 0;
@@ -48894,8 +48908,9 @@ function parseVidr(text) {
         shipCountry: r["ship-country"],
         shipFromCountry: r["ship-from-country"],
         isCorrection: bool(r["is-invoice-corrected"]),
-        isCorrectionReversal: String(r["transaction-id"]).startsWith("CorrectionReversal"),
-        isCorrectedTx: String(r["transaction-id"]).startsWith("Correction:"),
+        isCorrectionReversal: classifyTransactionId(r["transaction-id"], r["transaction-type"]).role === "REVERSAL",
+        isCorrectedTx: classifyTransactionId(r["transaction-id"], r["transaction-type"]).role === "CORRECTED",
+        unknownTxFormat: classifyTransactionId(r["transaction-id"], r["transaction-type"]).unknown,
         originalInvoiceNumber: r["original-vat-invoice-number"] || null,
         correctionDetails: r["invoice-correction-details"] || null,
         citation: r["citation-es"] || r["citation-en"] || null,
@@ -48924,7 +48939,7 @@ function parseVidr(text) {
   }
   return [...map.values()].map((s) => ({ ...s, incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
 }
-var needsInvoice = (s) => s.isBusiness && !s.isAmazonInvoiced && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
+var needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && !s.isAmazonInvoiced && s.transactionType === "SHIPMENT" && !s.isCorrectedTx && !s.isCorrection && ["InvoicePending", "InvoiceRejected", "NoTaxCalculated", ""].includes(s.invoiceStatus || "");
 
 // src/manual.js
 var FORMATS = {
@@ -49083,7 +49098,7 @@ function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
   }
   return out;
 }
-var vidrSkipReason = (s) => s.isAmazonInvoiced ? "Amazon creates this invoice" : !s.isBusiness ? "Not a business order: looks like a consumer order" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
+var vidrSkipReason = (s) => s.unknownTxFormat ? "The transaction id looks like a correction but has an unknown format, so we did not guess" : s.isAmazonInvoiced ? "Amazon creates this invoice" : !s.isBusiness ? "Not a business order: looks like a consumer order" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
 function planUpload(text, opts = {}) {
   const t = parseTable(text);
   if (t.unsupported) return { ok: false, error: t.unsupported };

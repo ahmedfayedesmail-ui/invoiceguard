@@ -32,6 +32,28 @@
     "createdAt": "2026-11-14T08:00:00Z",
     "downloadedAt": "2026-11-14T08:05:00Z"
   },
+  "special-r1.tsv": {
+    "reportType": "GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT",
+    "options": "ALL",
+    "rangeFrom": "2026-11-01",
+    "rangeTo": "2026-11-30",
+    "marketplace": "A1RKKUPIHCS9HS",
+    "createdAfterUploadConfirmed": true,
+    "obtainedHow": "Seller downloaded it from Seller Central (declared by the seller)",
+    "createdAt": "2026-11-16T08:00:00Z",
+    "downloadedAt": "2026-11-16T08:05:00Z"
+  },
+  "special-r2.tsv": {
+    "reportType": "GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT",
+    "options": "ALL",
+    "rangeFrom": "2026-11-01",
+    "rangeTo": "2026-11-30",
+    "marketplace": "A1RKKUPIHCS9HS",
+    "createdAfterUploadConfirmed": true,
+    "obtainedHow": "Seller downloaded it from Seller Central (declared by the seller)",
+    "createdAt": "2026-11-18T08:00:00Z",
+    "downloadedAt": "2026-11-18T08:05:00Z"
+  },
   "pending-only.tsv": {
     "reportType": "GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT",
     "options": "PENDING_ONLY",

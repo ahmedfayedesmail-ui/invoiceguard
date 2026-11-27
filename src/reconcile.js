@@ -3,6 +3,7 @@
 // Input: VIDR imports plus what the seller declared about each one. Output: per-document state with its evidence, and counts.
 // RULE 0: no state is inferred. A state is shown only when a named row says so; a missing row never means accepted.
 import { parseTable } from './manual.js';
+import { classifyTransactionId } from './txid.js';
 
 /** Literal strings, checked against Amazon's VCS developer guide section 6.1 (status table). Matching is exact (whitespace trimmed only). */
 export const STATUS_MAP = Object.freeze({
@@ -10,9 +11,13 @@ export const STATUS_MAP = Object.freeze({
   InvoiceProcessing: 'PROCESSING', CreditNoteProcessing: 'PROCESSING',
   InvoiceUploaded: 'ACCEPTED', CreditNoteUploaded: 'ACCEPTED',
   InvoiceRejected: 'REJECTED', CreditNoteRejected: 'REJECTED',
+  // Amazon made the document: the seller owes no upload. Kept strictly apart from every seller-upload state.
+  InvoiceCreatedByAmazon: 'CREATED_BY_AMAZON', CreditNoteCreatedByAmazon: 'CREATED_BY_AMAZON',
+  // Amazon did NOT calculate the tax: the SELLER must upload the invoice. This creates an obligation, it is not a shrug.
+  NoTaxCalculated: 'SELLER_UPLOAD_REQUIRED',
 });
-/** Real Amazon statuses that mean no seller invoice is due. Shown as NOT_APPLICABLE, never as pending or accepted. */
-export const NOT_DUE = Object.freeze(['NoTaxCalculated', 'InvoiceCreatedByAmazon']);
+/** The 11 statuses of Amazon's table (SP-API "Create and upload invoices", lines for each status; see docs/EVIDENCE-CONTRACT.md 9.2). */
+export const KNOWN_STATUSES = Object.freeze(Object.keys(STATUS_MAP));
 
 export const REPORT_TYPE = 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT';
 const REQUIRED_COLUMNS = ['marketplace-id', 'order-id', 'order-item-id', 'shipping-id', 'transaction-id', 'transaction-type', 'invoice-status'];
@@ -23,12 +28,7 @@ const ms = (v) => { const t = Date.parse(v); return Number.isNaN(t) ? null : t; 
 const uniq = (a) => [...new Set(a)];
 
 /** How a transaction relates to a correction cycle (Amazon guide 6.3.4: REFUND "CorrectionReversal...", SHIPMENT "Correction:..."). */
-export function correctionRole(txId, txType) {
-  const id = String(txId ?? '');
-  if (id.startsWith('CorrectionReversal')) return 'REVERSAL';
-  if (id.startsWith('Correction:')) return 'CORRECTED';
-  return null;
-}
+export const correctionRole = (txId, txType) => classifyTransactionId(txId, txType).role;
 
 const check = (name, ok, how, detail) => ({ name, ok, how, detail }); // how: 'from-file' | 'declared-by-seller' | 'from-declared-dates'
 
@@ -52,7 +52,7 @@ export function classifyImport(imp, parsed) {
   if (outside) problems.push(`${outside} row(s) have an order date outside the declared range.`);
   const warnings = [];
   const seen = new Set(parsed.rows.map(r => String(r['invoice-status'] ?? '').trim()));
-  if (options === 'ALL' && parsed.rows.length && ![...seen].some(s => ['InvoiceUploaded', 'CreditNoteUploaded', 'InvoiceProcessing', 'CreditNoteProcessing', 'InvoiceCreatedByAmazon'].includes(s)))
+  if (options === 'ALL' && parsed.rows.length && ![...seen].some(s => ['InvoiceUploaded', 'CreditNoteUploaded', 'InvoiceProcessing', 'CreditNoteProcessing', 'InvoiceCreatedByAmazon', 'CreditNoteCreatedByAmazon'].includes(s)))
     warnings.push('Declared as all statuses, but the file has only pending, rejected or not-due rows. It looks like a pending-only report. Check the download.');
   return {
     id: imp.id, fileName: imp.fileName ?? null, sha256: imp.sha256 ?? null, rows: parsed.rows.length,
@@ -89,7 +89,10 @@ function observe(imp, cls, parsed) {
     if (raws.length > 1) o.conflicts.push(`Rows of this document disagree on invoice-status: ${raws.map(x => JSON.stringify(x)).join(' vs ')}`);
     if (nums.length > 1) o.conflicts.push(`Rows of this document carry different invoice numbers: ${nums.join(', ')}`);
     o.raw = raws[0] ?? ''; o.invoiceNumber = nums[0] ?? null; o.statusDescription = uniq(o.rows.map(r => r['invoice-status-description'] ?? '').filter(Boolean)).join(' | ') || null;
-    o.mapped = o.conflicts.length ? 'UNMATCHED' : STATUS_MAP[o.raw] ?? (NOT_DUE.includes(o.raw) ? 'NOT_APPLICABLE' : 'UNKNOWN_STATUS');
+    const tx = classifyTransactionId(f['transaction-id'], f['transaction-type']); o.tx = tx;
+    o.mapped = tx.unknown ? 'UNKNOWN_TRANSACTION_ID_FORMAT' : o.conflicts.length ? 'UNMATCHED' : STATUS_MAP[o.raw] ?? 'UNKNOWN_STATUS';
+    if (tx.unknown) o.txWhy = tx.why;
+    o.times = { reportCreated: { value: imp.declared?.createdAt ?? null, source: 'declared by the seller' }, downloaded: { value: imp.declared?.downloadedAt ?? null, source: 'declared by the seller' }, imported: { value: imp.importedAt ?? null, source: 'recorded by InvoiceGuard at import' } };
     o.unmatchedReason = o.conflicts.length ? 'AMBIGUOUS' : null;
     if (o.mapped === 'ACCEPTED') {
       const d = imp.declared ?? {}, od = isoDay(f['order-date']), pre = [];
@@ -112,15 +115,18 @@ function observe(imp, cls, parsed) {
 }
 
 const EXPLAIN = {
-  ACCEPTED: (c) => `In the file loaded on ${c.date}, Amazon showed this document as processed with no error (status ${c.raw}).`,
-  PROCESSING: (c) => `In the file loaded on ${c.date}, Amazon showed this document as received and still being processed (status ${c.raw}).`,
-  PENDING: (c) => `In the file loaded on ${c.date}, Amazon showed this document as waiting for the seller's upload (status ${c.raw}).`,
-  REJECTED: (c) => `In the file loaded on ${c.date}, Amazon showed an error in the upload (status ${c.raw}). Amazon says the seller must upload this document again.`,
+  // Wording rule: a report shows the state it shows on the day it was made. It never shows when that state began, so there is no "accepted on".
+  ACCEPTED: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}. Amazon's report shows the final successful state. It does not show when that state began.`,
+  PROCESSING: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon has the upload and is still processing it.`,
+  PENDING: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon is waiting for the seller's upload.`,
+  SELLER_UPLOAD_REQUIRED: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}. Amazon did not calculate the tax for this transaction, so the seller must upload the invoice. Nothing has been uploaded as far as this report shows. This is an exception.`,
+  REJECTED: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon found errors in the upload. Amazon says the seller must upload this document again.`,
+  CREATED_BY_AMAZON: (c) => `Observed as ${c.raw} in the report dated ${c.date} ${c.dn}: Amazon made this document itself. The seller has nothing to upload for it.`,
   INCOMPLETE_SOURCE: (c) => `The file says ${c.raw}, but the file or its declared settings cannot support showing it as accepted: ${c.why}`,
   UNMATCHED: (c) => `We could not tie this to one document with confidence: ${c.why}`,
   UNKNOWN_STATUS: (c) => `The file has a status we do not recognise (${JSON.stringify(c.raw)}). We did not guess. This is counted as cannot determine.`,
-  NOT_APPLICABLE: (c) => `In the file loaded on ${c.date}, Amazon showed ${c.raw}: no seller invoice is due for this one.`,
-  PARTIALLY_ACCEPTED: (c) => `One side of this correction is accepted and the other is not. The correction counts as open until both sides are.`,
+  UNKNOWN_TRANSACTION_ID_FORMAT: (c) => `The transaction id starts with "Correction" but is not one of the known shapes (${c.why}). We did not treat it as a correction and did not treat it as an ordinary transaction. This is counted as cannot determine.`,
+  PARTIALLY_ACCEPTED: (c) => `One side of this correction was observed as accepted and the other was not. The correction counts as open until both sides are.`,
 };
 
 /**
@@ -146,17 +152,20 @@ export function reconcile(imports) {
     if (last.et.t === null && sorted.length > 1) { cur = { ...last, mapped: 'UNMATCHED', unmatchedReason: 'AMBIGUOUS' }; why = 'Reports without any time cannot be put in order.'; }
     if (cur.conflicts?.length) why = cur.conflicts.join('; ');
     const anomalies = [];
-    const rank = { PENDING: 0, PROCESSING: 1, REJECTED: 1, ACCEPTED: 2 };
+    const rank = { PENDING: 0, SELLER_UPLOAD_REQUIRED: 0, PROCESSING: 1, REJECTED: 1, ACCEPTED: 2 };
     const prevBest = sorted.slice(0, -1).filter(o => o.mapped in rank).sort((a, b) => rank[b.mapped] - rank[a.mapped])[0];
     if (prevBest && cur.mapped in rank && rank[cur.mapped] < rank[prevBest.mapped]) anomalies.push(`A later report shows ${cur.raw} (${cur.mapped.toLowerCase()}); we kept the earlier ${prevBest.raw} in history. The later report decides the current state.`);
-    const role = correctionRole(cur.parts['transaction-id'], cur.parts['transaction-type']);
+    const role = classifyTransactionId(cur.parts['transaction-id'], cur.parts['transaction-type']).role;
     const date = cur.et.iso ? cur.et.iso.slice(0, 10) : 'unknown date';
-    const ctx = { raw: cur.raw, date, why: why ?? (cur.unmet?.length ? `unmet: ${cur.unmet.join(', ')}.` : 'import scope is incomplete.') };
+    const accObs = sorted.find(o => o.mapped === 'ACCEPTED'), firstObs = sorted[0];
+    const ctx = { raw: cur.raw, date, dn: cur.et.basis.startsWith('createdAt') ? '(date as declared by the seller)' : cur.et.basis.startsWith('downloadedAt') ? '(download date as declared by the seller; no creation date was given)' : '(import date recorded by InvoiceGuard; the seller gave no report date)', why: cur.txWhy ?? why ?? (cur.unmet?.length ? `unmet: ${cur.unmet.join(', ')}.` : 'import scope is incomplete.') };
     docs.push({
       key, parts: cur.parts, itemIds: cur.itemIds, state: cur.mapped, unmatchedReason: cur.unmatchedReason ?? null, rawStatus: cur.raw, ownState: cur.mapped,
       correction: role ? { role, cycleKey: null, cycleState: null } : null,
       current: { importId: cur.importId, effectiveTime: cur.et.iso, timeBasis: cur.et.basis, importScope: cur.importScope },
-      history: sorted.map(o => ({ importId: o.importId, effectiveTime: o.et.iso, timeBasis: o.et.basis, rawStatus: o.raw, mapped: o.mapped, current: o === last })),
+      history: sorted.map(o => ({ importId: o.importId, effectiveTime: o.et.iso, timeBasis: o.et.basis, rawStatus: o.raw, mapped: o.mapped, current: o === last, times: o.times })),
+      firstObserved: { importId: firstObs.importId, rawStatus: firstObs.raw, mapped: firstObs.mapped, times: firstObs.times, meaning: 'first report of those loaded that shows this document, as that report shows it; not the moment it happened' },
+      acceptedObserved: accObs ? { importId: accObs.importId, rawStatus: accObs.raw, times: accObs.times, meaning: `first report of those loaded that shows ${accObs.raw} with every precondition met; it does not show when Amazon reached that state` } : null,
       evidence: { rows: cur.rows, invoiceNumber: cur.invoiceNumber, transactionId: cur.parts['transaction-id'], statusDescription: cur.statusDescription, rawStatusVerbatim: cur.raw, preconditions: cur.preconditions ?? null, duplicateRowsIgnored: cur.duplicateRows },
       anomalies, ctx,
     });
@@ -186,12 +195,12 @@ export function reconcile(imports) {
 /** Counts computed from the evidence above. "cannot determine" is a count of its own. */
 export function headline(docs, cycles, unkeyed, importSummaries) {
   const n = (s) => docs.filter(d => d.state === s).length;
-  const cannot = n('INCOMPLETE_SOURCE') + n('UNMATCHED') + n('UNKNOWN_STATUS') + unkeyed.length;
+  const cannot = n('INCOMPLETE_SOURCE') + n('UNMATCHED') + n('UNKNOWN_STATUS') + n('UNKNOWN_TRANSACTION_ID_FORMAT') + unkeyed.length;
   const open = cycles.filter(c => c.state !== 'ACCEPTED').length;
-  const counts = { documents: docs.length, accepted: n('ACCEPTED'), processing: n('PROCESSING'), pending: n('PENDING'), rejected: n('REJECTED'), notApplicable: n('NOT_APPLICABLE'), correctionCyclesNotClosed: open, cannotDetermine: cannot,
-    cannotDetermineParts: { incompleteSource: n('INCOMPLETE_SOURCE'), unmatched: n('UNMATCHED'), unknownStatus: n('UNKNOWN_STATUS'), rowsWithoutKey: unkeyed.length } };
-  const exceptions = counts.rejected + open + cannot;
-  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} exception(s): ${counts.rejected} rejected by Amazon, ${open} correction(s) not closed on both sides, ${cannot} we cannot determine (${counts.cannotDetermineParts.incompleteSource} incomplete source, ${counts.cannotDetermineParts.unmatched} unmatched, ${counts.cannotDetermineParts.unknownStatus} unknown status, ${counts.cannotDetermineParts.rowsWithoutKey} rows without a key). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} accepted. State of the files as loaded; it says nothing about files that were not loaded.`;
+  const counts = { documents: docs.length, accepted: n('ACCEPTED'), processing: n('PROCESSING'), pending: n('PENDING'), rejected: n('REJECTED'), sellerUploadRequired: n('SELLER_UPLOAD_REQUIRED'), createdByAmazon: n('CREATED_BY_AMAZON'), correctionCyclesNotClosed: open, cannotDetermine: cannot,
+    cannotDetermineParts: { incompleteSource: n('INCOMPLETE_SOURCE'), unmatched: n('UNMATCHED'), unknownStatus: n('UNKNOWN_STATUS'), unknownTransactionIdFormat: n('UNKNOWN_TRANSACTION_ID_FORMAT'), rowsWithoutKey: unkeyed.length } };
+  const exceptions = counts.rejected + counts.sellerUploadRequired + open + cannot;
+  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} exception(s): ${counts.rejected} rejected by Amazon, ${counts.sellerUploadRequired} where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), ${open} correction(s) not closed on both sides, ${cannot} we cannot determine (${counts.cannotDetermineParts.incompleteSource} incomplete source, ${counts.cannotDetermineParts.unmatched} unmatched, ${counts.cannotDetermineParts.unknownStatus} unknown status, ${counts.cannotDetermineParts.unknownTransactionIdFormat} unknown correction id format, ${counts.cannotDetermineParts.rowsWithoutKey} rows without a key). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} observed as accepted, ${counts.createdByAmazon} created by Amazon (nothing to upload). State of the files as loaded; it says nothing about files that were not loaded.`;
   return { ...counts, exceptions, accountingComparison: 'not available: needs the seller invoice export (Issued is not visible in the Amazon files)', sentence, anyCompleteImport: importSummaries.some(i => i.scope === 'COMPLETE_SCOPE') };
 }
 
@@ -203,8 +212,8 @@ export function evidenceLog(doc, imports, summaries) {
     contract: 'EVIDENCE-CONTRACT v1', document: doc.parts,
     importedReport: { id: imp.id, fileName: imp.fileName ?? null, sha256: imp.sha256, sha256Means: 'the file is unchanged since import; it does not show where the file came from' },
     howObtained: imp.declared?.obtainedHow, declaredBySeller: cls.declared, reportType: imp.declared?.reportType,
-    importedAt: imp.importedAt ?? null, effectiveTime: doc.current.effectiveTime, timeBasis: doc.current.timeBasis,
-    matchedRows: doc.evidence.rows, documentNumber: doc.evidence.invoiceNumber, transactionId: doc.evidence.transactionId,
+    importedAt: imp.importedAt ?? null, times: doc.current && doc.history.find(h => h.current).times, effectiveTime: doc.current.effectiveTime, timeBasis: doc.current.timeBasis,
+    acceptedObserved: doc.acceptedObserved, firstObserved: doc.firstObserved, matchedRows: doc.evidence.rows, documentNumber: doc.evidence.invoiceNumber, transactionId: doc.evidence.transactionId,
     finalStatusAmazonReported: doc.evidence.rawStatusVerbatim, statusDescription: doc.evidence.statusDescription,
     preconditions: doc.evidence.preconditions, history: doc.history,
     notVerifiedAutomatically: ['all-status option', 'report created after the upload', 'how the file was obtained'],
@@ -214,13 +223,15 @@ export function evidenceLog(doc, imports, summaries) {
 /** The four stages of the contract for one document, each with its evidence or NOT VISIBLE. */
 export function stages(doc) {
   const h = doc.history, rows = doc.evidence.rows, f = rows[0] ?? {};
-  const first = h.find(x => x.mapped !== 'NOT_APPLICABLE' && x.mapped !== 'UNKNOWN_STATUS');
-  const upl = h.find(x => ['PROCESSING', 'ACCEPTED', 'REJECTED'].includes(x.mapped) || x.rawStatus in STATUS_MAP && STATUS_MAP[x.rawStatus] !== 'PENDING');
-  const hasDue = !!first;
+  const skip = ['CREATED_BY_AMAZON', 'UNKNOWN_STATUS', 'UNKNOWN_TRANSACTION_ID_FORMAT', 'UNMATCHED'];
+  const first = h.find(x => !skip.includes(x.mapped) && x.mapped !== 'INCOMPLETE_SOURCE' || x.mapped === 'INCOMPLETE_SOURCE' && x.rawStatus in STATUS_MAP);
+  const amz = h.some(x => x.mapped === 'CREATED_BY_AMAZON');
+  const upl = h.find(x => ['PROCESSING', 'ACCEPTED', 'REJECTED'].includes(x.mapped) || (x.mapped === 'INCOMPLETE_SOURCE' && ['PROCESSING', 'ACCEPTED', 'REJECTED'].includes(STATUS_MAP[x.rawStatus])));
   return {
-    expected: hasDue ? { state: 'EVIDENCE', source: `import ${first.importId}`, columns: { 'is-business-order': f['is-business-order'] ?? null, 'is-amazon-invoiced': f['is-amazon-invoiced'] ?? null, 'invoice-status': first.rawStatus, 'shipment-date': f['shipment-date'] ?? null }, seenAt: first.effectiveTime, documentId: doc.key } : { state: 'NOT VISIBLE' },
+    expected: amz ? { state: 'NOT DUE', why: 'Amazon made this document. The seller owes no upload.', value: h.find(x => x.mapped === 'CREATED_BY_AMAZON').rawStatus }
+      : first ? { state: 'EVIDENCE', source: `import ${first.importId}`, columns: { 'is-business-order': f['is-business-order'] ?? null, 'is-amazon-invoiced': f['is-amazon-invoiced'] ?? null, 'invoice-status': first.rawStatus, 'shipment-date': f['shipment-date'] ?? null }, observedInReportDated: first.effectiveTime, times: first.times, documentId: doc.key, obligation: first.rawStatus === 'NoTaxCalculated' ? 'Amazon did not calculate the tax: the seller must upload the invoice (SP-API guide status table)' : undefined } : { state: 'NOT VISIBLE' },
     issued: { state: 'NOT VISIBLE in these files', why: 'The seller invoice system is not one of the loaded files. invoice-number in the Amazon report is Amazon\'s record of an upload.' },
-    uploaded: upl ? { state: 'EVIDENCE', source: `import ${upl.importId}`, column: 'invoice-status', value: upl.rawStatus, seenAt: upl.effectiveTime, documentId: doc.evidence.invoiceNumber ?? 'NOT VISIBLE', note: 'first report that shows an upload; seenAt is when that report was made or downloaded, not the upload time' } : { state: 'NOT VISIBLE' },
-    accepted: doc.state === 'ACCEPTED' ? { state: 'EVIDENCE', source: `import ${doc.current.importId}`, column: 'invoice-status', value: doc.rawStatus, asOf: doc.current.effectiveTime, documentId: doc.evidence.invoiceNumber, transactionId: doc.evidence.transactionId, declaredBySeller: true } : { state: 'NOT SHOWN', currentState: doc.state },
+    uploaded: amz ? { state: 'NOT APPLICABLE', why: 'Created by Amazon, not uploaded by the seller.' } : upl ? { state: 'EVIDENCE', source: `import ${upl.importId}`, column: 'invoice-status', value: upl.rawStatus, firstObservedInReportDated: upl.effectiveTime, times: upl.times, documentId: doc.evidence.invoiceNumber ?? 'NOT VISIBLE', note: 'first report that shows an upload; the dates are when that report was made or downloaded, not the upload time' } : { state: 'NOT VISIBLE' },
+    accepted: doc.state === 'ACCEPTED' ? { state: 'EVIDENCE', source: `import ${doc.acceptedObserved.importId}`, column: 'invoice-status', value: doc.rawStatus, observedAsInReportDated: doc.acceptedObserved.times.reportCreated.value, times: doc.acceptedObserved.times, documentId: doc.evidence.invoiceNumber, transactionId: doc.evidence.transactionId, declaredBySeller: true, note: 'Observed as this status in that report. It is not the date Amazon accepted it.' } : { state: 'NOT SHOWN', currentState: doc.state },
   };
 }

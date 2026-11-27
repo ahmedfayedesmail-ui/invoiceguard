@@ -77,7 +77,7 @@ export function parseOrderReport(rows, { useDeliveryAddress = false } = {}) {
 }
 
 /** Why a VIDR shipment will not produce an invoice, in the words the preview shows. Mirrors needsInvoice() in vidr.js. */
-const vidrSkipReason = (s) => s.isAmazonInvoiced ? 'Amazon creates this invoice'
+const vidrSkipReason = (s) => s.unknownTxFormat ? 'The transaction id looks like a correction but has an unknown format, so we did not guess' : s.isAmazonInvoiced ? 'Amazon creates this invoice'
   : !s.isBusiness ? 'Not a business order: looks like a consumer order'
   : s.transactionType !== 'SHIPMENT' ? 'Not a shipment (transaction type: ' + (s.transactionType || 'unknown') + ')'
   : s.isCorrection || s.isCorrectedTx ? 'A correction row: it belongs with the original invoice, not a new one'

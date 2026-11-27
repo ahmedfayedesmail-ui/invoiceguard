@@ -70,7 +70,7 @@ For every stage the output carries: `state`, `evidence_source`, `evidence_field(
 ### Accepted
 - Meaning: Amazon finished processing and found no error.
 - Evidence: V row, EXACT join, `invoice-status` = InvoiceUploaded (or CreditNoteUploaded for credit notes), from an import with class `COMPLETE_SCOPE`, and the shipment date inside the declared range.
-- Date: import `download date`. Shown as "state of the file loaded on <date>", never as the acceptance date.
+- Date: the report date. Shown as "observed as InvoiceUploaded in the report dated <date>", never as the acceptance date (see 9.6a).
 - Document identifier: `invoice-number` plus transaction-id, verbatim.
 - Never from: an upload screenshot, a pending-only file, a PARTIAL join, a row outside the range, or any later row that disagrees (a newer import with a different status replaces the state and the history keeps both).
 
@@ -113,24 +113,31 @@ Priority when more than one applies: INCOMPLETE_SOURCE and AMBIGUOUS and UNMATCH
 ## 9. v1.1 amendments (these override sections 1 to 8 where they differ)
 
 ### 9.1 Vocabulary
-`ACCEPTED, PROCESSING, REJECTED, PENDING, INCOMPLETE_SOURCE, UNMATCHED, PARTIALLY_ACCEPTED`. Also used, because a real status has to land somewhere and must never land in PENDING: `NOT_APPLICABLE` (Amazon says no seller invoice is due) and `UNKNOWN_STATUS` (a status string we do not recognise; counted as cannot determine). PENDING_AT_AMAZON is gone (now PENDING). MISSING_IN_VIDR and MISSING_IN_ACCOUNTING are not produced in this version. A conflict inside or across reports is `UNMATCHED` with reason `AMBIGUOUS`. A non-final state never promotes itself to ACCEPTED: only a later report that literally says Uploaded can.
+`ACCEPTED, PROCESSING, REJECTED, PENDING, INCOMPLETE_SOURCE, UNMATCHED, PARTIALLY_ACCEPTED`, plus, because every real Amazon status has to land somewhere and must never land in PENDING: `SELLER_UPLOAD_REQUIRED` (NoTaxCalculated: an obligation, counted as an exception), `CREATED_BY_AMAZON` (nothing to upload, kept strictly apart from every seller-upload state), `UNKNOWN_STATUS` (a string that is not one of the 11 known ones, counted as cannot determine) and `UNKNOWN_TRANSACTION_ID_FORMAT` (an id that begins with "Correction" but is not an allowed shape, counted as cannot determine). PENDING_AT_AMAZON and NOT_APPLICABLE no longer exist. A conflict inside or across reports is `UNMATCHED` with reason `AMBIGUOUS`. A non-final state never promotes itself to ACCEPTED: only a later report that literally says Uploaded can.
 
 ### 9.1a Absence in a pending-only report
 A pending-only report filters by design, so a missing row in it proves nothing. That rules out an ACCEPTED conclusion and it equally rules out any "missing from Amazon's data" (MISSING_IN_VIDR style) conclusion. Absence in a file that filters by design is not absence. Such a conclusion is only possible from an import classed COMPLETE_SCOPE, for orders inside its declared range, and it is not produced in this version.
 
-### 9.2 Status mapping (exact strings, no case folding, whitespace trimmed only)
-Checked against the VCS developer guide section 6.1 (status table): https://m.media-amazon.com/images/G/01/B2B/DeveloperGuide/vat_calculation_service__dev_guide_H383rf73k4hsu1TYRH139kk134yzs.pdf
+### 9.2 Status registry: 11 statuses (exact strings, no case folding, whitespace trimmed only)
+Source of the table: Amazon SP-API "Create and upload invoices", status table, https://developer-docs.amazon/sp-api/docs/create-and-upload-invoices (rows `InvoicePending` to `InvoiceCreatedByAmazon`). The older VCS PDF guide (section 6.1) has 10 of them and does not list `CreditNoteCreatedByAmazon`.
 
-| Amazon string (verbatim) | Our state |
-|---|---|
-| InvoicePending, CreditNotePending | PENDING |
-| InvoiceProcessing, CreditNoteProcessing | PROCESSING |
-| InvoiceUploaded, CreditNoteUploaded | ACCEPTED (subject to 9.3) |
-| InvoiceRejected, CreditNoteRejected | REJECTED |
-| NoTaxCalculated, InvoiceCreatedByAmazon | NOT_APPLICABLE |
-| anything else, including blank | UNKNOWN_STATUS |
+| # | Amazon string (verbatim) | Amazon's action column (quoted) | Our state |
+|---|---|---|---|
+| 1 | InvoicePending | "The seller must upload an invoice for the shipment." | PENDING |
+| 2 | InvoiceProcessing | "No action is required from the seller at this point. Amazon will process the invoice." | PROCESSING |
+| 3 | InvoiceUploaded | "No action is required from the seller. Invoice successfully uploaded and is available to the customer on the Your Orders page." | ACCEPTED (subject to 9.3) |
+| 4 | InvoiceRejected | "Seller must upload the invoice for this shipment again." | REJECTED |
+| 5 | CreditNotePending | "Credit Note is now due for this transaction." | PENDING |
+| 6 | CreditNoteProcessing | "No action is required from the seller at this point. Amazon will process the credit note." | PROCESSING |
+| 7 | CreditNoteUploaded | "No action is required from the seller. Credit Note successfully uploaded and made available to the customer on the Your Orders page." | ACCEPTED (subject to 9.3) |
+| 8 | CreditNoteRejected | "Seller must upload the Credit Note for this transaction again." | REJECTED |
+| 9 | CreditNoteCreatedByAmazon | "Amazon created a credit note for this transaction." / "No action is required from the seller." | CREATED_BY_AMAZON |
+| 10 | NoTaxCalculated | "Amazon will not calculate the VAT and the seller must upload the invoice for this transaction. The seller can upload the invoice in Seller Central or with SP-API." | SELLER_UPLOAD_REQUIRED |
+| 11 | InvoiceCreatedByAmazon | "Amazon created an invoice for this transaction." / "No action is required from the seller." | CREATED_BY_AMAZON |
 
-The raw string is stored and shown next to our label. A missing row never means accepted.
+The line that establishes the NoTaxCalculated obligation is row 10 above, in Amazon's own words: "Amazon will not calculate the VAT and the seller must upload the invoice for this transaction." The older PDF guide says the same: "Amazon will not calculate the VAT and Seller will be responsible to upload the invoice for this transaction in Seller Central." So NoTaxCalculated drives Expected (an invoice is due), and while no later report shows an upload it is an exception in the headline, not a shrug. Only the two CreatedByAmazon statuses mean the seller owes no upload.
+
+The raw string is stored and shown next to our label. A missing row never means accepted. No known status can be classified UNKNOWN_STATUS (tested for each of the 11).
 
 ### 9.3 ACCEPTED preconditions (all must hold, each is stored with how it is known)
 | Precondition | How it is known |
@@ -155,14 +162,23 @@ The unit is the Amazon document (a shipment, return or refund transaction): `mar
 ### 9.5 Order of reports
 Reports are ordered by the time the seller confirmed for creation, else the declared download time, else the import time, and the basis is shown. The current state comes from the latest report. An older report goes to history only, whatever order the files were imported in. A later report that shows a lower state than an earlier one wins and is flagged. Two reports with the same time and different statuses give UNMATCHED.
 
-### 9.6 Corrections
-A correction cycle (same marketplace, order and shipping id; Amazon guide 6.3.4) has two documents: a REFUND with transaction id starting `CorrectionReversal` (credit note) and a SHIPMENT with transaction id starting `Correction:` (new invoice). Both must be independently ACCEPTED. One accepted gives PARTIALLY_ACCEPTED on the accepted side and the cycle counts as not closed. A side missing from the loaded files is named. Open point: the guide shows `Correction:X:...`, while the older InvoiceGuard pipeline matches `Correction::`. The new engine matches the prefix `Correction:`. The pipeline literal is not changed (no live change without approval).
+### 9.6 Corrections and transaction ids (explicit allow-list, not a prefix match)
+A prefix match would swallow any id that begins with the word, and a swallowed id looks handled. Allowed shapes (guide 6.3.4; ids are split on `:`):
+- `CorrectionReversal:<X>:<id>` with transaction-type REFUND: the credit note side.
+- `Correction::<X>:<id>` with transaction-type SHIPMENT: the corrected invoice side, current format. It has an empty field after the first colon (four fields).
+- `Correction:<X>:<id>` with transaction-type SHIPMENT: the same, legacy format as printed in the guide (three fields).
+The two Correction shapes cannot be confused: they differ in field count and in the empty second field. Anything else that begins with "Correction", including a wrong transaction type, empty fields, extra colons, `CorrectionX:1`, `Corrections:X:1`, becomes `UNKNOWN_TRANSACTION_ID_FORMAT`: counted as cannot determine, never treated as a correction and never as an ordinary transaction (the live pipeline also refuses to issue for it). A lower-case `correction:` is not Amazon's word and stays an ordinary id. The id and the type are kept verbatim, and each side is its own document.
+A correction cycle (same marketplace, order and shipping id) needs both documents independently ACCEPTED. One accepted gives PARTIALLY_ACCEPTED on that side and the cycle counts as not closed. A side missing from the loaded files is named. Two documents of the same side in one cycle also keep it open (we do not guess which pairs with which).
+This allow-list is implemented once in src/txid.js and used by the engine and by the live pipeline (src/vidr.js).
+
+### 9.6a Timestamps: observed is not happened
+`InvoiceUploaded` proves that Amazon showed the successful final state in the report we imported. It does not prove when the state changed. Each observation therefore carries three separate times, each with its source: report creation time (declared by the seller), download time (declared by the seller), import time (recorded by InvoiceGuard). Each document records `firstObserved` and `acceptedObserved` (the first loaded report that shows it, and the first that shows ACCEPTED with every precondition met), with the meaning spelled out. Display text is "Observed as InvoiceUploaded in the report dated X". The words "accepted on", "date accepted" and "accepted at" are never used without independent evidence of the event itself (a test scans for them).
 
 ### 9.7 Evidence log for each ACCEPTED document
 The imported report (id, name, SHA-256 and what that proves), how it was obtained (declared), the declared options, period, type and marketplace, creation and import times, the matched rows verbatim, the document number and transaction id verbatim, the final status Amazon reported, the full history across reports, the preconditions with their basis, and the list of what was not verified automatically (all-status option, report created after the upload, how the file was obtained). Without ACCEPTED there is no log.
 
 ### 9.8 Headline output
-"Out of N document(s) in the loaded files: X exception(s): a rejected by Amazon, b correction(s) not closed on both sides, c we cannot determine. d in progress, e accepted." Exceptions = rejected + correction cycles not closed + cannot determine. Cannot determine is its own count (incomplete source + unmatched + unknown status + rows without key). The "in accounting with no acceptance" part needs the seller's invoice export and says so until that input exists.
+"Out of N document(s) in the loaded files: X exception(s): a rejected by Amazon, b correction(s) not closed on both sides, c we cannot determine. d in progress, e accepted." Exceptions = rejected + NoTaxCalculated with no upload shown + correction cycles not closed + cannot determine. The sentence also lists the cannot-determine breakdown (incomplete source, unmatched, unknown status, unknown correction id format, rows without a key) and the Amazon-created count. Cannot determine is its own count (incomplete source + unmatched + unknown status + rows without key). The "in accounting with no acceptance" part needs the seller's invoice export and says so until that input exists.
 
 ### 9.9 Wording
 No compliant, filed, valid, issuance-ready, penalty, fine, "you are covered". Only: the state of the loaded files on the date they were loaded. A test scans the engine output for these words.
@@ -185,7 +201,7 @@ Stages after all three are loaded:
 - Expected: evidence from all-r1-pending.tsv: is-business-order TRUE, is-amazon-invoiced FALSE, invoice-status InvoicePending, shipment-date 2026-11-06T09:00:00Z, seen at 2026-11-10. Document id: the key above.
 - Issued: NOT VISIBLE in these files (no seller invoice export is loaded).
 - Uploaded: first shown by all-r2-processing.tsv: invoice-status InvoiceProcessing, document id A-2026-000123, seen at 2026-11-12 (the report time, not the upload time).
-- Accepted: all-r3-uploaded.tsv, invoice-status InvoiceUploaded, document id A-2026-000123, transaction id S9001, "state of the file loaded on 2026-11-14", with the declarations shown as declared by the seller.
+- Accepted: all-r3-uploaded.tsv, invoice-status InvoiceUploaded, document id A-2026-000123, transaction id S9001, "observed as InvoiceUploaded in the report dated 2026-11-14 (date as declared by the seller)", with the declarations shown as declared by the seller.
 The evidence log carries the SHA-256 of all-r3-uploaded.tsv, the matched row, the 11 preconditions (all met, three of them declared by the seller), and the history Pending, Processing, Uploaded. Loading only the second report gives PROCESSING. Loading the files in any order gives the same result.
 
 ### 10.2 Negative: a pending-only import

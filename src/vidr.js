@@ -1,3 +1,4 @@
+import { classifyTransactionId } from './txid.js';
 // Parser for Amazon's VAT Invoice Data Report (GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT), tab-separated.
 // Locale-safe amounts: the rightmost of '.'/',' is the decimal separator, the other is grouping -
 // "1.234,56" (ES), "1,234.56" (US) and "1234,56" all parse to 1234.56. A single separator is taken
@@ -39,7 +40,7 @@ export function parseVidr(text) {
         poNumber: r['purchase-order-number'] || null,
         billing: { name: r['billing-name'], lines: [r['bill-address-1'], r['bill-address-2'], r['bill-address-3']].filter(Boolean), city: r['bill-city'], postal: r['bill-postal-code'], country: r['bill-country'] },
         shipCountry: r['ship-country'], shipFromCountry: r['ship-from-country'], isCorrection: bool(r['is-invoice-corrected']),
-        isCorrectionReversal: String(r['transaction-id']).startsWith('CorrectionReversal'), isCorrectedTx: String(r['transaction-id']).startsWith('Correction:'), originalInvoiceNumber: r['original-vat-invoice-number'] || null, correctionDetails: r['invoice-correction-details'] || null,
+        isCorrectionReversal: classifyTransactionId(r['transaction-id'], r['transaction-type']).role === 'REVERSAL', isCorrectedTx: classifyTransactionId(r['transaction-id'], r['transaction-type']).role === 'CORRECTED', unknownTxFormat: classifyTransactionId(r['transaction-id'], r['transaction-type']).unknown, originalInvoiceNumber: r['original-vat-invoice-number'] || null, correctionDetails: r['invoice-correction-details'] || null,
         citation: r['citation-es'] || r['citation-en'] || null, items: [], incl: 0, vat: 0, excl: 0,
       }).get(key);
     }
@@ -57,5 +58,5 @@ export function parseVidr(text) {
 }
 
 /** Shipments the seller still has to invoice themselves. */
-export const needsInvoice = (s) => s.isBusiness && !s.isAmazonInvoiced && s.transactionType === 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrection &&
+export const needsInvoice = (s) => !s.unknownTxFormat && s.isBusiness && !s.isAmazonInvoiced && s.transactionType === 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrection &&
   ['InvoicePending', 'InvoiceRejected', 'NoTaxCalculated', ''].includes(s.invoiceStatus || '');

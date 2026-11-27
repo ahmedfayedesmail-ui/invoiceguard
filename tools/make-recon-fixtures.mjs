@@ -20,6 +20,28 @@ const files = {
   // Pending-only default report: accepted orders are simply absent, the rest is pending or rejected.
   'pending-only.tsv': [...M2('InvoiceRejected'), { order: '405-5555555-0000005', item: '511', ship: 'S9701', status: 'InvoicePending' }],
 };
+// Special cases: Amazon-created documents, NoTaxCalculated (seller must upload), correction id shapes (current, legacy, near-misses).
+const SP = (o) => ({ order: o.order, item: o.item ?? '1', ship: o.ship, status: o.status, inv: o.inv, tx: o.tx, type: o.type });
+const pair = (n, ship, order, fmt, rs, cs) => [SP({ order, ship, tx: `CorrectionReversal:X:${n}`, type: 'REFUND', status: rs, inv: rs.endsWith('Uploaded') ? `R-2026-${n}` : '' }), SP({ order, ship, tx: fmt === 'current' ? `Correction::X:${n}` : `Correction:X:${n}`, type: 'SHIPMENT', status: cs, inv: cs.endsWith('Uploaded') ? `A-2026-${n}` : '' })];
+const special = (later) => [
+  SP({ order: '405-9000001-0000001', ship: 'S9701', tx: 'amzn1:crow:SYNTHETIC0002', type: 'REFUND', status: 'CreditNoteCreatedByAmazon' }),
+  SP({ order: '405-9000002-0000002', ship: 'S9801', status: 'InvoiceCreatedByAmazon' }),
+  SP({ order: '405-9000003-0000003', ship: 'S9802', status: 'NoTaxCalculated' }),
+  SP({ order: '405-9000004-0000004', ship: 'S9803', status: later ? 'InvoiceUploaded' : 'NoTaxCalculated', inv: later ? 'A-2026-000900' : '' }),
+  ...pair('200000001', 'S9810', '405-9100001-0000001', 'current', 'CreditNoteUploaded', 'InvoiceUploaded'),
+  ...pair('200000002', 'S9820', '405-9100002-0000002', 'legacy', 'CreditNoteUploaded', 'InvoiceUploaded'),
+  // near-misses: begin with "Correction" but are not an allowed shape, or have the wrong transaction type
+  SP({ order: '405-9200001-0000001', ship: 'S9830', tx: 'CorrectionX:1', type: 'SHIPMENT', status: 'InvoiceUploaded', inv: 'A-2026-000931' }),
+  SP({ order: '405-9200002-0000002', ship: 'S9831', tx: 'Correction:X:', type: 'SHIPMENT', status: 'InvoiceUploaded', inv: 'A-2026-000932' }),
+  SP({ order: '405-9200003-0000003', ship: 'S9832', tx: 'Correction:::X:1', type: 'SHIPMENT', status: 'InvoiceUploaded', inv: 'A-2026-000933' }),
+  SP({ order: '405-9200004-0000004', ship: 'S9833', tx: 'CorrectionReversal:X:1', type: 'SHIPMENT', status: 'InvoiceUploaded', inv: 'A-2026-000934' }),
+  SP({ order: '405-9200005-0000005', ship: 'S9834', tx: 'Correction::X:1', type: 'REFUND', status: 'CreditNoteUploaded', inv: 'R-2026-000935' }),
+  SP({ order: '405-9200006-0000006', ship: 'S9835', tx: 'Corrections:X:1', type: 'SHIPMENT', status: 'InvoiceUploaded', inv: 'A-2026-000936' }),
+  SP({ order: '405-9200007-0000007', ship: 'S9836', tx: 'CorrectionReversal::X:1', type: 'REFUND', status: 'CreditNoteUploaded', inv: 'R-2026-000937' }),
+  // lower-case "correction" does not start with the word as Amazon writes it: an ordinary transaction, not a correction
+  SP({ order: '405-9200008-0000008', ship: 'S9837', tx: 'correction:X:1', type: 'SHIPMENT', status: 'InvoiceUploaded', inv: 'A-2026-000938' }),
+];
+files['special-r1.tsv'] = special(false); files['special-r2.tsv'] = special(true);
 mkdirSync('fixtures/recon', { recursive: true });
 for (const [n, rows] of Object.entries(files)) writeFileSync(`fixtures/recon/${n}`, tsv(rows.map(R)));
 const dec = (extra) => ({ reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', options: 'ALL', rangeFrom: '2026-11-01', rangeTo: '2026-11-30', marketplace: MP, createdAfterUploadConfirmed: true, obtainedHow: 'Seller downloaded it from Seller Central (declared by the seller)', ...extra });
@@ -27,6 +49,8 @@ writeFileSync('fixtures/recon/declared.json', JSON.stringify({
   'all-r1-pending.tsv': dec({ createdAt: '2026-11-10T08:00:00Z', downloadedAt: '2026-11-10T08:05:00Z' }),
   'all-r2-processing.tsv': dec({ createdAt: '2026-11-12T08:00:00Z', downloadedAt: '2026-11-12T08:05:00Z' }),
   'all-r3-uploaded.tsv': dec({ createdAt: '2026-11-14T08:00:00Z', downloadedAt: '2026-11-14T08:05:00Z' }),
+  'special-r1.tsv': dec({ createdAt: '2026-11-16T08:00:00Z', downloadedAt: '2026-11-16T08:05:00Z' }),
+  'special-r2.tsv': dec({ createdAt: '2026-11-18T08:00:00Z', downloadedAt: '2026-11-18T08:05:00Z' }),
   'pending-only.tsv': { reportType: 'GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT', options: 'PENDING_ONLY', marketplace: MP, downloadedAt: '2026-11-15T09:00:00Z', createdAt: '2026-11-15T08:55:00Z', createdAfterUploadConfirmed: true, obtainedHow: 'Seller downloaded the default report (declared by the seller)' },
 }, null, 2) + '\n');
 console.log('written', Object.keys(files).length, 'fixtures');
