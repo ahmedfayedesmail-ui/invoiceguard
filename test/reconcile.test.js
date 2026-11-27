@@ -488,3 +488,26 @@ test('dates: the evidence log carries the date order, its basis, the file\'s ord
   assert.ok(log.dateReading.dateWarnings.length >= 1); assert.ok(log.notVerifiedAutomatically.some(x => /date order/.test(x)));
   const proven = reconcile([R3()]), pl = evidenceLog(doc(proven, A), [R3()], proven.imports); assert.equal(pl.dateReading.dateOrderBasis, 'proven by values in the file'); assert.ok(!pl.notVerifiedAutomatically.some(x => /date order/.test(x)));
 });
+
+test('dates: the cross-file conflict alone blocks the confirmed import: two imports with DIFFERENT documents, so no document is shared and recency cannot explain the refusal', () => {
+  const A1 = withConfirm(withRange({ ...setDates(R3(), '05/03/2018'), id: 'file-a' }, '2018-03-01', '2018-03-30'));
+  // file-b: month-first dates, and every document key is different from file-a's (other orders, shipments, transactions)
+  const rekey = (imp) => { const L = imp.text.split('\n').filter(l => l.length), h = L[0].split('\t'); const ix = ['order-id', 'shipping-id', 'transaction-id'].map(k => h.indexOf(k));
+    return { ...imp, text: L.map((l, k) => { if (!k) return l; const c = l.split('\t'); c[ix[0]] = c[ix[0]].replace(/^405-/, '999-'); c[ix[1]] = 'Z' + c[ix[1]]; c[ix[2]] = 'Z' + c[ix[2]]; return c.join('\t'); }).join('\n') + '\n' }; };
+  const B1 = withRange({ ...rekey(setDates(R3(), (n) => n === 0 ? '05/17/2018' : '05/03/2018')), id: 'file-b' }, '2018-05-01', '2018-05-30');
+  const keysA = new Set(reconcile([A1]).docs.map(d => d.key)), keysB = new Set(reconcile([B1]).docs.map(d => d.key));
+  assert.ok(keysA.size >= 1 && keysB.size >= 1); assert.equal([...keysA].filter(k => keysB.has(k)).length, 0, 'the two imports share no document');
+  // control: file-a alone is accepted on the strength of its confirmation
+  const alone = reconcile([A1]); assert.ok(alone.headline.accepted >= 1); assert.equal(alone.dateOrderConflicts.length, 0);
+  // together: nothing about file-a's own documents changed except the conflict, and they are refused for that reason only
+  const both = reconcile([A1, B1]), aDocs = both.docs.filter(d => keysA.has(d.key));
+  assert.equal(both.dateOrderConflicts.length, 1); assert.equal(both.dateOrderConflicts[0].confirmedImport, 'file-a'); assert.equal(both.dateOrderConflicts[0].contradictingImport, 'file-b');
+  assert.ok(aDocs.every(d => d.current.importId === 'file-a'), "each of file-a's documents is current in file-a: file-b is not a newer report of it");
+  const cand = aDocs.filter(d => d.rawStatus === 'InvoiceUploaded'); assert.ok(cand.length >= 1);
+  assert.ok(cand.every(d => d.state === 'DATE_ORDER_UNCONFIRMED' && d.reasonCode === 'DATE_ORDER_UNCONFIRMED'));
+  assert.ok(cand.every(d => d.evidence.preconditions.filter(p => !p.ok).map(p => p.name).join() === 'date order known'), 'the conflict is the ONLY unmet condition');
+  assert.match(cand[0].evidence.preconditions.find(p => p.name === 'date order known').detail, /does not carry across files and is not silently overridden/);
+  assert.equal(both.headline.accepted, 0);
+  // file-b's own documents are refused for their own reason (month-first), not for the conflict
+  assert.ok(both.docs.filter(d => keysB.has(d.key) && d.rawStatus === 'InvoiceUploaded').every(d => d.reasonCode === 'MONTH_FIRST_NOT_SUPPORTED'));
+});
