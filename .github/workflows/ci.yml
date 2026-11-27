@@ -16,12 +16,32 @@ jobs:
       - name: Install lxml (offline XSD validation of FA(3) and FatturaPA tests)
         run: python3 -m pip install lxml
       - name: Test suite
+        shell: bash   # GitHub runs `bash -eo pipefail {0}` only when shell: bash is set; the default is `bash -e {0}`, where a pipe hides the first command's failure
         run: |
           npm test 2>&1 | tee test-output.log
+      - name: Prove a failing command inside a pipeline fails the step (this step must itself fail)
+        id: pipeproof
+        shell: bash
+        continue-on-error: true
+        run: |
+          false | tee /dev/null
+          echo "UNREACHABLE: the pipeline failure was hidden"
+      - name: Check the pipeline proof
+        shell: bash
+        run: |
+          if [ "${{ steps.pipeproof.outcome }}" != "failure" ]; then echo "A failing pipeline did not fail its step: CI cannot be trusted"; exit 1; fi
+          echo "pipeline failure proof: the proof step failed as required"
       - name: Test counts (printed so reviewers can read them in the log and the run summary)
         if: always()
+        shell: bash
         run: |
-          grep -E '^# (tests|suites|pass|fail|cancelled|skipped|todo)' test-output.log | tee -a "$GITHUB_STEP_SUMMARY"
-          for f in test/*.test.js; do printf '%s: ' "$f"; node --test --test-force-exit --no-warnings "$f" 2>&1 | grep -E '^# (tests|pass|fail)' | tr '\n' ' '; echo; done | tee -a "$GITHUB_STEP_SUMMARY"
+          rc=0
+          grep -E '^# (tests|suites|pass|fail|cancelled|skipped|todo)' test-output.log > counts.txt || rc=1
+          for f in test/*.test.js; do
+            if out=$(node --test --test-force-exit --no-warnings "$f" 2>&1); then st=ok; else st=FAILED; rc=1; fi
+            echo "$f [$st]: $(echo "$out" | grep -E '^# (tests|pass|fail)' | tr '\n' ' ')" >> counts.txt
+          done
+          cat counts.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $rc
       - name: 1005-case campaign
         run: node tools/campaign.mjs --no-live

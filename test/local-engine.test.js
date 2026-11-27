@@ -62,3 +62,12 @@ test('loop page is off unless ENABLE_LOOP_PAGE=1 (no public deployment in P1)', 
   const { server } = createApp({ validate: async () => ({}), secret: 'test' }); await new Promise(r => server.listen(0, r));
   try { for (const p of ['/local/loop', '/local/loop.js', '/local/loop-engine.js']) assert.notEqual((await fetch(`http://127.0.0.1:${server.address().port}${p}`)).status, 200, p); } finally { server.close(); }
 });
+
+test('CI: test steps run under shell: bash (pipefail), and a failing command inside a pipeline fails a pipefail shell but is hidden by the default one', () => {
+  const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  for (const name of ['Test suite', 'Test counts']) { const at = ci.indexOf('- name: ' + name); assert.ok(at >= 0, name); const block = ci.slice(at, ci.indexOf('- name:', at + 5)); assert.match(block, /shell: bash\b/, name + ' must set shell: bash'); }
+  assert.match(ci, /pipeproof/, 'the workflow carries its own pipeline-failure proof');
+  const run = (flags) => { try { execFileSync('bash', [...flags, '-c', 'false | tee /dev/null'], { stdio: 'pipe' }); return 0; } catch (e) { return e.status; } };
+  assert.equal(run(['-e']), 0, 'the default CI shell hides the failure');
+  assert.notEqual(run(['-eo', 'pipefail']), 0, 'shell: bash does not');
+});

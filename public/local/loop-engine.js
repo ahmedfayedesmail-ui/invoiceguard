@@ -2925,8 +2925,8 @@ function evaluate(prefix, events, ctx) {
     const why = [];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ship)) return { ok: false, why: ["the Amazon row has no readable shipment date"] };
     if (!rep) return { ok: false, why: ["the day the Amazon report was taken is not declared"] };
-    if (!led.length) return { ok: false, why: ["no accounting export has been loaded"] };
-    for (const i of led) {
+    if (!activeLed.length) return { ok: false, why: ["no accounting export has been loaded"] };
+    for (const i of activeLed) {
       const g = i.declared ?? [], r = [];
       const dd = i.declared ?? {};
       if (dd.marketplace !== mk) r.push(`it is declared for marketplace ${dd.marketplace}, not ${mk}`);

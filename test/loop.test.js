@@ -422,3 +422,21 @@ test('door: an export time that is not a date is refused', async () => {
   const s = createLoopStore(memoryAdapter(), { now: clock() });
   await assert.rejects(() => s.addLedger({ text: F.L1, profile: F.PROFILE, declared: F.LDECL({ exportedAt: 'yesterday' }) }), Refused);
 });
+
+// ---- a superseded ledger proves nothing about absence ----
+test('fix-b: BOOKS_GAP proof rests on the newest complete ledger of the scope, never on the superseded one', () => {
+  const v2 = R2()[0], doc = (t) => t.split('\n').filter(l => !l.startsWith('A-1004;')).join('\n');
+  const oldL = imp('lold', 'ledger', F.L2, F.LDECL({ exportedAt: '2026-11-27T11:00:00Z' }), '2026-11-27T11:01:00Z', F.PROFILE); // contains A-1004
+  const newL = imp('lnew', 'ledger', doc(F.L2), F.LDECL({ exportedAt: '2026-11-27T12:00:00Z' }), '2026-11-27T12:01:00Z', F.PROFILE); // same scope, complete, no A-1004
+  const r = project({ imports: [v2, oldL, newL] }), gap = find(r, 'BOOKS_GAP', null, 4);
+  assert.ok(gap, 'the newest ledger lacks the document: the gap is proven'); assert.equal(gap.state, 'ACTION_REQUIRED');
+  assert.equal(gap.finding.evidence.coverage.id, 'lnew', 'the coverage cited is the newest file, not the superseded one'); assert.equal(gap.finding.evidence.coverage.exportedAt, '2026-11-27T12:00:00Z');
+  assert.ok(!JSON.stringify(gap.finding.evidence).includes('lold'));
+});
+test('fix-b: with the newest ledger stale, a superseded fresh one cannot stand in; the newest complete ledger alone proves it when fresh', () => {
+  const v2 = R2()[0], doc = (t) => t.split('\n').filter(l => !l.startsWith('A-1004;')).join('\n');
+  const only = project({ imports: [v2, imp('lnew', 'ledger', doc(F.L2), F.LDECL({ exportedAt: '2026-11-27T12:00:00Z' }), '2026-11-27T12:01:00Z', F.PROFILE)] });
+  assert.ok(find(only, 'BOOKS_GAP', 'NUMBER_AT_AMAZON_NOT_IN_BOOKS', 4), 'reverse: the newest complete ledger that lacks the document proves BOOKS_GAP when the other conditions hold');
+  const withHole = project({ imports: [v2, imp('lnew2', 'ledger', doc(F.L2), F.LDECL({ exportedAt: '2026-11-27T12:00:00Z', complete: false }), '2026-11-27T12:01:00Z', F.PROFILE)] });
+  assert.equal(find(withHole, 'BOOKS_GAP', 'NUMBER_AT_AMAZON_NOT_IN_BOOKS', 4), undefined, 'a partial file never proves absence');
+});
