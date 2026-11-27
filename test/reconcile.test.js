@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { reconcile, evidenceLog, stages, STATUS_MAP, KNOWN_STATUSES, correctionRole, statusTypeCompatibility } from '../src/reconcile.js';
+import { CONTRACT_VERSION, CONTRACT_LABEL, reconcile, evidenceLog, stages, STATUS_MAP, KNOWN_STATUSES, correctionRole, statusTypeCompatibility } from '../src/reconcile.js';
 
 const DECL = JSON.parse(readFileSync('fixtures/recon/declared.json', 'utf8'));
 const load = (name, over = {}) => { const text = readFileSync('fixtures/recon/' + name, 'utf8'); return { id: name.replace('.tsv', ''), fileName: name, text, sha256: createHash('sha256').update(text).digest('hex'), importedAt: '2026-11-20T10:00:00Z', declared: { ...DECL[name], ...over } }; };
@@ -138,7 +138,7 @@ test('I: headline counts come from the evidence; cannot-determine is its own cou
   assert.equal(h.documents, out.docs.length);
   assert.equal(h.accepted + h.partiallyAccepted + h.processing + h.pending + h.rejected + h.sellerUploadRequired + h.createdByAmazon + h.cannotDetermine, h.documents);
   assert.ok(h.exceptions <= h.documents); assert.equal(h.cannotDetermine, Object.values(h.cannotDetermineParts).reduce((a, b) => a + b, 0));
-  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ document\(s\) with an exception/); assert.match(h.sentence, /we cannot determine \(\d+ from a partly read file, \d+ from a file with missing columns, \d+ from another incomplete import, \d+ with an unmet check, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ status that does not fit the transaction type\)/); assert.match(h.sentence, /Separately, \d+ row\(s\) have a blank key field and are not counted as documents/); assert.match(h.accountingComparison, /needs the seller invoice export/);
+  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ document\(s\) with an exception/); assert.match(h.sentence, /we cannot determine \(\d+ from a partly read file, \d+ from a file with missing columns, \d+ from another incomplete import, \d+ with an unmet check, \d+ with a missing or unreadable order date, \d+ with an invoice number blank on some rows, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ status that does not fit the transaction type\)/); assert.match(h.sentence, /Separately, \d+ row\(s\) have a blank key field and are not counted as documents/); assert.match(h.accountingComparison, /needs the seller invoice export/);
   const inc = reconcile([PO()]).headline; assert.equal(inc.anyCompleteImport, false);
   console.log('HEADLINE (R1+R2+R3 all-status):', reconcile([R1(), R2(), R3()]).headline.sentence);
   console.log('HEADLINE (pending-only only):', inc.sentence);
@@ -313,4 +313,75 @@ test('structure: ACCEPTED is produced in one place (gateAccepted) and every ACCE
   assert.deepEqual(assigns.map(l => l.trim().slice(0, 90)), [assigns[0].trim().slice(0, 90)], 'exactly one line assigns the ACCEPTED state: ' + JSON.stringify(assigns));
   assert.match(assigns[0], /unmet\.length \? 'INCOMPLETE_SOURCE' : 'ACCEPTED'/);
   for (const set of [[R1(), R2(), R3()], [R3(), PO()], [PO(), R2()], [SR1(), SR2()]]) invariant(reconcile(set), 'combo');
+});
+
+// ---------------------------------------------------------------- round 4: required values are never dropped before validation
+const withExtraRow = (base, edit) => { const L = base.text.split('\n').filter(l => l.length), h = L[0].split('\t'), c = L[1].split('\t'); edit(c, h); return { ...base, text: L.join('\n') + '\n' + c.join('\t') + '\n' }; };
+
+test('P1-1: a row with an empty order date makes the whole import INCOMPLETE_SOURCE (MISSING_OR_INVALID_ORDER_DATE); accepted = 0', () => {
+  const imp = withExtraRow(R3(), (c, h) => { c[h.indexOf('order-date')] = ''; c[h.indexOf('shipping-id')] = 'S9998'; c[h.indexOf('transaction-id')] = 'S9998'; c[h.indexOf('order-id')] = '405-0000000-0000008'; c[h.indexOf('invoice-status')] = 'InvoicePending'; c[h.indexOf('invoice-number')] = ''; });
+  const two = (() => { const L = imp.text.split('\n').filter(l => l.length); return { ...imp, text: [L[0], L[1], L.at(-1)].join('\n') + '\n' }; })();
+  assert.equal(reconcile([two]).headline.accepted, 0, 'one InvoiceUploaded plus one row with an empty date: nothing accepted');
+  const out = reconcile([imp]);
+  assert.ok(out.imports[0].problemCodes.includes('MISSING_OR_INVALID_ORDER_DATE')); assert.equal(out.imports[0].scope, 'INCOMPLETE_SOURCE');
+  assert.equal(out.headline.accepted, 0); assert.equal(doc(out, 'S9001').state, 'INCOMPLETE_SOURCE'); assert.equal(doc(out, 'S9001').reasonCode, 'MISSING_OR_INVALID_ORDER_DATE');
+  assert.ok(out.headline.cannotDetermineParts.orderDateMissingOrUnreadable >= 1); assert.equal(out.headline.cannotDetermineParts.orderDateMissingOrUnreadable, out.docs.filter(d => d.reasonCode === 'MISSING_OR_INVALID_ORDER_DATE').length);
+  // the same through an impossible calendar day, and several malformed shapes: a real date is validated, not a prefix
+  for (const bad of ['2026-02-31', '2026-13-01', '2026-00-10', '2026-11-3x', 'tomorrow', '  ', '2026-04-31T10:00:00Z']) {
+    const o = reconcile([withExtraRow(R3(), (c, h) => { c[h.indexOf('order-date')] = bad; c[h.indexOf('shipping-id')] = 'S9997'; c[h.indexOf('transaction-id')] = 'S9997'; c[h.indexOf('order-id')] = '405-0000000-0000007'; })]);
+    assert.equal(o.headline.accepted, 0, bad); assert.ok(o.imports[0].problemCodes.includes('MISSING_OR_INVALID_ORDER_DATE'), bad);
+  }
+  console.log('P1-1 one good InvoiceUploaded + one row with an empty order date ->', out.imports[0].scope, out.imports[0].problemCodes.join(','), '| accepted =', out.headline.accepted, '| S9001:', doc(out, 'S9001').state, doc(out, 'S9001').reasonCode);
+});
+
+test('P1-2: invoice number blank on one row and filled on another of the same document is a disagreement; no ACCEPTED; explicit state', () => {
+  const lines = R3().text.split('\n').filter(l => l.length), h = lines[0].split('\t'), c = lines[1].split('\t'), c2 = [...c];
+  c2[h.indexOf('order-item-id')] = c[h.indexOf('order-item-id')] + '-B'; c2[h.indexOf('invoice-number')] = '';
+  const out = reconcile([{ ...R3(), text: [lines[0], lines[1], c2.join('\t'), ...lines.slice(2)].join('\n') + '\n' }]);
+  const solo = reconcile([{ ...R3(), text: [lines[0], lines[1], c2.join('\t')].join('\n') + '\n' }]); assert.equal(solo.headline.accepted, 0); assert.equal(solo.headline.documents, 1);
+  const d = doc(out, 'S9001');
+  assert.equal(d.state, 'INVOICE_NUMBER_INCOMPLETE'); assert.equal(out.headline.accepted, reconcile([R3()]).headline.accepted - 1, 'only this document lost its ACCEPTED'); assert.match(d.explanation, /blank is treated as a value/);
+  assert.equal(out.headline.cannotDetermineParts.invoiceNumberIncomplete, 1); assert.ok(out.headline.exceptions <= out.headline.documents);
+  // two different non-blank numbers stay an ambiguity, and all-blank on an InvoiceUploaded row cannot be accepted either
+  const c3 = [...c2]; c3[h.indexOf('invoice-number')] = 'A-2026-000777';
+  assert.equal(doc(reconcile([{ ...R3(), text: [lines[0], lines[1], c3.join('\t'), ...lines.slice(2)].join('\n') + '\n' }]), 'S9001').state, 'UNMATCHED');
+  const c4 = [...c]; c4[h.indexOf('invoice-number')] = '';
+  assert.notEqual(doc(reconcile([{ ...R3(), text: [lines[0], c4.join('\t'), ...lines.slice(2)].join('\n') + '\n' }]), 'S9001').state, 'ACCEPTED');
+  console.log('P1-2 multi-row document, one row numbered, one blank ->', d.state, '| accepted (that document alone, 2 rows) =', solo.headline.accepted, '|', d.explanation.slice(0, 150));
+});
+
+test('P2-1 Expected: InvoiceUploaded shows no Expected', () => {
+  const st = stages(doc(reconcile([R3()]), 'S9001')); assert.equal(st.expected.state, 'NOT VISIBLE'); assert.equal(st.expected.obligation, undefined);
+});
+const oneStatus = (status, id) => { const lines = R3().text.split('\n').filter(l => l.length), h = lines[0].split('\t'), c = lines[1].split('\t'); c[h.indexOf('invoice-status')] = status; if (status !== 'InvoiceUploaded') c[h.indexOf('invoice-number')] = ''; return stages(doc(reconcile([{ ...R3(), text: lines[0] + '\n' + c.join('\t') + '\n' }]), id)); };
+test('P2-1 Expected: InvoiceProcessing shows no new upload required', () => { const st = oneStatus('InvoiceProcessing', 'S9001'); assert.equal(st.expected.state, 'NO NEW UPLOAD REQUIRED'); assert.equal(st.expected.obligation, undefined); });
+test('P2-1 Expected: InvoicePending shows Expected', () => { const st = oneStatus('InvoicePending', 'S9001'); assert.equal(st.expected.state, 'EVIDENCE'); assert.match(st.expected.obligation, /waiting for the seller/); });
+test('P2-1 Expected: InvoiceRejected shows re-upload required', () => { const st = oneStatus('InvoiceRejected', 'S9001'); assert.equal(st.expected.state, 'EVIDENCE'); assert.match(st.expected.obligation, /Re-upload required/); });
+test('P2-1 Expected: NoTaxCalculated shows the seller upload obligation', () => { const st = oneStatus('NoTaxCalculated', 'S9001'); assert.equal(st.expected.state, 'EVIDENCE'); assert.match(st.expected.obligation, /seller must upload the invoice/); });
+test('P2-1 Expected: an INCOMPLETE_SOURCE document whose status was Uploaded never becomes Expected', () => {
+  const lines = R3().text.split('\n').filter(l => l.length), c = lines[1].split('\t'), h = lines[0].split('\t'); c[h.indexOf('order-date')] = '2026-02-31';
+  const d = doc(reconcile([{ ...R3(), text: lines[0] + '\n' + c.join('\t') + '\n' }]), 'S9001'); assert.equal(d.state, 'INCOMPLETE_SOURCE'); assert.notEqual(stages(d).expected.state, 'EVIDENCE');
+});
+
+test('P2-2: one exported contract version; the document, the log and the bundle all derive from it; a mismatch fails', async () => {
+  const doc0 = readFileSync('docs/EVIDENCE-CONTRACT.md', 'utf8'), first = doc0.split('\n')[0];
+  assert.equal(first, `# InvoiceGuard Evidence Contract ${CONTRACT_VERSION} (normative; implemented in src/reconcile.js, src/txid.js, src/history.js)`);
+  assert.equal(CONTRACT_LABEL, `EVIDENCE-CONTRACT ${CONTRACT_VERSION}`);
+  const out = reconcile([R1(), R2(), R3()]); assert.equal(evidenceLog(doc(out, A), [R1(), R2(), R3()], out.imports).contract, CONTRACT_LABEL);
+  const { createHistory, memoryAdapter } = await import('../src/history.js'); const h = createHistory(memoryAdapter()); await h.addImport(R3());
+  assert.equal((await h.evidenceBundle()).contract, CONTRACT_LABEL);
+  for (const f of ['src/reconcile.js', 'src/history.js']) assert.ok(!/EVIDENCE-CONTRACT v\d/.test(readFileSync(f, 'utf8').replace(/\/\/.*$/gm, '')), `${f} hard-codes a contract version`);
+});
+
+test('class: no required field is dropped, defaulted or skipped before validation between parse and gateAccepted', () => {
+  for (const f of ['src/reconcile.js', 'src/history.js']) assert.ok(!/\.filter\(Boolean\)/.test(readFileSync(f, 'utf8')), `${f} still uses .filter(Boolean)`);
+  const src = readFileSync('src/reconcile.js', 'utf8');
+  assert.ok(!/\.filter\(x => !!x\)|\.filter\(Number\)|\.filter\(String\)/.test(src));
+  // behaviour: blank each required column in ONE extra row of an otherwise good, accepted import. Never a silently complete import.
+  for (const col of ['marketplace-id', 'order-id', 'order-item-id', 'shipping-id', 'transaction-id', 'transaction-type', 'invoice-status', 'order-date']) {
+    const imp = withExtraRow(R3(), (c, h) => { c[h.indexOf(col)] = ''; if (!['order-id', 'shipping-id', 'transaction-id'].includes(col)) { c[h.indexOf('order-id')] = '405-0000000-0000006'; c[h.indexOf('shipping-id')] = 'S9996'; c[h.indexOf('transaction-id')] = 'S9996'; } });
+    const out = reconcile([imp]); assert.equal(out.imports[0].scope, 'INCOMPLETE_SOURCE', `blank ${col} left the import COMPLETE_SCOPE`); assert.equal(out.headline.accepted, 0, `blank ${col}`);
+  }
+  // invoice-number: blank is a value; mixed blank and filled is never accepted (see P1-2)
+  const base = reconcile([R3()]); assert.equal(base.imports[0].scope, 'COMPLETE_SCOPE'); assert.ok(base.headline.accepted >= 1);
 });

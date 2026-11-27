@@ -2,7 +2,7 @@
 // Pure module: storage goes through an adapter (IndexedDB in the browser, memory in tests). Optional encryption uses Web Crypto
 // (PBKDF2 -> AES-GCM). The passphrase is never stored and cannot be recovered. Browsers may clear site data on their own,
 // so the Evidence Bundle export is the durable copy.
-import { reconcile, evidenceLog } from './reconcile.js';
+import { reconcile, evidenceLog, CONTRACT_LABEL } from './reconcile.js';
 
 export const memoryAdapter = () => { const m = new Map(); return { async put(k, v) { m.set(k, v); }, async get(k) { return m.get(k) ?? null; }, async list() { return [...m.keys()]; }, async clear() { m.clear(); } }; };
 
@@ -38,9 +38,9 @@ export function createHistory(adapter, { passphrase = null } = {}) {
     /** Exportable Evidence Bundle: imports (with raw text and hashes), the declarations, the result, and one evidence log per ACCEPTED document. */
     async evidenceBundle() {
       const { imports, result } = await this.reconcile();
-      return { bundleVersion: 1, contract: 'EVIDENCE-CONTRACT v1', createdAt: new Date().toISOString(), note: 'State of the files as loaded, on the dates they were loaded. Settings marked declared were declared by the seller and not verified by InvoiceGuard.',
+      return { bundleVersion: 1, contract: CONTRACT_LABEL, createdAt: new Date().toISOString(), note: 'State of the files as loaded, on the dates they were loaded. Settings marked declared were declared by the seller and not verified by InvoiceGuard.',
         imports: imports.map(i => ({ id: i.id, fileName: i.fileName ?? null, sha256: i.sha256, importedAt: i.importedAt, declared: i.declared, text: i.text })), importSummaries: result.imports, headline: result.headline, documents: result.docs.map(d => ({ key: d.key, state: d.state, rawStatus: d.rawStatus, explanation: d.explanation, history: d.history, anomalies: d.anomalies })),
-        evidenceLogs: result.docs.map(d => evidenceLog(d, imports, result.imports)).filter(Boolean) };
+        evidenceLogs: result.docs.map(d => evidenceLog(d, imports, result.imports)).filter(x => x !== null) };
     },
     /** Deletes everything this page stored on this device. */
     async deleteEverything() { await adapter.clear(); },
