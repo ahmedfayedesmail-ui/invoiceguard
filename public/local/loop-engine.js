@@ -1853,6 +1853,12 @@ function classifyTransactionId(id, type) {
   return { role: null, format: null, unknown: true, why: 'the id starts with "Correction" but matches none of the known shapes' };
 }
 
+// src/vidr.js
+var readFlag = (values) => {
+  const v = new Set([].concat(values).map((x) => String(x ?? "").trim().toUpperCase()));
+  return v.size === 1 && v.has("TRUE") ? true : v.size === 1 && v.has("FALSE") ? false : null;
+};
+
 // src/manual.js
 var MAX_ROWS = 2e4;
 function parseTable(text) {
@@ -2122,6 +2128,7 @@ var EXPLAIN = {
   SELLER_UPLOAD_REQUIRED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}. Amazon did not calculate the tax for this transaction, so the seller must upload the invoice. Nothing has been uploaded as far as this report shows. This is an exception.`,
   REJECTED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon found errors in the upload. Amazon says the seller must upload this document again.`,
   CREATED_BY_AMAZON: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}: Amazon made this document itself. The seller has nothing to upload for it.`,
+  ISSUER_UNDETERMINED: (c2) => `Observed as ${c2.raw} in the report dated ${c2.date} ${c2.dn}. The report states that status, but it does not show who issued the invoice: is-amazon-invoiced is not an explicit TRUE on every row of this document (it is FALSE, blank, unreadable or differs between rows). So we do not say Amazon made it, and we do not say the seller must upload it. To resolve it, load a VAT Invoice Data Report in which is-amazon-invoiced holds TRUE on every row of this document.`,
   INCOMPLETE_SOURCE: (c2) => `The file says ${c2.raw}, but it is not shown as accepted. ${c2.why}`,
   UNMATCHED: (c2) => `We could not tie this to one document with confidence: ${c2.why}`,
   UNKNOWN_STATUS: (c2) => `The file has a status we do not recognise (${JSON.stringify(c2.raw)}). We did not guess. This is counted as cannot determine.`,
@@ -2185,6 +2192,7 @@ function reconcile(imports) {
       parts: cur.parts,
       itemIds: cur.itemIds,
       state: cur.mapped,
+      reportedState: cur.mapped,
       reasonCode: cur.reasonCode ?? null,
       unmatchedReason: cur.unmatchedReason ?? null,
       rawStatus: cur.raw,
@@ -2221,6 +2229,14 @@ function reconcile(imports) {
       if (state === "PARTIALLY_ACCEPTED" && s.ownState === "ACCEPTED") s.state = "PARTIALLY_ACCEPTED";
     }
   }
+  for (const d of docs) if (d.state === "CREATED_BY_AMAZON") {
+    const flag = readFlag((d.evidence.rows ?? []).map((r) => r["is-amazon-invoiced"]));
+    d.issuerFlag = flag === true ? "TRUE" : flag === false ? "FALSE" : "UNKNOWN";
+    if (flag !== true) {
+      d.state = "ISSUER_UNDETERMINED";
+      d.ownState = "ISSUER_UNDETERMINED";
+    }
+  }
   for (const d of docs) {
     const c2 = d.ctx;
     delete d.ctx;
@@ -2232,10 +2248,10 @@ function reconcile(imports) {
 }
 function headline(docs, cycles, unkeyed, importSummaries) {
   const n = (s) => docs.filter((d) => d.state === s).length, inc = (code) => docs.filter((d) => d.state === "INCOMPLETE_SOURCE" && d.reasonCode === code).length;
-  const parts = { truncatedFile: inc("TRUNCATED_FILE"), missingColumns: inc("MISSING_COLUMNS"), importNotComplete: inc("IMPORT_NOT_COMPLETE"), preconditionUnmet: inc("PRECONDITION_UNMET"), orderDateMissingOrUnreadable: inc("MISSING_OR_INVALID_ORDER_DATE"), dateFormatUnrecognized: inc("UNRECOGNIZED_DATE_FORMAT") + inc("DATE_ORDER_CONTRADICTION") + inc("MONTH_FIRST_NOT_SUPPORTED"), dateOrderUnconfirmed: n("DATE_ORDER_UNCONFIRMED"), invoiceNumberIncomplete: n("INVOICE_NUMBER_INCOMPLETE"), unmatched: n("UNMATCHED"), unknownStatus: n("UNKNOWN_STATUS"), unknownTransactionIdFormat: n("UNKNOWN_TRANSACTION_ID_FORMAT"), incompatibleStatusAndType: n("INCOMPATIBLE_STATUS_AND_TYPE") };
+  const parts = { truncatedFile: inc("TRUNCATED_FILE"), missingColumns: inc("MISSING_COLUMNS"), importNotComplete: inc("IMPORT_NOT_COMPLETE"), preconditionUnmet: inc("PRECONDITION_UNMET"), orderDateMissingOrUnreadable: inc("MISSING_OR_INVALID_ORDER_DATE"), dateFormatUnrecognized: inc("UNRECOGNIZED_DATE_FORMAT") + inc("DATE_ORDER_CONTRADICTION") + inc("MONTH_FIRST_NOT_SUPPORTED"), dateOrderUnconfirmed: n("DATE_ORDER_UNCONFIRMED"), invoiceNumberIncomplete: n("INVOICE_NUMBER_INCOMPLETE"), unmatched: n("UNMATCHED"), unknownStatus: n("UNKNOWN_STATUS"), unknownTransactionIdFormat: n("UNKNOWN_TRANSACTION_ID_FORMAT"), incompatibleStatusAndType: n("INCOMPATIBLE_STATUS_AND_TYPE"), issuerUndetermined: n("ISSUER_UNDETERMINED") };
   const cannot = Object.values(parts).reduce((a, b) => a + b, 0);
   const openCycles = cycles.filter((c2) => c2.state !== "ACCEPTED"), openDocKeys = new Set(openCycles.flatMap((c2) => c2.sides));
-  const EXC = ["REJECTED", "SELLER_UPLOAD_REQUIRED", "INCOMPLETE_SOURCE", "UNMATCHED", "UNKNOWN_STATUS", "UNKNOWN_TRANSACTION_ID_FORMAT", "INCOMPATIBLE_STATUS_AND_TYPE", "INVOICE_NUMBER_INCOMPLETE", "DATE_ORDER_UNCONFIRMED"];
+  const EXC = ["REJECTED", "SELLER_UPLOAD_REQUIRED", "INCOMPLETE_SOURCE", "UNMATCHED", "UNKNOWN_STATUS", "UNKNOWN_TRANSACTION_ID_FORMAT", "INCOMPATIBLE_STATUS_AND_TYPE", "INVOICE_NUMBER_INCOMPLETE", "ISSUER_UNDETERMINED", "DATE_ORDER_UNCONFIRMED"];
   const exceptions = docs.filter((d) => EXC.includes(d.state) || openDocKeys.has(d.key)).length;
   const counts = {
     documents: docs.length,
@@ -2246,12 +2262,13 @@ function headline(docs, cycles, unkeyed, importSummaries) {
     rejected: n("REJECTED"),
     sellerUploadRequired: n("SELLER_UPLOAD_REQUIRED"),
     createdByAmazon: n("CREATED_BY_AMAZON"),
+    issuerUndetermined: n("ISSUER_UNDETERMINED"),
     correctionCyclesNotClosed: openCycles.length,
     cannotDetermine: cannot,
     cannotDetermineParts: parts,
     rowsWithoutKey: unkeyed.length
   };
-  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} document(s) with an exception (one document can be in more than one line below): ${counts.rejected} rejected by Amazon, ${counts.sellerUploadRequired} where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), ${counts.correctionCyclesNotClosed} correction(s) not closed on both sides, ${cannot} we cannot determine (${parts.truncatedFile} from a partly read file, ${parts.missingColumns} from a file with missing columns, ${parts.importNotComplete} from another incomplete import, ${parts.preconditionUnmet} with an unmet check, ${parts.orderDateMissingOrUnreadable} with a missing or unreadable order date, ${parts.dateFormatUnrecognized} with dates in a format we do not recognise, that look month-first or that contradict each other, ${parts.dateOrderUnconfirmed} waiting for the seller to confirm the date format, ${parts.invoiceNumberIncomplete} with an invoice number blank on some rows, ${parts.unmatched} unmatched, ${parts.unknownStatus} unknown status, ${parts.unknownTransactionIdFormat} unknown correction id format, ${parts.incompatibleStatusAndType} status that does not fit the transaction type). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} observed as accepted, ${counts.createdByAmazon} created by Amazon (nothing to upload). Separately, ${counts.rowsWithoutKey} row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.`;
+  const sentence = `Out of ${counts.documents} document(s) in the loaded files: ${exceptions} document(s) with an exception (one document can be in more than one line below): ${counts.rejected} rejected by Amazon, ${counts.sellerUploadRequired} where the seller must upload the invoice and nothing is uploaded (NoTaxCalculated), ${counts.correctionCyclesNotClosed} correction(s) not closed on both sides, ${cannot} we cannot determine (${parts.truncatedFile} from a partly read file, ${parts.missingColumns} from a file with missing columns, ${parts.importNotComplete} from another incomplete import, ${parts.preconditionUnmet} with an unmet check, ${parts.orderDateMissingOrUnreadable} with a missing or unreadable order date, ${parts.dateFormatUnrecognized} with dates in a format we do not recognise, that look month-first or that contradict each other, ${parts.dateOrderUnconfirmed} waiting for the seller to confirm the date format, ${parts.invoiceNumberIncomplete} with an invoice number blank on some rows, ${parts.unmatched} unmatched, ${parts.unknownStatus} unknown status, ${parts.unknownTransactionIdFormat} unknown correction id format, ${parts.incompatibleStatusAndType} status that does not fit the transaction type, ${parts.issuerUndetermined} where the report does not show who issued the invoice (issuer undetermined)). ${counts.processing + counts.pending} in progress (pending or processing), ${counts.accepted} observed as accepted, ${counts.createdByAmazon} created by Amazon (nothing to upload). Separately, ${counts.rowsWithoutKey} row(s) have a blank key field and are not counted as documents. State of the files as loaded; it says nothing about files that were not loaded.`;
   return { ...counts, exceptions, accountingComparison: "not available: needs the seller invoice export (Issued is not visible in the Amazon files)", sentence, anyCompleteImport: importSummaries.some((i) => i.scope === "COMPLETE_SCOPE") };
 }
 
@@ -2932,7 +2949,7 @@ function evaluate(prefix, events, ctx) {
   };
   const ordinary = rec.docs.filter((d) => d.parts["transaction-type"] === "SHIPMENT" && !d.correction);
   const flagVsStatus = /* @__PURE__ */ new Set(), flagged = new Map(ordinary.map((d) => {
-    const f = amazonFlag(d), byAmazon = d.state === "CREATED_BY_AMAZON";
+    const f = amazonFlag(d), byAmazon = d.reportedState === "CREATED_BY_AMAZON";
     if (f === "TRUE" && !byAmazon || f === "FALSE" && byAmazon) flagVsStatus.add(d);
     return [d, f === "TRUE" ? byAmazon ? "TRUE" : "CONFLICT" : f === "FALSE" ? byAmazon ? "CONFLICT" : "FALSE" : f];
   }));

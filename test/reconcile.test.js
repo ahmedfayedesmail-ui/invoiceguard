@@ -17,6 +17,7 @@ test('literal status strings: exactly the 11 documented values, each mapped, non
   for (const [raw, want] of Object.entries(STATUS_MAP)) {
     const credit = raw.startsWith('CreditNote'), row = readFileSync('fixtures/recon/all-r3-uploaded.tsv', 'utf8').split('\n').slice(0, 2);
     const h = row[0].split('\t'), c = row[1].split('\t'); c[h.indexOf('invoice-status')] = raw; c[h.indexOf('transaction-type')] = credit ? 'REFUND' : 'SHIPMENT'; c[h.indexOf('transaction-id')] = credit ? 'amzn1:crow:X1' : c[h.indexOf('shipping-id')];
+    if (want === 'CREATED_BY_AMAZON') c[h.indexOf('is-amazon-invoiced')] = 'TRUE'; // CREATED_BY_AMAZON needs the explicit flag as well as the status (see test/issuer-determination.test.js)
     const out = reconcile([{ ...R3(), text: row[0] + '\n' + c.join('\t') + '\n' }]), st = out.docs[0].state;
     assert.notEqual(st, 'UNKNOWN_STATUS', raw); assert.equal(out.docs[0].rawStatus, raw); assert.ok(st === want || (want === 'ACCEPTED' && ['ACCEPTED', 'INCOMPLETE_SOURCE'].includes(st)), `${raw} -> ${st}`);
   }
@@ -138,7 +139,7 @@ test('I: headline counts come from the evidence; cannot-determine is its own cou
   assert.equal(h.documents, out.docs.length);
   assert.equal(h.accepted + h.partiallyAccepted + h.processing + h.pending + h.rejected + h.sellerUploadRequired + h.createdByAmazon + h.cannotDetermine, h.documents);
   assert.ok(h.exceptions <= h.documents); assert.equal(h.cannotDetermine, Object.values(h.cannotDetermineParts).reduce((a, b) => a + b, 0));
-  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ document\(s\) with an exception/); assert.match(h.sentence, /we cannot determine \(\d+ from a partly read file, \d+ from a file with missing columns, \d+ from another incomplete import, \d+ with an unmet check, \d+ with a missing or unreadable order date, \d+ with dates in a format we do not recognise, that look month-first or that contradict each other, \d+ waiting for the seller to confirm the date format, \d+ with an invoice number blank on some rows, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ status that does not fit the transaction type\)/); assert.match(h.sentence, /Separately, \d+ row\(s\) have a blank key field and are not counted as documents/); assert.match(h.accountingComparison, /needs the seller invoice export/);
+  assert.match(h.sentence, /^Out of \d+ document\(s\) in the loaded files: \d+ document\(s\) with an exception/); assert.match(h.sentence, /we cannot determine \(\d+ from a partly read file, \d+ from a file with missing columns, \d+ from another incomplete import, \d+ with an unmet check, \d+ with a missing or unreadable order date, \d+ with dates in a format we do not recognise, that look month-first or that contradict each other, \d+ waiting for the seller to confirm the date format, \d+ with an invoice number blank on some rows, \d+ unmatched, \d+ unknown status, \d+ unknown correction id format, \d+ status that does not fit the transaction type, \d+ where the report does not show who issued the invoice \(issuer undetermined\)\)/); assert.match(h.sentence, /Separately, \d+ row\(s\) have a blank key field and are not counted as documents/); assert.match(h.accountingComparison, /needs the seller invoice export/);
   const inc = reconcile([PO()]).headline; assert.equal(inc.anyCompleteImport, false);
   console.log('HEADLINE (R1+R2+R3 all-status):', reconcile([R1(), R2(), R3()]).headline.sentence);
   console.log('HEADLINE (pending-only only):', inc.sentence);
@@ -160,11 +161,11 @@ const byShip = (out, ship) => out.docs.filter(d => d.parts['shipping-id'] === sh
 
 test('Amazon-created documents are strictly apart from seller-uploaded ones: nothing due, no upload stage, own count', () => {
   const out = reconcile([SR1()]);
-  for (const [ship, raw] of [['S9701', 'CreditNoteCreatedByAmazon'], ['S9801', 'InvoiceCreatedByAmazon']]) {
-    const d = byShip(out, ship)[0]; assert.equal(d.state, 'CREATED_BY_AMAZON'); assert.equal(d.rawStatus, raw);
-    const st = stages(d); if (ship === 'S9701') { assert.equal(st.expected.state, 'UNDETERMINED', 'the fixture row says is-amazon-invoiced FALSE while the status says CreditNoteCreatedByAmazon: they disagree, and the status does not decide who issued it'); } else assert.equal(st.expected.state, 'NOT DUE'); assert.equal(st.uploaded.state, 'NOT APPLICABLE'); assert.match(d.explanation, /seller has nothing to upload/);
-  }
-  assert.equal(out.headline.createdByAmazon, 2); assert.equal(out.headline.pending, 0); assert.equal(out.headline.createdByAmazon, 2);
+  const inv = byShip(out, 'S9801')[0]; assert.equal(inv.state, 'CREATED_BY_AMAZON'); assert.equal(inv.rawStatus, 'InvoiceCreatedByAmazon');
+  const st = stages(inv); assert.equal(st.expected.state, 'NOT DUE'); assert.equal(st.uploaded.state, 'NOT APPLICABLE'); assert.match(inv.explanation, /seller has nothing to upload/);
+  // S9701: the fixture row says is-amazon-invoiced FALSE while the status says CreditNoteCreatedByAmazon. They disagree, so the issuer is undetermined (consequence of the issuer rule, 7891403+1).
+  const cn = byShip(out, 'S9701')[0]; assert.equal(cn.state, 'ISSUER_UNDETERMINED'); assert.equal(cn.rawStatus, 'CreditNoteCreatedByAmazon'); assert.equal(cn.reportedState, 'CREATED_BY_AMAZON'); assert.equal(stages(cn).expected.state, 'UNDETERMINED');
+  assert.equal(out.headline.createdByAmazon, 1); assert.equal(out.headline.issuerUndetermined, 1); assert.equal(out.headline.pending, 0);
 });
 
 test('NoTaxCalculated creates an obligation: Expected is due, it is an exception while nothing is uploaded, and it clears only on a later report that shows an upload', () => {
@@ -266,6 +267,7 @@ test('P1-c MATRIX: every one of the 11 statuses against every transaction type, 
   assert.equal(Object.keys(expectedState).length, 11);
   for (const type of ['SHIPMENT', 'REFUND', 'RETURN', 'FOO']) for (const status of Object.keys(expectedState)) {
     const c = [...base]; c[col(h, 'invoice-status')] = status; c[col(h, 'transaction-type')] = type; c[col(h, 'transaction-id')] = type === 'SHIPMENT' || type === 'FOO' ? 'S9001' : 'amzn1:crow:X1';
+    if (status.endsWith('CreatedByAmazon')) c[col(h, 'is-amazon-invoiced')] = 'TRUE';
     const out = reconcile([{ ...R3(), text: h + '\n' + c.join('\t') + '\n' }]), d = out.docs[0]; cells++;
     const want = OK[type].includes(status) ? expectedState[status] : 'INCOMPATIBLE_STATUS_AND_TYPE';
     assert.equal(d.state, want, `${type} + ${status}`); assert.equal(d.rawStatus, status);

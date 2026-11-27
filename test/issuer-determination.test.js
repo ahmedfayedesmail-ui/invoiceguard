@@ -12,7 +12,8 @@ const DECL = JSON.parse(readFileSync('fixtures/recon/declared.json', 'utf8'));
 const NAME = 'special-r1.tsv';
 // rowsFor: ship id -> list of per-row edits (the first row of the ship is edited by edits[0]; extra edits append a copy of the row with order-item-id 2, 3...)
 const build = (ship, edits) => { const raw = readFileSync('fixtures/recon/' + NAME, 'utf8'), lines = raw.trim().split('\n'), h = lines[0].split('\t'), out = [lines[0]];
-  for (const r of lines.slice(1)) { const c = r.split('\t'); if (c[h.indexOf('shipping-id')] !== ship) { out.push(r); continue; }
+  for (const r of lines.slice(1)) { const c = r.split('\t'); if (c[h.indexOf('shipping-id')] !== ship) continue; // the file holds ONLY the document under test, so the headline counts are about it alone
+   
     edits.forEach((e, i) => { const d = [...c]; d[h.indexOf('order-item-id')] = String(i + 1); for (const [k, v] of Object.entries(e)) d[h.indexOf(k)] = v; out.push(d.join('\t')); }); }
   const text = out.join('\n') + '\n'; return { id: 'r1', fileName: NAME, text, sha256: createHash('sha256').update(text).digest('hex'), importedAt: '2026-11-20T10:00:00Z', declared: DECL[NAME] }; };
 const docOf = (ship, edits) => { const o = reconcile([build(ship, edits)]); const d = o.docs.find(x => x.parts['shipping-id'] === ship); assert.ok(d, ship); return { o, d }; };
