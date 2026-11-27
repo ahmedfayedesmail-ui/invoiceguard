@@ -464,7 +464,7 @@ Each phase ends with: branch, head SHA, test names and counts, what fails before
 9. Phase order (phase 0, the import-deletion fix, first), and whether phase B starts in parallel with A.
 10. Materiality (7.2a): confirm the dimension; that the seller declares one absolute threshold per currency at onboarding with no default; the field classes AMOUNT_TAX, IDENTIFYING, TIMING; the UNDETERMINED fallback (REVIEW, amount shown, no escalation); the summary line for immaterial items; that business orders move from unconditional SELLER_ACTION; and that materiality never lowers a ledger-integrity finding.
 
-### 15.1 Recorded decisions (Ahmed, 17:xx WhatsApp via Main, after rev 4)
+### 15.1 Recorded decisions (Ahmed, WhatsApp 18:02 EET, from his verified number, read from the message record; relayed by Main)
 All ten approved. Amendments that change the text above:
 - Decision 10 amendment: the onboarding flow asks for the threshold on day one but the seller may skip it. When absent: Materiality UNDETERMINED and the action is REVIEW. Amount and tax-amount differences are governed by the threshold; tax id, currency or identity differences are MATERIAL by nature; a date difference is MATERIAL when it changes the candidate tax period; immaterial differences always appear in the per-currency summary; materiality never lowers a Ledger Integrity finding.
 - Table: B5 becomes an aggregated review; R13 and R14 become REVIEW at high priority (relation identity in conflict).
