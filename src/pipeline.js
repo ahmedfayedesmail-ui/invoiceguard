@@ -6,7 +6,7 @@ import { buyerCountryCheck } from './features.js';
 import { gate, gateReason, missingFields, correctionWindowOk, readiness } from './rules.js';
 import { renderPdf } from './pdf.js';
 import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from './db.js';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
 import { integrityGate, integrityNotes, correctionLedger } from './integrity.js';
@@ -677,7 +677,13 @@ function correctionReview(db, seller, rev, orig, list, claim = false, snap = {})
   const g = correctionLedger(db, seller.id, 'CORRECTION:' + rev.key, [{ ...f, severity: 'HOLD', fingerprint: fp(f.code), evidence }]);
   if (g) return { reason: g.reason.replace(/^Not issued: /, 'Held for review: ').replace(/ Nothing was guessed\.$/, '') };
   // approved for exactly this evidence: reserve the amount on the original NOW, in the same transaction as the check above (no await in between)
-  if (claim && amount >= 0.005) db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at) VALUES (?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, new Date().toISOString());
+  if (claim && amount >= 0.005) {
+    // every claim has an identity: a failing attempt may only roll back the claim IT created (claim_id), never a newer attempt's claim for the same event
+    const claimId = randomUUID(), prev = db.prepare('SELECT claim_id FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, rev.key), at = new Date().toISOString();
+    db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at, claim_id) VALUES (?,?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, at, claimId);
+    db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,at) VALUES (?,?,?,?,?,?,?,?,?)').run(seller.id, rev.key, orig.number, amount, 'CLAIMED', claimId, 'system', prev ? `replaces the claim ${prev.claim_id ?? 'without id'} of an earlier attempt for the same event` : 'reserved with the approved pair review', at);
+    snap.claimId = claimId;
+  }
   return null;
 }
 const reviewAtomic = (db, seller, rev, orig, list, claim, snap) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim, snap));
@@ -717,13 +723,14 @@ export async function processCorrections(db, seller, reportText, { api, validate
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
     if (zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'zero-amount original: nothing to reverse' }); continue; }
     // Owner decision Nov 28: a person decides on the pair first (partial and over-balance reversals can never be approved). A credit note already issued and pending a retry was approved when it was issued.
-    if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) { const g = reviewAtomic(db, seller, s, orig, list, true, { vies: await viesSnapshot(validate, s, list) }); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; } }
-    const block1 = await unknownBlock(s.key);
+    let myClaim = null;
+    if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) { const sn = { vies: await viesSnapshot(validate, s, list) }; const g = reviewAtomic(db, seller, s, orig, list, true, sn); myClaim = sn.claimId ?? null; if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; } }
+    const block1 = await unknownBlock(s.key); // (claim identity of THIS attempt: myClaim)
     if (block1) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block1 }); out.skipped.push({ key: s.key, reason: block1 }); continue; }
     try {
       const o = JSON.parse(orig.json), zero = o.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
       await issueRectificativa(db, seller, orig.number, { mode: 'differences', reason: reasonOf(s), changes: { lines: zero }, documentType: 'CreditNote', transactionId: s.transactionId, recordKey: s.key, allowUnknownRetry: true }, { api, validate }); out.creditNotes++;
-    } catch (e) { if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=?').run(seller.id, s.key); /* no document exists: the reservation is released */ out.errors.push({ key: s.key, error: explain(e.message) }); }
+    } catch (e) { rollbackPreIssueClaim(db, seller.id, s.key, myClaim, e.message); /* Definite Pre-Issue Failure Rollback only (owner ruling Nov 28): identity-bound, refused when any document row exists */ out.errors.push({ key: s.key, error: explain(e.message) }); }
   }
   for (const s of list.filter(s => s.isCorrectedTx)) {
     if (done(s.key)) continue;
@@ -754,5 +761,17 @@ export async function processCorrections(db, seller, reportText, { api, validate
   return out;
 }
 
-/** STUB (tests-first commit): replaced by the real implementation in the fix commit. */
-export function rollbackPreIssueClaim() { throw new Error('not implemented'); }
+/** Definite Pre-Issue Failure Rollback (owner ruling, Nov 28 2026). The ONLY automatic release of a credit claim. It succeeds only when ALL hold, checked inside one BEGIN IMMEDIATE transaction:
+ *  - the claim still carries the claim_id the failing attempt created (an old attempt never deletes a newer claim for the same event);
+ *  - no document row exists for the event in ANY status (no upload was ever started, nothing is unsettled; an unknown outcome has a row, so it keeps the claim).
+ * Never silent: the history records ABORTED with the claim_id, reason, time and event. A crash leaves the claim in place (nobody runs this), and it then needs a human decision. Returns true when the claim was rolled back. */
+export function rollbackPreIssueClaim(db, sellerId, key, claimId, why = '') {
+  if (!claimId) return false;
+  return txImm(db, () => {
+    const c = db.prepare('SELECT original_number, amount FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').get(sellerId, key, claimId); if (!c) return false;
+    if (db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(sellerId, key)) return false;
+    db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').run(sellerId, key, claimId);
+    db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,at) VALUES (?,?,?,?,?,?,?,?,?)').run(sellerId, key, c.original_number, c.amount, 'ABORTED', claimId, 'system', `PRE_ISSUE_FAILURE: the issuance that reserved this claim failed before any document row existed, so nothing was uploaded (${String(why).slice(0, 120)})`, new Date().toISOString());
+    return true;
+  });
+}

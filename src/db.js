@@ -21,7 +21,8 @@ export function openDb(file = ':memory:') {
   CREATE TABLE IF NOT EXISTS integrity_findings (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, severity TEXT, resolution TEXT, status TEXT, fingerprint TEXT, evidence TEXT, explanation TEXT, action TEXT,
     first_seen TEXT, last_seen TEXT, seen_count INTEGER, reopened_count INTEGER, resolved_at TEXT, PRIMARY KEY (seller_id, shipment_key, code, field));
   -- Credit claims on an original invoice (owner review Nov 28): a CorrectionReversal reserves its amount here in the same BEGIN IMMEDIATE transaction that checks the creditable balance, so two events can never both see the same free balance. A claim whose document exists is counted as that document, not twice.
-  CREATE TABLE IF NOT EXISTS credit_claims (seller_id TEXT, original_number TEXT, reversal_key TEXT, amount REAL, claimed_at TEXT, PRIMARY KEY (seller_id, reversal_key));
+  CREATE TABLE IF NOT EXISTS credit_claims (seller_id TEXT, original_number TEXT, reversal_key TEXT, amount REAL, claimed_at TEXT, claim_id TEXT, PRIMARY KEY (seller_id, reversal_key));
+  CREATE TABLE IF NOT EXISTS credit_claim_history (id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id TEXT, reversal_key TEXT, original_number TEXT, amount REAL, event TEXT, claim_id TEXT, actor TEXT, reason TEXT, fingerprint TEXT, at TEXT);
   CREATE TABLE IF NOT EXISTS integrity_history (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, event TEXT, fingerprint TEXT, at TEXT);
   CREATE TRIGGER IF NOT EXISTS integrity_release_needs_decision_u BEFORE UPDATE OF status ON integrity_findings WHEN NEW.status='RELEASED' AND NOT EXISTS (SELECT 1 FROM integrity_decisions d WHERE d.seller_id=NEW.seller_id AND d.shipment_key=NEW.shipment_key AND d.code=NEW.code AND d.field=NEW.field AND d.fingerprint=NEW.fingerprint)
     BEGIN SELECT RAISE(ABORT,'RELEASED needs a recorded decision'); END;
@@ -66,6 +67,7 @@ export function openDb(file = ':memory:') {
   // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
   db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
   try { db.exec('ALTER TABLE integrity_history ADD COLUMN evidence TEXT'); } catch { /* column exists */ } // night WP3: the evidence of every OPENED / CHANGED / REOPENED event, so an earlier version is never lost
+  try { db.exec('ALTER TABLE credit_claims ADD COLUMN claim_id TEXT'); } catch { /* column exists */ }
   try { db.exec('ALTER TABLE invoices ADD COLUMN tx_id TEXT'); } catch { /* column exists */ }
   // Round-9 (N1): fingerprint of a recordKey-less correction (original + mode + reason + changes),
   // so a double-submitted identical correction is recognized as the same document.
