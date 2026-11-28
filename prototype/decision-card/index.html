@@ -60,11 +60,12 @@ function renderCard(){const c=CARDS.find(x=>x.id===cur);if(!c){$('#card').innerH
  <div class="sums ${c.warn?'warn':''}"><div>Already credited on this invoice: ${c.balance.already}</div><div>Left to credit: ${c.balance.left}</div><div>This correction credits: ${c.balance.thisOne} (all of it)</div>${c.warn?`<div><b>${esc(c.warnText)}</b></div>`:''}</div>${c.vies?`<table class="vies"><caption>VAT number check (VIES) for ${esc(c.vies.vat)}</caption><tr><th></th><th>Result</th><th>Checked</th></tr><tr><th>Previous check</th><td>${badge(c.vies.previous)}</td><td>${esc(c.vies.previous.checkedAt)}</td></tr><tr class="now"><th>Current check</th><td>${badge(c.vies.current)}</td><td>${esc(c.vies.current.checkedAt)}</td></tr></table><ul class="legend">${c.vies.legend.map(l=>`<li>${badge({code:l[0],result:l[1]})} ${esc(l[2])}</li>`).join('')}</ul><p class="small">${esc(c.vies.note)}</p>`:''}
  <div class=decide><label for=why>Why are you deciding this? (at least 10 characters)</label><textarea id=why placeholder="For example: I compared the new name and address with the buyer's message in Amazon."></textarea>
  <div class=who><span>Deciding as: <b>reviewer-1</b></span><span id=when></span></div>
+ <p class=hint id=need role=status><b>Still needed: your reason.</b> The checks are done. Write why you are approving (at least 10 characters) to enable the button.</p>
  <button class=go id=ok disabled>Approve this correction</button><button class=no id=no>Not now</button>
  <p class=hint>Your decision is saved with your name, the time, your reason and a fingerprint of exactly what is on this card, including the buyer data and the report details behind it. If anything on the card changes later, your decision stops counting and you will see a new card.</p>
  <div class=stamp id=st>Decision signed<small id=sm></small></div></div>`;
  $('#when').textContent='Time is recorded when you sign.';
- const t=$('#why'),b=$('#ok');t.oninput=()=>{b.disabled=t.value.trim().length<10};
+ const t=$('#why'),b=$('#ok');t.oninput=()=>{b.disabled=t.value.trim().length<10;$('#need').style.display=b.disabled?'block':'none'};
  b.onclick=()=>{$('#st').style.display='block';$('#sm').textContent='by reviewer-1, reason saved, fingerprint 9f3a…c1 (prototype only)';b.disabled=true;t.disabled=true};
  $('#no').onclick=()=>{cur=null;renderList();renderCard()}}
 const BADGE={valid:['\u2713','Valid'],invalid:['\u2717','Invalid'],unavailable:['?','Not available']};const badge=r=>`<span class="vb ${r.code}"><b>${BADGE[r.code][0]}</b> ${esc(r.result)}</span>`;
@@ -78,10 +79,11 @@ function renderP(){const p=PENCIL.find(x=>x.id===pcur);if(!p||p.owned){$('#pcard
  <div class=sums><span class=pencil>${p.amt} reserved in pencil</span></div>
  <ul class=checks>${CHECKS(p).map(c=>`<li class="${c[1]?'':'bad'}">${c[1]?'':'<b>Not met: </b>'}${c[0]}</li>`).join('')}</ul>
  <div class=decide><label for=pw>Why are you releasing it? (at least 10 characters)</label><textarea id=pw placeholder="For example: the app stopped during that run and no credit note was created."></textarea>
+ <p class=hint id=pneed role=status></p>
  <button class=go id=pok disabled>Release reservation</button>
  <p class=hint><b>Releasing the reservation cancels the earlier approval of this correction.</b> A new approval is needed before anything is created. The release is saved with your name, the time and your reason, and the history is kept.</p>
  <div class=stamp id=pst>Reservation released<small>by reviewer-1, reason saved, history kept (prototype only)</small></div></div>`;
- const t=$('#pw'),b=$('#pok'),okc=CHECKS(p).every(c=>c[1]);if(!okc){t.disabled=true;t.placeholder='Release is not possible while a check is not met.'}t.oninput=()=>{b.disabled=!okc||t.value.trim().length<10};b.onclick=()=>{$('#pst').style.display='block';b.disabled=true;t.disabled=true}}
+ const t=$('#pw'),b=$('#pok'),okc=CHECKS(p).every(c=>c[1]);if(!okc){t.disabled=true;t.placeholder='Release is not possible while a check is not met.'}const pn=$('#pneed'),upd=()=>{b.disabled=!okc||t.value.trim().length<10;pn.style.display=okc&&b.disabled?'block':'none'};pn.innerHTML='<b>Still needed: your reason.</b> The checks are done. Write why you are releasing this reservation (at least 10 characters) to enable the button.';if(okc)pn.style.display='block';else pn.style.display='none';t.oninput=upd;b.onclick=()=>{$('#pst').style.display='block';b.disabled=true;t.disabled=true}}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));$('#cards').hidden=b.dataset.tab!=='cards';$('#pencil').hidden=b.dataset.tab!=='pencil'});
 renderList();renderCard();renderPencil();renderP();
 const h=location.hash.slice(1);if(h.startsWith('c')){cur=h;renderList();renderCard()}if(h.startsWith('p')){pcur=h;document.querySelector('[data-tab=pencil]').click();renderPencil();renderP()}

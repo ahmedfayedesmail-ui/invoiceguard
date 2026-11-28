@@ -32,3 +32,9 @@ test('VIES results are three distinct states (Valid, Invalid, Not available), an
 test('each reserved amount carries a reviewer-readable reason for its issuance state; "No issuance is running" appears only with a proven reason', () => {
   for (const p of d.pencil.filter(x => !x.owned)) { assert.ok(p.issuance.why && p.issuance.why.length > 40, p.id); assert.doesNotMatch(p.issuance.why, /undefined|null|UTC/); if (p.issuance.proven) assert.match(p.issuance.why, /no longer exists/); else assert.match(p.issuance.why, /cannot tell|No record/); }
 });
+
+test('when every check passes but the reason is empty, both screens say the reason is what is pending (and not when a check fails)', () => {
+  const h = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(h, /id=need[^>]*>.*Still needed: your reason/); assert.match(h, /pneed/); assert.match(h, /pn\.style\.display=okc&&b\.disabled\?'block':'none'/, 'the release hint shows only when all checks pass');
+  assert.doesNotMatch(h, /stuck-claim|claims\.js|lease\.js/, 'the prototype stays unlinked from the stuck-claim code');
+});
