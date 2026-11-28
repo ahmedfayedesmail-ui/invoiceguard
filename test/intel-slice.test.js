@@ -327,3 +327,24 @@ test('invalid source keys and malformed external bundle rows fail closed', t => 
   const bundle=exportEvidenceBundle(db,'seller-A');
   assert.equal(verifyEvidenceBundle({...bundle,chain:[null]}).valid,false);
 });
+
+
+test('a same-named but ineffective source trigger is not counted as append-only protection', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.exec('DROP TRIGGER integrity_history_no_delete');
+  db.exec('CREATE TRIGGER integrity_history_no_delete BEFORE DELETE ON integrity_history BEGIN SELECT 1; END');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.unprotectedAppendLogs.includes('integrity_history'));
+});
+
+test('a same-named but ineffective evidence-chain trigger blocks further sealing', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER intel_chain_no_delete');
+  db.exec('CREATE TRIGGER intel_chain_no_delete BEFORE DELETE ON intel_evidence_chain BEGIN SELECT 1; END');
+  assert.throws(
+    ()=>sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /Missing or invalid append-only evidence protection: intel_chain_no_delete/
+  );
+});
