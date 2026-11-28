@@ -39,3 +39,4 @@ try {
 ```
 
 This first implementation is intentionally not wired to a route, scheduler, or UI. Runtime integration, seller download path, checkpoint retention workflow, and performance qualification remain separate work.
+The automated tests also prove that a corrupted pre-existing chain is refused for further appends, while integrity verification and the source financial tables remain separate.
