@@ -205,6 +205,7 @@ const logStaleRow = (db, seller, s, doc, reportSeq) =>
   logEvent(db, seller.id, 'stale_report_row_skipped', { number: doc.number, key: s.key, status: s.invoiceStatus || null, attemptSeq: doc.attempt_seq, reportAttemptSeq: reportSeq });
 
 /** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
+const keepOtherFindings = (db, sid, key) => db.prepare('SELECT DISTINCT code FROM integrity_findings WHERE seller_id=? AND shipment_key=?').all(sid, key).map(r => r.code);
 export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = null) {
   // Owner decision 2 (Ahmed, WhatsApp 2026-11-28 13:51, forwarded by Main): a REFUND row that carries an Invoice* status is a HOLD until Amazon's meaning is proven from a trusted Amazon source or real documented reports.
   // It must not touch the original invoice or the credit note, and it is never read as an acceptance or a rejection of either. Only a corrected file or new evidence resolves it (no human decision releases it).
@@ -213,7 +214,7 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     writeLedger(db, seller.id, s.key, [{ code: 'REFUND_ROW_INVOICE_STATUS', severity: 'HOLD', resolution: 'NEW_EVIDENCE', evidence,
       fingerprint: createHash('sha256').update(JSON.stringify(['REFUND_ROW_INVOICE_STATUS', s.key, evidence])).digest('hex'),
       explanation: `A REFUND row carries the status ${s.invoiceStatus}. What Amazon means by that is not proven, so it was not read as an acceptance or a rejection of the original invoice or of the credit note.`,
-      action: 'Nothing was changed. Only documented Amazon evidence of what this combination means, or a corrected report, resolves it.' }]);
+      action: 'Nothing was changed. Only documented Amazon evidence of what this combination means, or a corrected report, resolves it.' }], { keepCodes: keepOtherFindings(db, seller.id, s.key) });
     logEvent(db, seller.id, 'refund_row_invoice_status_hold', { key: s.key, status: s.invoiceStatus });
     return;
   }
@@ -234,6 +235,13 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     return;
   }
   const docKey = rect ? s.key : key;
+  // Expedition (reviewer 2 F2): an OPEN credit-note hold on the pair needs a person before ANY automatic
+  // change to the pair's correction documents, including a status moved by an Invoice* row. The row is
+  // logged as evidence and applied by nothing.
+  if (rect && ['InvoiceUploaded', 'InvoiceRejected'].includes(s.invoiceStatus) && pairHoldOpen(db, seller.id, inv.rectifies, s.key)) {
+    logEvent(db, seller.id, 'invoice_verdict_held_by_open_hold', { number: inv.number, status: s.invoiceStatus });
+    return;
+  }
   // Expedition F-SM-3: a later report says Rejected for a document we hold as uploaded. That is a
   // contradiction. Never flip the status automatically and never throw out of the report: open a HOLD
   // for a person and carry on with the remaining rows.
@@ -242,15 +250,8 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     writeLedger(db, seller.id, docKey, [{ code: 'UPLOADED_THEN_REJECTED', severity: 'HOLD', resolution: 'HUMAN_DECISION', evidence,
       fingerprint: createHash('sha256').update(JSON.stringify(['UPLOADED_THEN_REJECTED', docKey, inv.number, evidence.amazonReason])).digest('hex'),
       explanation: `We hold ${inv.number} as uploaded, but a later Amazon report lists it as rejected. The two disagree.`,
-      action: 'A person checks the document in Amazon Seller Central. Nothing was changed automatically.' }]);
+      action: 'A person checks the document in Amazon Seller Central. Nothing was changed automatically.' }], { keepCodes: keepOtherFindings(db, seller.id, docKey) });
     logEvent(db, seller.id, 'rejection_after_upload_hold', { number: inv.number });
-    return;
-  }
-  // Expedition (reviewer 2 F2): an OPEN credit-note hold on the pair needs a person before ANY automatic
-  // change to the pair's correction documents, including a status moved by an Invoice* row. The row is
-  // logged as evidence and applied by nothing.
-  if (rect && ['InvoiceUploaded', 'InvoiceRejected'].includes(s.invoiceStatus) && pairHoldOpen(db, seller.id, inv.rectifies, s.key)) {
-    logEvent(db, seller.id, 'invoice_verdict_held_by_open_hold', { number: inv.number, status: s.invoiceStatus });
     return;
   }
   // Owner decision 1 (same source): a replacement invoice is accepted only when the report PROVES it is OUR document: exact number and exact amounts (sign as it is, no Math.abs), plus seller-side context

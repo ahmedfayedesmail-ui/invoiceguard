@@ -172,8 +172,8 @@ const holdFmt=(t)=>{const d=new Date(t);return isNaN(d)?'':d.toLocaleString([], 
 function holdList(title,items){return items&&items.length?h('div',{},h('b',{},title),h('ul',{style:'margin:4px 0 10px;padding-left:20px'},items.map(x=>h('li',{},x)))):null}
 function holdCard(x,reload){const closed=x.status!=='OPEN',msg=h('div',{role:'status',class:'small',style:'margin-top:8px'});
  const ev=Object.entries(x.evidence||{}).filter(([k,v])=>k!=='snapshot'&&v!=null&&v!=='').map(([k,v])=>k+': '+(typeof v==='object'?JSON.stringify(v):v)),snap=Object.entries((x.evidence||{}).snapshot||{}).filter(([k,v])=>v!=null&&!(Array.isArray(v)&&!v.length)).map(([k,v])=>k+': '+(Array.isArray(v)?v.join(', '):v));
- const c=h('div',{class:'card','data-hold':x.code,'data-status':x.status,style:'border-left:4px solid '+(x.severity==='BLOCK'?'var(--red)':closed?'var(--grn)':'var(--amb)')},
-  h('div',{class:'row'},h('b',{},HOLD_SEV[x.severity]||x.severity),h('span',{class:'pill'},HOLD_ST[x.status]||x.status),h('span',{class:'mut small'},'Item '+x.key)),
+ const c=h('div',{class:'card','data-hold':x.code,'data-status':x.status,style:'overflow-wrap:anywhere;word-break:break-word;border-left:4px solid '+(x.severity==='BLOCK'?'var(--red)':closed?'var(--grn)':'var(--amb)')},
+  h('div',{class:'row'},h('b',{},closed?(x.status==='RELEASED'?'Decision recorded':'Closed'):(HOLD_SEV[x.severity]||x.severity)),h('span',{class:'pill'},HOLD_ST[x.status]||x.status),h('span',{class:'mut small'},'Item '+x.key)),
   h('p',{},x.happened),x.why&&x.why!==x.happened?h('p',{class:'mut'},x.why):null,
   h('div',{class:'grid2'},h('div',{},holdList('What the system knows',x.known),holdList('What it does not know',x.unknown)),h('div',{},holdList('Allowed',x.allowed),holdList('Blocked until this is settled',x.blocked))),
   h('details',{},h('summary',{},'Evidence'),h('pre',{class:'small',style:'white-space:pre-wrap;overflow-wrap:anywhere'},[...ev,...snap].join('\n')||'No evidence fields stored.'),h('div',{class:'mut small'},'Evidence fingerprint '+String(x.fingerprint||'').slice(0,12))),

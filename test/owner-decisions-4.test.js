@@ -1,6 +1,6 @@
 // Owner decisions 1 and 2 (Ahmed, WhatsApp 2026-11-28 13:51, forwarded verbatim by Main): replacement invoice acceptance needs exact proof; a REFUND row with an Invoice* status is a HOLD. Synthetic fixtures only.
 import test from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs'; import { openDb, currentAttemptSeq } from '../src/db.js';
-import { releaseIntegrity } from '../src/integrity.js'; import { processReport, processCorrections } from '../src/pipeline.js'; import { approveAll } from './correction-helpers.js';
+import { openCreditNoteHold } from '../src/cn-gate.js'; import { releaseIntegrity } from '../src/integrity.js'; import { processReport, processCorrections } from '../src/pipeline.js'; import { approveAll } from './correction-helpers.js';
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid', country: 'ES', invoice_lang: 'auto' };
 const vies = async (v) => ({ status: 'valid', vat: v }); const NOW = new Date('2026-11-24T12:00:00Z');
 const [head0, ...body] = text.trim().split('\n'); const cols = head0.split('\t'); const X = ['invoice-number', 'original-vat-invoice-number']; const ix = n => cols.includes(n) ? cols.indexOf(n) : cols.length + X.indexOf(n);
@@ -73,4 +73,16 @@ test('D9 a late upload result after a boot sweep keeps the document blocked: the
 test('D10 the boot sweep only recovers a row that is still sending', () => {
   const db = openDb(); db.prepare("INSERT OR IGNORE INTO sellers (id) VALUES ('s1')").run(); db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,json,upload_status,sending_at) VALUES (?,?,?,?,?,?,?,?,?,?)').run('s1', 'N1', 'SHIPMENT:S1', 'invoice', '2026-01-01', 1, 0, '{}', 'submitted', '2020-01-01T00:00:00Z');
   assert.equal(recoverUncertainUploads(db), 0); assert.equal(db.prepare("SELECT upload_status s FROM invoices WHERE number='N1'").get().s, 'submitted');
+});
+// Second re-reviewer F1 (P1): writing a new ledger finding must never silently resolve other open findings (a credit-note hold) on the same key.
+test('D11 an Invoice Rejected row for an uploaded replacement while a credit-note hold is OPEN leaves that hold OPEN and the pair blocked', async () => {
+  const { api, db, seq, r } = await withReplacement(); await feed(db, api, seq, accept(r.number)); assert.equal(replRow(db).upload_status, 'uploaded');
+  openCreditNoteHold(db, seller.id, replRow(db).shipment_key ?? 'SHIPMENT:Correction::X:2', 'CREDIT_NOTE_VERDICT_CONTRADICTION', [{ c: 'verdict-contradiction', why: 'contradiction' }], {});
+  const rej = accept(r.number); rej[ix('invoice-status')] = 'InvoiceRejected'; await feed(db, api, seq, rej);
+  assert.ok(cnHolds(db).includes('CREDIT_NOTE_VERDICT_CONTRADICTION'), 'the credit-note hold is still OPEN'); assert.equal(replRow(db).upload_status, 'uploaded');
+});
+test('D12 a REFUND row with an Invoice status on the credit note key leaves an open credit-note hold OPEN', async () => {
+  const { api, db, seq } = await setup(); openCreditNoteHold(db, seller.id, KEY, 'CREDIT_NOTE_IDENTITY_UNPROVEN', [{ c: 'invoice-number', why: 'x' }], {});
+  const row = rv('InvoiceUploaded'); row[ix('invoice-number')] = 'Z'; await ing(db, api, doc(row), { reportAttemptSeq: seq, reportRequestedAt: T1 });
+  assert.ok(cnHolds(db).includes('CREDIT_NOTE_IDENTITY_UNPROVEN')); assert.equal(db.prepare("SELECT count(*) n FROM integrity_findings WHERE code='REFUND_ROW_INVOICE_STATUS' AND status='OPEN'").get().n, 1);
 });
