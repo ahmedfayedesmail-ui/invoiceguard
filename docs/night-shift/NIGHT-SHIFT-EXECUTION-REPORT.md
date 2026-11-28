@@ -1,4 +1,4 @@
-# NIGHT-SHIFT-EXECUTION-REPORT (Nov 27 23:05 to Nov 28 07:00 Cairo)  DRAFT, finalized at the end of the shift
+# NIGHT-SHIFT-EXECUTION-REPORT (Nov 27 23:05 to Nov 28 07:00 Cairo)  FINAL (06:35 Cairo)
 Counts are local unless a CI run is named. Everything is synthetic. main (35bb98a), PR #2 (7b9f8df) and PR #3 (Draft, base fix/blank-flag-unknown) were not touched. Nothing was deployed. Stage 2 was not started.
 
 ## Commits on feat/phase-b-reconciliation-integrity (PR #3 content, Stage 1 only)
@@ -35,3 +35,7 @@ One shipment with 5000 rows: parse 150 ms, assess 96 ms, RSS 118 MB. 500 shipmen
 
 ## Next-phase recommendations
 Get one real de-identified VIDR and a later status report before tuning any tolerance. Decide R11 and the date upper bound. Decide the history coalescing. Then Stage 2 (seal) with Ahmed's explicit go-ahead.
+
+
+## Final verification (06:35 Cairo, local, head 5c6b681)
+Non-browser 725 tests, 723 pass, 0 fail, 2 todo. Browser: local-engine 7, loop-ui 2, history-idb 1, vault-ui 6, all pass (vault-ui needs about 30 s per run, one of 4 earlier local reruns exceeded a 30 s outer limit with no result read, risk 8 stays open). Campaign 1005 cases, 0 failures. Bundles current. CI: every pushed Stage 1 commit success except 2bfd48b (one vault-ui timeout, same test passed in the rerun and all later runs). Scope: main 35bb98a, PR #2 (7b9f8df) Draft untouched, PR #3 Draft base fix/blank-flag-unknown head 5c6b681. No deploy, no Stage 2.
