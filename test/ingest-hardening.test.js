@@ -8,10 +8,12 @@ import { readFileSync } from 'node:fs';
 import { checkTsv, parseVidr, READ_COLUMNS } from '../src/vidr.js';
 import { planUpload } from '../src/manual.js';
 import { createApp } from '../src/app.js';
+import { processReport } from '../src/pipeline.js';
+import { openDb } from '../src/db.js';
 
 // Amazon's documented VIDR attribute order: citation-es sits MID-header, buyer-nip/seller-nip close it.
 const HEAD = ['order-id', 'order-item-id', 'shipping-id', 'transaction-id', 'transaction-type', 'marketplace-id', 'order-date', 'shipment-date', 'sku', 'product-name', 'quantity-purchased', 'currency', 'item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'item-vat-rate', 'bottle-deposit-vat-excl-amount', 'bottle-deposit-vat-amount', 'export-outside-eu', 'recommended-invoice-format', 'buyer-e-invoice-account-id', 'is-business-order', 'is-amazon-invoiced', 'invoice-status', 'seller-vat-number', 'buyer-vat-number', 'billing-name', 'bill-address-1', 'bill-city', 'bill-postal-code', 'bill-country', 'ship-country', 'ship-from-country', 'buyer-company-name', 'buyer-tax-registration-type', 'citation-es', 'buyer-nip', 'seller-nip'];
-const BASE = { 'order-id': '111-2222222-3333333', 'order-item-id': '1', 'shipping-id': 'SHP1', 'transaction-id': 'TX1', 'transaction-type': 'SHIPMENT', 'marketplace-id': 'A1RKKUPIHCS9HS', 'order-date': '2026-11-01', 'shipment-date': '2026-11-02', 'sku': 'SKU1', 'product-name': 'Widget', 'quantity-purchased': '1', 'currency': 'EUR', 'item-vat-incl-amount': '121.00', 'item-vat-amount': '21.00', 'item-vat-excl-amount': '100.00', 'item-vat-rate': '21', 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'FALSE', 'invoice-status': 'InvoicePending', 'seller-vat-number': 'ESB11111111', 'buyer-vat-number': 'ESB22222222', 'billing-name': 'Comprador S.L.', 'bill-address-1': 'Calle Falsa 1', 'bill-city': 'Madrid', 'bill-postal-code': '28001', 'bill-country': 'ES', 'ship-country': 'ES', 'ship-from-country': 'ES', 'buyer-company-name': 'Comprador S.L.', 'buyer-tax-registration-type': 'VAT' };
+const BASE = { 'order-id': '111-2222222-3333333', 'order-item-id': '1', 'shipping-id': 'SHP1', 'transaction-id': 'TX1', 'transaction-type': 'SHIPMENT', 'marketplace-id': 'A1RKKUPIHCS9HS', 'order-date': '2026-11-01', 'shipment-date': '2026-11-02', 'sku': 'SKU1', 'product-name': 'Widget', 'quantity-purchased': '1', 'currency': 'EUR', 'item-vat-incl-amount': '121.00', 'item-vat-amount': '21.00', 'item-vat-excl-amount': '100.00', 'item-vat-rate': '21', 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'FALSE', 'invoice-status': 'InvoicePending', 'seller-vat-number': 'ESB11111111', 'buyer-vat-number': 'ESB12345674', 'billing-name': 'Comprador S.L.', 'bill-address-1': 'Calle Falsa 1', 'bill-city': 'Madrid', 'bill-postal-code': '28001', 'bill-country': 'ES', 'ship-country': 'ES', 'ship-from-country': 'ES', 'buyer-company-name': 'Comprador S.L.', 'buyer-tax-registration-type': 'VAT' };
 const row = (over = {}) => HEAD.map(h => (over[h] ?? BASE[h] ?? '')).join('\t');
 const tsv = (rows, head = HEAD) => head.join('\t') + '\n' + rows.join('\n') + '\n';
 
@@ -76,6 +78,30 @@ test('F3: a row missing a trailing cell the parser READS is still quarantined', 
   assert.match(r.invalid[0].reason, /cut off or split/);
 });
 
+test('F2 regression: citation-en-only VIDR is issued, retains its citation, and is not held as unread data', async () => {
+  const head = [...HEAD.filter(h => h !== 'citation-es'), 'citation-en'];
+  const citation = 'Synthetic citation text for the English column.';
+  const reportRow = head.map(h => h === 'citation-en' ? citation : (BASE[h] ?? '')).join('\t');
+  const report = tsv([reportRow], head);
+  const parsed = parseVidr(report);
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].citation, citation);
+  assert.deepEqual(parsed[0].unsupportedColumns, []);
+
+  const db = openDb();
+  const uploads = [];
+  const result = await processReport(db, { id: 'sel-citation-en', name: 'Synthetic seller', nif: 'ESB11111111', address: 'Calle Falsa 1, Madrid', country: 'ES' }, report, {
+    api: { uploadInvoice: async doc => { uploads.push(doc); return 'synthetic-feed'; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] },
+    validate: async vat => ({ status: 'valid', vat }), now: new Date('2026-11-24T12:00:00Z'),
+  });
+  assert.equal(result.held.length, 0, JSON.stringify(result.held));
+  assert.equal(result.uploaded, 1);
+  assert.equal(uploads.length, 1);
+  const doc = db.prepare("SELECT json FROM invoices WHERE seller_id=? AND kind='invoice'").get('sel-citation-en');
+  assert.ok(doc, 'the invoice document was created');
+  assert.equal(JSON.parse(doc.json).vatNote.text, citation);
+});
+
 test('F3: a missing trailing citation-es cell stays tolerated (backward compatible)', () => {
   const head = [...HEAD.filter(h => h !== 'citation-es'), 'citation-es'];
   const cells = head.map(h => BASE[h] ?? '');
@@ -85,7 +111,7 @@ test('F3: a missing trailing citation-es cell stays tolerated (backward compatib
 });
 
 test('F3: READ_COLUMNS covers every column the parser reads (regression anchor)', () => {
-  for (const c of ['order-id', 'shipping-id', 'transaction-id', 'is-business-order', 'is-amazon-invoiced', 'buyer-vat-number', 'citation-es', 'fulfilled-by', 'recipient-name', 'gift-wrap-vat-rate', 'shipping-promo-vat-incl-amount', 'invoice-status', 'invoice-number'])
+  for (const c of ['order-id', 'shipping-id', 'transaction-id', 'is-business-order', 'is-amazon-invoiced', 'buyer-vat-number', 'citation-es', 'fulfilled-by', 'recipient-name', 'gift-wrap-vat-rate', 'shipping-promo-vat-incl-amount', 'invoice-status', 'invoice-number', 'citation-en'])
     assert.ok(READ_COLUMNS.has(c), c);
   assert.ok(!READ_COLUMNS.has('buyer-nip'));
   assert.ok(!READ_COLUMNS.has('bottle-deposit-vat-amount'));
