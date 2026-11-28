@@ -204,9 +204,10 @@ async function part3(n) {
       const fixed = [...base]; fixed[ix('transaction-id')] = 'Correction::X:' + i; fixed[ix('billing-name')] = 'Nombre Corregido S.L.'; fixed[ix('buyer-company-name')] = 'Nombre Corregido S.L.';
       const rep = [HEAD, ...revRows, fixed.join('\t')].join('\n') + '\n';
       // CASE CHANGED (Nov 28 2026, owner decision on CorrectionReversal): nothing is issued before a person decides on the pair. Stage 1: held, a durable OPEN finding, no upload. Then a documented decision bound to the fingerprint, then the same pass as before. The assertions that followed are unchanged; the count rises from 10358 to 10658. See audit/phase-b/campaign-p3-correction-approval.md.
-      const r0 = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() }); const nBefore = calls.length;
+      const nBefore = calls.length; // snapshot BEFORE the pass (owner review Nov 28: it used to be taken after, which proved nothing)
+      const r0 = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
       const fnd = db.prepare("SELECT * FROM integrity_findings WHERE code='CORRECTION_PAIR_REVIEW' AND status='OPEN'").all();
-      check(scn, r0.creditNotes === 0 && r0.invoices === 0 && nBefore === calls.length - 0 && fnd.length === 1, `held for review, nothing issued: ${JSON.stringify({ c: r0.creditNotes, f: fnd.length })}`);
+      check(scn, r0.creditNotes === 0 && r0.invoices === 0 && calls.length === nBefore && fnd.length === 1, `held for review, nothing issued: ${JSON.stringify({ c: r0.creditNotes, f: fnd.length })}`);
       for (const f of fnd) releaseIntegrity(db, SELLER.id, f.shipment_key, f.code, f.fingerprint, { user: 'campaign-reviewer', reason: 'campaign: pair checked against the original' });
       check(scn, calls.length === nBefore, 'the decision itself issues nothing');
       const r = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
