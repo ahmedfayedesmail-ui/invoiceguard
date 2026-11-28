@@ -138,10 +138,10 @@ test('SP-API client: LWA token, feed options, throttle, retry on 429', async () 
     throw new Error('unexpected ' + url);
   };
   const sleeps = []; const api = new SpApi({ clientId: 'c', clientSecret: 's', refreshToken: 'r', fetchImpl: f, sleepFn: async (ms) => sleeps.push(ms) });
-  const id = await api.uploadInvoice({ marketplaceId: 'A1RKKUPIHCS9HS', pdf: Buffer.from('x'), orderId: '405-1', shippingId: 'S1', number: 'A-2026-000001', total: 54.45, vat: 9.45 });
+  const id = await api.uploadInvoice({ fence: async () => {}, marketplaceId: 'A1RKKUPIHCS9HS', pdf: Buffer.from('x'), orderId: '405-1', shippingId: 'S1', number: 'A-2026-000001', total: 54.45, vat: 9.45 });
   assert.equal(id, 'F9'); assert.ok(sleeps.includes(1000), 'retried after 429');
   const feedCall = log.find(l => l[1].endsWith('/feeds/2021-06-30/feeds')); assert.equal(feedCall[2], 'Atza|t');
-  await assert.rejects(api.uploadInvoice({ marketplaceId: 'x', pdf: Buffer.from('x'), orderId: '1', number: 'A"1', total: 1, vat: 0 }), /Invalid character/);
+  await assert.rejects(api.uploadInvoice({ fence: async () => {}, marketplaceId: 'x', pdf: Buffer.from('x'), orderId: '1', number: 'A"1', total: 1, vat: 0 }), /Invalid character/);
 });
 
 test('PDF renders and starts with %PDF (written to /tmp/sample-invoice.pdf for visual check)', async () => {

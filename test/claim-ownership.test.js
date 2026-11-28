@@ -129,3 +129,40 @@ test('C11 the sweep reports what it knows: no claim that the app stopped, no cla
   const text1 = JSON.stringify(ev(db, 'upload_unknown_outcome')) + db.prepare("SELECT reason FROM repairs WHERE event_key LIKE 'UNKNOWN:%'").all().map(r => r.reason).join(' ');
   assert.ok(!/app stopped between|safely/.test(text1), text1); assert.match(text1, /suspended|late upload|LATE_FEED/);
 });
+// ---- re-review 1 round 5 (attack6): A.C, B ----
+import { SpApi } from '../src/spapi.js';
+const jsonRes = (status, body) => ({ ok: status < 400, status, json: async () => body });
+const feedApiWith = (fetchLog, onSleep, fence) => {
+  let feedPosts = 0;
+  const f = async (url, o = {}) => {
+    const m = o.method ?? 'GET'; fetchLog.push(m + ' ' + url.replace(/^https:\/\/[^/]+/, ''));
+    if (url.includes('api.amazon.com/auth')) return jsonRes(200, { access_token: 't', expires_in: 3600 });
+    if (url.endsWith('/feeds/2021-06-30/documents')) return jsonRes(200, { feedDocumentId: 'd1', url: 'https://s3.example/up' });
+    if (url === 'https://s3.example/up') return { ok: true, status: 200 };
+    if (url.endsWith('/feeds/2021-06-30/feeds')) { feedPosts++; return feedPosts === 1 ? jsonRes(429, { errors: [] }) : jsonRes(202, { feedId: 'zombie-feed' }); }
+    return jsonRes(404, {});
+  };
+  return new SpApi({ clientId: 'c', clientSecret: 's', refreshToken: 'r', fetchImpl: f, sleepFn: onSleep });
+};
+const upArgs = { marketplaceId: 'A1', pdf: Buffer.from('x'), orderId: 'o1', shippingId: 's1', number: 'A-1', total: 1, vat: 0 };
+test('C12 the REAL client re-runs the fence before EVERY POST /feeds attempt: a claim stolen during the 429 backoff sends nothing', async () => {
+  const log = []; let stolen = false;
+  const api = feedApiWith(log, async () => { stolen = true; });// lastUpload is 0: no throttle sleep, only the 429 backoff sleeps
+  const fence = async () => { if (stolen) throw Object.assign(new Error('lost'), { claimLost: true }); };
+  await assert.rejects(api.uploadInvoice({ ...upArgs, fence }), (e) => e.claimLost === true && !e.unknownOutcome);
+  assert.equal(log.filter(l => l === 'POST /feeds/2021-06-30/feeds').length, 1, 'only the first, rejected attempt reached Amazon; the retry was fenced');
+});
+test('C12b the fence is REQUIRED: the real client refuses to create a feed without one', async () => {
+  const log = []; const api = feedApiWith(log, async () => {});
+  await assert.rejects(api.uploadInvoice({ ...upArgs }), /fence/);
+  assert.equal(log.filter(l => l.startsWith('POST /feeds')).length, 0);
+});
+test('C13 UNKNOWN-hold dismissal never lifts a recorded blocked feed (abandoned request landed late): the document is not resent', async () => {
+  const { db, api, first } = await lateFeedDoc();
+  assert.ok(db.prepare("SELECT blocked_feed_id b FROM invoices WHERE number=?").get(first).b, 'a late feed is recorded');
+  const unk = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'UNKNOWN:%'").all();
+  assert.ok(unk.length >= 1, 'the UNKNOWN hold exists next to the LATE_FEED hold');
+  for (const u of unk) decideRepair(db, seller.id, u.k, 'dismissed');
+  await settle('invoice', db, api); await settle('invoice', db, api);
+  assert.equal(api.calls.filter(n => n === first).length, 1, 'no second feed for one number'); assert.equal(ev(db, 'unknown_block_lifted').length, 0);
+});

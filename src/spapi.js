@@ -32,17 +32,18 @@ export class SpApi {
     if (!res.ok) throw new Error(`LWA token error: ${j.error ?? res.status}`);
     this.token = j.access_token; this.exp = Date.now() + j.expires_in * 1000; return this.token;
   }
-  async call(method, path, body, attempt = 0, signal = undefined) {
+  async call(method, path, body, attempt = 0, signal = undefined, fence = undefined) {
     // Retry discipline: only safe calls retry automatically. GETs are reads. A 429 is Amazon rejecting
     // the request BEFORE processing it, so a retried POST cannot duplicate anything. A 5xx or a network
     // drop on a POST leaves the outcome UNKNOWN (Amazon may have processed it): the feeds API offers no
     // idempotency key (create-and-upload-invoices doc, checked 2026-11-26), so a blind second POST
     // /feeds could double-submit the document. No automatic retry there - the caller reconciles first.
+    if (fence) await fence(); // re-run before EVERY attempt of a feed-creating request, including 429 retries after a backoff sleep
     let res;
     try { res = await this.f(this.base + path, { method, headers: { 'x-amz-access-token': await this.accessToken(), 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal }); }
-    catch (e) { if (method === 'GET' && attempt < 4 && !signal?.aborted) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1, signal); } throw e; }
+    catch (e) { if (method === 'GET' && attempt < 4 && !signal?.aborted) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1, signal, fence); } throw e; }
     const safeToRetry = res.status === 429 || (res.status >= 500 && method === 'GET');
-    if (safeToRetry && attempt < 4 && !signal?.aborted) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1, signal); }
+    if (safeToRetry && attempt < 4 && !signal?.aborted) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1, signal, fence); }
     const j = await res.json().catch(() => ({}));
     if (!res.ok) { const e = new Error(`SP-API ${method} ${path} -> ${res.status} ${JSON.stringify(j.errors ?? j)}`); if (method !== 'GET' && res.status >= 500) e.unknownOutcome = true; throw e; }
     return j;
@@ -86,6 +87,7 @@ export class SpApi {
 
   // ---- feeds: upload a PDF invoice (or credit note) against a shipment ----
   async uploadInvoice({ marketplaceId, pdf, orderId, shippingId, number, total, vat, documentType = 'Invoice', transactionId, signal, fence }) {
+    if (typeof fence !== 'function') throw new Error('uploadInvoice needs an ownership fence: refusing to create a feed without one');
     const wait = this.lastUpload + 3000 - Date.now(); if (wait > 0) await this.sleep(wait); // Amazon throttle: 1 invoice per 3 s
     const doc = await this.call('POST', '/feeds/2021-06-30/documents', { contentType: 'application/pdf' }, 0, signal);
     const put = await this.f(doc.url, { method: 'PUT', headers: { 'content-type': 'application/pdf' }, body: pdf, signal });
@@ -95,15 +97,14 @@ export class SpApi {
     if (transactionId && (documentType === 'CreditNote' || String(transactionId).startsWith('Correction'))) opts['metadata:TransactionId'] = transactionId;
     for (const [k, v] of Object.entries(opts)) if (/[^A-Za-z0-9,\/\\ _;:#\-.]/.test(String(v).replace(/\./g, ''))) throw new Error(`Invalid character in feed option ${k}`);
     let feed;
-    if (fence) await fence(); // fencing: a resumed process re-checks, right before the feed-creating request, that it still owns the claim
     this.lastUpload = Date.now(); // the throttle counts ATTEMPTS too: a failing retry loop must not hammer Amazon
     try {
-      feed = await this.call('POST', '/feeds/2021-06-30/feeds', { feedType: 'UPLOAD_VAT_INVOICE', marketplaceIds: [marketplaceId], inputFeedDocumentId: doc.feedDocumentId, feedOptions: opts }, 0, signal);
+      feed = await this.call('POST', '/feeds/2021-06-30/feeds', { feedType: 'UPLOAD_VAT_INVOICE', marketplaceIds: [marketplaceId], inputFeedDocumentId: doc.feedDocumentId, feedOptions: opts }, 0, signal, fence); // fencing: the call re-checks claim ownership before each attempt
     } catch (e) {
       // A 4xx is a definite refusal (Amazon never accepted the feed). Anything else - network drop,
       // timeout, or a 5xx after the last retry - leaves the outcome UNKNOWN: Amazon may hold the
       // document. Callers must not blind-resend; they reconcile through the next VAT report first.
-      if (!/-> 4\d\d/.test(e.message)) e.unknownOutcome = true;
+      if (!e.claimLost && !/-> 4\d\d/.test(e.message)) e.unknownOutcome = true; // a fenced refusal sent nothing: not an unknown outcome
       throw e;
     }
     return feed.feedId;

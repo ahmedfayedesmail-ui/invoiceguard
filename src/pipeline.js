@@ -666,7 +666,10 @@ export async function unknownSettleCheck(db, seller, api, number) {
   // days, so an unrelated orphan does NOT age out of the list by itself. A human who checked the
   // feed in Seller Central dismisses the hold; the dismissal is recorded here and clears the resend.
   const dismissed = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='unknown_hold_dismissed' AND detail LIKE ? AND ts >= ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`, new Date(attemptTs).toISOString());
-  if (dismissed) return null;
+  // A feed that landed LATE (late_upload_result event for exactly the blocked feed) is a feed Amazon provably holds next to a resend. For it the UNKNOWN dismissal is NOT a key:
+  // only a same-feed LATE_FEED confirmation or CANCELLED lifts it (re-review 1 attack6 B). A blocked feed from the crash/FATAL path keeps the earlier human-dismissal route.
+  const lateLanded = doc?.blocked_feed_id ? db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_upload_result' AND detail LIKE ? AND detail LIKE ? LIMIT 1").get(seller.id, `%"number":"${number}"%`, `%"lateFeedId":${JSON.stringify(doc.blocked_feed_id)}%`) : null;
+  if (dismissed && !lateLanded) return null;
   const abandoned = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='upload_timeout_abandoned' AND detail LIKE ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`);
   if (abandoned && Date.now() - new Date(abandoned.ts).getTime() < ABANDON_QUIET_MS) return `The upload of ${number} timed out and the request was abandoned a moment ago. It is NOT resent until the abandoned request has had time to settle on Amazon's side, so it can never produce a second feed. The next sync after a few minutes checks again.`;
   // Round-10 (critic round-8): the feed whose outcome was never resolved at document level is a
@@ -688,7 +691,7 @@ export async function unknownSettleCheck(db, seller, api, number) {
     // stays logged as evidence for the human - it is never a resend trigger. The block lifts
     // exactly two ways: CANCELLED above (Amazon provably never processed the feed), or a human
     // who checked Seller Central dismissing the hold (handled before this branch).
-    else return `Feed ${bf} (${st?.status ?? 'outcome unconfirmed'}) was never resolved at document level, so ${number} is NOT resent - no automatic resend happens on report text alone. The block lifts exactly two ways: the feed proves Amazon never processed it (CANCELLED), or you check Seller Central and, for this feed, confirm it in the LATE_FEED hold in Repairs (that lifts only this feed's block; a different feed stays blocked). Dismissing an UNKNOWN hold also lets the next sync resend the same document.`;
+    else return `Feed ${bf} (${st?.status ?? 'outcome unconfirmed'}) was never resolved at document level, so ${number} is NOT resent - no automatic resend happens on report text alone. The block lifts exactly two ways: the feed proves Amazon never processed it (CANCELLED), or you check Seller Central and, for this feed, confirm it in the LATE_FEED hold in Repairs (that lifts only this feed's block; a different feed stays blocked).`;
   }
   const since = new Date(attemptTs - 15 * 60e3).toISOString(), until = attemptTs + 15 * 60e3;
   if (typeof api.listFeeds !== 'function') return `Amazon's feed list is not available to cross-check the interrupted upload of ${number}, so it is NOT resent automatically. Check it in Seller Central.`;
