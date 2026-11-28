@@ -56,6 +56,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const MAX_INFLIGHT = Number(process.env.MAX_INFLIGHT ?? 400); let inflight = 0;
   const fails = new Map(); // login throttle: key -> { n, until }
   const FAIL_MAX = 8, FAIL_WINDOW = 15 * 60e3;
+  const VAT_CHECK_MAX = 20; // per user per window: /api/vat/check bypasses the VIES cache, so it must not drain the shared slot pool
   const failKey = (req, email) => `${req.socket.remoteAddress}|${email}`;
   const throttled = (k, max = FAIL_MAX) => { const f = fails.get(k); if (!f) return 0; if (f.until < Date.now()) { fails.delete(k); return 0; } return f.n >= max ? Math.ceil((f.until - Date.now()) / 1000) : 0; };
   const noteFail = (k) => { const f = fails.get(k); if (!f || f.until < Date.now()) fails.set(k, { n: 1, until: Date.now() + FAIL_WINDOW }); else f.n++; if (fails.size > 50000) fails.delete(fails.keys().next().value); };
@@ -562,7 +563,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (p === '/api/sync') return json(res, 200, await sync(seller));
       if (p === '/api/dashboard') return json(res, 200, dashboard(seller));
-      if (p === '/api/vat/check') { const v = await (validate.fresh ?? validate)(String(body.vat ?? '')); return json(res, 200, v); }
+      if (p === '/api/vat/check') { const vk = 'vat|' + user.id, wait = throttled(vk, VAT_CHECK_MAX); if (wait) return json(res, 429, { error: 'Too many VAT checks. Try again in a few minutes.' }, { 'retry-after': String(wait) }); noteFail(vk); const v = await (validate.fresh ?? validate)(String(body.vat ?? '')); return json(res, 200, v); }
       const m = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/pdf$/);
       if (m) { const r = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, m[1]); if (!r) return json(res, 404, { error: 'not found' }); const pdf = await renderPdf(JSON.parse(r.json)); res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': `inline; filename="${m[1]}.pdf"` }); return res.end(pdf); }
       const mj = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/json$/);

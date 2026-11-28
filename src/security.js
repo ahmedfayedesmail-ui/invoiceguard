@@ -123,7 +123,7 @@ function purgeReferralEmails(db) {
 }
 export function logSec(db, req, type, userId = null, email = null) {
   try {
-    const xf = String(req?.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim(), ip = (xf || req?.socket?.remoteAddress || '').slice(0, 64);
+    const xfl = String(req?.headers?.['x-forwarded-for'] ?? '').split(',').map(x => x.trim()).filter(Boolean), xf = xfl.length ? xfl[xfl.length - 1] : '', ip = (xf || req?.socket?.remoteAddress || '').slice(0, 64);
     db.prepare('INSERT INTO security_log VALUES (?,?,?,?,?)').run(new Date().toISOString(), type, userId, email ? createHash('sha256').update(String(email).toLowerCase()).digest('hex').slice(0, 16) : null, ip);
   } catch (e) { console.error('security log failed', e.message); }
 }
