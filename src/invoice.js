@@ -75,6 +75,19 @@ export function buildRectificativa(db, seller, original, { mode, reason, changes
   const corrected = { buyer: { ...original.buyer, ...(changes.buyer ?? {}) }, lines: changes.lines ?? original.lines };
   let lines = corrected.lines;
   if (mode === 'differences') {
+    // Delta lines pair original and corrected BY INDEX, so a corrected list that dropped, added or
+    // reordered a line would pair the amounts of one product against the description and rate of
+    // another (totals still right, per-line and per-rate content wrong). A money document is never
+    // issued from a misaligned pairing: refuse and ask for the substitution method instead.
+    // Aligned producers (repair engine credit notes, billing-correction zeroing) copy the original
+    // lines in order and only change amounts, so they always pass this guard.
+    if (corrected.lines.length < original.lines.length)
+      throw new Error('A differences correction cannot drop a line: the remaining lines would be paired against the wrong original lines. Use the substitution method, or set the line to zero instead of removing it. Nothing was issued.');
+    for (let i = 0; i < original.lines.length; i++) {
+      const a = original.lines[i], b = corrected.lines[i];
+      if ((a.sku ?? null) !== (b.sku ?? null) || a.description !== b.description)
+        throw new Error(`A differences correction must keep every original line in its place (line ${i + 1} changed identity). Use the substitution method. Nothing was issued.`);
+    }
     const delta = [];
     const n = Math.max(original.lines.length, corrected.lines.length);
     for (let i = 0; i < n; i++) {

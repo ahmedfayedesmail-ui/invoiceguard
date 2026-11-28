@@ -2,6 +2,9 @@ import PDFDocument from 'pdfkit';
 import { LABELS, legacyLangs, refLine } from './lang.js';
 const dmy = (d) => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 const eur = (n, c = 'EUR') => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === 'EUR' ? '€' : c}`;
+// The printed VAT rate must be the real rate: reduced rates can be fractional (FR 5.5% and 2.1%).
+// Math.round printed them as the wrong legal rate (5.5% -> "6%"). Up to two decimals, zeros trimmed.
+export const fmtRate = (r) => `${+(r * 100).toFixed(2)}%`;
 
 export function renderPdf(inv) {
   const langs = legacyLangs(inv), both = langs.length > 1;
@@ -38,7 +41,7 @@ export function renderPdf(inv) {
     y += both ? 28 : 16; doc.moveTo(50, y - 3).lineTo(545, y - 3).stroke('#999'); doc.font('Helvetica').fontSize(9);
     for (const l of inv.lines) {
       doc.text(l.description ?? '', cols[0], y, { width: 200 }); const h = doc.heightOfString(l.description ?? '', { width: 200 });
-      [String(l.qty), eur(l.unitExcl, inv.currency), `${Math.round(l.rate * 100)}%`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i) => doc.text(v, cols[i + 1], y, { width: i === 4 ? 65 : 50, align: 'right' }));
+      [String(l.qty), eur(l.unitExcl, inv.currency), fmtRate(l.rate), eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i) => doc.text(v, cols[i + 1], y, { width: i === 4 ? 65 : 50, align: 'right' }));
       y += Math.max(h, 12) + 6; if (y > 700) { doc.addPage(); y = 50; }
     }
     y += 6; doc.moveTo(300, y).lineTo(545, y).stroke('#999'); y += 8;

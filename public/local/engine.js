@@ -50631,6 +50631,7 @@ init_buffer_shim();
 var import_pdfkit = __toESM(require_pdfkit_standalone(), 1);
 var dmy = (d) => d ? String(d).slice(0, 10).split("-").reverse().join("/") : "";
 var eur = (n, c = "EUR") => `${n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === "EUR" ? "\u20AC" : c}`;
+var fmtRate = (r) => `${+(r * 100).toFixed(2)}%`;
 function renderPdf(inv) {
   const langs = legacyLangs(inv), both = langs.length > 1;
   const tr = (l, k) => LABELS[l]?.[k] ?? k;
@@ -50672,7 +50673,7 @@ function renderPdf(inv) {
     for (const l of inv.lines) {
       doc.text(l.description ?? "", cols[0], y, { width: 200 });
       const h = doc.heightOfString(l.description ?? "", { width: 200 });
-      [String(l.qty), eur(l.unitExcl, inv.currency), `${Math.round(l.rate * 100)}%`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i2) => doc.text(v, cols[i2 + 1], y, { width: i2 === 4 ? 65 : 50, align: "right" }));
+      [String(l.qty), eur(l.unitExcl, inv.currency), fmtRate(l.rate), eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i2) => doc.text(v, cols[i2 + 1], y, { width: i2 === 4 ? 65 : 50, align: "right" }));
       y += Math.max(h, 12) + 6;
       if (y > 700) {
         doc.addPage();
