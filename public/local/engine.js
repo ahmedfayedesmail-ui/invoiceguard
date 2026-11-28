@@ -50525,7 +50525,7 @@ var LANGS = { es: "Spanish", en: "English", de: "German", fr: "French", it: "Ita
 var K2 = ["FACTURA RECTIFICATIVA", "FACTURA", "N\xBA:", "Fecha:", "Fecha de operaci\xF3n:", "EMISOR", "CLIENTE", "RECTIFICA A", "Descripci\xF3n", "Cant.", "P. unit.", "IVA %", "Base", "Cuota", "Base imponible", "IVA", "TOTAL", "Pedido Amazon:", "Motivo:", "sustituci\xF3n", "diferencias"];
 var T = {
   en: ["CORRECTED INVOICE", "INVOICE", "No.:", "Date:", "Operation date:", "SUPPLIER", "CUSTOMER", "CORRECTS", "Description", "Qty", "Unit price", "VAT %", "Net", "VAT", "Net total", "VAT", "TOTAL", "Amazon order:", "Reason:", "by substitution", "by differences"],
-  de: ["BERICHTIGTE RECHNUNG", "RECHNUNG", "Nr.:", "Datum:", "Leistungsdatum:", "AUSSTELLER", "KUNDE", "BERICHTIGT RECHNUNG", "Beschreibung", "Menge", "Einzelpreis", "USt %", "Netto", "USt", "Nettobetrag", "USt", "GESAMT", "Amazon-Bestellung:", "Grund:", "durch Ersatz", "durch Differenzen"],
+  de: ["BERICHTIGTE RECHNUNG", "RECHNUNG", "Nr.:", "Datum:", "Leistungsdatum:", "AUSSTELLER", "KUNDE", "BERICHTIGT", "Beschreibung", "Menge", "Einzelpreis", "USt %", "Netto", "USt", "Nettobetrag", "USt", "GESAMT", "Amazon-Bestellung:", "Grund:", "durch Ersatz", "durch Differenzen"],
   fr: ["FACTURE RECTIFICATIVE", "FACTURE", "N\xB0:", "Date:", "Date de l'op\xE9ration:", "\xC9METTEUR", "CLIENT", "RECTIFIE", "Description", "Qt\xE9", "Prix unit.", "TVA %", "Base", "TVA", "Total HT", "TVA", "TOTAL", "Commande Amazon:", "Motif:", "par substitution", "par diff\xE9rences"],
   it: ["FATTURA RETTIFICATIVA", "FATTURA", "N.:", "Data:", "Data dell'operazione:", "EMITTENTE", "CLIENTE", "RETTIFICA", "Descrizione", "Q.t\xE0", "Prezzo unit.", "IVA %", "Imponibile", "IVA", "Imponibile totale", "IVA", "TOTALE", "Ordine Amazon:", "Motivo:", "per sostituzione", "per differenze"],
   nl: ["CORRECTIEFACTUUR", "FACTUUR", "Nr.:", "Datum:", "Datum van de handeling:", "LEVERANCIER", "KLANT", "CORRIGEERT", "Omschrijving", "Aantal", "Stukprijs", "BTW %", "Netto", "BTW", "Totaal excl. BTW", "BTW", "TOTAAL", "Amazon-bestelling:", "Reden:", "door vervanging", "door verschillen"]
@@ -50631,6 +50631,7 @@ init_buffer_shim();
 var import_pdfkit = __toESM(require_pdfkit_standalone(), 1);
 var dmy = (d) => d ? String(d).slice(0, 10).split("-").reverse().join("/") : "";
 var eur = (n, c = "EUR") => `${n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === "EUR" ? "\u20AC" : c}`;
+var pct = (r) => String(Math.round(r * 1e4) / 100) + "%";
 function renderPdf(inv) {
   const langs = legacyLangs(inv), both = langs.length > 1;
   const tr = (l, k) => LABELS[l]?.[k] ?? k;
@@ -50672,7 +50673,7 @@ function renderPdf(inv) {
     for (const l of inv.lines) {
       doc.text(l.description ?? "", cols[0], y, { width: 200 });
       const h = doc.heightOfString(l.description ?? "", { width: 200 });
-      [String(l.qty), eur(l.unitExcl, inv.currency), `${Math.round(l.rate * 100)}%`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i2) => doc.text(v, cols[i2 + 1], y, { width: i2 === 4 ? 65 : 50, align: "right" }));
+      [String(l.qty), eur(l.unitExcl, inv.currency), `${pct(l.rate)}`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i2) => doc.text(v, cols[i2 + 1], y, { width: i2 === 4 ? 65 : 50, align: "right" }));
       y += Math.max(h, 12) + 6;
       if (y > 700) {
         doc.addPage();

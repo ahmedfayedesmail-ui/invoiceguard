@@ -8,7 +8,7 @@ const raw = indexedDbAdapter('invoiceguard-loop');
 let store = null; // exists only while the vault is unlocked
 const vault = createVault(raw, { onLock: (reason) => lockedUi(reason) });
 const say = (t, bad) => { const m = $('#msg'); m.textContent = t; m.className = 'small' + (bad ? ' err' : ''); };
-const field = (label, node) => el('div', {}, el('label', {}, label), node);
+const field = (label, node) => el('div', {}, el('label', node.id ? { for: node.id } : {}, label), node);
 const inp = (id, type = 'text', value = '') => { const i = el('input', { id, type }); i.value = value; return i; };
 const readFile = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsText(f); });
 const refused = (e) => { if (e instanceof Refused) { say('Not stored. ' + e.reasons.join(' '), true); return; } say('Something went wrong: ' + (e?.message ?? e), true); };
@@ -53,10 +53,10 @@ $('#lfile').addEventListener('change', async (ev) => {
     tb.append(el('tr', {}, el('td', {}, name), el('td', {}, s), el('td', { class: fd.status === 'DETECTED' || fd.status === 'ABSENT' ? 'mut' : 'err' }, fd.status + (fd.reason ? ': ' + fd.reason : ''))));
   }
   box.append(tb);
-  const dates = el('select', {}, ...['ISO', 'DMY', 'MDY'].map(x => el('option', { value: x }, x))); dates.value = m.dateOrder.proposed ?? 'ISO';
-  const dec = el('select', {}, el('option', { value: '.' }, 'point (1234.50)'), el('option', { value: ',' }, 'comma (1234,50)')); dec.value = m.decimal.proposed ?? '.';
+  const dates = el('select', { id: 'l-dateorder' }, ...['ISO', 'DMY', 'MDY'].map(x => el('option', { value: x }, x))); dates.value = m.dateOrder.proposed ?? 'ISO';
+  const dec = el('select', { id: 'l-dec' }, el('option', { value: '.' }, 'point (1234.50)'), el('option', { value: ',' }, 'comma (1234,50)')); dec.value = m.decimal.proposed ?? '.';
   box.append(el('div', { class: 'row' }, field('Date order' + (m.dateOrder.status === 'PROVEN' ? ' (proven by the file)' : ' (not proven: choose)'), dates), field('Decimal separator', dec)));
-  const kindSel = el('select', {}, el('option', { value: '' }, '(use the kind column)'), el('option', { value: 'invoice' }, 'Every row is an invoice'), el('option', { value: 'credit_note' }, 'Every row is a credit note'));
+  const kindSel = el('select', { id: 'l-kind' }, el('option', { value: '' }, '(use the kind column)'), el('option', { value: 'invoice' }, 'Every row is an invoice'), el('option', { value: 'credit_note' }, 'Every row is a credit note'));
   if (m.needsKindDeclaration) box.append(field('This file has no document-kind column', kindSel));
   box.append(el('h3', {}, 'What this export covers'));
   const sys = inp('l-sys'), mkt = inp('l-mkt'), pf = inp('l-from', 'date'), pt = inp('l-to', 'date');
@@ -180,7 +180,7 @@ async function bars() {
   const ret = el('select', { id: 's-ret' }, el('option', { value: 'KEEP' }, 'Keep everything until I delete it (default)'), el('option', { value: 'AFTER_DAYS' }, 'Delete files automatically after a number of days')), days = inp('s-days', 'number', String(s.retention.days ?? 365)); ret.value = s.retention.mode;
   const saveRet = el('button', { class: 'alt', id: 's-saveret', onclick: async () => {
     try { if (ret.value === 'KEEP') { await store.setSettings({ retention: { mode: 'KEEP' } }); say('Nothing will be deleted automatically.'); return; }
-      const d = Number(days.value), prev = await store.setSettings.length; void prev;
+      const d = Number(days.value);
       if (!confirm(`Turn on automatic deletion?\n\nEvery file stored here that is older than ${d} days will be deleted when you unlock the vault, together with the problems that exist only because of it and the notes you wrote on them. Deleted files cannot be recovered unless you kept a backup. Nothing is deleted if you leave this off.`)) return;
       await store.setSettings({ retention: { mode: 'AFTER_DAYS', days: d, confirmedAt: new Date().toISOString() } }); say('Automatic deletion is on: files older than ' + d + ' days are removed when you unlock.'); } catch (e) { refused(e); } } }, 'Save retention');
   $('#settings').replaceChildren(el('h3', {}, 'Protection and data'), el('div', { class: 'row' }, field('Lock automatically after inactivity', lock), field('Retention', ret), field('Days (30 to 3650)', days)), saveRet, ' ',

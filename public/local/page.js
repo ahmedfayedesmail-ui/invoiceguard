@@ -29,6 +29,7 @@ async function handle(file) {
 }
 const pick = () => $('#file').click();
 $('#pick').addEventListener('click', (e) => { e.stopPropagation(); pick(); }); $('#drop').addEventListener('click', pick);
+$('#drop').addEventListener('keydown', (e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
 $('#file').addEventListener('change', (e) => [...e.target.files].forEach(handle));
 for (const ev of ['dragenter', 'dragover']) $('#drop').addEventListener(ev, (e) => { e.preventDefault(); $('#drop').classList.add('over'); });
 for (const ev of ['dragleave', 'drop']) $('#drop').addEventListener(ev, (e) => { e.preventDefault(); $('#drop').classList.remove('over'); });
