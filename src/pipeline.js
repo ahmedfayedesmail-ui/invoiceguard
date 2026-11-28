@@ -686,7 +686,7 @@ function correctionReview(db, seller, rev, orig, list, claim = false, snap = {})
   }
   return null;
 }
-const reviewAtomic = (db, seller, rev, orig, list, claim, snap) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim, snap));
+export const reviewAtomic = (db, seller, rev, orig, list, claim, snap) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim, snap));
 
 /**
  * Amazon billing-data corrections (customer asked Amazon to change billing name/address). Amazon docs: the VIDR then lists
