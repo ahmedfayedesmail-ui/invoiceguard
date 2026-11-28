@@ -14,7 +14,14 @@ export function openIntelReader(dbPath) {
   return db;
 }
 function exists(db, table) { return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table)); }
-function triggerExists(db, name) { return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=?").get(name)); }
+function triggerProtected(db,name,table,operation) {
+  const row=db.prepare("SELECT tbl_name,sql FROM sqlite_master WHERE type='trigger' AND name=?").get(name);
+  if(!row||row.tbl_name!==table||typeof row.sql!=='string') return false;
+  const normalized=row.sql.replace(/[\"`]/g,'').replace(/\\s+/g,' ').trim().toLowerCase();
+  const prefix='create trigger '+name.toLowerCase()+' before '+operation.toLowerCase()+' on '+table.toLowerCase()+' begin select raise(abort,';
+  if(!normalized.startsWith(prefix)) return false;
+  return /^(['\"]).+\\1\\); end;?$/.test(normalized.slice(prefix.length));
+}
 export function ensureIntelTables(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS intel_evidence_chain (
@@ -30,6 +37,14 @@ export function ensureIntelTables(db) {
     CREATE TRIGGER IF NOT EXISTS intel_head_no_delete BEFORE DELETE ON intel_evidence_head
       BEGIN SELECT RAISE(ABORT, 'intel evidence head cannot be deleted'); END;
   `);
+  const protections=[
+    ['intel_chain_no_update','intel_evidence_chain','UPDATE'],
+    ['intel_chain_no_delete','intel_evidence_chain','DELETE'],
+    ['intel_head_no_delete','intel_evidence_head','DELETE']
+  ];
+  for(const [name,table,operation] of protections) {
+    if(!triggerProtected(db,name,table,operation)) throw new Error('Missing or invalid append-only evidence protection: '+name);
+  }
 }
 const digest = value => sha256Hex(String(value ?? ''));
 function safeText(value, max=180) {
@@ -191,7 +206,7 @@ function findMissingMutableSnapshots(priorRows, currentSource) {
 
 function sourceCoverage(reader, sourceCount, {missingPreviouslySealed=[], missingMutableSnapshots=[], sourceChangedDuringSeal=false, previousCoverage=null}={}) {
   const protectedLogs = APPEND_ONLY.map(table=>({
-    table, updateBlocked:triggerExists(reader,table+'_no_update'), deleteBlocked:triggerExists(reader,table+'_no_delete')
+    table, updateBlocked:triggerProtected(reader,table+'_no_update',table,'UPDATE'), deleteBlocked:triggerProtected(reader,table+'_no_delete',table,'DELETE')
   }));
   const missingProtection = protectedLogs.filter(x=>!x.updateBlocked||!x.deleteBlocked).map(x=>x.table);
   const inheritedMissing = Array.isArray(previousCoverage?.missingPreviouslySealed) ? previousCoverage.missingPreviouslySealed : [];
