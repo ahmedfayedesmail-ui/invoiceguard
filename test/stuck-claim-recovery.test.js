@@ -184,3 +184,53 @@ test('K15 (proof of death): the frozen issuing process is killed; only then is i
   const f = openStuckClaimReview(db, seller.id, KEY); releaseStuckClaim(db, seller.id, KEY, f.fingerprint, { user: 'reviewer-1', reason: 'the issuing process was killed before it wrote the document' });
   assert.equal(claimCount(db), 0); assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE kind='rectificativa'").get().c, 0); assert.equal(db.prepare("SELECT count(*) c FROM claim_leases").get().c, 0); rmSync(dir, { recursive: true, force: true });
 });
+
+// ---- Round 4b (Ahmed's technical review of the lease proof, Nov 28 2026): identity, fencing, atomicity, original integrity, boundaries. Tests first.
+const OLD = '2026-11-20T00:00:00.000Z';
+test('K19 (PID reuse): a live process number with a DIFFERENT start time is another program, so the recorded owner is proven gone; the same start time is the owner and is alive', async () => {
+  const { db } = await stuck(); db.prepare('UPDATE claim_leases SET pid=?, proc_start=?').run(process.pid, '1');
+  assert.equal(listStuckClaims(db, seller.id)[0].activeIssuance.state, 'gone', 'reused pid, other start time: not aliased to the old owner');
+  db.prepare('UPDATE claim_leases SET proc_start=?').run(procStart(process.pid)); assert.equal(listStuckClaims(db, seller.id)[0].activeIssuance.state, 'alive');
+});
+test('K20 (unprovable identity): a different boot, a different PID namespace, or an unreadable start time is UNPROVEN even when the pid does not exist or exists; refused every time', async () => {
+  const { db } = await stuck(); const set = (sql, ...a) => db.prepare(sql).run(...a); const st = () => listStuckClaims(db, seller.id)[0];
+  set("UPDATE claim_leases SET boot_id='another-boot'"); assert.equal(st().activeIssuance.state, 'unproven', 'different boot_id, pid absent'); assert.throws(() => openStuckClaimReview(db, seller.id, KEY), /cannot prove|not proven|owner/i);
+  const bootNow = db.prepare('SELECT 1').get() && readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); set('UPDATE claim_leases SET boot_id=?', bootNow);
+  set("UPDATE claim_leases SET pid_ns='pid:[1]'"); assert.equal(st().activeIssuance.state, 'unproven', 'different PID namespace: absence of the pid proves nothing'); assert.equal(st().reviewable, false);
+  set('UPDATE claim_leases SET pid_ns=?, pid=?, proc_start=NULL', readFileSync('/proc/self/ns/pid', 'utf8') || '', process.pid);
+  assert.notEqual(st().activeIssuance.state, 'gone', 'a live pid whose start time cannot be compared is never "gone"'); assert.equal(st().activeIssuance.proven, false);
+});
+test('K21 (stopped, not dead): a SIGSTOPped issuer is alive: release refused; only after it is killed is its absence proven', { timeout: 60000 }, async () => {
+  const { db, p, closed, dir } = await pendingIssuance('hang'); p.kill('SIGSTOP'); await new Promise(r => setTimeout(r, 200));
+  assert.equal(listStuckClaims(db, seller.id)[0].activeIssuance.state, 'alive'); assert.throws(() => openStuckClaimReview(db, seller.id, KEY), /running|active|alive/i);
+  p.kill('SIGKILL'); await closed; assert.equal(listStuckClaims(db, seller.id)[0].activeIssuance.proven, true); rmSync(dir, { recursive: true, force: true });
+});
+test('K22 (fencing): an old issuer that resumes after its claim was released and re-reserved for the same event can NOT write a document (claim identity must match)', { timeout: 60000 }, async () => {
+  const { db, closed, dir } = await pendingIssuance('resume');
+  // simulate "released, then a newer attempt reserved the same event" while the old issuer is paused
+  const c = db.prepare('SELECT * FROM credit_claims WHERE reversal_key=?').get(KEY); db.prepare('DELETE FROM credit_claims WHERE reversal_key=?').run(KEY); db.prepare('DELETE FROM claim_leases WHERE reversal_key=?').run(KEY);
+  db.prepare('INSERT INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at, claim_id) VALUES (?,?,?,?,?,?)').run(c.seller_id, c.original_number, KEY, c.amount, new Date().toISOString(), 'newer-attempt-claim');
+  await closed;
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE kind='rectificativa' AND shipment_key=?").get(KEY).c, 0, 'the old issuer wrote nothing');
+  assert.equal(db.prepare('SELECT claim_id FROM credit_claims WHERE reversal_key=?').get(KEY).claim_id, 'newer-attempt-claim', 'and did not touch the newer claim'); rmSync(dir, { recursive: true, force: true });
+});
+test('K23 (atomic claim + lease): if the lease cannot be written the claim is not reserved and nothing is issued', async () => {
+  const api = mkApi(), db = openDb(); await processReport(db, seller, text, { api, validate: vies, now: START }); await processCorrections(db, seller, REPORT, { api, validate: vies }); approveAll(db, seller.id); const uploads0 = api.calls.length;
+  db.exec("CREATE TRIGGER no_lease BEFORE INSERT ON claim_leases BEGIN SELECT RAISE(ABORT, 'lease write failed'); END");
+  await processCorrections(db, seller, REPORT, { api, validate: vies }).catch(() => {}); assert.equal(claimCount(db), 0, 'no claim without its lease'); assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE kind='rectificativa'").get().c, 0, 'no document'); assert.equal(api.calls.length, uploads0, 'nothing uploaded');
+});
+test('K24 (15-minute boundary, clock fixed): 1 ms short is refused, exactly 15 minutes and later is allowed', async () => {
+  const { db } = await stuck(); const real = Date.now; const T = Date.parse('2026-11-28T12:00:00.000Z');
+  try { Date.now = () => T; const at = (ms) => db.prepare('UPDATE credit_claims SET claimed_at=?').run(new Date(T - ms).toISOString());
+    at(15 * 60 * 1000 - 1); assert.equal(listStuckClaims(db, seller.id).length, 0, '14:59.999 not listed'); assert.throws(() => openStuckClaimReview(db, seller.id, KEY), /quiet period|still be in progress/i);
+    at(15 * 60 * 1000); assert.equal(listStuckClaims(db, seller.id).length, 1, 'exactly 15:00 listed'); assert.ok(openStuckClaimReview(db, seller.id, KEY).fingerprint);
+    at(15 * 60 * 1000 + 1); assert.equal(listStuckClaims(db, seller.id).length, 1);
+  } finally { Date.now = real; }
+});
+test('K25 (original integrity): the original must be the claim\'s own invoice, and swapping it between the review and the release voids the decision', async () => {
+  { const { db, o } = await stuck(); const f = openStuckClaimReview(db, seller.id, KEY); const row = db.prepare('SELECT json FROM invoices WHERE number=?').get(o.number); const j = JSON.parse(row.json); j.seller.name = 'Swapped after review';
+    db.prepare('UPDATE invoices SET json=? WHERE number=?').run(JSON.stringify(j), o.number);
+    assert.throws(() => releaseStuckClaim(db, seller.id, KEY, f.fingerprint, { user: 'reviewer-1', reason: 'the process crashed before the document existed' }), /evidence changed|fingerprint/i); assert.equal(claimCount(db), 1); }
+  { const { db, o } = await stuck(); db.prepare("UPDATE invoices SET kind='rectificativa' WHERE number=?").run(o.number); assert.throws(() => openStuckClaimReview(db, seller.id, KEY), /original invoice/i, 'a credit note is not the claim\'s original invoice'); }
+  { const { db } = await stuck(); db.prepare("UPDATE credit_claims SET original_number='A-9999-NOPE'").run(); assert.throws(() => openStuckClaimReview(db, seller.id, KEY), /original invoice/i, 'a claim pointing at an invoice that is not there'); assert.equal(claimCount(db), 1); }
+});
