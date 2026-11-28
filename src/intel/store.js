@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { canonicalize, sha256Hex } from './canonical.js';
-import { normalizeEvidenceTimeline, trajectoryDigest } from './timeline.js';
+import { normalizeEvidenceTimeline, trajectoryDigest, findFirstDivergence } from './timeline.js';
 
 const ZERO = '0'.repeat(64);
 const APPEND_ONLY = ['integrity_history', 'integrity_decisions', 'credit_claim_history'];
@@ -200,15 +200,18 @@ function sourceCoverage(reader, sourceCount, {missingPreviouslySealed=[], missin
   const missing = [...new Set([...inheritedMissing,...missingPreviouslySealed])].sort();
   const inheritedMutableMissing = Array.isArray(previousCoverage?.missingMutableSnapshots) ? previousCoverage.missingMutableSnapshots : [];
   const missingMutable = [...new Set([...inheritedMutableMissing,...missingMutableSnapshots])].sort();
+  const inheritedUnprotected = Array.isArray(previousCoverage?.unprotectedAppendLogs) ? previousCoverage.unprotectedAppendLogs : [];
+  const unprotected = [...new Set([...inheritedUnprotected,...missingProtection])].sort();
   const changed = sourceChangedDuringSeal || previousCoverage?.sourceChangedDuringSeal === true;
   const inheritedIncomplete = previousCoverage?.status === 'INCOMPLETE';
   const reasons = [];
   if (missing.length) reasons.push('A previously sealed append-only source record is no longer present.');
   if (missingMutable.length) reasons.push('A previously sealed mutable source row is no longer present in the current snapshot.');
+  if (unprotected.length) reasons.push('One or more source history tables do not have both UPDATE and DELETE protection triggers.');
   if (changed) reasons.push('A source snapshot changed during sealing; the run cannot claim a stable observation.');
   if (inheritedIncomplete && !reasons.length) reasons.push('A previous seal recorded an unresolved completeness gap; it is not cleared automatically.');
-  return {schema:'invoiceguard.intel-coverage.v1',status:missing.length||missingMutable.length||changed||inheritedIncomplete?'INCOMPLETE':'UNKNOWN',
-    observedRecords:sourceCount,appendOnlyLogProtection:protectedLogs,unprotectedAppendLogs:missingProtection,
+  return {schema:'invoiceguard.intel-coverage.v1',status:missing.length||missingMutable.length||unprotected.length||changed||inheritedIncomplete?'INCOMPLETE':'UNKNOWN',
+    observedRecords:sourceCount,appendOnlyLogProtection:protectedLogs,unprotectedAppendLogs:unprotected,
     missingPreviouslySealed:missing,missingMutableSnapshots:missingMutable,sourceChangedDuringSeal:changed,reasons,mutableSources:MUTABLE_SOURCES,
     note:'Coverage begins with rows visible to this sealing process. Mutable events and current invoice, shipment and finding snapshots cannot prove pre-seal history.'};
 }
@@ -413,11 +416,84 @@ export function getEvidenceCoverage(db,sellerId) {
   }
   return {status:'UNKNOWN',note:'No coverage statement has been sealed.'};
 }
+function selectDocumentEvidence(entries, documentKey) {
+  const key=String(documentKey);
+  const parsed=entries.map(entry=>{
+    const body=JSON.parse(entry.canonicalJson??entry.canonical_json);
+    return {entry,body};
+  });
+  const direct=parsed.filter(x=>x.body.documentKey===key);
+  const shipmentKeys=new Set(direct
+    .filter(x=>x.body.sourceTable==='invoices')
+    .map(x=>x.body.payload?.shipmentKey)
+    .filter(value=>typeof value==='string'&&value.length>0));
+  const relatedSources=new Set(['events','integrity_history','integrity_decisions','integrity_findings','shipments']);
+  const related=parsed.filter(x=>
+    x.body.documentKey!==key &&
+    shipmentKeys.has(String(x.body.documentKey??'')) &&
+    relatedSources.has(x.body.sourceTable)
+  );
+  const selected=[...direct,...related]
+    .sort((a,b)=>(a.body.sequence??0)-(b.body.sequence??0))
+    .map(x=>x.entry);
+  const relatedDocumentNumbers=[...new Set(direct
+    .filter(x=>x.body.sourceTable==='invoices')
+    .map(x=>x.body.payload?.rectifies)
+    .filter(value=>typeof value==='string'&&value.length>0))].sort();
+  return {entries:selected,shipmentKeys:[...shipmentKeys].sort(),relatedDocumentNumbers,
+    directEvidenceCount:direct.length,relatedEvidenceCount:related.length};
+}
+
 export function buildDocumentTimeline(db,sellerId,documentKey) {
-  const chain=rowsFor(db,sellerId).filter(r=>r.document_key===String(documentKey));
-  const entries=chain.map(r=>({canonicalJson:r.canonical_json}));
-  const events=normalizeEvidenceTimeline(entries);
-  return {documentKey:String(documentKey),events,trajectoryDigest:trajectoryDigest(entries),completeness:getEvidenceCoverage(db,sellerId)};
+  const all=rowsFor(db,sellerId).map(r=>({canonicalJson:r.canonical_json}));
+  const selected=selectDocumentEvidence(all,documentKey);
+  const events=normalizeEvidenceTimeline(selected.entries);
+  return {
+    documentKey:String(documentKey),
+    relatedShipmentKeys:selected.shipmentKeys,
+    relatedDocumentNumbers:selected.relatedDocumentNumbers,
+    directEvidenceCount:selected.directEvidenceCount,
+    relatedEvidenceCount:selected.relatedEvidenceCount,
+    events,
+    trajectoryDigest:trajectoryDigest(selected.entries),
+    completeness:getEvidenceCoverage(db,sellerId)
+  };
+}
+
+export function compareDocumentEvidenceBundles(
+  baselineBundle,
+  comparisonBundle,
+  documentKey,
+  {baselineCheckpoint=null,comparisonCheckpoint=null}={}
+) {
+  const baselineVerification=verifyEvidenceBundle(baselineBundle,{checkpoint:baselineCheckpoint});
+  if(!baselineVerification.valid) return {valid:false,reason:'baseline-bundle-invalid',verification:baselineVerification};
+  const comparisonVerification=verifyEvidenceBundle(comparisonBundle,{checkpoint:comparisonCheckpoint});
+  if(!comparisonVerification.valid) return {valid:false,reason:'comparison-bundle-invalid',verification:comparisonVerification};
+  if(baselineBundle.sellerId!==comparisonBundle.sellerId) {
+    return {valid:false,reason:'seller-mismatch'};
+  }
+  const baseline=selectDocumentEvidence(baselineBundle.chain,documentKey);
+  const comparison=selectDocumentEvidence(comparisonBundle.chain,documentKey);
+  const divergence=findFirstDivergence(baseline.entries,comparison.entries);
+  const baselineDigest=trajectoryDigest(baseline.entries);
+  const comparisonDigest=trajectoryDigest(comparison.entries);
+  return {
+    valid:true,
+    sellerId:baselineBundle.sellerId,
+    documentKey:String(documentKey),
+    unchanged:divergence===null,
+    divergence,
+    baselineDigest,
+    comparisonDigest,
+    baselineCompleteness:baselineBundle.coverage?.status??'UNKNOWN',
+    comparisonCompleteness:comparisonBundle.coverage?.status??'UNKNOWN',
+    relatedShipmentKeys:[...new Set([...baseline.shipmentKeys,...comparison.shipmentKeys])].sort(),
+    relatedDocumentNumbers:[...new Set([...baseline.relatedDocumentNumbers,...comparison.relatedDocumentNumbers])].sort(),
+    authority:'ADVISORY_ONLY',
+    changesFinancialState:false,
+    limitation:'The first observed timeline difference is not, by itself, proof of cause, Amazon acceptance, or a financial authorization.'
+  };
 }
 export function exportEvidenceBundle(db,sellerId) {
   const verification=verifyEvidenceChain(db,sellerId);

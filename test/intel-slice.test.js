@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { openDb } from '../src/db.js';
 import {
   openIntelReader, sealSellerEvidence, verifyEvidenceChain, getEvidenceCoverage,
-  exportEvidenceBundle, verifyEvidenceBundle, buildDocumentTimeline
+  exportEvidenceBundle, verifyEvidenceBundle, buildDocumentTimeline, compareDocumentEvidenceBundles
 } from '../src/intel/store.js';
 
 function fixture(t) {
@@ -110,6 +110,8 @@ test('deletion of a previously sealed append-only source row is marked INCOMPLET
   const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
   db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)')
     .run('seller-A','SHIP-1','AMOUNT_MISMATCH','total','opened','fingerprint-1','2026-11-28T10:02:00.000Z');
+  db.prepare('INSERT INTO shipments (seller_id,key,order_id,shipping_id,total,vat,shipment_date,due_at,status,reason,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','ORDER-1','SHIP-1',59.90,9.90,'2026-11-28','2026-12-28','open','test','2026-11-28T10:01:00.000Z');
   sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
   db.exec('DROP TRIGGER integrity_history_no_delete');
   db.prepare('DELETE FROM integrity_history WHERE seller_id=? AND shipment_key=?').run('seller-A','SHIP-1');
@@ -194,6 +196,48 @@ test('mutable snapshot transitions preserve an A-to-B-to-A return', t => {
   const bodies=rows.map(row=>JSON.parse(row.canonical_json));
   assert.deepEqual(bodies.map(body=>body.payload.totalCents),[5990,6000,5990]);
   assert.equal(bodies[2].previousSourceRef,bodies[1].sourceRef);
+});
+
+test('invoice timeline includes related shipment integrity history without mixing sibling invoices', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','AMOUNT_MISMATCH','total','opened','fingerprint-1','2026-11-28T10:02:00.000Z');
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run('seller-A','SIBLING-2','SHIP-1','rectificativa','2026-11-28T10:03:00.000Z',-59.90,-9.90,'ready');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const timeline=buildDocumentTimeline(db,'seller-A','A-2026-000001');
+  assert.deepEqual(timeline.relatedShipmentKeys,['SHIP-1']);
+  assert.ok(timeline.events.some(event=>event.kind==='integrity_transition'));
+  assert.equal(timeline.events.some(event=>event.kind==='invoice_snapshot'&&event.documentKey==='SIBLING-2'),false);
+  assert.equal(timeline.relatedEvidenceCount,2);
+});
+
+test('verified evidence bundle comparison localizes the first document difference and stays advisory', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const baseline=exportEvidenceBundle(db,'seller-A');
+  db.prepare("UPDATE invoices SET upload_status='uploaded',feed_id='feed-compare' WHERE seller_id=? AND number=?")
+    .run('seller-A','A-2026-000001');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const comparison=exportEvidenceBundle(db,'seller-A');
+  const result=compareDocumentEvidenceBundles(baseline,comparison,'A-2026-000001');
+  assert.equal(result.valid,true);
+  assert.equal(result.unchanged,false);
+  assert.equal(result.divergence.reason,'trajectory-length-diverged');
+  assert.equal(result.authority,'ADVISORY_ONLY');
+  assert.equal(result.changesFinancialState,false);
+  const tampered={...comparison,chain:comparison.chain.map(row=>({...row}))};
+  tampered.chain[0].canonicalJson=tampered.chain[0].canonicalJson.replace('seller-A','seller-B');
+  assert.equal(compareDocumentEvidenceBundles(baseline,tampered,'A-2026-000001').valid,false);
+});
+
+test('missing append-only protection is surfaced as INCOMPLETE', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.exec('DROP TRIGGER integrity_history_no_update');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.unprotectedAppendLogs.includes('integrity_history'));
+  assert.ok(result.coverage.reasons.some(reason=>reason.includes('protection triggers')));
 });
 
 test('two independent processes sealing one seller produce one ordered chain', async t => {
