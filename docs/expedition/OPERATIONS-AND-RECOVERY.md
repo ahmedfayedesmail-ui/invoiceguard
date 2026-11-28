@@ -1,0 +1,6 @@
+# Operations and recovery (local)
+Setup: Node 22, `npm ci`. Test: `ls test/*.test.js | grep -v -E "vault-ui|loop-ui|local-engine|history-idb" | xargs node --test --test-force-exit --no-warnings` (about 100 s). Campaign: `node tools/campaign.mjs --no-live`. Demo (synthetic): `npm run demo`. After editing bundled sources: `node tools/build-local.mjs`.
+Diagnose a stuck correction: GET /api/holds (what is held and why), GET /api/repairs (reviewed retries), the events table (stale_report_verdict_skipped, credit_note_hold, credit_note_verdict_not_applied, issue_blocked_by_credit_note_hold).
+A hold: read the explanation, compare the report row with our stored credit note, then POST /api/holds/decide with the item's key, code, fingerprint and a reason of 10+ characters. The decision lifts the block only. The next matching report is evaluated again from scratch; changed evidence changes the fingerprint and needs a new decision.
+Backup and restore: tools/backup.mjs, tools/restore-check.mjs, tools/restore-drill.mjs (existing). The production backup workflow is untouched. A watcher alerts at 8 h (warn) and 13 h (critical) of backup age. A restore proof is a separate human-run drill: HTTP 200 or a present artifact is not a restore proof.
+Not verified here: a real reboot recovery, a second PID namespace, live Amazon.

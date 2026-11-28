@@ -49,6 +49,27 @@
       "output": "src/holds.js, routes /api/holds and /api/holds/decide, test/holds-queue.test.js",
       "evidence": "audit/phase-b/pre-fix-run-29-holds-queue.txt (6 of 7 fail before)",
       "status": "implemented, CI pending"
+    },
+    {
+      "id": "W2-3",
+      "owner": "operator",
+      "domain": "Product/Testing",
+      "output": "tools/demo-e2e.mjs, test/demo-e2e.test.js",
+      "status": "done (local)"
+    },
+    {
+      "id": "W3-0",
+      "owner": "operator",
+      "domain": "Testing & Simulation",
+      "output": "test/model-based-flow.test.js",
+      "evidence": "mutation of hold guards fails the test",
+      "status": "done (local)"
+    },
+    {
+      "id": "W3-1..4",
+      "owner": "main-spawned independent reviewers (not yet spawned)",
+      "domain": "Independent Red Team",
+      "status": "awaiting real agent IDs"
     }
   ],
   "decisions": [
