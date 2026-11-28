@@ -1,5 +1,6 @@
 // Stuck-claim recovery, failure cases FIRST (Ahmed's six non-negotiables, Nov 28 2026). Written against a stub; see audit/phase-b/pre-fix-run-18-stuck-claims.spec.txt.
 // 1 no auto-release ever. 2 time alone never proves abandonment. 3 no release with a document or an unsettled upload. 4 verify nothing active owns the claim. 5 every release is a documented HUMAN_DECISION (user, reason, time, fingerprint). 6 full history of claim creation and release.
+import { procStart } from '../src/lease.js';
 import test from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs'; import { openDb } from '../src/db.js';
 import { processReport, processCorrections, issueRectificativa, reviewAtomic } from '../src/pipeline.js'; import { parseVidr } from '../src/vidr.js'; import { approveAll } from './correction-helpers.js';
 import { writeFileSync, rmSync, mkdtempSync } from 'node:fs'; import { tmpdir } from 'node:os'; import { join } from 'node:path'; import { spawn } from 'node:child_process';
@@ -149,7 +150,7 @@ test('K17: an owner recorded on another machine cannot be checked: unproven, ref
 });
 test('K18: while the process that reserved the claim is alive, the claim is not abandoned: the list says alive, review and release refused (also with a finding opened earlier)', async () => {
   const { db } = await stuck(); const f = openStuckClaimReview(db, seller.id, KEY); // dead owner at this moment
-  db.prepare('UPDATE claim_leases SET pid=?').run(process.pid); // an owner that is running (this process)
+  db.prepare('UPDATE claim_leases SET pid=?, proc_start=?').run(process.pid, procStart(process.pid)); // an owner that is running (this process, same start time)
   const row = listStuckClaims(db, seller.id)[0]; assert.equal(row.activeIssuance.state, 'alive'); assert.equal(row.activeIssuance.proven, false);
   assert.throws(() => openStuckClaimReview(db, seller.id, KEY), /running|active|alive/i);
   assert.throws(() => releaseStuckClaim(db, seller.id, KEY, f.fingerprint, { user: 'reviewer-1', reason: 'the process crashed before the document existed' }), /running|active|alive|evidence changed/i); assert.equal(claimCount(db), 1);

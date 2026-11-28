@@ -3,6 +3,7 @@
 // Double-issue safety: release and the issuing insert are both BEGIN IMMEDIATE transactions and the insert (pipeline.js issueRectificativa) refuses when its claim is gone, so exactly one of them wins.
 import { createHash } from 'node:crypto';
 import { txImm } from './db.js';
+import { ownerState, dropLease } from './lease.js';
 import { correctionLedger, releaseIntegrityTx } from './integrity.js';
 export const MIN_STUCK_AGE_MS = 15 * 60 * 1000; // quiet period: a necessary condition only, never a proof
 export const STUCK_CODE = 'CLAIM_STUCK_REVIEW';
@@ -14,37 +15,51 @@ function evidenceOf(db, sid, key) {
   const others = db.prepare("SELECT number, total, upload_status FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key<>? ORDER BY number").all(sid, c.original_number, key);
   const otherClaims = db.prepare('SELECT reversal_key, amount FROM credit_claims WHERE seller_id=? AND original_number=? AND reversal_key<>? ORDER BY reversal_key').all(sid, c.original_number, key);
   const hist = db.prepare('SELECT id, event FROM credit_claim_history WHERE seller_id=? AND reversal_key=? ORDER BY id').all(sid, key);
-  return { claim: c, evidence: { field: 'stuck-claim', reversalKey: key, original: { number: c.original_number, sha256: orig ? createHash('sha256').update(orig.json).digest('hex') : null }, amount: c.amount, claimedAt: c.claimed_at, documentsForEvent: docRows(db, sid, key), otherCreditNotes: others, otherClaims, history: hist } };
+  return { claim: c, evidence: { field: 'stuck-claim', reversalKey: key, original: { number: c.original_number, sha256: orig ? createHash('sha256').update(orig.json).digest('hex') : null }, owner: (({ state, lease }) => ({ state, lease }))(ownerState(db, sid, key)), amount: c.amount, claimedAt: c.claimed_at, documentsForEvent: docRows(db, sid, key), otherCreditNotes: others, otherClaims, history: hist } };
 }
 const fpOf = (ev) => createHash('sha256').update(JSON.stringify([STUCK_CODE, ev])).digest('hex');
-const oldEnough = (c, minAgeMs) => Date.now() - Date.parse(c.claimed_at) >= minAgeMs;
+const oldEnough = (c) => Date.now() - Date.parse(c.claimed_at) >= MIN_STUCK_AGE_MS; // constant: no caller can pass a shorter wait
+/** Why a person may NOT act on this claim yet (null = nothing stands in the way). Used by the list, the review and the release alike. */
+function blocker(e, db, sid, key) {
+  if (!e.evidence.original.sha256) return 'The original invoice is missing: nothing can be decided or released until it is restored.';
+  const o = ownerState(db, sid, key);
+  if (o.state === 'alive') return 'The issuing process is still running (active): nothing can be released.';
+  if (!o.proven) return 'Cannot prove that no issuance owns this claim (owner not proven gone): ' + o.why;
+  return null;
+}
 /** Candidates for a person to look at. Pure read. A claim with a document row of any status is never listed. */
-export function listStuckClaims(db, sellerId, { minAgeMs = MIN_STUCK_AGE_MS } = {}) {
-  return db.prepare('SELECT * FROM credit_claims WHERE seller_id=? ORDER BY claimed_at').all(sellerId).filter(c => !docRows(db, sellerId, c.reversal_key).length && oldEnough(c, minAgeMs)).map(c => ({ reversalKey: c.reversal_key, originalNumber: c.original_number, amount: c.amount, claimedAt: c.claimed_at }));
+export function listStuckClaims(db, sellerId) {
+  return db.prepare('SELECT * FROM credit_claims WHERE seller_id=? ORDER BY claimed_at').all(sellerId).filter(c => !docRows(db, sellerId, c.reversal_key).length && oldEnough(c)).map(c => {
+    const o = ownerState(db, sellerId, c.reversal_key), b = blocker(evidenceOf(db, sellerId, c.reversal_key), db, sellerId, c.reversal_key);
+    // activeIssuance.proven is true ONLY when the owner is recorded and provably gone; the seller-facing text may say "no issuance is running" only then
+    return { reversalKey: c.reversal_key, originalNumber: c.original_number, amount: c.amount, claimedAt: c.claimed_at, activeIssuance: { state: o.state, proven: o.proven, text: o.proven ? 'No issuance is running: the process that was issuing it has ended.' : o.state === 'alive' ? 'An issuance is still running.' : 'It cannot be proven whether an issuance is running.' }, reviewable: !b, blockedReason: b };
+  });
 }
 /** Open (or refresh) the HUMAN_DECISION review for one stuck claim. Releases nothing. */
-export function openStuckClaimReview(db, sellerId, key, { minAgeMs = MIN_STUCK_AGE_MS } = {}) {
+export function openStuckClaimReview(db, sellerId, key) {
   return txImm(db, () => {
     const e = evidenceOf(db, sellerId, key); if (!e) throw new Error('There is no credit claim for this event.');
     if (e.evidence.documentsForEvent.length) throw new Error('A document or upload already exists for this event: the claim belongs to that document and is not stuck.');
-    if (!oldEnough(e.claim, minAgeMs)) throw new Error('This claim is inside the quiet period: an issuance may still be in progress. Look again later.');
+    if (!oldEnough(e.claim)) throw new Error('This claim is inside the quiet period: an issuance may still be in progress. Look again later.');
+    { const b = blocker(e, db, sellerId, key); if (b) throw new Error(b); }
     const fingerprint = fpOf(e.evidence);
     correctionLedger(db, sellerId, fk(key), [{ code: STUCK_CODE, severity: 'HOLD', resolution: 'HUMAN_DECISION', fingerprint, evidence: e.evidence, explanation: `The credit claim of ${Number(e.claim.amount).toFixed(2)} on invoice ${e.claim.original_number} has no document. It blocks that amount until a person decides.`, action: 'Check that nothing was uploaded for this event, then decide with a reason.' }]);
     return { fingerprint, evidence: e.evidence };
   });
 }
 /** Release one stuck claim after a documented human decision. Everything is re-checked inside the same transaction. */
-export function releaseStuckClaim(db, sellerId, key, fingerprint, { user, reason, minAgeMs = MIN_STUCK_AGE_MS } = {}) {
+export function releaseStuckClaim(db, sellerId, key, fingerprint, { user, reason } = {}) {
   return txImm(db, () => {
     if (!db.prepare("SELECT 1 FROM integrity_findings WHERE seller_id=? AND shipment_key=? AND code=? AND status='OPEN'").get(sellerId, fk(key), STUCK_CODE)) throw new Error('There is no open review finding for this claim: open the review first.');
     const e = evidenceOf(db, sellerId, key); if (!e) throw new Error('There is no credit claim for this event any more.');
     if (e.evidence.documentsForEvent.length) throw new Error('A document or upload exists for this event: the claim cannot be released.');
-    if (!oldEnough(e.claim, minAgeMs)) throw new Error('This claim is inside the quiet period: an issuance may still be in progress.');
+    if (!oldEnough(e.claim)) throw new Error('This claim is inside the quiet period: an issuance may still be in progress.');
+    { const b = blocker(e, db, sellerId, key); if (b) throw new Error(b); }
     if (!String(user ?? '').trim()) throw new Error('A decision needs the user who takes it.');
     if (String(reason ?? '').trim().length < 10) throw new Error('A decision needs a reason of at least 10 characters.');
     const now = fpOf(e.evidence); if (now !== fingerprint) throw new Error('The evidence changed since the review or the fingerprint is wrong: nothing was released. Open the review again.');
     releaseIntegrityTx(db, sellerId, fk(key), STUCK_CODE, fingerprint, { user, reason });
-    db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=?').run(sellerId, key);
+    db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=?').run(sellerId, key); dropLease(db, sellerId, key);
     db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,fingerprint,at) VALUES (?,?,?,?,?,?,?,?,?,?)').run(sellerId, key, e.claim.original_number, e.claim.amount, 'RELEASED', e.claim.claim_id ?? null, user, reason, fingerprint, new Date().toISOString());
     return { released: true };
   });

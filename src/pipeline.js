@@ -1,4 +1,5 @@
 import { parseVidr, needsInvoice, heldForUnknownFlags, unknownFlags, unknownFlagsReason } from './vidr.js';
+import { writeLease, dropLease } from './lease.js';
 import { validateVat } from './vies.js';
 import { buildInvoice, buildRectificativa } from './invoice.js';
 import { verifyBuyer, hasOverride } from './verify.js';
@@ -523,7 +524,8 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       // Local record FIRST, upload second: Amazon must never hold a document we have no record of,
       // and the R series stays gapless even when the upload fails (waits as 'pending').
       db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id,dedupe_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-        .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), null, manual ? 'ready' : 'pending', opts.transactionId ?? null, dedupe);
+        .run(seller.id, rect.number, opts.recordKey ?? row.shipment_key, 'rectificativa', originalNumber, new Date().toISOString(), rect.totals.incl, rect.totals.vat, JSON.stringify(rect), null, manual ? 'ready' : 'pending', opts.transactionId ?? null, dedupe)
+      if (opts.recordKey?.startsWith('REFUND:CorrectionReversal')) dropLease(db, seller.id, opts.recordKey); // the document now owns the claim;
       appendAudit(db, seller.id, 'rectificativa', rect.number, rect);
       logEvent(db, seller.id, 'rectificativa', { number: rect.number, rectifies: originalNumber });
     });
@@ -682,7 +684,7 @@ function correctionReview(db, seller, rev, orig, list, claim = false, snap = {})
   if (claim && amount >= 0.005) {
     // every claim has an identity: a failing attempt may only roll back the claim IT created (claim_id), never a newer attempt's claim for the same event
     const claimId = randomUUID(), prev = db.prepare('SELECT claim_id FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, rev.key), at = new Date().toISOString();
-    db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at, claim_id) VALUES (?,?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, at, claimId);
+    db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at, claim_id) VALUES (?,?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, at, claimId); writeLease(db, seller.id, rev.key, claimId, at);
     db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,at) VALUES (?,?,?,?,?,?,?,?,?)').run(seller.id, rev.key, orig.number, amount, 'CLAIMED', claimId, 'system', prev ? `replaces the claim ${prev.claim_id ?? 'without id'} of an earlier attempt for the same event` : 'reserved with the approved pair review', at);
     snap.claimId = claimId;
   }
@@ -772,7 +774,7 @@ export function rollbackPreIssueClaim(db, sellerId, key, claimId, why = '') {
   return txImm(db, () => {
     const c = db.prepare('SELECT original_number, amount FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').get(sellerId, key, claimId); if (!c) return false;
     if (db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(sellerId, key)) return false;
-    db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').run(sellerId, key, claimId);
+    db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').run(sellerId, key, claimId); dropLease(db, sellerId, key);
     db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,at) VALUES (?,?,?,?,?,?,?,?,?)').run(sellerId, key, c.original_number, c.amount, 'ABORTED', claimId, 'system', `PRE_ISSUE_FAILURE: the issuance that reserved this claim failed before any document row existed, so nothing was uploaded (${String(why).slice(0, 120)})`, new Date().toISOString());
     return true;
   });
