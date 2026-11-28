@@ -1,5 +1,5 @@
 {
-  "note": "Real records only. Orchestrator: the single operator agent (chat-01M89X8RHBMGGAEZQMEP3TMSG4). No worker agents were launched by it. Model identity of the runtime is unverified and NOT claimed. Independent reviewers, when Main spawns them, are added here with their real agent IDs. Wave 3: 4 independent reviewers launched by Main with the IDs below; completed count stays 0 until each report is received.",
+  "note": "Real records only. Orchestrator: the single operator agent (chat-01M89X8RHBMGGAEZQMEP3TMSG4). No worker agents were launched by it. Model identity of the runtime is unverified and NOT claimed. 6 independent reviewer agents were launched by Main (4 red reviewers, 2 re-reviewers); all 6 delivered. Final state: re-reviewer 2 closed on its scope; re-reviewer 1 closed on 608a415 with the B2 residual documented.",
   "branch": "expedition/invoiceguard-product-grade",
   "base": "8d9e6d9",
   "agents_launched": 6,
@@ -114,7 +114,7 @@
       "agent_id": "agent-01M8GZVRMZ3Q8PVCHRNQ8MM2RA",
       "task": "re-review of boot recovery and duplicate submission, 006e633 then 6e2a4ca",
       "launched_by": "Main",
-      "status": "delivered, awaiting confirmation on the third-round fix",
+      "status": "delivered 6 reports over 6 rounds; FINAL confirmation on 608a415: all findings closed except the documented B2 residual (abandoned request landing past the quiet window)",
       "verdict": "NOT FIXED (P1) at 6e2a4ca: in-flight order still duplicates; fixes in third round, not yet confirmed"
     },
     {
@@ -122,7 +122,7 @@
       "agent_id": "agent-01M8GZVSJ38MAFVV52TFVMVWAA",
       "task": "re-review of holds UI and remediation diffs, 006e633 then 6e2a4ca",
       "launched_by": "Main",
-      "status": "delivered, awaiting confirmation on the third-round fix",
+      "status": "delivered; scope fully closed (D14, D15 confirmed)",
       "verdict": "F1 and UI trio confirmed fixed at 6e2a4ca; 2 P2 and 1 P3 found, fixed in third round, not yet confirmed"
     }
   ],
