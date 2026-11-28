@@ -23,3 +23,12 @@ test('the Reserved amounts screen never says "No issuance is running" unless the
   assert.ok(d.pencil.some(p => !p.owned && p.issuance.proven === false), 'the demo includes an unproven case'); assert.ok(d.pencil.some(p => !p.owned && p.issuance.proven === true));
   assert.match(h, /p\.issuance\.proven\?\['No issuance is running/); assert.match(h, /okc/);
 });
+
+test('VIES results are three distinct states (Valid, Invalid, Not available), and Not available is explained as not being Invalid', () => {
+  const c = d.cards.find(x => x.vies); const codes = c.vies.legend.map(l => l[0]); assert.deepEqual(codes, ['valid', 'invalid', 'unavailable']);
+  for (const k of ['previous', 'current']) assert.ok(codes.includes(c.vies[k].code), k); assert.notEqual(c.vies.current.code, 'invalid', 'the demo no-answer is not shown as invalid');
+  assert.match(c.vies.legend.find(l => l[0] === 'unavailable')[2], /not the same as Invalid/); const h = readFileSync(new URL('./index.html', import.meta.url), 'utf8'); for (const k of codes) assert.match(h, new RegExp('\\.vb\\.' + k)); assert.match(h, /Not available/);
+});
+test('each reserved amount carries a reviewer-readable reason for its issuance state; "No issuance is running" appears only with a proven reason', () => {
+  for (const p of d.pencil.filter(x => !x.owned)) { assert.ok(p.issuance.why && p.issuance.why.length > 40, p.id); assert.doesNotMatch(p.issuance.why, /undefined|null|UTC/); if (p.issuance.proven) assert.match(p.issuance.why, /no longer exists/); else assert.match(p.issuance.why, /cannot tell|No record/); }
+});

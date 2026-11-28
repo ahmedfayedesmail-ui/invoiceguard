@@ -181,13 +181,32 @@ window.PROTO_DATA={
    "vies": {
     "vat": "ESB76543210",
     "previous": {
+     "code": "valid",
      "result": "Valid",
      "checkedAt": "15 Nov 2026, 14:02"
     },
     "current": {
-     "result": "Not available (the VIES service did not answer)",
+     "code": "unavailable",
+     "result": "Not available",
      "checkedAt": "28 Nov 2026, 09:41"
     },
+    "legend": [
+     [
+      "valid",
+      "Valid",
+      "VIES confirmed the number."
+     ],
+     [
+      "invalid",
+      "Invalid",
+      "VIES answered that the number is not registered."
+     ],
+     [
+      "unavailable",
+      "Not available",
+      "VIES gave no answer. This says nothing about the number: it is not the same as Invalid."
+     ]
+    ],
     "note": "Demo values (synthetic). In the product both results and both times come from the saved check records."
    },
    "warnText": "The VAT number check (VIES) answered differently from when this card was first shown. Look at the VAT number again before you decide."
@@ -202,7 +221,8 @@ window.PROTO_DATA={
    "owned": false,
    "issuance": {
     "state": "gone",
-    "proven": true
+    "proven": true,
+    "why": "The process that was issuing it (number 48213, started 28 Nov 2026, 09:12) no longer exists. It was recorded on this machine in this system start, so its absence is a real check, not a guess."
    }
   },
   {
@@ -213,7 +233,8 @@ window.PROTO_DATA={
    "owned": false,
    "issuance": {
     "state": "unproven",
-    "proven": false
+    "proven": false,
+    "why": "No record says which process was issuing it, or it was recorded on another machine or system start. InvoiceGuard cannot tell whether an issuance is still running."
    }
   },
   {
