@@ -1,0 +1,100 @@
+TAP version 13
+# Subtest: P1: failure before the document row: the claim is rolled back, nothing uploaded, and the history says why
+not ok 1 - P1: failure before the document row: the claim is rolled back, nothing uploaded, and the history says why
+  ---
+  duration_ms: 59.727133
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/preissue-rollback.test.js:15:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: credit_claim_history'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    hist (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:13:100)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:18:13)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: P2: failure AFTER the document row (upload fails): the claim stays
+not ok 2 - P2: failure AFTER the document row (upload fails): the claim stays
+  ---
+  duration_ms: 31.996573
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/preissue-rollback.test.js:20:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: credit_claim_history'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    hist (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:13:100)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:23:14)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P3: an unknown upload outcome never releases the claim
+not ok 3 - P3: an unknown upload outcome never releases the claim
+  ---
+  duration_ms: 41.217586
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/preissue-rollback.test.js:25:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    rollbackPreIssueClaim (file:///home/sandbox/invoiceguard/src/pipeline.js:758:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:29:16)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P4: an old attempt cannot delete a newer attempt’s claim for the same event (identity-bound)
+not ok 4 - P4: an old attempt cannot delete a newer attempt’s claim for the same event (identity-bound)
+  ---
+  duration_ms: 26.00087
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/preissue-rollback.test.js:31:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: credit_claim_history'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    hist (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:13:100)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:34:15)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P5: after a safe rollback another event can use the balance that became available
+ok 5 - P5: after a safe rollback another event can use the balance that became available
+  ---
+  duration_ms: 21.804928
+  type: 'test'
+  ...
+# Subtest: P6: retrying the same event after a rollback is idempotent: one claim, one credit note, no duplicates
+not ok 6 - P6: retrying the same event after a rollback is idempotent: one claim, one credit note, no duplicates
+  ---
+  duration_ms: 21.275498
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/preissue-rollback.test.js:42:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: credit_claim_history'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    hist (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:13:100)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/preissue-rollback.test.js:46:16)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 1
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 359.549429

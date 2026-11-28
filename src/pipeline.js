@@ -753,3 +753,6 @@ export async function processCorrections(db, seller, reportText, { api, validate
   }
   return out;
 }
+
+/** STUB (tests-first commit): replaced by the real implementation in the fix commit. */
+export function rollbackPreIssueClaim() { throw new Error('not implemented'); }
