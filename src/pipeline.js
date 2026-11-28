@@ -659,7 +659,8 @@ export async function viesSnapshot(validate, rev, list) {
 }
 function correctionReview(db, seller, rev, orig, list, claim = false, snap = {}) {
   const o = JSON.parse(orig.json), origIncl = Math.abs(o.totals?.incl ?? 0), amount = Math.abs(rev.incl);
-  const other = db.prepare("SELECT number, total FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND shipment_key<>? AND upload_status<>'rejected' ORDER BY number").all(seller.id, orig.number, rev.key);
+  // every live credit note on the original counts, whichever path issued it (correction pair, repair, manual rectify): the person must see the real balance
+  const other = db.prepare("SELECT number, total FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND total<0 AND shipment_key<>? AND upload_status<>'rejected' ORDER BY number").all(seller.id, orig.number, rev.key);
   // an unfinished claim of ANOTHER event counts as credited until its document exists (then the document counts)
   const claims = db.prepare("SELECT reversal_key, amount FROM credit_claims c WHERE seller_id=? AND original_number=? AND reversal_key<>? AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.seller_id=c.seller_id AND i.shipment_key=c.reversal_key AND i.kind='rectificativa') ORDER BY reversal_key").all(seller.id, orig.number, rev.key);
   const credited = Math.round([...other.map(c => Math.abs(c.total ?? 0)), ...claims.map(c => Math.abs(c.amount ?? 0))].reduce((a, c) => a + c, 0) * 100) / 100, balance = Math.round((origIncl - credited) * 100) / 100;
