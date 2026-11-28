@@ -81,6 +81,7 @@ test('reader is read-only and sealed chain rows cannot be updated or deleted', t
   sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
   assert.throws(()=>db.exec("UPDATE intel_evidence_chain SET kind='forged' WHERE seller_id='seller-A'"),/append-only/i);
   assert.throws(()=>db.exec("DELETE FROM intel_evidence_chain WHERE seller_id='seller-A'"),/append-only/i);
+  assert.throws(()=>db.exec("DELETE FROM intel_evidence_head WHERE seller_id='seller-A'"),/cannot be deleted/i);
 });
 
 test('a changed invoice snapshot is appended to its document timeline', t => {
@@ -129,6 +130,17 @@ test('a corrupted prior chain is refused rather than silently extended', t => {
     () => sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
     /Refusing to append to a broken evidence chain/
   );
+});
+
+test('a missing head checkpoint is detected and cannot be exported as valid', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER intel_head_no_delete');
+  db.prepare('DELETE FROM intel_evidence_head WHERE seller_id=?').run('seller-A');
+  const verification=verifyEvidenceChain(db,'seller-A');
+  assert.equal(verification.valid,false);
+  assert.equal(verification.reason,'head-missing');
+  assert.throws(()=>exportEvidenceBundle(db,'seller-A'),/broken evidence chain/);
 });
 
 test('two independent processes sealing one seller produce one ordered chain', async t => {

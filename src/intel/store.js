@@ -27,6 +27,8 @@ export function ensureIntelTables(db) {
       BEGIN SELECT RAISE(ABORT, 'intel evidence chain is append-only'); END;
     CREATE TRIGGER IF NOT EXISTS intel_chain_no_delete BEFORE DELETE ON intel_evidence_chain
       BEGIN SELECT RAISE(ABORT, 'intel evidence chain is append-only'); END;
+    CREATE TRIGGER IF NOT EXISTS intel_head_no_delete BEFORE DELETE ON intel_evidence_head
+      BEGIN SELECT RAISE(ABORT, 'intel evidence head cannot be deleted'); END;
   `);
 }
 const digest = value => sha256Hex(String(value ?? ''));
@@ -169,7 +171,10 @@ function verifyRows(rows,sellerId,head=null) {
     let body;
     try { body=JSON.parse(row.canonical_json); }
     catch { return {valid:false,brokenAt:seq,reason:'canonical-json-invalid'}; }
-    if(body.sellerId!==sellerId||body.sequence!==seq||body.previousHash!==prev||body.kind!==row.kind||
+    if(body.schema!=='invoiceguard.sealed-financial-evidence.v1'||body.sellerId!==sellerId||
+      body.sequence!==seq||body.previousHash!==prev||body.kind!==row.kind||
+      typeof body.sourceTable!=='string'||typeof body.sourceKey!=='string'||typeof body.sourceRef!=='string'||
+      !body.payload||typeof body.payload!=='object'||Array.isArray(body.payload)||
       body.sourceRef!==row.source_ref||body.documentKey!==row.document_key) {
       return {valid:false,brokenAt:seq,reason:'entry-header-mismatch'};
     }
@@ -178,6 +183,7 @@ function verifyRows(rows,sellerId,head=null) {
     }
     prev=row.entry_hash;
   }
+  if(!head&&rows.length>0) return {valid:false,brokenAt:rows.length,reason:'head-missing'};
   if(head&&((head.seq??0)!==rows.length||(head.hash??ZERO)!==prev)) {
     return {valid:false,brokenAt:rows.length||1,reason:'head-mismatch'};
   }
@@ -350,8 +356,12 @@ export function verifyEvidenceBundle(bundle,{checkpoint=null}={}) {
     const row=bundle.chain[i],seq=i+1;
     if(row.sequence!==seq||row.previousHash!==prev)return {valid:false,reason:'sequence-or-link-mismatch',brokenAt:seq};
     let body;try{body=JSON.parse(row.canonicalJson);}catch{return {valid:false,reason:'canonical-json-invalid',brokenAt:seq};}
-    if(body.sellerId!==bundle.sellerId||body.sequence!==seq||body.previousHash!==prev||body.kind!==row.kind||
-      body.sourceRef!==row.sourceRef||body.documentKey!==row.documentKey||canonicalize(body)!==row.canonicalJson||digest(row.canonicalJson)!==row.hash)
+    if(body.schema!=='invoiceguard.sealed-financial-evidence.v1'||body.sellerId!==bundle.sellerId||
+      body.sequence!==seq||body.previousHash!==prev||body.kind!==row.kind||
+      typeof body.sourceTable!=='string'||typeof body.sourceKey!=='string'||typeof body.sourceRef!=='string'||
+      !body.payload||typeof body.payload!=='object'||Array.isArray(body.payload)||
+      body.sourceRef!==row.sourceRef||body.documentKey!==row.documentKey||
+      canonicalize(body)!==row.canonicalJson||digest(row.canonicalJson)!==row.hash)
       return {valid:false,reason:'entry-hash-mismatch',brokenAt:seq};
     prev=row.hash;
   }

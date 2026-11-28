@@ -6,7 +6,7 @@ This is an advisory, read-side evidence layer. It records normalized observation
 
 - A separate SQLite connection is opened with `readOnly: true` and `PRAGMA query_only=ON` for source reads.
 - The writer creates and writes only `intel_evidence_chain` and `intel_evidence_head`.
-- The evidence chain is protected by SQLite triggers against UPDATE and DELETE. Each coverage statement is itself sealed into the chain; there is no separate mutable coverage cache.
+- The evidence chain is protected by SQLite triggers against UPDATE and DELETE. Its head row may be updated by the sealer but cannot be deleted; verification fails closed if a non-empty chain has no matching head. Each coverage statement is itself sealed into the chain; there is no separate mutable coverage cache.
 - Each sealing pass uses `BEGIN IMMEDIATE`; concurrent sealers serialize, and `(seller_id, source_ref)` makes retries idempotent.
 - Only allowlisted metadata is exported. Free-form event details, decision reasons, actor identities, invoice errors, finding explanations and raw evidence are represented by SHA-256 digests rather than copied into the bundle. These digests are integrity fingerprints, not anonymization; low-entropy values may be guessable.
 - Monetary values are converted to safe integer cents with exact decimal arithmetic. Sub-cent or unsafe values fail the seal; they are never rounded into evidence.
