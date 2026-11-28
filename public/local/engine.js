@@ -50730,7 +50730,8 @@ async function analyze(text, { country = "ES", useDeliveryAddress = false } = {}
   }
   analyze.last = plan.shipments;
   analyze.country = country;
-  return { ok: true, format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: !!plan.truncated, ready, held, skipped: plan.skipped ?? [], viesRun: false };
+  const heldValueEur = plan.shipments.filter((s) => !s.__ok && s.currency === "EUR" && Number.isFinite(s.incl)).reduce((a, s) => a + s.incl, 0);
+  return { ok: true, heldValueEur, format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: !!plan.truncated, ready, held, skipped: plan.skipped ?? [], viesRun: false };
 }
 async function samplePdf(orderId) {
   const s = (analyze.last ?? []).find((x) => x.orderId === orderId && x.__ok);

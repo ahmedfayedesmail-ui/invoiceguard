@@ -1,4 +1,5 @@
 import { analyze, samplePdf } from '/local/engine.js';
+import { createCounters, bucketOf, outcomeOf } from '/local/counters.js';
 const $ = (s) => document.querySelector(s), out = $('#out');
 const el = (t, props = {}, ...kids) => { const e = document.createElement(t); for (const [k, v] of Object.entries(props)) k === 'class' ? (e.className = v) : e.setAttribute(k, v); for (const x of kids.flat()) if (x != null) e.append(x.nodeType ? x : String(x)); return e; };
 
@@ -9,10 +10,19 @@ const tick = () => { const n = performance.getEntriesByType('resource').filter(r
 try { new PerformanceObserver(tick).observe({ type: 'resource', buffered: false }); } catch { /* old browser: counter refreshed on each action */ }
 setInterval(tick, 1000); tick();
 
+// Counters: aggregate only, off unless the page's meta flag says otherwise (see counters.js and the 'What we count' box).
+const meta = (n) => document.querySelector(`meta[name="${n}"]`)?.content || '';
+const counters = createCounters({ mode: meta('ig-counters'), endpoint: meta('ig-counters-endpoint') });
+window.__counters = counters;
+$('#countmode').textContent = counters.mode === 'off' ? 'switched off' : counters.mode === 'log' ? 'on, kept in this page only (test mode, nothing is sent)' : 'on';
+counters.track('page_view');
+document.addEventListener('click', (e) => { if (e.target.closest?.('[data-checkout]')) counters.track('checkout_click'); });
 const rows = (items, cols) => el('table', {}, el('tr', {}, cols.map(c => el('th', {}, c[0]))), items.map(i => el('tr', {}, cols.map(c => el('td', {}, c[1](i))))));
 async function handle(file) {
   const card = el('div', { class: 'card' }, el('h2', {}, file.name)); out.prepend(card);
+  counters.track('check_started');
   const text = await file.text(); const r = await analyze(text); tick();
+  counters.track('check_completed', { bucket: bucketOf(r.ok ? r.heldValueEur : 0), outcome: outcomeOf(r) });
   if (!r.ok) { card.append(el('p', { class: 'err' }, r.error)); return; }
   card.append(el('p', { class: 'mut small' }, `${r.formatName} - ${r.rows} data rows${r.truncated ? ' (only the first part was read)' : ''}`),
     el('p', {}, el('span', { class: 'badge b-ok' }, `${r.ready.length} ready to invoice`), ' ', el('span', { class: 'badge b-bad' }, `${r.held.length} held`), ' ', el('span', { class: 'badge b-warn' }, `${r.skipped.length} skipped`)));

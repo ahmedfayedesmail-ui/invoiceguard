@@ -32,7 +32,7 @@ import { listHolds, decideHold, addHoldNote } from './holds.js';
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
 const SAMPLE_JS = readFileSync(new URL('../public/sample.js', import.meta.url));
-const LOCAL_HTML = readFileSync(new URL('../public/local/index.html', import.meta.url)), LOCAL_PAGE = readFileSync(new URL('../public/local/page.js', import.meta.url)), LOCAL_ENGINE = readFileSync(new URL('../public/local/engine.js', import.meta.url));
+const LOCAL_HTML = readFileSync(new URL('../public/local/index.html', import.meta.url)), LOCAL_PAGE = readFileSync(new URL('../public/local/page.js', import.meta.url)), LOCAL_ENGINE = readFileSync(new URL('../public/local/engine.js', import.meta.url)), LOCAL_COUNTERS = readFileSync(new URL('../public/local/counters.js', import.meta.url));
 // Problem loop page: built in the repository, OFF unless ENABLE_LOOP_PAGE=1 (no public deployment of it without a decision).
 const LOOP_FILES = { '/local/loop': ['loop.html', 'text/html; charset=utf-8'], '/local/loop.js': ['loop.js', 'text/javascript; charset=utf-8'], '/local/loop-engine.js': ['loop-engine.js', 'text/javascript; charset=utf-8'] };
 const loopFile = (name) => readFileSync(new URL('../public/local/' + name, import.meta.url));
@@ -161,8 +161,8 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       const url = new URL(req.url, 'http://x'), p = url.pathname;
       if (req.method === 'GET' && p === '/favicon.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' }); return res.end(FAVICON); }
       if (req.method === 'GET' && p === '/favicon.ico') { res.writeHead(302, { location: '/favicon.svg', 'cache-control': 'public, max-age=86400' }); return res.end(); }
-      if (req.method === 'GET' && (p === '/local' || p === '/local/' || p === '/local/page.js' || p === '/local/engine.js')) { // local engine: the page runs in the browser and is forbidden by CSP from making any network call
-        const f = p === '/local/page.js' ? LOCAL_PAGE : p === '/local/engine.js' ? LOCAL_ENGINE : LOCAL_HTML;
+      if (req.method === 'GET' && (p === '/local' || p === '/local/' || p === '/local/page.js' || p === '/local/engine.js' || p === '/local/counters.js')) { // local engine: the page runs in the browser and is forbidden by CSP from making any network call
+        const f = p === '/local/counters.js' ? LOCAL_COUNTERS : p === '/local/page.js' ? LOCAL_PAGE : p === '/local/engine.js' ? LOCAL_ENGINE : LOCAL_HTML;
         res.writeHead(200, { 'content-type': p.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'content-security-policy': LOCAL_CSP, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return res.end(f);
       }
       if (req.method === 'GET' && LOOP_FILES[p] && process.env.ENABLE_LOOP_PAGE === '1') { const [f, ct] = LOOP_FILES[p]; res.writeHead(200, { 'content-type': ct, 'content-security-policy': LOCAL_CSP, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return res.end(loopFile(f)); }

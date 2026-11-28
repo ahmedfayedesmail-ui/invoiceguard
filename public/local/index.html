@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InvoiceGuard - check your Amazon report on this page only</title>
+<meta name="ig-counters" content="off"><meta name="ig-counters-endpoint" content=""><title>InvoiceGuard - check your Amazon report on this page only</title>
 <style>
 :root{--ink:#17202a;--mut:#5d6b78;--line:#dde3ea;--ok:#0b7a43;--bad:#b42318;--warn:#8a5a00;--bg:#f6f8fa}
 *{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
@@ -21,5 +21,6 @@ button.sm{font:inherit;font-size:13px;padding:3px 10px;border-radius:6px;border:
 <p class="small">After this page loads, the server has no part in the analysis. It sends the page with a rule (Content-Security-Policy: <code>connect-src 'none'</code>) that makes your browser refuse any network call from it. Open your browser's developer tools, Network tab, load a file, and nothing new appears. The counter above reads your browser's own request log.</p><div class="small" id="loaded"></div></details></div>
 <div id="drop" tabindex="0" role="button" aria-label="Choose report files"><p><b>Drop a report file here</b></p><p class="mut small">or</p><button type="button" id="pick">Choose file</button><input id="file" type="file" multiple accept=".txt,.tsv,.csv,text/plain,text/tab-separated-values" hidden></div>
 <div class="card small"><b>What this page does not do.</b> It does not check the buyer VAT number with the EU VIES service: the EU service does not accept calls from web pages, so that check needs a server and is switched off here. It does not see your seller invoices, so it cannot tell whether you already issued an invoice. It checks the file's own data (format, Spanish NIF control character, required fields). The PDFs it makes are samples with a made-up seller and the number SAMPLE-0001. They are for looking at the layout only.</div>
+<div class="card small" id="counted"><b>What we count.</b> Only these four numbers, as plain tallies: a page was opened; a check was started; a check finished, with a size band for the amount found (0, 1-29, 30-49, 50-199 or 200+ EUR) and a coarse result (all ready, some held, none ready, unreadable); a checkout button was clicked. We never receive your report, its rows, file names, order numbers, buyer details or exact amounts. There is no cookie, no stored ID and no tracking across visits. Counting is <b id="countmode">switched off</b> in this build. Anything beyond these tallies would need your explicit consent here first.</div>
 <div id="out"></div>
 </main><script type="module" src="/local/page.js"></script></body></html>

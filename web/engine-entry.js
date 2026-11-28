@@ -29,7 +29,9 @@ export async function analyze(text, { country = 'ES', useDeliveryAddress = false
     s.__ok = !reasons.length;
   }
   analyze.last = plan.shipments; analyze.country = country;
-  return { ok: true, format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: !!plan.truncated, ready, held, skipped: plan.skipped ?? [], viesRun: false };
+  // one number for the size band only (EUR orders held by a check); the page never shows or sends it
+  const heldValueEur = plan.shipments.filter(s => !s.__ok && s.currency === 'EUR' && Number.isFinite(s.incl)).reduce((a, s) => a + s.incl, 0);
+  return { ok: true, heldValueEur, format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: !!plan.truncated, ready, held, skipped: plan.skipped ?? [], viesRun: false };
 }
 
 /** Renders a clearly marked SAMPLE invoice PDF for the n-th ready shipment of the last analysis. */
