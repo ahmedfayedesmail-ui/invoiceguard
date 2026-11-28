@@ -137,51 +137,107 @@ function verifyRows(rows,sellerId,head=null) {
   for(let i=0;i<rows.length;i++){
     const row=rows[i],seq=i+1;
     if(row.seq!==seq) return {valid:false,brokenAt:seq,reason:'sequence-gap'};
-    if(row.prev_hash!==prev) return {valid:false,brokenAt:seq,rexport function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date().toISOString()}) {
-  if(!writerDb||!readerDb||writerDb===readerDb)throw new TypeError('Separate writer and read-only reader connections are required.');
-  if(readerDb.prepare('PRAGMA query_only').get().query_only!==1)throw new Error('Reader must enforce PRAGMA query_only=ON.');
-  if(typeof sellerId!=='string'||!sellerId.trim()||sellerId.length>200)throw new TypeError('A valid seller id is required.');
+    if(row.prev_hash!==prev) return {valid:false,brokenAt:seq,reason:'previous-hash-mismatch'};
+    let body;
+    try { body=JSON.parse(row.canonical_json); }
+    catch { return {valid:false,brokenAt:seq,reason:'canonical-json-invalid'}; }
+    if(body.sellerId!==sellerId||body.sequence!==seq||body.previousHash!==prev||body.kind!==row.kind||
+      body.sourceRef!==row.source_ref||body.documentKey!==row.document_key) {
+      return {valid:false,brokenAt:seq,reason:'entry-header-mismatch'};
+    }
+    if(canonicalize(body)!==row.canonical_json||sha256Hex(row.canonical_json)!==row.entry_hash) {
+      return {valid:false,brokenAt:seq,reason:'entry-hash-mismatch'};
+    }
+    prev=row.entry_hash;
+  }
+  if(head&&((head.seq??0)!==rows.length||(head.hash??ZERO)!==prev)) {
+    return {valid:false,brokenAt:rows.length||1,reason:'head-mismatch'};
+  }
+  return {valid:true,sequence:rows.length,hash:prev};
+}
+export function verifyEvidenceChain(db,sellerId,checkpoint=null) {
+  const rows=rowsFor(db,sellerId);
+  const head=db.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get(sellerId);
+  const result=verifyRows(rows,sellerId,head);
+  if(!result.valid)return result;
+  if(checkpoint&&(checkpoint.sellerId!==sellerId||checkpoint.sequence!==rows.length||checkpoint.hash!==result.hash)) {
+    return {valid:false,brokenAt:rows.length||1,reason:'external-checkpoint-mismatch'};
+  }
+  return result;
+}
+export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date().toISOString()}) {
+  if(!writerDb||!readerDb||writerDb===readerDb) throw new TypeError('Separate writer and read-only reader connections are required.');
+  if(readerDb.prepare('PRAGMA query_only').get().query_only!==1) throw new Error('Reader must enforce PRAGMA query_only=ON.');
+  if(typeof sellerId!=='string'||!sellerId.trim()||sellerId.length>200) throw new TypeError('A valid seller id is required.');
+
   ensureIntelTables(writerDb);
   const precheck=verifyEvidenceChain(writerDb,sellerId);
-  if(!precheck.valid)throw new Error('Refusing to append to a broken evidence chain: '+precheck.reason);
+  if(!precheck.valid) throw new Error('Refusing to append to a broken evidence chain: '+precheck.reason);
+
   const priorRows=rowsFor(writerDb,sellerId);
   const previousCoverage=latestCoverageFromRows(priorRows);
-  readerDb.exec('BEGIN'); let source;
-  try{source=snapshotSources(readerDb,sellerId);readerDb.exec('COMMIT');}
-  catch(e){try{readerDb.exec('ROLLBACK');}catch{}throw e;}
-  const sourceRefs=new Set(source.map(x=>x.sourceRef));
+
+  readerDb.exec('BEGIN');
+  let source;
+  try {
+    source=snapshotSources(readerDb,sellerId);
+    readerDb.exec('COMMIT');
+  } catch(e) {
+    try { readerDb.exec('ROLLBACK'); } catch {}
+    throw e;
+  }
+
+  const sourceRefs=new Set(source.map(item=>item.sourceRef));
   const missingPreviouslySealed=priorRows.filter(row=>{
-    if(!APPEND_ONLY.includes(JSON.parse(row.canonical_json).sourceTable)) return false;
-    return !sourceRefs.has(row.source_ref);
+    const body=JSON.parse(row.canonical_json);
+    return APPEND_ONLY.includes(body.sourceTable)&&!sourceRefs.has(row.source_ref);
   }).map(row=>row.source_ref);
+
   let coverage=sourceCoverage(readerDb,source.length,{missingPreviouslySealed,previousCoverage});
   source.push(makeRecord('coverage_statement','intel_coverage',digest(canonicalize(coverage)),null,coverage));
-  let added=0,current;
+
+  let added=0;
+  let current;
   writerDb.exec('BEGIN IMMEDIATE');
-  try{
-    const existing=new Set(rowsFor(writerDb,sellerId).map(r=>r.source_ref));
+  try {
+    const existing=new Set(rowsFor(writerDb,sellerId).map(row=>row.source_ref));
     current=writerDb.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get(sellerId)??{seq:0,hash:ZERO};
     const insert=writerDb.prepare('INSERT INTO intel_evidence_chain(seller_id,seq,prev_hash,entry_hash,kind,source_ref,document_key,canonical_json,sealed_at) VALUES(?,?,?,?,?,?,?,?,?)');
-    for(const item of source){
-      if(existing.has(item.sourceRef))continue;
+
+    for(const item of source) {
+      if(existing.has(item.sourceRef)) continue;
       const sequence=current.seq+1;
-      const body={schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:current.hash,kind:item.kind,
-        sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceRef:item.sourceRef,documentKey:item.documentKey,payload:item.payload};
-      const json=canonicalize(body),hash=digest(json);
+      const body={schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:current.hash,
+        kind:item.kind,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceRef:item.sourceRef,
+        documentKey:item.documentKey,payload:item.payload};
+      const json=canonicalize(body);
+      const hash=sha256Hex(json);
       insert.run(sellerId,sequence,current.hash,hash,item.kind,item.sourceRef,item.documentKey,json,now());
-      current={seq:sequence,hash};added++;
+      current={seq:sequence,hash};
+      added++;
     }
+
     writerDb.prepare('INSERT INTO intel_evidence_head(seller_id,seq,hash,updated_at) VALUES(?,?,?,?) ON CONFLICT(seller_id) DO UPDATE SET seq=excluded.seq,hash=excluded.hash,updated_at=excluded.updated_at')
       .run(sellerId,current.seq,current.hash,now());
     writerDb.exec('COMMIT');
-  }catch(e){try{writerDb.exec('ROLLBACK');}catch{}throw e;}
+  } catch(e) {
+    try { writerDb.exec('ROLLBACK'); } catch {}
+    throw e;
+  }
 
-  // Take a second consistent source snapshot. Any mid-seal change is an explicit gap, never a false COMPLETE.
-  readerDb.exec('BEGIN'); let afterSource;
-  try{afterSource=snapshotSources(readerDb,sellerId);readerDb.exec('COMMIT');}
-  catch(e){try{readerDb.exec('ROLLBACK');}catch{}throw e;}
-  const beforeRefs=source.filter(x=>x.sourceTable!=='intel_coverage').map(x=>x.sourceRef).sort();
-  const afterRefs=afterSource.map(x=>x.sourceRef).sort();
+  // A second snapshot detects changes during the seal; it can only downgrade coverage.
+  readerDb.exec('BEGIN');
+  let afterSource;
+  try {
+    afterSource=snapshotSources(readerDb,sellerId);
+    readerDb.exec('COMMIT');
+  } catch(e) {
+    try { readerDb.exec('ROLLBACK'); } catch {}
+    throw e;
+  }
+
+  const beforeRefs=source.filter(item=>item.sourceTable!=='intel_coverage').map(item=>item.sourceRef).sort();
+  const afterRefs=afterSource.map(item=>item.sourceRef).sort();
   const sourceChangedDuringSeal=canonicalize(beforeRefs)!==canonicalize(afterRefs);
   const afterRefSet=new Set(afterRefs);
   const allSealedRows=rowsFor(writerDb,sellerId);
@@ -192,47 +248,44 @@ function verifyRows(rows,sellerId,head=null) {
   const finalCoverage=sourceCoverage(readerDb,afterSource.length,{
     missingPreviouslySealed:missingAfter,sourceChangedDuringSeal,previousCoverage:coverage
   });
+
   let coverageAdded=0;
-  if(canonicalize(finalCoverage)!==canonicalize(coverage)){
+  if(canonicalize(finalCoverage)!==canonicalize(coverage)) {
     const item=makeRecord('coverage_statement','intel_coverage',digest(canonicalize(finalCoverage)),null,finalCoverage);
     writerDb.exec('BEGIN IMMEDIATE');
-    try{
-      const existsNow=writerDb.prepare('SELECT 1 FROM intel_evidence_chain WHERE seller_id=? AND source_ref=?').get(sellerId,item.sourceRef);
-      if(!existsNow){
+    try {
+      const already=writerDb.prepare('SELECT 1 FROM intel_evidence_chain WHERE seller_id=? AND source_ref=?').get(sellerId,item.sourceRef);
+      if(!already) {
         const head=writerDb.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get(sellerId)??{seq:0,hash:ZERO};
         const sequence=head.seq+1;
-        const body={schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:head.hash,kind:item.kind,
-          sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceRef:item.sourceRef,documentKey:item.documentKey,payload:item.payload};
-        const json=canonicalize(body),hash=digest(json);
+        const body={schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:head.hash,
+          kind:item.kind,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceRef:item.sourceRef,
+          documentKey:item.documentKey,payload:item.payload};
+        const json=canonicalize(body);
+        const hash=sha256Hex(json);
         writerDb.prepare('INSERT INTO intel_evidence_chain(seller_id,seq,prev_hash,entry_hash,kind,source_ref,document_key,canonical_json,sealed_at) VALUES(?,?,?,?,?,?,?,?,?)')
           .run(sellerId,sequence,head.hash,hash,item.kind,item.sourceRef,item.documentKey,json,now());
-        writerDb.prepare('UPDATE intel_evidence_head SET seq=?,hash=?,updated_at=? WHERE seller_id=?').run(sequence,hash,now(),sellerId);
+        writerDb.prepare('UPDATE intel_evidence_head SET seq=?,hash=?,updated_at=? WHERE seller_id=?')
+          .run(sequence,hash,now(),sellerId);
         coverageAdded=1;
       }
       writerDb.exec('COMMIT');
-    }catch(e){try{writerDb.exec('ROLLBACK');}catch{}throw e;}
+    } catch(e) {
+      try { writerDb.exec('ROLLBACK'); } catch {}
+      throw e;
+    }
     coverage=finalCoverage;
   }
+
   const verification=verifyEvidenceChain(writerDb,sellerId);
-  if(!verification.valid)throw new Error('Evidence chain did not verify after sealing: '+verification.reason);
-  return {added:added+coverageAdded,head:{sellerId,sequence:verification.sequence,hash:verification.hash},verification,coverage,sourceCount:afterSource.length};
-}json,sealed_at) VALUES(?,?,?,?,?,?,?,?,?)');
-    for(const item of source){
-      if(existing.has(item.sourceRef))continue;
-      const sequence=current.seq+1;
-      const body={schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:current.hash,kind:item.kind,
-        sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceRef:item.sourceRef,documentKey:item.documentKey,payload:item.payload};
-      const json=canonicalize(body),hash=digest(json);
-      insert.run(sellerId,sequence,current.hash,hash,item.kind,item.sourceRef,item.documentKey,json,now());
-      current={seq:sequence,hash};added++;
-    }
-    writerDb.prepare('INSERT INTO intel_evidence_head(seller_id,seq,hash,updated_at) VALUES(?,?,?,?) ON CONFLICT(seller_id) DO UPDATE SET seq=excluded.seq,hash=excluded.hash,updated_at=excluded.updated_at')
-      .run(sellerId,current.seq,current.hash,now());
-    writerDb.exec('COMMIT');
-  }catch(e){try{writerDb.exec('ROLLBACK');}catch{}throw e;}
-  const verification=verifyEvidenceChain(writerDb,sellerId);
-  if(!verification.valid)throw new Error('Evidence chain did not verify after sealing: '+verification.reason);
-  return {added,head:{sellerId,sequence:current.seq,hash:current.hash},verification,coverage,sourceCount:source.length-1};
+  if(!verification.valid) throw new Error('Evidence chain did not verify after sealing: '+verification.reason);
+  return {
+    added:added+coverageAdded,
+    head:{sellerId,sequence:verification.sequence,hash:verification.hash},
+    verification,
+    coverage,
+    sourceCount:afterSource.length
+  };
 }
 export function getEvidenceCoverage(db,sellerId) {
   const v=verifyEvidenceChain(db,sellerId);
