@@ -1,0 +1,163 @@
+{
+ "sellers": 3,
+ "rowsEach": 3000,
+ "smallSellerRows": 50,
+ "totalWallMs": 32928,
+ "jobs": [
+  {
+   "who": "seller0",
+   "postStatus": 202,
+   "postMs": 355,
+   "startedMsAfterT0": 10357,
+   "finishedMsAfterT0": 21495,
+   "status": "done",
+   "issued": 2700,
+   "held": 150,
+   "errors": 0,
+   "error": null,
+   "progressMonotonic": true,
+   "pollFailures": 0,
+   "statusPollMaxMs": 94
+  },
+  {
+   "who": "seller1",
+   "postStatus": 202,
+   "postMs": 462,
+   "startedMsAfterT0": 21544,
+   "finishedMsAfterT0": 32775,
+   "status": "done",
+   "issued": 2700,
+   "held": 150,
+   "errors": 0,
+   "error": null,
+   "progressMonotonic": true,
+   "pollFailures": 0,
+   "statusPollMaxMs": 64
+  },
+  {
+   "who": "seller2",
+   "postStatus": 202,
+   "postMs": 10,
+   "startedMsAfterT0": 856,
+   "finishedMsAfterT0": 10470,
+   "status": "done",
+   "issued": 2700,
+   "held": 150,
+   "errors": 0,
+   "error": null,
+   "progressMonotonic": true,
+   "pollFailures": 0,
+   "statusPollMaxMs": 69
+  },
+  {
+   "who": "small(50 rows, arrived +200ms)",
+   "postStatus": 202,
+   "postMs": 24,
+   "startedMsAfterT0": null,
+   "finishedMsAfterT0": 32776,
+   "status": "done",
+   "issued": 45,
+   "held": 3,
+   "errors": 0,
+   "error": null,
+   "progressMonotonic": true,
+   "pollFailures": 0,
+   "statusPollMaxMs": 67
+  }
+ ],
+ "httpProbeOtherSeller": {
+  "n": 464,
+  "p50": 8,
+  "p95": 58,
+  "p99": 136,
+  "max": 344,
+  "non200": 0,
+  "over500ms": 0
+ },
+ "inServerLoopLagMaxMs": 268,
+ "lagSpikesOver100": [
+  {
+   "atMs": 291,
+   "lagMs": 268
+  },
+  {
+   "atMs": 9866,
+   "lagMs": 164.1
+  },
+  {
+   "atMs": 10132,
+   "lagMs": 194.9
+  },
+  {
+   "atMs": 21493,
+   "lagMs": 226.3
+  },
+  {
+   "atMs": 32442,
+   "lagMs": 141
+  }
+ ],
+ "peakRssMB": 258.7,
+ "peakHeapMB": 69.4,
+ "contentionWriter": {
+  "writerCommits": 610,
+  "writerBusyErrors": 0,
+  "writerOtherErrors": 0,
+  "writerMaxWaitMs": 0
+ },
+ "sqliteBusyMentionsInServerLog": 0,
+ "serverLogTail": [
+  ""
+ ],
+ "tenantIsolation": {
+  "crossSellerJobPolls": {
+   "checks": 318,
+   "leaked": 0,
+   "non404": []
+  },
+  "perSeller": [
+   {
+    "seller": "p2-s0@x.es",
+    "invoices": 2700,
+    "distinctShipments": 2700,
+    "orderTagsInShipments": [
+     "500"
+    ],
+    "invoicesWithOtherSellerName_sampled200": 0,
+    "numberRange": "A-2026-000001..A-2026-002700"
+   },
+   {
+    "seller": "p2-s1@x.es",
+    "invoices": 2700,
+    "distinctShipments": 2700,
+    "orderTagsInShipments": [
+     "500"
+    ],
+    "invoicesWithOtherSellerName_sampled200": 0,
+    "numberRange": "A-2026-000001..A-2026-002700"
+   },
+   {
+    "seller": "p2-s2@x.es",
+    "invoices": 2700,
+    "distinctShipments": 2700,
+    "orderTagsInShipments": [
+     "502"
+    ],
+    "invoicesWithOtherSellerName_sampled200": 0,
+    "numberRange": "A-2026-000001..A-2026-002700"
+   },
+   {
+    "seller": "p2-small@x.es",
+    "invoices": 45,
+    "distinctShipments": 45,
+    "orderTagsInShipments": [
+     "777"
+    ],
+    "invoicesWithOtherSellerName_sampled200": 0,
+    "numberRange": "A-2026-000001..A-2026-000045"
+   }
+  ],
+  "duplicateInvoicePerShipment": 0,
+  "duplicateInvoiceNumbers": 0
+ }
+}

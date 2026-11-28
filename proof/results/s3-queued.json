@@ -1,0 +1,141 @@
+{
+ "killPoint": "queued",
+ "rows": 1000,
+ "expectedIssuable": 900,
+ "expectedHeld": 50,
+ "killedWith": "SIGKILL (no shutdown hooks)",
+ "jobAatKill": {
+  "phase": "queued-or-just-accepted"
+ },
+ "afterKill": {
+  "sid": "a607f2a2-d09a-462e-8d60-2eca5dd36ba6",
+  "invoices": 0,
+  "distinctShipments": 0,
+  "shipmentsIssued": 0,
+  "invoicesWithoutIssuedShipment": 0,
+  "issuedShipmentsWithoutInvoice": 0,
+  "numbersContiguous": true,
+  "counter": 0,
+  "counterMatchesInvoices": true,
+  "heldRows": 0,
+  "orphanInvoiceShipmentStatus": [],
+  "snapshotFlags": null
+ },
+ "ledgerAfterKill": [
+  {
+   "job": "A(big)",
+   "status": "queued",
+   "phase": "queued",
+   "processed": 0,
+   "total": 0,
+   "reportTextStored": true
+  }
+ ],
+ "restart": {
+  "loginOk": true,
+  "jobA": {
+   "status": "error",
+   "httpStatus": 500,
+   "error": "The upload was interrupted by a server restart. Invoices already created from it are kept; upload the report again to continue - already-iss"
+  },
+  "jobB": null,
+  "serverBootLogLines": [],
+  "ledger": [
+   {
+    "job": "A(big)",
+    "status": "error",
+    "reportTextStored": false,
+    "errorText": "The upload was interrupted by a server restart. Invoices already created from it are kept; upload the report again to continue - a"
+   }
+  ],
+  "afterRestartCounts": {
+   "sid": "a607f2a2-d09a-462e-8d60-2eca5dd36ba6",
+   "invoices": 0,
+   "distinctShipments": 0,
+   "shipmentsIssued": 0,
+   "invoicesWithoutIssuedShipment": 0,
+   "issuedShipmentsWithoutInvoice": 0,
+   "numbersContiguous": true,
+   "counter": 0,
+   "counterMatchesInvoices": true,
+   "heldRows": 0,
+   "orphanInvoiceShipmentStatus": [],
+   "snapshotFlags": null
+  }
+ },
+ "otherSellerUntouched": {
+  "jobStatus": "done",
+  "issued": 90,
+  "invoicesInDb": 90
+ },
+ "retry1": {
+  "status": "done",
+  "issued": 900,
+  "skippedAlready": 0,
+  "held": 50,
+  "errors": 0,
+  "counts": {
+   "sid": "a607f2a2-d09a-462e-8d60-2eca5dd36ba6",
+   "invoices": 900,
+   "distinctShipments": 900,
+   "shipmentsIssued": 900,
+   "invoicesWithoutIssuedShipment": 0,
+   "issuedShipmentsWithoutInvoice": 0,
+   "numbersContiguous": true,
+   "counter": 900,
+   "counterMatchesInvoices": true,
+   "heldRows": 50,
+   "orphanInvoiceShipmentStatus": [],
+   "snapshotFlags": {
+    "in_flight": 0,
+    "store_pending": 0
+   }
+  },
+  "issuedPlusSkipped": 900
+ },
+ "retry2_sameReportAgain": {
+  "issued": 0,
+  "skippedAlready": 900,
+  "counts": {
+   "sid": "a607f2a2-d09a-462e-8d60-2eca5dd36ba6",
+   "invoices": 900,
+   "distinctShipments": 900,
+   "shipmentsIssued": 900,
+   "invoicesWithoutIssuedShipment": 0,
+   "issuedShipmentsWithoutInvoice": 0,
+   "numbersContiguous": true,
+   "counter": 900,
+   "counterMatchesInvoices": true,
+   "heldRows": 50,
+   "orphanInvoiceShipmentStatus": [],
+   "snapshotFlags": {
+    "in_flight": 0,
+    "store_pending": 0
+   }
+  }
+ },
+ "final": {
+  "invoices": 900,
+  "equalsExpected": true,
+  "duplicatePerShipment": 0,
+  "duplicateNumbers": 0,
+  "uniqueIndexesOnInvoices": [
+   "uniq_invoice_per_shipment",
+   "uniq_rect_per_event"
+  ],
+  "directDuplicateInsert": "rejected: UNIQUE constraint failed: invoices.seller_id, invoices.shipment_key",
+  "ledgerFinalByStatus": [
+   {
+    "status": "done",
+    "c": 2
+   },
+   {
+    "status": "error",
+    "c": 1
+   }
+  ],
+  "auditChain": {
+   "ok": true
+  }
+ }
+}

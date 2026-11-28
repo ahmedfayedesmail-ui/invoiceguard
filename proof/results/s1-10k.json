@@ -1,0 +1,125 @@
+{
+ "spikes": [
+  {
+   "atMsAfterPost": -300,
+   "lagMs": 564
+  },
+  {
+   "atMsAfterPost": 544,
+   "lagMs": 524.3
+  },
+  {
+   "atMsAfterPost": 31328,
+   "lagMs": 341.9
+  }
+ ],
+ "probeSpikes": [
+  {
+   "atMsAfterPost": 546,
+   "ms": 485
+  },
+  {
+   "atMsAfterPost": 31330,
+   "ms": 359
+  }
+ ],
+ "rows": 10000,
+ "previewMs": 596,
+ "postStatus": 202,
+ "postMs": 20,
+ "totalJobMs": 31331,
+ "jobStatus": "done",
+ "issued": 9000,
+ "heldNow": 500,
+ "skippedAlready": 0,
+ "willIssue": 9000,
+ "errors": 0,
+ "httpProbeOtherSeller": {
+  "n": 346,
+  "p50": 48,
+  "p95": 61,
+  "max": 485,
+  "non200": 0
+ },
+ "statusPollMaxMs": 527,
+ "inServerLoopLagMaxMs": 564,
+ "memory": {
+  "idleRssMB": 202,
+  "peakRssMB": 278.3,
+  "peakHeapMB": 109.9,
+  "endRssMB": 278.3,
+  "endHeapMB": 102.6
+ },
+ "progressSteps": 219,
+ "progressSample": [
+  {
+   "t": 548,
+   "phase": "issuing",
+   "processed": 4,
+   "total": 9000,
+   "status": "running"
+  },
+  {
+   "t": 5651,
+   "phase": "issuing",
+   "processed": 1665,
+   "total": 9000,
+   "status": "running"
+  },
+  {
+   "t": 10460,
+   "phase": "issuing",
+   "processed": 3220,
+   "total": 9000,
+   "status": "running"
+  },
+  {
+   "t": 15663,
+   "phase": "issuing",
+   "processed": 4658,
+   "total": 9000,
+   "status": "running"
+  },
+  {
+   "t": 21010,
+   "phase": "issuing",
+   "processed": 6160,
+   "total": 9000,
+   "status": "running"
+  },
+  {
+   "t": 26299,
+   "phase": "issuing",
+   "processed": 7643,
+   "total": 9000,
+   "status": "running"
+  },
+  {
+   "t": 31331,
+   "phase": "done",
+   "processed": 9000,
+   "total": 9000,
+   "status": "done"
+  }
+ ],
+ "syncPathMs": 32568,
+ "equivalence": {
+  "syncIssued": 9000,
+  "syncHeld": 500,
+  "syncSkipped": 0,
+  "invoicesAsync": 9000,
+  "invoicesSync": 9000,
+  "shipmentsAsync": 9500,
+  "shipmentsSync": 9500,
+  "deepEqualInvoicesAndShipments": true,
+  "diff": "",
+  "compared": "all invoice columns (number, shipment_key, kind, total, vat, upload_status, full json minus date/time keys and the seller-name email label) and shipment columns key/order_id/shipping_id/buyer_vat/country/total/vat/status/reason"
+ },
+ "heldBreakdown": [
+  [
+   "is-business-order is blank, unreadable or disagree between the rows of",
+   500
+  ]
+ ],
+ "uniqueInvoicesPerShipment": true
+}

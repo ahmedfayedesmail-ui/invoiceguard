@@ -1,0 +1,42 @@
+{
+ "mode": "restart",
+ "trace": [
+  {
+   "ms": 159,
+   "btn": "Choose file | Creating invoices... [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 1211,
+   "btn": "Choose file | Creating invoices... 121 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 2264,
+   "btn": "Choose file | Creating invoices... 396 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 3164,
+   "btn": "Choose file | Creating invoices... 705 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 4215,
+   "btn": "Choose file | Create the invoices",
+   "status": "Failed to fetch",
+   "statusClass": "err"
+  },
+  {
+   "ms": 10373,
+   "btn": "Choose file",
+   "status": "",
+   "statusClass": ""
+  }
+ ],
+ "finalPageText": "InvoiceGuard\nui@x.es\nSign out\nTienda UI S.L.\nOrder reports you upload yourself\nNext step: download your pack and upload the 882 invoices to Seller Central.\nOpen\nB2B shipments\n1032\nReady to upload\n882\nMarked uploaded\n0\nHeld for review\n150\nUpload report\nReady to upload\nShipments\nDocuments\nCompliance\nExport\nHelp\n1. Get your order report from Seller Central\nIn Seller Central open Reports, then Order Reports (menu names can differ a little by country).\nOpen \"Add or remove order report columns\" and switch on \"Buyer tax identifiers\" and \"Buyer company name\". Save.\nRequest the report for the dates you need and download it as a tab-delimited text file.\n\nWe checked these column names against Amazon's developer documentation. We have not yet tested them on a real downloaded file, so if your file is not accepted, tell us what the first line looks like.\n\n2. Upload it\nDrop your order report here\nor choose the file on your phone or computer\nChoose file\n My report has no billing address. Use the delivery address instead, and I accept that it is the right one for my invoices.\nThe report stays on this service only as long as needed. Buyer personal data is deleted 30 days after the order, as Amazon r"
+}

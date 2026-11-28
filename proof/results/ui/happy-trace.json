@@ -1,0 +1,84 @@
+{
+ "mode": "happy",
+ "trace": [
+  {
+   "ms": 158,
+   "btn": "Choose file | Creating invoices... [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 1356,
+   "btn": "Choose file | Reading the file... [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 4511,
+   "btn": "Choose file | Creating invoices... 13 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 5566,
+   "btn": "Choose file | Creating invoices... 356 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 6612,
+   "btn": "Choose file | Creating invoices... 698 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 7511,
+   "btn": "Choose file | Creating invoices... 1058 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 8562,
+   "btn": "Choose file | Creating invoices... 1422 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 9617,
+   "btn": "Choose file | Creating invoices... 1696 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 10688,
+   "btn": "Choose file | Creating invoices... 1977 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 11746,
+   "btn": "Choose file | Creating invoices... 2263 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 12780,
+   "btn": "Choose file | Creating invoices... 2560 of 2700 [disabled]",
+   "status": "",
+   "statusClass": "mut"
+  },
+  {
+   "ms": 13679,
+   "btn": "",
+   "status": "",
+   "statusClass": ""
+  },
+  {
+   "ms": 13828,
+   "btn": "",
+   "status": "Created 2700 invoices. 150 orders are held for review - each one on Overview says why and what to do.",
+   "statusClass": "note"
+  }
+ ],
+ "finalPageText": "InvoiceGuard\nui@x.es\nSign out\nTienda UI S.L.\nOrder reports you upload yourself\nNext step: download your pack and upload the 2700 invoices to Seller Central.\nOpen\nB2B shipments\n2850\nReady to upload\n2700\nMarked uploaded\n0\nHeld for review\n150\nUpload report\nReady to upload\nShipments\nDocuments\nCompliance\nExport\nHelp\nCreated 2700 invoices. 150 orders are held for review - each one on Overview says why and what to do.\nUpload them to Amazon yourself\nPress \"Download pack\". It holds one PDF per invoice, a list of numbers and short instructions.\nIn Seller Central open each order and use its invoice upload option (menu names can differ by account). The PDF file name starts with the order number.\nCome back here and press \"I uploaded these\".\nDownload pack\nI uploaded these\nInvoice\tIssued\tTotal\t\nA-2026-002700\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002699\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002698\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002697\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002696\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002695\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002694\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002693\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002692\t28/11/2026\t54,45 €\t\nUploaded\n\nA-2026-002691"
+}
