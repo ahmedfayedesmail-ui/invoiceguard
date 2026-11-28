@@ -3,10 +3,13 @@
 // Proof of absence = a recorded owner on THIS machine whose process is gone (no such pid, or the pid now belongs to a different process: its start time differs).
 // Anything else (no lease, another host, a start time we cannot read while the pid lives) is "unproven" and nothing may be released.
 import { hostname } from 'node:os';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readlinkSync } from 'node:fs';
+// identity of the machine boot and of the PID namespace: a pid number only means something inside the same boot and the same namespace
+export const bootId = () => { try { return readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); } catch { return null; } };
+export const pidNs = () => { try { return readlinkSync('/proc/self/ns/pid'); } catch { return null; } };
 export const procStart = (pid) => { try { const s = readFileSync(`/proc/${pid}/stat`, 'utf8'); return s.slice(s.lastIndexOf(')') + 2).split(' ')[19] ?? null; } catch { return null; } };
 export function writeLease(db, sellerId, key, claimId, at) {
-  db.prepare('INSERT OR REPLACE INTO claim_leases (seller_id,reversal_key,claim_id,host,pid,proc_start,started_at) VALUES (?,?,?,?,?,?,?)').run(sellerId, key, claimId, hostname(), process.pid, procStart(process.pid), at);
+  db.prepare('INSERT OR REPLACE INTO claim_leases (seller_id,reversal_key,claim_id,host,pid,proc_start,started_at,boot_id,pid_ns) VALUES (?,?,?,?,?,?,?,?,?)').run(sellerId, key, claimId, hostname(), process.pid, procStart(process.pid), at, bootId(), pidNs());
 }
 export const dropLease = (db, sellerId, key) => db.prepare('DELETE FROM claim_leases WHERE seller_id=? AND reversal_key=?').run(sellerId, key);
 const pidExists = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
@@ -14,7 +17,9 @@ const pidExists = (pid) => { try { process.kill(pid, 0); return true; } catch (e
 export function ownerState(db, sellerId, key) {
   const l = db.prepare('SELECT * FROM claim_leases WHERE seller_id=? AND reversal_key=?').get(sellerId, key);
   if (!l) return { state: 'unproven', proven: false, lease: null, why: 'No owner is recorded for this claim, so it cannot be proven that nothing is issuing it.' };
-  const lease = { host: l.host, pid: l.pid, procStart: l.proc_start, startedAt: l.started_at };
+  const lease = { host: l.host, bootId: l.boot_id, pidNs: l.pid_ns, pid: l.pid, procStart: l.proc_start, startedAt: l.started_at };
+  if (l.boot_id == null || l.boot_id !== bootId()) return { state: 'unproven', proven: false, lease, why: 'The issuing process was recorded in another system start (or the start cannot be checked): its process number means nothing now.' };
+  if (l.pid_ns == null || l.pid_ns !== pidNs()) return { state: 'unproven', proven: false, lease, why: 'The issuing process was recorded in another process space (for example another container): its absence here proves nothing.' };
   if (l.host !== hostname()) return { state: 'unproven', proven: false, lease, why: 'The issuing process was recorded on another machine and cannot be checked from here.' };
   if (!pidExists(l.pid)) return { state: 'gone', proven: true, lease, why: 'The process that was issuing this claim has ended.' };
   const now = procStart(l.pid);

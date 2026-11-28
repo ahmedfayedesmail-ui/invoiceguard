@@ -11,7 +11,7 @@ const fk = (key) => 'CLAIM:' + key;
 const docRows = (db, sid, key) => db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").all(sid, key);
 function evidenceOf(db, sid, key) {
   const c = db.prepare('SELECT * FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(sid, key); if (!c) return null;
-  const orig = db.prepare("SELECT number, json FROM invoices WHERE seller_id=? AND number=?").get(sid, c.original_number);
+  const orig = db.prepare("SELECT number, json FROM invoices WHERE seller_id=? AND number=? AND kind='invoice'").get(sid, c.original_number); // the claim's own original INVOICE (a credit note or another seller's document never qualifies)
   const others = db.prepare("SELECT number, total, upload_status FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key<>? ORDER BY number").all(sid, c.original_number, key);
   const otherClaims = db.prepare('SELECT reversal_key, amount FROM credit_claims WHERE seller_id=? AND original_number=? AND reversal_key<>? ORDER BY reversal_key').all(sid, c.original_number, key);
   const hist = db.prepare('SELECT id, event FROM credit_claim_history WHERE seller_id=? AND reversal_key=? ORDER BY id').all(sid, key);

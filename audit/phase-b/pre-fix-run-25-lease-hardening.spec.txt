@@ -1,0 +1,231 @@
+TAP version 13
+# Subtest: K1: time alone never releases: a ten-day-old claim stays after every pass (no auto-release)
+ok 1 - K1: time alone never releases: a ten-day-old claim stays after every pass (no auto-release)
+  ---
+  duration_ms: 92.645282
+  type: 'test'
+  ...
+# Subtest: K2: release without an open review finding is refused
+ok 2 - K2: release without an open review finding is refused
+  ---
+  duration_ms: 42.873453
+  type: 'test'
+  ...
+# Subtest: K3: release needs user, reason >= 10 characters and the exact fingerprint
+ok 3 - K3: release needs user, reason >= 10 characters and the exact fingerprint
+  ---
+  duration_ms: 47.074356
+  type: 'test'
+  ...
+# Subtest: K4 pending: a document row for the event (upload pending) makes the claim NOT stuck and the release refused
+ok 4 - K4 pending: a document row for the event (upload pending) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 44.653984
+  type: 'test'
+  ...
+# Subtest: K4 sending: a document row for the event (upload sending) makes the claim NOT stuck and the release refused
+ok 5 - K4 sending: a document row for the event (upload sending) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 38.21384
+  type: 'test'
+  ...
+# Subtest: K4 unknown: a document row for the event (upload unknown) makes the claim NOT stuck and the release refused
+ok 6 - K4 unknown: a document row for the event (upload unknown) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 30.861254
+  type: 'test'
+  ...
+# Subtest: K4 submitted: a document row for the event (upload submitted) makes the claim NOT stuck and the release refused
+ok 7 - K4 submitted: a document row for the event (upload submitted) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 30.539403
+  type: 'test'
+  ...
+# Subtest: K4 ready: a document row for the event (upload ready) makes the claim NOT stuck and the release refused
+ok 8 - K4 ready: a document row for the event (upload ready) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 33.769716
+  type: 'test'
+  ...
+# Subtest: K5: a claim younger than the quiet period is not listed and cannot be released (an issuance may still own it)
+ok 9 - K5: a claim younger than the quiet period is not listed and cannot be released (an issuance may still own it)
+  ---
+  duration_ms: 42.758603
+  type: 'test'
+  ...
+# Subtest: K6: the fingerprint binds the evidence: anything that changes after the review voids the decision
+ok 10 - K6: the fingerprint binds the evidence: anything that changes after the review voids the decision
+  ---
+  duration_ms: 41.364132
+  type: 'test'
+  ...
+# Subtest: K7: a correct release is a documented HUMAN_DECISION with a full history, and the pair needs a NEW approval before anything issues
+ok 11 - K7: a correct release is a documented HUMAN_DECISION with a full history, and the pair needs a NEW approval before anything issues
+  ---
+  duration_ms: 44.430274
+  type: 'test'
+  ...
+# Subtest: K8 (double-issue proof, order 1): release BEFORE the issuance writes its document -> the issuance refuses, no document, then a fresh approval issues once
+ok 12 - K8 (double-issue proof, order 1): release BEFORE the issuance writes its document -> the issuance refuses, no document, then a fresh approval issues once
+  ---
+  duration_ms: 38.97541
+  type: 'test'
+  ...
+# Subtest: K9 (double-issue proof, order 2): the issuance writes its document FIRST -> the release is refused, the claim stays as the document’s claim
+ok 13 - K9 (double-issue proof, order 2): the issuance writes its document FIRST -> the release is refused, the claim stays as the document’s claim
+  ---
+  duration_ms: 40.814662
+  type: 'test'
+  ...
+# Subtest: K10: claim creation is in the history, and a claim that is not stuck is never in the stuck list
+ok 14 - K10: claim creation is in the history, and a claim that is not stuck is never in the stuck list
+  ---
+  duration_ms: 24.238488
+  type: 'test'
+  ...
+# CLAIMRACE rounds=12 released=1 issued=11 issueWorker={"mode":"issue","ok":11,"refused":0,"errs":[]} releaseWorker={"mode":"release","ok":1,"refused":11,"errs":["The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not","A document or upload exists for this event: the claim cannot be releas","The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not","The evidence changed since the review or the fingerprint is wrong: not"]}
+# Subtest: K11 (cross-process double-issue proof): release and issuance race in two OS processes on one SQLite file, 12 rounds: never both
+ok 15 - K11 (cross-process double-issue proof): release and issuance race in two OS processes on one SQLite file, 12 rounds: never both
+  ---
+  duration_ms: 9458.936795
+  type: 'test'
+  ...
+# Subtest: K12: the quiet period is a constant of the production path: no caller can shorten it (minAgeMs is ignored)
+ok 16 - K12: the quiet period is a constant of the production path: no caller can shorten it (minAgeMs is ignored)
+  ---
+  duration_ms: 79.204641
+  type: 'test'
+  ...
+# Subtest: K13: a missing original invoice blocks the review and the release entirely (no null original hash ever reaches a decision)
+ok 17 - K13: a missing original invoice blocks the review and the release entirely (no null original hash ever reaches a decision)
+  ---
+  duration_ms: 62.712988
+  type: 'test'
+  ...
+# Subtest: K13b: with the original missing from the start, no finding with a null original hash is ever created
+ok 18 - K13b: with the original missing from the start, no finding with a null original hash is ever created
+  ---
+  duration_ms: 60.473997
+  type: 'test'
+  ...
+# Subtest: K16: a claim with no recorded owner cannot be proven abandoned: review and release refused, and the list says it cannot prove it
+ok 19 - K16: a claim with no recorded owner cannot be proven abandoned: review and release refused, and the list says it cannot prove it
+  ---
+  duration_ms: 49.012618
+  type: 'test'
+  ...
+# Subtest: K17: an owner recorded on another machine cannot be checked: unproven, refused
+ok 20 - K17: an owner recorded on another machine cannot be checked: unproven, refused
+  ---
+  duration_ms: 39.71951
+  type: 'test'
+  ...
+# Subtest: K18: while the process that reserved the claim is alive, the claim is not abandoned: the list says alive, review and release refused (also with a finding opened earlier)
+ok 21 - K18: while the process that reserved the claim is alive, the claim is not abandoned: the list says alive, review and release refused (also with a finding opened earlier)
+  ---
+  duration_ms: 49.640788
+  type: 'test'
+  ...
+# Subtest: K14 (pending issuance before the document row): a release attempted while the issuing process is frozen is refused; when it resumes exactly one credit note is written, no double-issue, nothing unsettled
+ok 22 - K14 (pending issuance before the document row): a release attempted while the issuing process is frozen is refused; when it resumes exactly one credit note is written, no double-issue, nothing unsettled
+  ---
+  duration_ms: 2692.537221
+  type: 'test'
+  ...
+# Subtest: K15 (proof of death): the frozen issuing process is killed; only then is its absence proven and a documented release possible; nothing was written
+ok 23 - K15 (proof of death): the frozen issuing process is killed; only then is its absence proven and a documented release possible; nothing was written
+  ---
+  duration_ms: 178.792278
+  type: 'test'
+  ...
+# Subtest: K19 (PID reuse): a live process number with a DIFFERENT start time is another program, so the recorded owner is proven gone; the same start time is the owner and is alive
+ok 24 - K19 (PID reuse): a live process number with a DIFFERENT start time is another program, so the recorded owner is proven gone; the same start time is the owner and is alive
+  ---
+  duration_ms: 31.013624
+  type: 'test'
+  ...
+# Subtest: K20 (unprovable identity): a different boot, a different PID namespace, or an unreadable start time is UNPROVEN even when the pid does not exist or exists; refused every time
+not ok 25 - K20 (unprovable identity): a different boot, a different PID namespace, or an unreadable start time is UNPROVEN even when the pid does not exist or exists; refused every time
+  ---
+  duration_ms: 35.884417
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/stuck-claim-recovery.test.js:195:1'
+  failureType: 'testCodeFailure'
+  error: 'no such column: boot_id'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/pre-wt4/src/db.js:10:65)
+    set (file:///home/sandbox/pre-wt4/test/stuck-claim-recovery.test.js:196:63)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/stuck-claim-recovery.test.js:197:3)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K21 (stopped, not dead): a SIGSTOPped issuer is alive: release refused; only after it is killed is its absence proven
+ok 26 - K21 (stopped, not dead): a SIGSTOPped issuer is alive: release refused; only after it is killed is its absence proven
+  ---
+  duration_ms: 372.938566
+  type: 'test'
+  ...
+# Subtest: K22 (fencing): an old issuer that resumes after its claim was released and re-reserved for the same event can NOT write a document (claim identity must match)
+not ok 27 - K22 (fencing): an old issuer that resumes after its claim was released and re-reserved for the same event can NOT write a document (claim identity must match)
+  ---
+  duration_ms: 2710.563805
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/stuck-claim-recovery.test.js:208:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the old issuer wrote nothing
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/stuck-claim-recovery.test.js:214:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K23 (atomic claim + lease): if the lease cannot be written the claim is not reserved and nothing is issued
+ok 28 - K23 (atomic claim + lease): if the lease cannot be written the claim is not reserved and nothing is issued
+  ---
+  duration_ms: 37.297469
+  type: 'test'
+  ...
+# Subtest: K24 (15-minute boundary, clock fixed): 1 ms short is refused, exactly 15 minutes and later is allowed
+ok 29 - K24 (15-minute boundary, clock fixed): 1 ms short is refused, exactly 15 minutes and later is allowed
+  ---
+  duration_ms: 31.636064
+  type: 'test'
+  ...
+# Subtest: K25 (original integrity): the original must be the claim's own invoice, and swapping it between the review and the release voids the decision
+not ok 30 - K25 (original integrity): the original must be the claim's own invoice, and swapping it between the review and the release voids the decision
+  ---
+  duration_ms: 71.765636
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/stuck-claim-recovery.test.js:230:1'
+  failureType: 'testCodeFailure'
+  error: "Missing expected exception: a credit note is not the claim's original invoice"
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/stuck-claim-recovery.test.js:234:130)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 27
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 16718.467729

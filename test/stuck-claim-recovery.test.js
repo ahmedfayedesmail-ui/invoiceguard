@@ -3,7 +3,7 @@
 import { procStart } from '../src/lease.js';
 import test from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs'; import { openDb } from '../src/db.js';
 import { processReport, processCorrections, issueRectificativa, reviewAtomic } from '../src/pipeline.js'; import { parseVidr } from '../src/vidr.js'; import { approveAll } from './correction-helpers.js';
-import { writeFileSync, rmSync, mkdtempSync } from 'node:fs'; import { tmpdir } from 'node:os'; import { join } from 'node:path'; import { spawn } from 'node:child_process';
+import { writeFileSync, rmSync, mkdtempSync, readlinkSync } from 'node:fs'; import { tmpdir } from 'node:os'; import { join } from 'node:path'; import { spawn } from 'node:child_process';
 import { listStuckClaims, openStuckClaimReview, releaseStuckClaim } from '../src/claims.js';
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
 const vies = async (v) => ({ status: 'valid', vat: v }); const mkApi = () => ({ calls: [], uploadInvoice: async function (a) { this.calls.push(a); return 'f' + this.calls.length; }, feedStatus: async () => ({ status: 'DONE' }) });
@@ -197,7 +197,7 @@ test('K20 (unprovable identity): a different boot, a different PID namespace, or
   set("UPDATE claim_leases SET boot_id='another-boot'"); assert.equal(st().activeIssuance.state, 'unproven', 'different boot_id, pid absent'); assert.throws(() => openStuckClaimReview(db, seller.id, KEY), /cannot prove|not proven|owner/i);
   const bootNow = db.prepare('SELECT 1').get() && readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); set('UPDATE claim_leases SET boot_id=?', bootNow);
   set("UPDATE claim_leases SET pid_ns='pid:[1]'"); assert.equal(st().activeIssuance.state, 'unproven', 'different PID namespace: absence of the pid proves nothing'); assert.equal(st().reviewable, false);
-  set('UPDATE claim_leases SET pid_ns=?, pid=?, proc_start=NULL', readFileSync('/proc/self/ns/pid', 'utf8') || '', process.pid);
+  set('UPDATE claim_leases SET pid_ns=?, pid=?, proc_start=NULL', readlinkSync('/proc/self/ns/pid'), process.pid);
   assert.notEqual(st().activeIssuance.state, 'gone', 'a live pid whose start time cannot be compared is never "gone"'); assert.equal(st().activeIssuance.proven, false);
 });
 test('K21 (stopped, not dead): a SIGSTOPped issuer is alive: release refused; only after it is killed is its absence proven', { timeout: 60000 }, async () => {

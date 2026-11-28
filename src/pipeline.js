@@ -520,7 +520,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
         if (Math.round((prior + pend + Math.abs(rect.totals.incl)) * 100) > Math.round(orig$ * 100) + 0) throw new Error(`Not issued: this credit note of ${Math.abs(rect.totals.incl).toFixed(2)} plus ${(prior + pend).toFixed(2)} already credited or reserved on invoice ${originalNumber} is more than the invoice itself (${orig$.toFixed(2)}). The total credited can never exceed the original.`);
       }
       // Stuck-claim recovery: a correction credit note may only be written while its claim is still held. If a person released the claim meanwhile, this issuance refuses (the release and the insert are serialised by BEGIN IMMEDIATE, so exactly one of them wins).
-      if (opts.recordKey?.startsWith('REFUND:CorrectionReversal') && rect.totals.incl < -0.005 && !db.prepare('SELECT 1 FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, opts.recordKey)) throw new Error('The credit claim for this event was released or is not held any more: it needs a new review. Nothing was issued.');
+      if (opts.recordKey?.startsWith('REFUND:CorrectionReversal') && rect.totals.incl < -0.005 && (() => { const h = db.prepare('SELECT claim_id FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, opts.recordKey); return !h || (opts.claimId != null && h.claim_id !== opts.claimId); })()) throw new Error('The credit claim for this event was released, replaced by a newer attempt, or is not held any more: it needs a new review. Nothing was issued.'); // fencing: the claim identity of THIS attempt must still be the held one
       // Local record FIRST, upload second: Amazon must never hold a document we have no record of,
       // and the R series stays gapless even when the upload fails (waits as 'pending').
       db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id,dedupe_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
@@ -733,7 +733,7 @@ export async function processCorrections(db, seller, reportText, { api, validate
     if (block1) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block1 }); out.skipped.push({ key: s.key, reason: block1 }); continue; }
     try {
       const o = JSON.parse(orig.json), zero = o.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
-      await issueRectificativa(db, seller, orig.number, { mode: 'differences', reason: reasonOf(s), changes: { lines: zero }, documentType: 'CreditNote', transactionId: s.transactionId, recordKey: s.key, allowUnknownRetry: true }, { api, validate }); out.creditNotes++;
+      await issueRectificativa(db, seller, orig.number, { mode: 'differences', reason: reasonOf(s), changes: { lines: zero }, documentType: 'CreditNote', transactionId: s.transactionId, recordKey: s.key, claimId: myClaim, allowUnknownRetry: true }, { api, validate }); out.creditNotes++;
     } catch (e) { rollbackPreIssueClaim(db, seller.id, s.key, myClaim, e.message); /* Definite Pre-Issue Failure Rollback only (owner ruling Nov 28): identity-bound, refused when any document row exists */ out.errors.push({ key: s.key, error: explain(e.message) }); }
   }
   for (const s of list.filter(s => s.isCorrectedTx)) {
