@@ -11,5 +11,5 @@
 | R8 | Seller identity is not part of the report identity check | External dependency |
 | R9 | Backup watcher cannot prove restorability; keeper is a prototype, not deployed | Awaiting owner (GitHub App, Cloudflare) |
 | R10 | Stuck-claim branch not integrated, no real reboot test | Owner decision (revisit after Stage 1 review) |
-| R11 | Independent review not done yet at the time of writing | In progress (Wave 3) |
+| R11 | Independent review: 4 reviewers launched, reports pending | In progress (Wave 3) |
 No P0 known. P1 findings F-UX-1 and F-SM-1 fixed.

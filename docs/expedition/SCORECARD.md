@@ -10,5 +10,5 @@
 | 7 Reliability | Partly | recovery tests exist | no real reboot test |
 | 8 Usability | API explanation only | /api/holds fields, demo | no screen |
 | 9 Operability | Met locally | npm run demo, docs | |
-| 10 Independent verification | NOT yet | | awaits real reviewers |
+| 10 Independent verification | IN PROGRESS | 4 real reviewers launched, IDs in registry.json | reports pending |
 Not production-proven. Production claims need a complete real-seller cycle.

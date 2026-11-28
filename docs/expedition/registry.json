@@ -1,8 +1,8 @@
 {
-  "note": "Real records only. Orchestrator: the single operator agent (chat-01M89X8RHBMGGAEZQMEP3TMSG4). No worker agents were launched by it. Model identity of the runtime is unverified and NOT claimed. Independent reviewers, when Main spawns them, are added here with their real agent IDs.",
+  "note": "Real records only. Orchestrator: the single operator agent (chat-01M89X8RHBMGGAEZQMEP3TMSG4). No worker agents were launched by it. Model identity of the runtime is unverified and NOT claimed. Independent reviewers, when Main spawns them, are added here with their real agent IDs. Wave 3: 4 independent reviewers launched by Main with the IDs below; completed count stays 0 until each report is received.",
   "branch": "expedition/invoiceguard-product-grade",
   "base": "8d9e6d9",
-  "agents_launched": 0,
+  "agents_launched": 4,
   "agents_completed": 0,
   "tasks": [
     {
@@ -66,10 +66,44 @@
       "status": "done (local)"
     },
     {
-      "id": "W3-1..4",
-      "owner": "main-spawned independent reviewers (not yet spawned)",
+      "id": "W3-1",
+      "agent_id": "agent-01M8GZ15YAG0DHCVSPZVN7BA97",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
       "domain": "Independent Red Team",
-      "status": "awaiting real agent IDs"
+      "question": "acceptance bypass",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "launched, report pending (completion not yet verified)"
+    },
+    {
+      "id": "W3-2",
+      "agent_id": "agent-01M8GZ17K6ZXSSB4RZKKT19PJ2",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
+      "domain": "Independent Red Team",
+      "question": "concurrency",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "launched, report pending (completion not yet verified)"
+    },
+    {
+      "id": "W3-3",
+      "agent_id": "agent-01M8GZ18JQCN170ENVWW3SE4CZ",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
+      "domain": "Independent Red Team",
+      "question": "holds API/UI",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "launched, report pending (completion not yet verified)"
+    },
+    {
+      "id": "W3-4",
+      "agent_id": "agent-01M8GZ19P2CK7CENJ6H08W4338",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
+      "domain": "Independent Red Team",
+      "question": "state machine",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "launched, report pending (completion not yet verified)"
     }
   ],
   "decisions": [
