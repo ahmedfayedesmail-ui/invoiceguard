@@ -42,8 +42,10 @@ export function integrityNotes(s) { try { return assessShipment(s).findings.filt
 
 /** A person releases a HUMAN_DECISION hold. Refused for BLOCK and NEW_EVIDENCE, for a stale fingerprint, a missing user or a reason under 10 characters. Issues nothing by itself.
  * ATOMIC: decision, status change and history are one transaction, and the status change is conditional on the finding still being OPEN with this exact fingerprint. A trigger in the database also refuses RELEASED without a recorded decision. */
-export function releaseIntegrity(db, sellerId, shipmentKey, code, fingerprint, { user, reason } = {}) {
-  return txImm(db, () => {
+export function releaseIntegrity(db, sellerId, shipmentKey, code, fingerprint, who = {}) { return txImm(db, () => releaseIntegrityTx(db, sellerId, shipmentKey, code, fingerprint, who)); }
+/** The decision itself, for a caller that already holds the transaction (stuck-claim release). */
+export function releaseIntegrityTx(db, sellerId, shipmentKey, code, fingerprint, { user, reason } = {}) {
+  {
     const rows = db.prepare("SELECT * FROM integrity_findings WHERE seller_id=? AND shipment_key=? AND code=? AND status='OPEN'").all(sellerId, shipmentKey, code);
     if (!rows.length) throw new Error('There is no open finding of that kind for this shipment.');
     const row = rows.find(r => r.fingerprint === fingerprint) ?? rows[0];
@@ -58,7 +60,7 @@ export function releaseIntegrity(db, sellerId, shipmentKey, code, fingerprint, {
     if (Number(r.changes) !== 1) throw new Error('The finding is no longer open with this evidence: nothing was recorded.');
     db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sellerId, shipmentKey, row.code, row.field, 'RELEASED', fingerprint, now);
     return { released: true };
-  });
+  }
 }
 
 /** Ledger write for a correction pair (one transaction unless the caller holds one). */
