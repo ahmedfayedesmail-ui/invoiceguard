@@ -7,10 +7,13 @@
 //    report's snapshot cannot be described by that report - the verdict is skipped and logged.
 // 2. CREDIT-NOTE PATH COVERAGE: the guard exists in reconcileCreditNote; these tests prove it.
 import test from 'node:test';
+import { acceptReport } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth, currentAttemptSeq } from '../src/db.js';
-import { processReport, processCorrections } from '../src/pipeline.js';
+import { processReport, processCorrections as processCorrectionsRaw } from '../src/pipeline.js';
+import { withApproval } from './correction-helpers.js';
+const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 import { listRepairs, approveRepair } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
@@ -71,7 +74,7 @@ async function seedRejectedCreditNote(db) {
   const cn = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
   assert.ok(cn, 'the credit note exists');
   const [head, ...rows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
   assert.equal(statusOf(db, cn.number), 'rejected');
   const q = listRepairs(db, seller.id).find(x => x.kind === 'rejected_credit_note');
   assert.ok(q, 'a reviewed retry was proposed for the credit note');
@@ -110,7 +113,7 @@ test('R12-2 (his a): a STALE CreditNoteProcessing arriving after a new claim mus
   assert.equal(statusOf(db, cn.number), 'sending');
   assert.equal(vidrAt(db, cn.number), null, 'the claim cleared the old verdict');
   // The pre-attempt report says "processing": it cannot describe the attempt now in flight.
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteProcessing' }), { api, validate: vies, reportAttemptSeq: staleSeq });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteProcessing' }), { api, validate: vies, reportAttemptSeq: staleSeq });
   assert.equal(vidrAt(db, cn.number), null, 'the stale verdict must NOT stamp the credit note');
   assert.equal(statusOf(db, cn.number), 'sending', 'the stale verdict must NOT move the attempt');
   assert.equal(skips(db, cn.number).length, 1, 'the skip is logged as evidence');
@@ -127,7 +130,7 @@ test('R12-3 (his b): a STALE CreditNoteRejected during a credit-note resend must
   const retry = approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
   await untilSending(db, cn.number);
   // The pre-attempt report carries the OLD rejection again: it must not resurrect it.
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies, reportAttemptSeq: staleSeq });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies, reportAttemptSeq: staleSeq });
   assert.equal(statusOf(db, cn.number), 'sending', 'the stale rejection must NOT move the attempt');
   assert.equal(skips(db, cn.number).length, 1, 'the skip is logged');
   release(); await retry;

@@ -12,6 +12,7 @@
 //   /oauth/amazon/continue are gated while the feature is closed; the duplicate preflight names
 //   the actual document numbers.
 import test from 'node:test';
+import { acceptReport, matchStoredCreditNote } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth } from '../src/db.js';
@@ -88,7 +89,8 @@ test('R9-2: VIDR CreditNoteProcessing + feed FATAL -> credit note stays processi
   db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
     .run(seller.id, 'R-2026-000001', 'REFUND:TX9', 'rectificativa', 'A-2026-000001', new Date().toISOString(), -121, -21, '{}', 'feed-CN', 'submitted');
   const [head, ...rows] = text.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'transaction-type': 'REFUND', 'transaction-id': 'TX9', 'invoice-status': 'CreditNoteProcessing' }), { api, validate: vies });
+  const __rep = withDesc(head, rows[0].split('\t'), { 'transaction-type': 'REFUND', 'transaction-id': 'TX9', 'invoice-status': 'CreditNoteProcessing' }); matchStoredCreditNote(db, seller.id, __rep, 'R-2026-000001');
+  await acceptReport(db, seller, __rep, { api, validate: vies });
   assert.equal(statusOf(db, 'R-2026-000001'), 'processing');
   assert.ok(vidrAt(db, 'R-2026-000001'));
   const p = await pollFeeds(db, seller, api);

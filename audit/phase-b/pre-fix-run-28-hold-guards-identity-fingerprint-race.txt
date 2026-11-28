@@ -1,0 +1,575 @@
+TAP version 13
+# Subtest: H1 CN accepted, replacement NOT yet issued, a later CreditNoteRejected opens a contradiction HOLD, then processCorrections runs -> NO replacement
+not ok 1 - H1 CN accepted, replacement NOT yet issued, a later CreditNoteRejected opens a contradiction HOLD, then processCorrections runs -> NO replacement
+  ---
+  duration_ms: 130.345032
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:35:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the replacement is NOT issued while the hold is open
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:39:92)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: H2 the same with the contradiction INSIDE one report (Uploaded and Rejected rows) after the CN was already accepted -> NO replacement
+not ok 2 - H2 the same with the contradiction INSIDE one report (Uploaded and Rejected rows) after the CN was already accepted -> NO replacement
+  ---
+  duration_ms: 91.958017
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:41:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:43:163)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: H3 a hold from an EARLIER sync still blocks the next sync: later duplicate good reports and correction passes issue nothing and retry nothing
+not ok 3 - H3 a hold from an EARLIER sync still blocks the next sync: later duplicate good reports and correction passes issue nothing and retry nothing
+  ---
+  duration_ms: 74.340013
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:45:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:48:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: H4 the retry / re-upload path refuses while a hold is open for the pair (issueRectificativa on the credit note key, upload status pending)
+not ok 4 - H4 the retry / re-upload path refuses while a hold is open for the pair (issueRectificativa on the credit note key, upload status pending)
+  ---
+  duration_ms: 46.682449
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:50:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:53:3)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: H5 the replacement path itself refuses while a hold is open for the pair it belongs to (direct call, CN status forced to uploaded)
+not ok 5 - H5 the replacement path itself refuses while a hold is open for the pair it belongs to (direct call, CN status forced to uploaded)
+  ---
+  duration_ms: 49.355122
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:55:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:58:3)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: H6 (guard) with NO hold the same direct call still issues the replacement (the guard is not a blanket refusal)
+ok 6 - H6 (guard) with NO hold the same direct call still issues the replacement (the guard is not a blanket refusal)
+  ---
+  duration_ms: 67.802552
+  type: 'test'
+  ...
+# Subtest: I1 Processing: WRONG invoice number -> no status change, no retry, hold
+not ok 7 - I1 Processing: WRONG invoice number -> no status change, no retry, hold
+  ---
+  duration_ms: 45.875459
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:67:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong number: status unchanged
+    + actual - expected
+    
+    + 'processing'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'processing'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I2 Processing: BLANK invoice number -> no status change, hold
+not ok 8 - I2 Processing: BLANK invoice number -> no status change, hold
+  ---
+  duration_ms: 48.842524
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:68:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    blank number: status unchanged
+    + actual - expected
+    
+    + 'processing'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'processing'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I3 Processing: WRONG amount -> no status change, hold
+not ok 9 - I3 Processing: WRONG amount -> no status change, hold
+  ---
+  duration_ms: 45.498598
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:69:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong amount: status unchanged
+    + actual - expected
+    
+    + 'processing'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'processing'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I4 Processing: wrong order / shipping identity -> no status change, hold
+not ok 10 - I4 Processing: wrong order / shipping identity -> no status change, hold
+  ---
+  duration_ms: 48.663068
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:70:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong order: status unchanged
+    + actual - expected
+    
+    + 'processing'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'processing'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:70:96)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I5 Processing: wrong marketplace or currency -> no status change, hold
+not ok 11 - I5 Processing: wrong marketplace or currency -> no status change, hold
+  ---
+  duration_ms: 39.220747
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:71:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong marketplace: status unchanged
+    + actual - expected
+    
+    + 'processing'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'processing'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:71:94)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I6 Processing: wrong transaction identity (another key) -> nothing of ours is touched
+ok 12 - I6 Processing: wrong transaction identity (another key) -> nothing of ours is touched
+  ---
+  duration_ms: 57.282555
+  type: 'test'
+  ...
+# Subtest: I7 (guard) Processing: every identity field right -> the status IS applied
+ok 13 - I7 (guard) Processing: every identity field right -> the status IS applied
+  ---
+  duration_ms: 37.637673
+  type: 'test'
+  ...
+# Subtest: I8 Processing: no report sequence (not the authenticated path) -> no status change, hold
+not ok 14 - I8 Processing: no report sequence (not the authenticated path) -> no status change, hold
+  ---
+  duration_ms: 45.848867
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:74:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'processing'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'processing'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:74:217)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I1 Rejected: WRONG invoice number -> no status change, no retry, hold
+not ok 15 - I1 Rejected: WRONG invoice number -> no status change, no retry, hold
+  ---
+  duration_ms: 37.087083
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:67:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong number: status unchanged
+    + actual - expected
+    
+    + 'rejected'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I2 Rejected: BLANK invoice number -> no status change, hold
+not ok 16 - I2 Rejected: BLANK invoice number -> no status change, hold
+  ---
+  duration_ms: 40.839319
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:68:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    blank number: status unchanged
+    + actual - expected
+    
+    + 'rejected'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I3 Rejected: WRONG amount -> no status change, hold
+not ok 17 - I3 Rejected: WRONG amount -> no status change, hold
+  ---
+  duration_ms: 61.685378
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:69:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong amount: status unchanged
+    + actual - expected
+    
+    + 'rejected'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I4 Rejected: wrong order / shipping identity -> no status change, hold
+not ok 18 - I4 Rejected: wrong order / shipping identity -> no status change, hold
+  ---
+  duration_ms: 37.934167
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:70:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong order: status unchanged
+    + actual - expected
+    
+    + 'rejected'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:70:96)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I5 Rejected: wrong marketplace or currency -> no status change, hold
+not ok 19 - I5 Rejected: wrong marketplace or currency -> no status change, hold
+  ---
+  duration_ms: 38.83519
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:71:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    wrong marketplace: status unchanged
+    + actual - expected
+    
+    + 'rejected'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    unchanged (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:66:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:71:94)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: I6 Rejected: wrong transaction identity (another key) -> nothing of ours is touched
+ok 20 - I6 Rejected: wrong transaction identity (another key) -> nothing of ours is touched
+  ---
+  duration_ms: 56.715329
+  type: 'test'
+  ...
+# Subtest: I7 (guard) Rejected: every identity field right -> the status IS applied
+ok 21 - I7 (guard) Rejected: every identity field right -> the status IS applied
+  ---
+  duration_ms: 48.09356
+  type: 'test'
+  ...
+# Subtest: I8 Rejected: no report sequence (not the authenticated path) -> no status change, hold
+not ok 22 - I8 Rejected: no report sequence (not the authenticated path) -> no status change, hold
+  ---
+  duration_ms: 52.503149
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:74:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'rejected'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:74:217)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: F1 wrong number A opens a hold; wrong number B with the SAME failure kind changes the fingerprint and is recorded as CHANGED (not RECHECKED_SAME); the identical evidence again is RECHECKED_SAME
+not ok 23 - F1 wrong number A opens a hold; wrong number B with the SAME failure kind changes the fingerprint and is recorded as CHANGED (not RECHECKED_SAME); the identical evidence again is RECHECKED_SAME
+  ---
+  duration_ms: 43.53481
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:78:1'
+  failureType: 'testCodeFailure'
+  error: 'the fingerprint follows the actual value'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '2ba4e5e4d6934e5e59e25ffe0359b80e5c33fbc05398c765b544be3b061914e8'
+  actual: '2ba4e5e4d6934e5e59e25ffe0359b80e5c33fbc05398c765b544be3b061914e8'
+  operator: 'notStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:81:182)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: F2 the evidence snapshot kept for the reviewer holds the actual values, sequence and request time, and no buyer data
+not ok 24 - F2 the evidence snapshot kept for the reviewer holds the actual values, sequence and request time, and no buyer data
+  ---
+  duration_ms: 44.697577
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:85:1'
+  failureType: 'testCodeFailure'
+  error: 'evidence names R-2026-333333'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:87:113)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: F3 a human decision on evidence A cannot be reused on evidence B: after release, different evidence re-opens the hold and the old fingerprint is no longer releasable
+not ok 25 - F3 a human decision on evidence A cannot be reused on evidence B: after release, different evidence re-opens the hold and the old fingerprint is no longer releasable
+  ---
+  duration_ms: 42.860925
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:89:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    different evidence is a new open hold
+    
+    'RELEASED' !== 'OPEN'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'OPEN'
+  actual: 'RELEASED'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:92:178)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: F4 two different holds on one credit note do not cancel each other (a contradiction hold survives a later identity hold)
+not ok 26 - F4 two different holds on one credit note do not cancel each other (a contradiction hold survives a later identity hold)
+  ---
+  duration_ms: 39.638855
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:95:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:98:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: A4a REAL race, 6 rounds (two OS processes, one SQLite file, barrier start, varied delays): a replacement may exist only if it was issued BEFORE the hold opened; after the race another pass never adds one
+not ok 27 - A4a REAL race, 6 rounds (two OS processes, one SQLite file, barrier start, varied delays): a replacement may exist only if it was issued BEFORE the hold opened; after the race another pass never adds one
+  ---
+  duration_ms: 2513.347695
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:111:1'
+  failureType: 'testCodeFailure'
+  error: 'round 2: replacement issued at 2026-11-28T10:56:37.509Z AFTER the hold opened at 2026-11-28T10:56:37.474Z'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:113:24)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: A4b REAL cross-process order: process 1 opens the hold and EXITS, then process 2 runs the correction pass -> no replacement
+not ok 28 - A4b REAL cross-process order: process 1 opens the hold and EXITS, then process 2 runs the correction pass -> no replacement
+  ---
+  duration_ms: 607.353378
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:115:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    no replacement after a hold opened in another process
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-hold-guards.test.js:120:150)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 5
+# fail 23
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4774.01372

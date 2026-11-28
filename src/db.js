@@ -18,6 +18,29 @@ export function openDb(file = ':memory:') {
   CREATE TABLE IF NOT EXISTS vat_checks (seller_id TEXT, vat TEXT, status TEXT, name TEXT, checked_at TEXT);
   CREATE TABLE IF NOT EXISTS events (ts TEXT, seller_id TEXT, type TEXT, detail TEXT);
   CREATE TABLE IF NOT EXISTS site_counters (key TEXT PRIMARY KEY, n INTEGER);
+  CREATE TABLE IF NOT EXISTS integrity_findings (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, severity TEXT, resolution TEXT, status TEXT, fingerprint TEXT, evidence TEXT, explanation TEXT, action TEXT,
+    first_seen TEXT, last_seen TEXT, seen_count INTEGER, reopened_count INTEGER, resolved_at TEXT, PRIMARY KEY (seller_id, shipment_key, code, field));
+  -- Credit claims on an original invoice (owner review Nov 28): a CorrectionReversal reserves its amount here in the same BEGIN IMMEDIATE transaction that checks the creditable balance, so two events can never both see the same free balance. A claim whose document exists is counted as that document, not twice.
+  CREATE TABLE IF NOT EXISTS credit_claims (seller_id TEXT, original_number TEXT, reversal_key TEXT, amount REAL, claimed_at TEXT, claim_id TEXT, PRIMARY KEY (seller_id, reversal_key));
+  CREATE TABLE IF NOT EXISTS credit_claim_history (id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id TEXT, reversal_key TEXT, original_number TEXT, amount REAL, event TEXT, claim_id TEXT, actor TEXT, reason TEXT, fingerprint TEXT, at TEXT);
+  CREATE TRIGGER IF NOT EXISTS credit_claim_history_no_update BEFORE UPDATE ON credit_claim_history BEGIN SELECT RAISE(ABORT,'credit_claim_history is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS credit_claim_history_no_delete BEFORE DELETE ON credit_claim_history BEGIN SELECT RAISE(ABORT,'credit_claim_history is append-only'); END;
+  CREATE TABLE IF NOT EXISTS integrity_history (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, event TEXT, fingerprint TEXT, at TEXT);
+  CREATE TRIGGER IF NOT EXISTS integrity_release_needs_decision_u BEFORE UPDATE OF status ON integrity_findings WHEN NEW.status='RELEASED' AND NOT EXISTS (SELECT 1 FROM integrity_decisions d WHERE d.seller_id=NEW.seller_id AND d.shipment_key=NEW.shipment_key AND d.code=NEW.code AND d.field=NEW.field AND d.fingerprint=NEW.fingerprint)
+    BEGIN SELECT RAISE(ABORT,'RELEASED needs a recorded decision'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_release_needs_decision_i BEFORE INSERT ON integrity_findings WHEN NEW.status='RELEASED' AND NOT EXISTS (SELECT 1 FROM integrity_decisions d WHERE d.seller_id=NEW.seller_id AND d.shipment_key=NEW.shipment_key AND d.code=NEW.code AND d.field=NEW.field AND d.fingerprint=NEW.fingerprint)
+    BEGIN SELECT RAISE(ABORT,'RELEASED needs a recorded decision'); END;
+  CREATE TABLE IF NOT EXISTS integrity_decisions (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, fingerprint TEXT, decided_by TEXT, reason TEXT, decided_at TEXT);
+  CREATE TRIGGER IF NOT EXISTS integrity_decisions_no_update BEFORE UPDATE ON integrity_decisions BEGIN SELECT RAISE(ABORT,'integrity_decisions is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_decisions_no_delete BEFORE DELETE ON integrity_decisions BEGIN SELECT RAISE(ABORT,'integrity_decisions is append-only'); END;
+  -- Owner ruling Nov 28 2026 (A1): an OPEN credit-note hold on a pair blocks every automatic correction document of that original IN THE DATABASE, so no code path, retry or race can issue or re-upload around it. Checked inside whatever transaction does the write.
+  CREATE TRIGGER IF NOT EXISTS cn_hold_blocks_issue BEFORE INSERT ON invoices WHEN NEW.kind='rectificativa' AND EXISTS (SELECT 1 FROM integrity_findings f WHERE f.seller_id=NEW.seller_id AND f.status='OPEN' AND f.code IN ('CREDIT_NOTE_IDENTITY_UNPROVEN','CREDIT_NOTE_ROWS_CONFLICT','CREDIT_NOTE_VERDICT_CONTRADICTION') AND (f.shipment_key=NEW.shipment_key OR f.shipment_key IN (SELECT i.shipment_key FROM invoices i WHERE i.seller_id=NEW.seller_id AND i.kind='rectificativa' AND i.rectifies=NEW.rectifies))) BEGIN SELECT RAISE(ABORT,'credit-note hold: an open credit-note hold needs a person before any correction document is issued or sent'); END;
+  CREATE TRIGGER IF NOT EXISTS cn_hold_blocks_send BEFORE UPDATE OF upload_status ON invoices WHEN NEW.kind='rectificativa' AND NEW.upload_status='sending' AND EXISTS (SELECT 1 FROM integrity_findings f WHERE f.seller_id=NEW.seller_id AND f.status='OPEN' AND f.code IN ('CREDIT_NOTE_IDENTITY_UNPROVEN','CREDIT_NOTE_ROWS_CONFLICT','CREDIT_NOTE_VERDICT_CONTRADICTION') AND (f.shipment_key=NEW.shipment_key OR f.shipment_key IN (SELECT i.shipment_key FROM invoices i WHERE i.seller_id=NEW.seller_id AND i.kind='rectificativa' AND i.rectifies=NEW.rectifies))) BEGIN SELECT RAISE(ABORT,'credit-note hold: an open credit-note hold needs a person before any correction document is issued or sent'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_history_no_update BEFORE UPDATE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_history_no_delete BEFORE DELETE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS integrity_decision_must_be_valid BEFORE INSERT ON integrity_decisions
+    WHEN trim(coalesce(NEW.decided_by,''))='' OR length(trim(coalesce(NEW.reason,'')))<10 OR NOT EXISTS (SELECT 1 FROM integrity_findings f WHERE f.seller_id=NEW.seller_id AND f.shipment_key=NEW.shipment_key AND f.code=NEW.code AND f.field=NEW.field AND f.fingerprint=NEW.fingerprint AND f.status='OPEN' AND f.resolution='HUMAN_DECISION' AND f.severity<>'BLOCK')
+    BEGIN SELECT RAISE(ABORT,'not a valid decision: it needs a user, a reason of 10 characters and an open HUMAN_DECISION finding with this fingerprint'); END;
   CREATE INDEX IF NOT EXISTS idx_events_seller ON events (seller_id, ts);
   CREATE INDEX IF NOT EXISTS idx_ship_status ON shipments (seller_id, status);
   CREATE INDEX IF NOT EXISTS idx_ship_date ON shipments (seller_id, shipment_date);
@@ -48,6 +71,8 @@ export function openDb(file = ':memory:') {
   // One-time repair for the stage-2 limbo defect: corrections approved before the fix sit at
   // 'submitted' with feed_id 'manual' - invisible to the pack and unmarkable. They belong in 'ready'.
   db.exec("UPDATE invoices SET upload_status='ready', feed_id=NULL WHERE upload_status='submitted' AND feed_id='manual'");
+  try { db.exec('ALTER TABLE integrity_history ADD COLUMN evidence TEXT'); } catch { /* column exists */ } // night WP3: the evidence of every OPENED / CHANGED / REOPENED event, so an earlier version is never lost
+  try { db.exec('ALTER TABLE credit_claims ADD COLUMN claim_id TEXT'); } catch { /* column exists */ }
   try { db.exec('ALTER TABLE invoices ADD COLUMN tx_id TEXT'); } catch { /* column exists */ }
   // Round-9 (N1): fingerprint of a recordKey-less correction (original + mode + reason + changes),
   // so a double-submitted identical correction is recognized as the same document.

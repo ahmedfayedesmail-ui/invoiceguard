@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, verifyAudit } from '../src/db.js';
-import { processReport, processCorrections, explain } from '../src/pipeline.js';
+import { processReport, processCorrections as processCorrectionsRaw, explain } from '../src/pipeline.js';
+import { withApproval, acceptReport } from './correction-helpers.js';
+const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
@@ -30,7 +32,7 @@ test('Amazon billing-data correction: credit note + new invoice, both with trans
   // the replacement invoice waits until Amazon CONFIRMS the credit note (VIDR CreditNoteUploaded) -
   // a created feed is not acceptance, and a half pair would leave Amazon's books inconsistent
   assert.ok(r.skipped.some(x => /not yet confirmed accepted/.test(x.reason)), 'pair kept together');
-  await processReport(db, seller, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api, validate: vies });
+  await acceptReport(db, seller, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api, validate: vies });
   const r2 = await processCorrections(db, seller, rep, { api, validate: vies });
   assert.deepEqual([r2.creditNotes, r2.invoices, r2.errors.length], [0, 1, 0], JSON.stringify(r2));
   const inv = calls[before + 1];

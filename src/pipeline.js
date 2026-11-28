@@ -6,9 +6,11 @@ import { buyerCountryCheck } from './features.js';
 import { gate, gateReason, missingFields, correctionWindowOk, readiness } from './rules.js';
 import { renderPdf } from './pdf.js';
 import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from './db.js';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
+import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
+import { integrityGate, integrityNotes, correctionLedger } from './integrity.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -19,7 +21,7 @@ const DUE_HOURS = 24;
 export const explain = (m) => /FeatureNotAvailable|79509|closed beta/i.test(m) ? 'Amazon has not enabled invoice upload for this account. In Seller Central set VAT Calculation Service to "I will upload my own VAT invoices".' : /Tax Invoicing|Unauthorized|403/i.test(m) ? 'The app lacks the Tax Invoicing role. Amazon must approve it for this seller.' : m;
 
 export function upsertShipment(db, sellerId, s, status, reason = null) {
-  const due = s.shipmentDate ? new Date(new Date(s.shipmentDate).getTime() + DUE_HOURS * 3600e3).toISOString() : null;
+  const t0 = s.shipmentDate ? new Date(s.shipmentDate).getTime() : NaN; const due = Number.isNaN(t0) ? null : new Date(t0 + DUE_HOURS * 3600e3).toISOString(); // an unreadable date has no due time (the gate holds it)
   db.prepare(`INSERT INTO shipments (seller_id,key,order_id,shipping_id,buyer_vat,buyer,country,total,vat,shipment_date,due_at,status,reason,raw,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(seller_id,key) DO UPDATE SET status=excluded.status, reason=excluded.reason, raw=excluded.raw, updated_at=excluded.updated_at`)
     .run(sellerId, s.key, s.orderId, s.shippingId, s.buyerVat, s.buyerCompany, s.shipCountry, s.incl, s.vat, s.shipmentDate, due, status, reason, JSON.stringify(s), new Date().toISOString());
@@ -36,7 +38,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
   // timestamp is evidence-only. Every caller that requests a fresh report must pass both.
   const reportReqTs = reportRequestedAt ? +new Date(reportRequestedAt) : null;
   const reportSeq = reportAttemptSeq ?? null;
-  const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [] };
+  const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [], notes: [], unsupported: [] };
   const list = shipments ?? parseVidr(reportText);
   // Row integrity: rows cut off or split by a raw newline were already rejected by the parser. They are quarantined here, counted and logged by line number only (no cell content), and never processed.
   out.invalidRows = list.invalidRows ?? [];
@@ -50,7 +52,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
     if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); } else out.skipped++; continue; }
-    if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
+    if ((s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus || '']).some(x => /^CreditNote(Uploaded|Rejected|Processing)$/.test(x))) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     // Round-15 (critic round-13 P1-B): a STALE report row must never drive an upload decision.
     // An old report saying "still pending" could otherwise pass the unknown-settle cross-check
     // (the new feed may not be visible in Amazon's feed list yet) and trigger ANOTHER resend over
@@ -59,11 +61,14 @@ export async function processReport(db, seller, reportText, { api, validate = va
     if (staleDoc) { logStaleRow(db, seller, s, staleDoc, reportSeq); out.skipped++; continue; }
     // A blank, unreadable or disagreeing is-amazon-invoiced or is-business-order is UNKNOWN. It is never read as a value and never inferred from the status or the buyer data: nothing is issued for it, and it is shown as held with the reason.
     if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
-    if (!needsInvoice(s)) { out.skipped++; continue; }
+    if (!needsInvoice(s)) { out.skipped++; if (s.transactionType !== 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection) out.unsupported.push({ key: s.key, orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing was issued and its amounts were not judged.` }); continue; }
     out.detected++;
     const existing = db.prepare('SELECT status FROM shipments WHERE seller_id=? AND key=?').get(seller.id, s.key);
-    if (existing && ['submitted', 'processing', 'uploaded', 'ready', 'sending'].includes(existing.status)) { out.skipped++; continue; }
+    if (existing && ['submitted', 'processing', 'uploaded', 'ready', 'sending'].includes(existing.status)) { integrityGate(db, seller, s); /* ledger only: an issued shipment is never re-issued, but a later bad copy is recorded */ out.skipped++; continue; }
     if (!existing) logEvent(db, seller.id, 'detected', { key: s.key, orderId: s.orderId }); // evidence trail starts here
+    // Issuance Integrity Gate (Phase B): the numbers and the consistency of the rows are checked BEFORE anything is issued. A finding holds the shipment, writes the ledger and issues nothing, whatever the path (API or manual upload).
+    { const ig = integrityGate(db, seller, s); if (ig) { upsertShipment(db, seller.id, s, 'held', ig.reason); logEvent(db, seller.id, 'held', { key: s.key, reason: ig.reason, check: 'integrity' }); out.held.push({ key: s.key, orderId: s.orderId, reason: ig.reason }); continue; } }
+    for (const n of integrityNotes(s)) out.notes.push({ key: s.key, orderId: s.orderId, code: n.code, text: n.text });
     if (s.buyerVat && hasOverride(db, seller.id, s.key, 'b2c')) { s.buyerVat = null; s.buyerCompany = s.billing?.name || ''; }
     if (s.buyerVat) {
       const v = await validate(s.buyerVat); s.__vies = v;
@@ -264,22 +269,34 @@ function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = null) {
 
 /** Reconcile Amazon's verdict on an uploaded credit note (CreditNote* statuses on the refund row). */
 function reconcileCreditNote(db, seller, s, reportReqTs = null, reportSeq = null) {
-  const rect = db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
+  const rect = db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq, json, shipment_key FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
   if (!rect) return;
   // Round-14 (critic round-12): same sequence-ordered stale-report guard as reconcileInvoice.
   if (reportSeq != null && rect.attempt_seq != null && rect.attempt_seq > reportSeq) {
     logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, status: s.invoiceStatus, attemptSeq: rect.attempt_seq, reportAttemptSeq: reportSeq, sendingAt: rect.sending_at, reportRequestedAt: reportReqTs != null ? new Date(reportReqTs).toISOString() : null });
     return;
   }
+  // Owner ruling Nov 28 2026 (strict matching). Order of the checks: a newer report was already applied -> this one is stale; an open credit-note hold -> no automatic decision; rows disagree -> hold; then the acceptance gate.
+  if (reportReqTs != null) { const last = db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='cn_report_applied' ORDER BY rowid DESC LIMIT 50").all(seller.id).map(e => { try { return JSON.parse(e.detail); } catch { return {}; } }).filter(d => d.number === rect.number).map(d => d.reqTs).filter(x => x != null).sort((a, b) => b - a)[0]; if (last != null && reportReqTs < last) { logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, reason: 'a newer report was already applied', reportRequestedAt: new Date(reportReqTs).toISOString() }); return; } }
+  // Owner ruling Nov 28 2026 (A2/A3): ONE identity check runs before ANY credit-note status change (Processing and Rejected too). Unproven identity = HOLD, no status change, no retry. Even with a hold already open, new evidence is evaluated and recorded (CHANGED or RECHECKED_SAME) but never applied.
+  const snap = () => evidenceSnapshot(s, rect, { reportSeq, reportReqTs });
+  const stSet = s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus];
+  if (stSet.length > 1) { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_ROWS_CONFLICT', evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq }).failed, { number: rect.number, snapshot: snap() }); return; }
+  const st = stSet[0];
+  const idv = evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq, expect: st });
+  if (!idv.ok) { openCreditNoteHold(db, seller.id, s.key, idv.code, idv.failed, { number: rect.number, snapshot: snap() }); return; }
+  if (hasOpenCreditNoteHold(db, seller.id, s.key)) { logEvent(db, seller.id, 'credit_note_verdict_not_applied', { number: rect.number, reason: 'an open credit-note hold needs a person first' }); return; }
+  if (st === 'CreditNoteRejected' && rect.upload_status === 'uploaded') { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_VERDICT_CONTRADICTION', [{ c: 'verdict-contradiction', why: `Amazon reported credit note ${rect.number} as uploaded earlier and now reports it as rejected. Nothing was changed or cancelled automatically; a person must look at both reports.` }], { number: rect.number, reportStatus: st, snapshot: snap() }); return; }
+  if (st === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') logEvent(db, seller.id, 'cn_report_applied', { number: rect.number, reqTs: reportReqTs });
   const hasRepairs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='repairs'").get();
-  if (s.invoiceStatus === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
+  if (st === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
     tx(db, () => {
       db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, rect.number);
       if (hasRepairs) db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported','proposed','issuing','rejected','held')").run(seller.id, rect.number);
       closeRepairsFor(db, seller.id, [`UNKNOWN:${s.key}`, s.key], 'uploaded');
       logEvent(db, seller.id, 'confirmed_uploaded', { number: rect.number });
     });
-  } else if (s.invoiceStatus === 'CreditNoteProcessing') {
+  } else if (st === 'CreditNoteProcessing') {
     // Amazon's own statement that it HOLDS the credit note and is processing it (the doc: no seller
     // action is needed then). This settles a local 'unknown': the document provably arrived, so any
     // resend is forbidden - processCorrections' done() now counts it complete and skips it.
@@ -291,7 +308,7 @@ function reconcileCreditNote(db, seller, s, reportReqTs = null, reportSeq = null
       db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
       logEvent(db, seller.id, 'credit_note_processing', { number: rect.number });
     }
-  } else if (s.invoiceStatus === 'CreditNoteRejected' && rect.upload_status !== 'rejected') {
+  } else if (st === 'CreditNoteRejected' && rect.upload_status !== 'rejected') {
     // Status write + retry proposal in ONE transaction (round-8), same crash-window discipline.
     tx(db, () => {
       db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
@@ -412,6 +429,8 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   const row = db.prepare('SELECT json, shipment_key FROM invoices WHERE seller_id=? AND number=?').get(seller.id, originalNumber);
   if (!row) throw new Error(`Invoice ${originalNumber} not found`);
   const original = JSON.parse(row.json);
+  // Owner ruling Nov 28 2026 (A1): an open credit-note hold on this pair blocks every correction document, issue and retry alike. The database trigger enforces it inside the writing transaction too.
+  if (pairHoldOpen(db, seller.id, originalNumber, opts.recordKey)) { logEvent(db, seller.id, 'issue_blocked_by_credit_note_hold', { original: originalNumber, key: opts.recordKey ?? null }); throw new Error('Not issued: an open credit-note hold on this correction needs a person first. Nothing was issued or sent.'); }
   // Idempotency on the event key: one Amazon correction event yields exactly one correction document.
   // A pending row means the upload failed after issuance - retry the SAME document's upload, never mint
   // a second number. Any other state means the event is already handled - issuing again would duplicate
@@ -506,6 +525,14 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       const number = allocateNumber(db, seller.id, 'R', opts.now ?? new Date());
       rect = buildRectificativa(db, seller, original, { ...opts, number });
       if (rect.warnings.length) throw new Error(rect.warnings[0]);
+      // Stage 1 final review: ONE credit cap for every path (correction pair, repair proposal, manual rectify). Inside the same transaction that records the document: all other live credit notes on this original and the unfinished claims of other correction events count, so the sum can never exceed the original.
+      if (rect.totals.incl < -0.005) {
+        const own = opts.recordKey ?? '\u0000none'; // a manual credit shares the original's shipment key: only an event's own key is excluded
+        const prior = db.prepare("SELECT total FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND total<0 AND upload_status<>'rejected' AND shipment_key<>?").all(seller.id, originalNumber, own).reduce((a, r) => a + Math.abs(r.total), 0);
+        const pend = db.prepare("SELECT amount FROM credit_claims c WHERE seller_id=? AND original_number=? AND reversal_key<>? AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.seller_id=c.seller_id AND i.shipment_key=c.reversal_key AND i.kind='rectificativa')").all(seller.id, originalNumber, own).reduce((a, r) => a + Math.abs(r.amount), 0);
+        const orig$ = Math.abs(original.totals?.incl ?? 0);
+        if (Math.round((prior + pend + Math.abs(rect.totals.incl)) * 100) > Math.round(orig$ * 100) + 0) throw new Error(`Not issued: this credit note of ${Math.abs(rect.totals.incl).toFixed(2)} plus ${(prior + pend).toFixed(2)} already credited or reserved on invoice ${originalNumber} is more than the invoice itself (${orig$.toFixed(2)}). The total credited can never exceed the original.`);
+      }
       // Local record FIRST, upload second: Amazon must never hold a document we have no record of,
       // and the R series stays gapless even when the upload fails (waits as 'pending').
       db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id,dedupe_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
@@ -636,6 +663,49 @@ export async function settleUnknownDocuments(db, seller, reportText, { api, vali
   return out;
 }
 
+/** Owner decision (Nov 28 2026): every CorrectionReversal needs a documented human decision for the whole pair (credit note + replacement) before anything is issued. The review is a ledger finding (CORRECTION:<reversal key>), decided with releaseIntegrity like any HUMAN_DECISION hold, and bound to the fingerprint of the evidence below. Partial or over-balance reversals are NEW_EVIDENCE holds: no decision can release them. Returns null when the pair is approved for exactly this evidence, else { reason }. */
+export const CORRECTION_REVIEW = 'CORRECTION_PAIR_REVIEW';
+/** Stage 1 round 2 (decision 1): the snapshot a person approves also covers what the document builder takes from the live seller record and the VIES status each replacement buyer VAT had at decision time. Evidence holds only hashes of the seller snapshot (no name, NIF or address) and the VIES status per VAT. */
+export function sellerSnapshot(seller, orig) { const o = JSON.parse(orig.json); const canon = JSON.stringify({ live: { name: seller.name ?? null, nif: seller.nif ?? null, address: seller.address ?? null, country: seller.country ?? null, invoiceLang: seller.invoice_lang ?? null }, onOriginal: o.seller ?? null }); return { sha256: createHash('sha256').update(canon).digest('hex'), fields: ['name', 'nif', 'address', 'country', 'invoiceLang', 'originalSeller'] }; }
+export async function viesSnapshot(validate, rev, list) {
+  const vats = [...new Set(list.filter(x => x.isCorrectedTx && x.shippingId === rev.shippingId).map(x => x.buyerVat).filter(Boolean))].sort();
+  const out = []; for (const vat of vats) { let st; try { st = (await validate(vat))?.status ?? 'unknown'; } catch { st = 'unavailable'; } out.push({ vat, status: st }); }
+  return out;
+}
+function correctionReview(db, seller, rev, orig, list, claim = false, snap = {}) {
+  const o = JSON.parse(orig.json), origIncl = Math.abs(o.totals?.incl ?? 0), amount = Math.abs(rev.incl);
+  // every live credit note on the original counts, whichever path issued it (correction pair, repair, manual rectify): the person must see the real balance
+  const other = db.prepare("SELECT number, total FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND total<0 AND shipment_key<>? AND upload_status<>'rejected' ORDER BY number").all(seller.id, orig.number, rev.key);
+  // an unfinished claim of ANOTHER event counts as credited until its document exists (then the document counts)
+  const claims = db.prepare("SELECT reversal_key, amount FROM credit_claims c WHERE seller_id=? AND original_number=? AND reversal_key<>? AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.seller_id=c.seller_id AND i.shipment_key=c.reversal_key AND i.kind='rectificativa') ORDER BY reversal_key").all(seller.id, orig.number, rev.key);
+  const credited = Math.round([...other.map(c => Math.abs(c.total ?? 0)), ...claims.map(c => Math.abs(c.amount ?? 0))].reduce((a, c) => a + c, 0) * 100) / 100, balance = Math.round((origIncl - credited) * 100) / 100;
+  const rowsOf = (x) => x.src.map(r => { const { 'invoice-status': _st, ...attrs } = r.attrs ?? {}; return { itemId: r.itemId, qty: r.qty, parts: r.parts, attrs, bound: r.bound ?? {} }; });
+  const reps = list.filter(x => x.isCorrectedTx && x.shippingId === rev.shippingId).sort((a, b) => (a.key < b.key ? -1 : 1));
+  const evidence = { field: 'correction', original: { number: orig.number, totalIncl: origIncl, sha256: createHash('sha256').update(orig.json).digest('hex') }, reversalKey: rev.key, reversalRows: rowsOf(rev), reversalReason: rev.correctionDetails ?? null,
+    replacementRows: reps.map(x => ({ key: x.key, reason: x.correctionDetails ?? null, buyer: { name: x.billing?.name, company: x.buyerCompany, vat: x.buyerVat, address: x.billing?.lines, city: x.billing?.city, postal: x.billing?.postal, country: x.billing?.country }, rows: rowsOf(x) })),
+    amounts: { original: origIncl, reversal: Math.round(amount * 100) / 100, cumulativeCredited: credited, creditableBalance: balance, differenceToOriginal: Math.round((amount - origIncl) * 100) / 100 }, otherCreditNotes: [...other.map(c => c.number), ...claims.map(c => 'claim:' + c.reversal_key)], sellerSnapshot: sellerSnapshot(seller, orig), vies: snap.vies ?? [] };
+  const fp = (code) => createHash('sha256').update(JSON.stringify([code, evidence])).digest('hex');
+  let f;
+  if (Math.abs(amount - origIncl) >= 0.005) f = { code: 'CORRECTION_PARTIAL_REVERSAL', resolution: 'NEW_EVIDENCE', explanation: `The reversal row states ${rev.incl.toFixed(2)} but the invoice it reverses is ${origIncl.toFixed(2)}: the amounts differ. A partial reversal is never turned into a full credit note, and no partial credit-note path exists yet.`, action: 'Only a corrected report can resolve this.' };
+  else if (amount > balance + 0.005) f = { code: 'CORRECTION_EXCEEDS_BALANCE', resolution: 'NEW_EVIDENCE', explanation: `Invoice ${orig.number} has ${credited.toFixed(2)} already credited (${[...other.map(c => c.number), ...claims.map(c => 'pending claim ' + c.reversal_key)].join(', ') || 'none'}): this reversal of ${amount.toFixed(2)} would exceed the creditable balance of ${balance.toFixed(2)}. Not issued.`, action: 'Only a corrected report can resolve this.' };
+  else f = { code: CORRECTION_REVIEW, resolution: 'HUMAN_DECISION', explanation: `Correction pair for invoice ${orig.number} (credit note ${amount.toFixed(2)} and replacement) needs a person's decision before anything is issued.`, action: 'Review the original invoice, every reversal row and the replacement data, then decide with a reason.' };
+  const g = correctionLedger(db, seller.id, 'CORRECTION:' + rev.key, [{ ...f, severity: 'HOLD', fingerprint: fp(f.code), evidence }]);
+  if (g) return { reason: g.reason.replace(/^Not issued: /, 'Held for review: ').replace(/ Nothing was guessed\.$/, '') };
+  // approved for exactly this evidence: reserve the amount on the original NOW, in the same transaction as the check above (no await in between)
+  if (claim && amount >= 0.005) {
+    // every claim has an identity: a failing attempt may only roll back the claim IT created (claim_id), never a newer attempt's claim for the same event
+    const claimId = randomUUID(), prev = db.prepare('SELECT claim_id FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, rev.key), at = new Date().toISOString();
+    const fpApproved = fp(CORRECTION_REVIEW); // the fingerprint the person approved: every history event of this claim carries it
+    const addHist = db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,fingerprint,at) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    if (prev) { const was = db.prepare("SELECT fingerprint FROM credit_claim_history WHERE seller_id=? AND reversal_key=? AND claim_id=? AND event='CLAIMED' ORDER BY id LIMIT 1").get(seller.id, rev.key, prev.claim_id ?? ''); addHist.run(seller.id, rev.key, orig.number, amount, 'SUPERSEDED', prev.claim_id ?? null, 'system', `superseded by the claim ${claimId} of a later attempt for the same event`, was?.fingerprint ?? null, at); }
+    db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at, claim_id) VALUES (?,?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, at, claimId);
+    addHist.run(seller.id, rev.key, orig.number, amount, 'CLAIMED', claimId, 'system', prev ? `replaces the claim ${prev.claim_id ?? 'without id'} of an earlier attempt for the same event` : 'reserved with the approved pair review', fpApproved, at);
+    snap.claimId = claimId;
+  }
+  return null;
+}
+const reviewAtomic = (db, seller, rev, orig, list, claim, snap) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim, snap));
+
 /**
  * Amazon billing-data corrections (customer asked Amazon to change billing name/address). Amazon docs: the VIDR then lists
  * a REFUND "CorrectionReversal:..." (seller must upload a credit note) and a SHIPMENT "Correction::..." (seller must upload a new invoice),
@@ -670,29 +740,58 @@ export async function processCorrections(db, seller, reportText, { api, validate
     if (staleRev) { logStaleRow(db, seller, s, staleRev, reportSeq); out.skipped.push({ key: s.key, reason: 'stale report row: the credit note has a newer attempt than this report - no upload is driven by old information' }); continue; }
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
     if (zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'zero-amount original: nothing to reverse' }); continue; }
-    const block1 = await unknownBlock(s.key);
+    // Owner decision Nov 28: a person decides on the pair first (partial and over-balance reversals can never be approved). A credit note already issued and pending a retry was approved when it was issued.
+    let myClaim = null;
+    if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) { const sn = { vies: await viesSnapshot(validate, s, list) }; const g = reviewAtomic(db, seller, s, orig, list, true, sn); myClaim = sn.claimId ?? null; if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; } }
+    const block1 = await unknownBlock(s.key); // (claim identity of THIS attempt: myClaim)
     if (block1) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block1 }); out.skipped.push({ key: s.key, reason: block1 }); continue; }
     try {
       const o = JSON.parse(orig.json), zero = o.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
       await issueRectificativa(db, seller, orig.number, { mode: 'differences', reason: reasonOf(s), changes: { lines: zero }, documentType: 'CreditNote', transactionId: s.transactionId, recordKey: s.key, allowUnknownRetry: true }, { api, validate }); out.creditNotes++;
-    } catch (e) { out.errors.push({ key: s.key, error: explain(e.message) }); }
+    } catch (e) { rollbackPreIssueClaim(db, seller.id, s.key, myClaim, e.message); /* Definite Pre-Issue Failure Rollback only (owner ruling Nov 28): identity-bound, refused when any document row exists */ out.errors.push({ key: s.key, error: explain(e.message) }); }
   }
   for (const s of list.filter(s => s.isCorrectedTx)) {
     if (done(s.key)) continue;
     const staleTx = staleDocForReport(db, seller, s, reportSeq);
     if (staleTx) { logStaleRow(db, seller, s, staleTx, reportSeq); out.skipped.push({ key: s.key, reason: 'stale report row: the replacement has a newer attempt than this report - no upload is driven by old information' }); continue; }
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
+    // Night WP1: the replacement takes the buyer's name, VAT number and address from THIS row. If the rows of the correction disagree (or are otherwise unreadable) the first row must not be taken as the right one: the same gate as for a plain invoice holds it, and it writes the same ledger.
+    { const ig = integrityGate(db, seller, s); if (ig) { logEvent(db, seller.id, 'held', { key: s.key, reason: ig.reason, check: 'integrity' }); out.skipped.push({ key: s.key, reason: ig.reason }); continue; } }
     const block2 = await unknownBlock(s.key);
     if (block2) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block2 }); out.skipped.push({ key: s.key, reason: block2 }); continue; }
     // Round-6: "landed" means Amazon CONFIRMED the credit note (VIDR CreditNoteUploaded), not merely
     // that a feed exists. 'submitted' is only a created feed id and 'processing' a running feed -
     // both can still end FATAL/CANCELLED or rejected, and the replacement would then be stranded as
     // a half pair at Amazon. The pair waits for acceptance; the next sync picks it up.
+    // The approval covers the PAIR: the replacement needs the reversal's decision to still hold for exactly this evidence (replacement data included). An issued replacement awaiting a retry was approved when it was issued.
+    if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) {
+      let revs = list.filter(x => x.isCorrectionReversal && x.shippingId === s.shippingId);
+      // A zero-value original has nothing to reverse, but the owner never approved an exception: its replacement is reviewed too (keyed by the replacement when no reversal row exists).
+      if (!revs.length) { if (!zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'no reversal row for this correction in the report: the pair cannot be reviewed' }); continue; } revs = [{ key: s.key, incl: 0, src: [], shippingId: s.shippingId }]; }
+      const snaps = []; for (const r of revs) snaps.push({ vies: await viesSnapshot(validate, r, list) }); const g = revs.map((r, i) => reviewAtomic(db, seller, r, orig, list, false, snaps[i])).find(Boolean); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; }
+    }
     const cn = db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND upload_status='uploaded'").get(seller.id, orig.number);
+    if (pairHoldOpen(db, seller.id, orig.number, null)) { out.skipped.push({ key: s.key, reason: 'an open credit-note hold needs a person before the replacement can be issued' }); continue; }
     if (!zeroTotal(orig) && !cn) { out.skipped.push({ key: s.key, reason: 'credit-note reversal not yet confirmed accepted by Amazon - the pair is kept together and the replacement waits for the next report' }); continue; }
     try {
       await issueRectificativa(db, seller, orig.number, { mode: 'substitution', reason: reasonOf(s), changes: { buyer: { name: s.billing.name || s.buyerCompany, vat: s.buyerVat ?? undefined, address: [...s.billing.lines, `${s.billing.postal} ${s.billing.city}`.trim(), s.billing.country].filter(Boolean) } }, documentType: 'Invoice', transactionId: s.transactionId, recordKey: s.key, allowUnknownRetry: true }, { api, validate }); out.invoices++;
     } catch (e) { out.errors.push({ key: s.key, error: explain(e.message) }); }
   }
   return out;
+}
+
+/** Definite Pre-Issue Failure Rollback (owner ruling, Nov 28 2026). The ONLY automatic release of a credit claim. It succeeds only when ALL hold, checked inside one BEGIN IMMEDIATE transaction:
+ *  - the claim still carries the claim_id the failing attempt created (an old attempt never deletes a newer claim for the same event);
+ *  - no document row exists for the event in ANY status (no upload was ever started, nothing is unsettled; an unknown outcome has a row, so it keeps the claim).
+ * Never silent: the history records ABORTED with the claim_id, reason, time and event. A crash leaves the claim in place (nobody runs this), and it then needs a human decision. Returns true when the claim was rolled back. */
+export function rollbackPreIssueClaim(db, sellerId, key, claimId, why = '') {
+  if (!claimId) return false;
+  return txImm(db, () => {
+    const c = db.prepare('SELECT original_number, amount FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').get(sellerId, key, claimId); if (!c) return false;
+    if (db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(sellerId, key)) return false;
+    db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').run(sellerId, key, claimId);
+    const was = db.prepare("SELECT fingerprint FROM credit_claim_history WHERE seller_id=? AND reversal_key=? AND claim_id=? AND event='CLAIMED' ORDER BY id LIMIT 1").get(sellerId, key, claimId);
+    db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,fingerprint,at) VALUES (?,?,?,?,?,?,?,?,?,?)').run(sellerId, key, c.original_number, c.amount, 'ABORTED', claimId, 'system', `PRE_ISSUE_FAILURE: the issuance that reserved this claim failed before any document row existed, so nothing was uploaded (${String(why).slice(0, 120)})`, was?.fingerprint ?? null, new Date().toISOString());
+    return true;
+  });
 }

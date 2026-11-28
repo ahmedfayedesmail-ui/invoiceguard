@@ -1,0 +1,442 @@
+TAP version 13
+# Subtest: control: an unchanged report issues the approved credit note
+ok 1 - control: an unchanged report issues the approved credit note
+  ---
+  duration_ms: 121.234198
+  type: 'test'
+  ...
+# Subtest: changing fulfilled-by on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 2 - changing fulfilled-by on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 69.663488
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing fulfilled-by on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 3 - changing fulfilled-by on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 70.310124
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing order-date on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 4 - changing order-date on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 52.089638
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing order-date on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 5 - changing order-date on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 41.833511
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing recipient-name on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 6 - changing recipient-name on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 38.95189
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing recipient-name on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 7 - changing recipient-name on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 62.648167
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing buyer-name on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 8 - changing buyer-name on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 59.198503
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing buyer-name on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 9 - changing buyer-name on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 57.704845
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing sku on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 10 - changing sku on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 50.900282
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing sku on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 11 - changing sku on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 54.725439
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing product-name on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 12 - changing product-name on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 46.190146
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing product-name on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 13 - changing product-name on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 37.614831
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing is-amazon-invoiced on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 14 - changing is-amazon-invoiced on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 42.520268
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing is-amazon-invoiced on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 15 - changing is-amazon-invoiced on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 38.708995
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing is-business-order on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 16 - changing is-business-order on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 44.876236
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing is-business-order on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 17 - changing is-business-order on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 64.876954
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing citation-es on the reversal row after approval voids it (nothing issued, held for a new review)
+not ok 18 - changing citation-es on the reversal row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 46.75946
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing citation-es on the replacement row after approval voids it (nothing issued, held for a new review)
+not ok 19 - changing citation-es on the replacement row after approval voids it (nothing issued, held for a new review)
+  ---
+  duration_ms: 63.336691
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    no credit note
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: invoice-status alone (both rows, any value) does not void the approval
+ok 20 - invoice-status alone (both rows, any value) does not void the approval
+  ---
+  duration_ms: 37.968889
+  type: 'test'
+  ...
+# Subtest: invoice-status never opens the Amazon-acceptance gate: a report saying CreditNoteUploaded does not release the replacement before our credit note is confirmed uploaded
+ok 21 - invoice-status never opens the Amazon-acceptance gate: a report saying CreditNoteUploaded does not release the replacement before our credit note is confirmed uploaded
+  ---
+  duration_ms: 38.151432
+  type: 'test'
+  ...
+1..21
+# tests 21
+# suites 0
+# pass 3
+# fail 18
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1417.560792

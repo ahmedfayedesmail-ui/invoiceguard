@@ -1,8 +1,11 @@
+import { acceptReport } from './correction-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
-import { processReport, processCorrections, pollFeeds, settleUnknownDocuments, unknownSettleCheck } from '../src/pipeline.js';
+import { processReport, processCorrections as processCorrectionsRaw, pollFeeds, settleUnknownDocuments, unknownSettleCheck } from '../src/pipeline.js';
+import { withApproval } from './correction-helpers.js';
+const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
@@ -319,13 +322,13 @@ test('a rejected invoice gets a reviewed retry that re-uploads the SAME document
 test('a rejected credit note retries the SAME document through the repair queue', async () => {
   const db = openDb();
   const api2 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }) };
-  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  await acceptReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   detectRepairs(db, seller, refundReport());
   const [p] = listRepairs(db, seller.id);
   await approveRepair(db, seller, p.event_key, { api: api2, validate: vies });
   const rect = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id);
   const [head, ...rows] = refundReport().trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'Internal processing error'), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, rect.number).upload_status, 'rejected');
   const reopened = db.prepare('SELECT state, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key);
   assert.equal(reopened.state, 'proposed', 'a rejection re-opens the review instead of leaving dead history');
@@ -387,25 +390,22 @@ test('a rejected Amazon billing-correction credit note gets a reviewed retry of 
   const db = openDb();
   const calls = [];
   const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
-  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  await acceptReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const corr = correctionPair();
   const r = await processCorrections(db, seller, corr, { api: api2, validate: vies });
   assert.deepEqual([r.creditNotes, r.invoices, r.errors.length], [1, 0, 0], 'the replacement waits until Amazon confirms the credit note');
   const cn = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
   assert.ok(cn, 'the correction credit note exists');
   const [head, ...rows] = corr.trim().split('\n');
-  // Amazon confirms the credit note -> the pair completes on the next pass
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
-  const r2 = await processCorrections(db, seller, corr, { api: api2, validate: vies });
-  assert.equal(r2.invoices, 1, 'the replacement went out after acceptance');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'Internal processing error'), { api: api2, validate: vies });
+  // (strict matching round: the rejection is the FIRST verdict here; Uploaded-then-Rejected is a contradiction hold, credit-note-strict-match S15/S16)
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'Internal processing error'), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, cn.number).upload_status, 'rejected');
   const q = listRepairs(db, seller.id).find(x => x.kind === 'rejected_credit_note');
   assert.ok(q, 'a reviewed retry was proposed for the correction credit note');
   assert.equal(q.suggestion.action, 'retry_rect');
   const res = await approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
   assert.equal(res.rectNumber, cn.number, 'the SAME credit note number was retried');
-  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 2, 'no second document beyond credit note + replacement invoice');
+  assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1, 'no second document beyond the credit note itself (the replacement waits for acceptance)');
 });
 
 test('a rejected correction replacement invoice retries the SAME document, and the verdict never lands on the original', async () => {
@@ -416,7 +416,7 @@ test('a rejected correction replacement invoice retries the SAME document, and t
   const corr = correctionPair();
   await processCorrections(db, seller, corr, { api: api2, validate: vies });
   const [h0, ...cRows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(h0, cRows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
+  await acceptReport(db, seller, withDesc(h0, cRows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
   await processCorrections(db, seller, corr, { api: api2, validate: vies });
   const repl = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='SHIPMENT:Correction::X:2'").get(seller.id);
   const orig = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
@@ -527,25 +527,26 @@ test('a retry upload interrupted mid-flight goes to unknown with a hold and refu
 test('content rejections of credit notes and replacement invoices are HELD, and an empty reason holds too', async () => {
   const db = openDb();
   const api2 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }) };
-  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  await acceptReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const corr = correctionPair();
   await processCorrections(db, seller, corr, { api: api2, validate: vies });
   const [head, ...rows] = corr.trim().split('\n');
   // the replacement exists only after Amazon confirms the credit note
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
-  await processCorrections(db, seller, corr, { api: api2, validate: vies });
-  // content rejection of the correction credit note
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'TotalAmount does not match'), { api: api2, validate: vies });
+  // content rejection of the correction credit note (strict matching round: this is the FIRST verdict; a rejection AFTER an acceptance is a contradiction hold, see credit-note-strict-match S15/S16)
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'TotalAmount does not match'), { api: api2, validate: vies });
   const cnHold = listRepairs(db, seller.id).find(r => r.kind === 'rejected_credit_note');
   assert.ok(cnHold, 'credit note rejection proposed');
   assert.equal(cnHold.suggestion.action, 'hold', 'a content rejection of a credit note is held, not retried');
+  // Amazon later accepts the credit note: the replacement can then be issued
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
+  await processCorrections(db, seller, corr, { api: api2, validate: vies });
   // content rejection of the replacement invoice
-  await processReport(db, seller, withDesc(head, rows[1].split('\t'), 'InvoiceRejected', 'TotalVATAmount mismatch'), { api: api2, validate: vies });
+  await acceptReport(db, seller, withDesc(head, rows[1].split('\t'), 'InvoiceRejected', 'TotalVATAmount mismatch'), { api: api2, validate: vies });
   const replHold = listRepairs(db, seller.id).find(r => r.kind === 'rejected_correction_invoice');
   assert.ok(replHold, 'replacement rejection proposed');
   assert.equal(replHold.suggestion.action, 'hold', 'a content rejection of a replacement invoice is held, not retried');
   // an empty rejection reason on a plain invoice holds too (unknown class never retries)
-  await processReport(db, seller, singleRow('InvoiceRejected'), { api: api2, validate: vies });
+  await acceptReport(db, seller, singleRow('InvoiceRejected'), { api: api2, validate: vies });
   const emptyHold = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   assert.ok(emptyHold, 'plain invoice rejection proposed');
   assert.equal(emptyHold.suggestion.action, 'hold', 'an empty/unclear reason holds instead of guessing');
@@ -555,7 +556,7 @@ test('boot recovery never closes a repair on an unknown or rejected document', a
   const db = openDb();
   let fail = true;
   const api2 = { uploadInvoice: async () => { if (fail) { const e = new Error('timeout'); e.unknownOutcome = true; throw e; } return 'f1'; }, feedStatus: async () => ({ status: 'DONE' }) };
-  await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  await acceptReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
   assert.ok(hold, 'the unknown outcome created a hold');
   // crash mid-approval of that hold: it must come BACK to review, not vanish as issued
@@ -564,12 +565,12 @@ test('boot recovery never closes a repair on an unknown or rejected document', a
   assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'proposed', 'a hold on an unknown document stays in review');
   // a credit-note repair whose document was REJECTED before the crash also comes back
   fail = false;
-  await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
+  await acceptReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
   detectRepairs(db, seller, refundReport());
   const [p] = listRepairs(db, seller.id).filter(r => r.kind === 'return');
   await approveRepair(db, seller, p.event_key, { api: api2, validate: vies });
   const [head, ...rows] = refundReport().trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteRejected', 'Internal processing error'), { api: api2, validate: vies });
   db.prepare("UPDATE repairs SET state='issuing' WHERE seller_id=? AND event_key=?").run(seller.id, p.event_key);
   recoverStuckRepairs(db);
   assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key).state, 'proposed', 'a rejected document keeps its retry decision in review');
@@ -645,7 +646,7 @@ test('an unknown-outcome correction credit note is not treated as done: processC
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1, 'the replacement still waits for Amazon to confirm the credit note');
   // Amazon confirms the credit note -> only then does the pair complete
   const [h0, ...cRows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(h0, cRows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
+  await acceptReport(db, seller, withDesc(h0, cRows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
   const r3 = await processCorrections(db, seller, corr, { api: api2, validate: vies });
   assert.equal(r3.invoices, 1);
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 2, 'still exactly credit note + replacement, no third document');
@@ -741,7 +742,7 @@ test('a credit note Amazon reports as Processing is never resent, even when the 
   const db = openDb();
   let calls = 0, fail = true;
   const api2 = { uploadInvoice: async () => { calls++; if (fail) { const e = new Error('econnreset'); e.unknownOutcome = true; throw e; } return 'f' + calls; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
-  await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
+  await acceptReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const corr = correctionPair();
   await processCorrections(db, seller, corr, { api: api2, validate: vies });
   const cn = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
@@ -749,7 +750,7 @@ test('a credit note Amazon reports as Processing is never resent, even when the 
   const callsBefore = calls;
   // Amazon's next report says it is PROCESSING the credit note: Amazon holds it, no seller action needed
   const [head, ...rows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteProcessing'), { api: api2, validate: vies });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteProcessing'), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, cn.number).upload_status, 'processing');
   assert.ok(listRepairs(db, seller.id, 'issued').some(r => r.kind === 'unknown_outcome'), 'the unknown-outcome hold was closed by Amazon processing evidence');
   // and the correction pass must not resend it, nor issue the replacement yet
@@ -804,7 +805,7 @@ test('the replacement waits for acceptance of the credit note - a failed reversa
   assert.equal(calls.filter(c => c.documentType === 'Invoice' && c.transactionId === 'Correction::X:2').length, 0, 'the replacement was never sent');
   // Amazon confirms the credit note -> the pair completes on the next pass
   const [head, ...rows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
   const r3 = await processCorrections(db, seller, corr, { api: api2, validate: vies });
   assert.equal(r3.invoices, 1, 'the replacement goes out only after acceptance');
 });

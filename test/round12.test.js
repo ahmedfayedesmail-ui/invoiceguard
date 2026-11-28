@@ -10,6 +10,7 @@
 // P2: feed_conflict inserted a duplicate event every hourly poll. Now one event per
 //   document+feed+status; repeats only bump its counter and last-seen time.
 import test from 'node:test';
+import { acceptReport, matchStoredCreditNote } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth } from '../src/db.js';
@@ -102,7 +103,8 @@ test('R10-2 (credit note): a correction retry overlapping a sync must not wipe a
   assert.equal(vidrAt(db, rect.number), null, 'the claim cleared any stale verdict BEFORE the call');
   // While the Amazon call is in flight, the sync records CreditNoteProcessing for it.
   const [head, ...rows] = text.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'transaction-type': 'REFUND', 'transaction-id': 'TX9', 'invoice-status': 'CreditNoteProcessing' }), { api, validate: vies });
+  const __rep = withDesc(head, rows[0].split('\t'), { 'transaction-type': 'REFUND', 'transaction-id': 'TX9', 'invoice-status': 'CreditNoteProcessing' }); matchStoredCreditNote(db, seller.id, __rep, rect.number);
+  await acceptReport(db, seller, __rep, { api, validate: vies });
   assert.ok(vidrAt(db, rect.number), 'the mid-flight verdict was stamped');
   release(); await retry;
   assert.equal(statusOf(db, rect.number), 'processing', 'freshest information wins - no regression to submitted');

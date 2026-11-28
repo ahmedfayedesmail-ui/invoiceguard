@@ -10,7 +10,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth, currentAttemptSeq, nextReportGen } from '../src/db.js';
-import { processReport, processCorrections } from '../src/pipeline.js';
+import { processReport, processCorrections as processCorrectionsRaw } from '../src/pipeline.js';
+import { withApproval, acceptReport } from './correction-helpers.js';
+const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 import { detectRepairs, listRepairs, approveRepair, recordReportSnapshot } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
@@ -54,7 +56,7 @@ test('R14-1: a STALE Correction:: row must NOT resubmit the replacement (process
   const corr = correctionPair();
   await processCorrections(db, seller, corr, { api, validate: vies });
   const [h0, ...cRows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(h0, cRows[0].split('\t'), { 'invoice-status': 'CreditNoteUploaded' }), { api, validate: vies });
+  await acceptReport(db, seller, withDesc(h0, cRows[0].split('\t'), { 'invoice-status': 'CreditNoteUploaded' }), { api, validate: vies });
   await processCorrections(db, seller, corr, { api, validate: vies });
   const repl = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='SHIPMENT:Correction::X:2'").get(seller.id);
   assert.ok(repl, 'the replacement document exists');

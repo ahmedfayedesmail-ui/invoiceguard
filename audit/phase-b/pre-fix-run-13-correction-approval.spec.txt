@@ -1,0 +1,164 @@
+TAP version 13
+# Subtest: R1: a fully matching correction issues NOTHING before approval, and the hold is a durable reviewable finding
+not ok 1 - R1: a fully matching correction issues NOTHING before approval, and the hold is a durable reviewable finding
+  ---
+  duration_ms: 88.93292
+  type: 'test'
+  location: '/home/sandbox/pre-wt2/test/correction-approval.test.js:27:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    nothing uploaded
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt2/test/correction-approval.test.js:29:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: R2: a correct approval issues exactly one credit note, and the decision is documented (user, reason, time, fingerprint)
+not ok 2 - R2: a correct approval issues exactly one credit note, and the decision is documented (user, reason, time, fingerprint)
+  ---
+  duration_ms: 54.932187
+  type: 'test'
+  location: '/home/sandbox/pre-wt2/test/correction-approval.test.js:35:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /10 characters/. Input:
+    
+    "TypeError: Cannot read properties of undefined (reading 'fingerprint')"
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+  error: "Cannot read properties of undefined (reading 'fingerprint')"
+  name: 'TypeError'
+  stack: |-
+    file:///home/sandbox/pre-wt2/test/correction-approval.test.js:37:68
+    getActual (node:assert:609:5)
+    Function.throws (node:assert:757:24)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt2/test/correction-approval.test.js:37:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt2/test/correction-approval.test.js:37:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R3: changed evidence voids the approval and returns the state to HOLD
+not ok 3 - R3: changed evidence voids the approval and returns the state to HOLD
+  ---
+  duration_ms: 55.74108
+  type: 'test'
+  location: '/home/sandbox/pre-wt2/test/correction-approval.test.js:45:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    nothing issued on changed evidence
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt2/test/correction-approval.test.js:48:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R4: a partial reversal stays HOLD and no decision can release it
+not ok 4 - R4: a partial reversal stays HOLD and no decision can release it
+  ---
+  duration_ms: 23.195942
+  type: 'test'
+  location: '/home/sandbox/pre-wt2/test/correction-approval.test.js:53:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    0 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt2/test/correction-approval.test.js:58:64)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R5: a repeated CorrectionReversal produces no additional credit note; credits never exceed the creditable balance (cumulative)
+not ok 5 - R5: a repeated CorrectionReversal produces no additional credit note; credits never exceed the creditable balance (cumulative)
+  ---
+  duration_ms: 19.761243
+  type: 'test'
+  location: '/home/sandbox/pre-wt2/test/correction-approval.test.js:63:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    0 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt2/test/correction-approval.test.js:69:63)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R6: the replacement waits for Amazon to accept the credit note (CreditNoteUploaded), and the same approval then covers it
+ok 6 - R6: the replacement waits for Amazon to accept the credit note (CreditNoteUploaded), and the same approval then covers it
+  ---
+  duration_ms: 24.858747
+  type: 'test'
+  ...
+# Subtest: R7: the approval is for the PAIR: replacement data changed after the credit note was issued is held, not issued
+not ok 7 - R7: the approval is for the PAIR: replacement data changed after the credit note was issued is held, not issued
+  ---
+  duration_ms: 36.492768
+  type: 'test'
+  location: '/home/sandbox/pre-wt2/test/correction-approval.test.js:79:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt2/test/correction-approval.test.js:83:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 1
+# fail 6
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 502.703573

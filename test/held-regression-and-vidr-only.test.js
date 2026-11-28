@@ -33,7 +33,7 @@ test('held: guards that must keep working: explicit values are read as written, 
     const amazon = planUpload(setCols(base(), { 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'TRUE', 'invoice-status': status }));
     assert.equal(amazon.held.length, 0); assert.equal(amazon.skipped.length, 1); assert.match(amazon.skipped[0].why, /Amazon creates/);
   }
-  assert.equal(planUpload(setCols(base(), { 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'FALSE', 'invoice-status': 'InvoicePending' })).shipments.length, 1);
+  { const q = planUpload(setCols(base(), { 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'FALSE', 'invoice-status': 'InvoicePending' })); /* Phase B: base() has no amount columns, so the integrity gate holds it; the flag aspect is that an explicit FALSE is neither skipped nor held for the flag */ assert.equal(q.skipped.length, 0); assert.equal(q.held.length + q.shipments.length, 1); if (q.held.length) assert.doesNotMatch(q.held[0].reason, /is-amazon-invoiced|is-business-order/); }
   assert.equal(needsInvoice(parseVidr(setCols(base(), { 'is-business-order': 'TRUE', 'is-amazon-invoiced': 'FALSE', 'invoice-status': 'InvoiceUploaded' }))[0]), false, 'explicit FALSE and InvoiceUploaded: nothing to issue, and that is read from the explicit flag');
 });
 test('held: the pipeline (API accounts) also holds a blank is-amazon-invoiced with InvoiceCreatedByAmazon and InvoiceUploaded, and issues nothing for it', async () => {

@@ -1,0 +1,65 @@
+✔ parseAmount property: random tokens never become a number by guessing (12.19078ms)
+✔ parseAmount property: every formatted amount reads back to exactly the same cents (separators, grouping, sign, huge values) (25.13222ms)
+✔ parseAmount: named hostile tokens are INVALID, a blank is MISSING, a real 0.00 is VALID zero (unknown never becomes zero) (0.661398ms)
+✔ property: one hostile amount in a random cell of a random row never issues (HOLD or INFO only), never changes the number, and is recorded in the ledger (303.546893ms)
+✔ property: combinations of several independent defects: any blocking defect means no invoice; the ledger holds one record per (code, field) and every evidence entry names one line (204.813247ms)
+✔ hostile text in personal fields never reaches the ledger, history or events and never crashes processing (16.12299ms)
+✔ reprocessing the same hostile or good report is idempotent: same ledger records, same invoices, no new uploads (41.579727ms)
+✔ a corrected file resolves the finding and issues once; the bad file coming back reopens it and holds again (evidence never disappears) (18.174046ms)
+✔ a human decision on one version of the evidence does not release a changed version (3.54233ms)
+✔ one shipment never gets two ordinary invoices across repeated, reordered and split-up reports (18.158374ms)
+✔ an amount beyond the exact-arithmetic limit is held (AMOUNT_OUT_OF_RANGE), never issued with a different number (2.670654ms)
+✔ fidelity property: every amount at or under the limit is issued with exactly the file gross, to the cent (574.605174ms)
+✖ proposal R11: a negative item, shipping or gift-wrap amount on a shipment should be held (todo, not part of the approved rules) (9.614124ms) # new rule needs approval
+✖ a repeated column name with different values is an invalid row, never "the last one wins" (billing-name, currency, shipment-date, buyer-vat-number) (0.479564ms)
+✔ guard: a repeated column name whose values AGREE is still read normally (7.389004ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 13
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 1
+ℹ duration_ms 1444.70538
+
+✖ failing tests:
+
+test at test/financial-adversarial.test.js:125:1
+✖ proposal R11: a negative item, shipping or gift-wrap amount on a shipment should be held (todo, not part of the approved rules) (9.614124ms) # new rule needs approval
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/financial-adversarial.test.js:127:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/financial-adversarial.test.js:132:1
+✖ a repeated column name with different values is an invalid row, never "the last one wins" (billing-name, currency, shipment-date, buyer-vat-number) (0.479564ms)
+  AssertionError [ERR_ASSERTION]: billing-name: no shipment is built from it
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/financial-adversarial.test.js:134:73)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

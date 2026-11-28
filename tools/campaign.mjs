@@ -6,6 +6,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { openDb, verifyAudit } from '../src/db.js';
 import { parseVidr, needsInvoice } from '../src/vidr.js';
 import { processReport, processCorrections } from '../src/pipeline.js';
+import { releaseIntegrity } from '../src/integrity.js';
+import { acceptReport } from '../test/correction-helpers.js';
 import { detectRepairs, approveRepair, listRepairs } from '../src/repair.js';
 import { renderPdfCached as renderPdf } from '../src/pdf.js';
 import { planUpload } from '../src/manual.js';
@@ -54,8 +56,9 @@ function money(plain = false) { // realistic random amounts, sometimes boundary 
   if (b < 0.04) return ['0.00', '0.00', '0.00'];
   if (b < 0.08) return ['0.01', '0.00', '0.01'];
   if (b < 0.12) return ['999999.99', '173553.72', '826446.27'];
-  const incl = Math.round((plain ? 100 + rnd() * 49900 : rnd() * 50000)) / 100, vat = Math.round(incl * 0.21 * 100) / 100;
-  return [incl.toFixed(2), vat.toFixed(2), (incl - vat).toFixed(2)];
+  // Phase B: the template row states a 0.21 rate on the NET amount, so net = gross / 1.21 and VAT = gross - net. The old generator took 21% of the GROSS, which contradicts its own stated rate; the integrity gate rightly holds that.
+  const inclC = Math.round((plain ? 100 + rnd() * 49900 : rnd() * 50000)), exclC = Math.round(inclC / 1.21), vatC = inclC - exclC;
+  return [(inclC / 100).toFixed(2), (vatC / 100).toFixed(2), (exclC / 100).toFixed(2)];
 }
 
 function report(nShipments, opts = {}) {
@@ -66,11 +69,11 @@ function report(nShipments, opts = {}) {
     const vatKind = opts.vat ?? (rnd() < 0.7 ? 'valid' : rnd() < 0.5 ? 'invalid' : 'none');
     const buyerVat = vatKind === 'valid' ? pick(VALID_VATS) : vatKind === 'invalid' ? pick(INVALID_VATS) : '';
     const name = opts.name ?? pick(NAMES);
-    const nRows = int(1, 3);
+    const nRows = int(1, 3); const orderId = `4${int(100, 999)}-${int(1000000, 9999999)}-${int(1000000, 9999999)}`; // one order per shipment: the old generator gave every row its own order id, which the gate rightly treats as a contradiction
     for (let j = 0; j < nRows; j++) {
       const [incl, vat, excl] = money(opts.plain);
       lines.push(row({
-        'order-id': `4${int(100, 999)}-${int(1000000, 9999999)}-${int(1000000, 9999999)}` || undefined, 'shipping-id': sh, 'transaction-id': sh,
+        'order-id': orderId, 'shipping-id': sh, 'transaction-id': sh,
         'marketplace-id': mkt, 'ship-country': mkt, 'bill-country': mkt, 'ship-from-country': mkt === 'ES' ? 'ES' : 'DE', 'currency': cur,
         'buyer-vat-number': buyerVat, 'buyer-company-name': name, 'billing-name': name, 'buyer-name': name,
         'is-business-order': opts.nonBusiness ? 'FALSE' : 'TRUE', 'is-amazon-invoiced': opts.amazonInvoiced ? 'TRUE' : 'FALSE',
@@ -195,17 +198,25 @@ async function part3(n) {
       const orig = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice'").get(SELLER.id);
       if (!orig) { fail(scn, 'no original'); continue; }
       const base = text.trim().split('\n')[1].split('\t'); const ix = (k) => COLS.indexOf(k);
-      const rev = [...base]; rev[ix('transaction-type')] = 'REFUND'; rev[ix('transaction-id')] = 'CorrectionReversal:X:' + i;
-      for (const k of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount']) rev[ix(k)] = '-' + rev[ix(k)];
-      rev[ix('invoice-status')] = 'CreditNotePending';
+      // CASE CHANGED (Nov 28 2026, follow-up B, corrected fixture - not a moved metric): the reversal used to be built from only the FIRST row of a shipment that has 1 to 3 rows, so it stated a smaller amount than the invoice it reverses. That was unrealistic (a real CorrectionReversal reverses the whole shipment) and the new refund-amount gate rightly holds it. It now reverses every row of the shipment. See audit/phase-b/campaign-p3-fixture-correction.md.
+      const revRows = text.trim().split('\n').slice(1).map((ln) => { const rv = ln.split('\t'); rv[ix('transaction-type')] = 'REFUND'; rv[ix('transaction-id')] = 'CorrectionReversal:X:' + i;
+        for (const k of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount']) rv[ix(k)] = '-' + rv[ix(k)];
+        rv[ix('invoice-status')] = 'CreditNotePending'; return rv.join('\t'); });
       const fixed = [...base]; fixed[ix('transaction-id')] = 'Correction::X:' + i; fixed[ix('billing-name')] = 'Nombre Corregido S.L.'; fixed[ix('buyer-company-name')] = 'Nombre Corregido S.L.';
-      const rep = [HEAD, rev.join('\t'), fixed.join('\t')].join('\n') + '\n';
+      const rep = [HEAD, ...revRows, fixed.join('\t')].join('\n') + '\n';
+      // CASE CHANGED (Nov 28 2026, owner decision on CorrectionReversal): nothing is issued before a person decides on the pair. Stage 1: held, a durable OPEN finding, no upload. Then a documented decision bound to the fingerprint, then the same pass as before. The assertions that followed are unchanged; the count rises from 10358 to 10658. See audit/phase-b/campaign-p3-correction-approval.md.
+      const nBefore = calls.length; // snapshot BEFORE the pass (owner review Nov 28: it used to be taken after, which proved nothing)
+      const r0 = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
+      const fnd = db.prepare("SELECT * FROM integrity_findings WHERE code='CORRECTION_PAIR_REVIEW' AND status='OPEN'").all();
+      check(scn, r0.creditNotes === 0 && r0.invoices === 0 && calls.length === nBefore && fnd.length === 1, `held for review, nothing issued: ${JSON.stringify({ c: r0.creditNotes, f: fnd.length })}`);
+      for (const f of fnd) releaseIntegrity(db, SELLER.id, f.shipment_key, f.code, f.fingerprint, { user: 'campaign-reviewer', reason: 'campaign: pair checked against the original' });
+      check(scn, calls.length === nBefore, 'the decision itself issues nothing');
       const r = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
       check(scn, r.creditNotes === 1 && r.invoices === 0 && r.errors.length === 0, `correction pair staged (replacement waits): ${JSON.stringify({ c: r.creditNotes, i: r.invoices, e: r.errors })}`);
       const cn = calls[calls.length - 1];
       check(scn, cn.documentType === 'CreditNote' && cn.transactionId === 'CorrectionReversal:X:' + i, 'credit note TransactionId');
       // The replacement waits for Amazon's acceptance of the credit note; then the pair completes.
-      await processReport(db, SELLER, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api: mkApi(calls), validate: mkValidate() });
+      await acceptReport(db, SELLER, rep.replaceAll('CreditNotePending', 'CreditNoteUploaded'), { api: mkApi(calls), validate: mkValidate() });
       const rp = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
       check(scn, rp.invoices === 1 && rp.errors.length === 0, `replacement after acceptance: ${JSON.stringify({ i: rp.invoices, e: rp.errors })}`);
       const inv = calls[calls.length - 1];

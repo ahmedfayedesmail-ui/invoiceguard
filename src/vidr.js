@@ -22,8 +22,9 @@ const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const OPTIONAL_TRAILING = new Set(['citation-en', 'citation-es']);
 export function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => [l, i + 1]).filter(([l]) => l.trim());
-  if (!lines.length) return { rows: [], invalid: [], head: [] };
+  if (!lines.length) return { rows: [], rowLines: [], invalid: [], head: [] };
   const head = lines[0][0].split('\t').map(h => h.trim().toLowerCase());
+  const dupNames = [...new Set(head.filter((h, i) => h && head.indexOf(h) !== i))];
   const missingOf = (n) => n < head.length ? head.slice(n).filter(h => !OPTIONAL_TRAILING.has(h)) : [];
   const items = [], invalid = []; let prev = null; // prev = the accepted row on the physical line directly before, if any
   for (const [l, no] of lines.slice(1)) {
@@ -36,13 +37,19 @@ export function checkTsv(text) {
       }
       prev = null; continue;
     }
-    const item = { row: Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim()])) }; items.push(item); prev = { item, no, cells: c.length };
+    // A header that repeats a column name makes the value of that column ambiguous: when the repeated cells disagree, "the last one wins" would be a guess. The row is quarantined, never repaired.
+    const clash = dupNames.find(n => new Set(head.flatMap((h, i) => h === n ? [(c[i] ?? '').trim()] : [])).size > 1);
+    if (clash) { invalid.push({ line: no, cells: c.length, expected: head.length, missing: [], reason: `the header repeats the column ${clash} and the repeated cells disagree, so its value is not known` }); prev = null; continue; }
+    const item = { row: Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim()])), line: no }; items.push(item); prev = { item, no, cells: c.length };
   }
-  return { rows: items.filter(i => !i.drop).map(i => i.row), invalid: invalid.sort((x, y) => x.line - y.line), head };
+  return { rows: items.filter(i => !i.drop).map(i => i.row), rowLines: items.filter(i => !i.drop).map(i => i.line), invalid: invalid.sort((x, y) => x.line - y.line), head };
 }
 export function parseTsv(text) { return checkTsv(text).rows; }
 
 const PARTS = ['item', 'shipping', 'gift-wrap', 'item-promo', 'shipping-promo', 'gift-promo'];
+/** Round 3 (owner ruling Nov 28 2026): report columns a person's approval is bound to, although the document builder does not read them. invoice-status is deliberately NOT here (a lifecycle field). */
+export const BOUND_COLUMNS = ['fulfilled-by', 'order-date', 'recipient-name', 'buyer-name', 'sku', 'product-name', 'is-amazon-invoiced', 'is-business-order', 'citation-es'];
+export const CONFLICT_FIELDS = ['currency', 'buyer-vat-number', 'billing-name', 'bill-address-1', 'bill-city', 'bill-postal-code', 'bill-country', 'ship-country', 'ship-from-country', 'shipment-date', 'seller-vat-number', 'marketplace-id', 'order-id', 'buyer-company-name', 'buyer-tax-registration-type', 'invoice-status'];
 
 /** Group item rows into shipments (an invoice is due per shipment, not per order). */
 export function parseVidr(text) {
@@ -52,8 +59,9 @@ export function parseVidr(text) {
     const n = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim()).length - 1;
     invalid = Array.from({ length: Math.max(n, 0) }, (_, i) => ({ line: i + 2, cells: 0, expected: checked.head.length, missing: ['order-id', 'shipping-id or transaction-id'], reason: 'the header does not identify shipments, so this is not a VAT Invoice Data Report' })); rows = [];
   }
-  const map = new Map();
+  const map = new Map(); let ri = -1; const rowLines = checked.rowLines ?? [];
   for (const r of rows) {
+    ri++;
     const key = `${r['transaction-type'] || 'SHIPMENT'}:${r['transaction-id'] || r['shipping-id']}`;
     let s = map.get(key);
     if (!s) {
@@ -70,6 +78,9 @@ export function parseVidr(text) {
         citation: r['citation-es'] || r['citation-en'] || null, items: [], incl: 0, vat: 0, excl: 0,
       }).get(key);
     }
+    // Provenance for the integrity gate: the physical line and the raw tokens of every row that fed this shipment. Nothing is interpreted here.
+    (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r['quantity-purchased'] ?? '', itemId: r['order-item-id'] ?? '', sig: Object.values(r).join('\t'), orderDate: r['order-date'] ?? '', attrs: Object.fromEntries(CONFLICT_FIELDS.map(f => [f, r[f] ?? ''])), bound: Object.fromEntries(BOUND_COLUMNS.map(f => [f, r[f] ?? ''])), parts: Object.fromEntries(PARTS.map(p => [p, { incl: r[`${p}-vat-incl-amount`] ?? '', vat: r[`${p}-vat-amount`] ?? '', excl: r[`${p}-vat-excl-amount`] ?? '', rate: r[`${p}-vat-rate`] ?? '' }])) });
+    (s.rowMeta ??= []).push({ status: r['invoice-status'] ?? '', invoiceNumber: r['invoice-number'] ?? '', orderId: r['order-id'] ?? '', shippingId: r['shipping-id'] ?? '', currency: r.currency ?? '', marketplace: r['marketplace-id'] ?? '', type: r['transaction-type'] ?? '', transactionId: r['transaction-id'] || r['shipping-id'] || '', originalInvoiceNumber: r['original-vat-invoice-number'] ?? '', incl: PARTS.reduce((q, p) => q + num(r[`${p}-vat-incl-amount`]), 0), vat: PARTS.reduce((q, p) => q + num(r[`${p}-vat-amount`]), 0) }); s.invoiceNumberColumn = checked.head.includes('invoice-number'); // per-row evidence for the credit-note acceptance gate (src/cn-gate.js); nothing here changes a financial figure
     s.flagValues.push(r['is-amazon-invoiced']); s.businessValues.push(r['is-business-order']);
     const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
     const vatSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
@@ -82,6 +93,7 @@ export function parseVidr(text) {
     });
   }
   const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  const perOrder = new Map(); for (const s of list) { const k = s.marketplace + '|' + s.orderId; perOrder.set(k, (perOrder.get(k) ?? 0) + 1); } for (const s of list) s.orderShipments = perOrder.get(s.marketplace + '|' + s.orderId);
   list.invalidRows = invalid; // rows rejected by the integrity check: never shipments
   return list;
 }
