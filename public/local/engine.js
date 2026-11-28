@@ -50631,6 +50631,10 @@ init_buffer_shim();
 var import_pdfkit = __toESM(require_pdfkit_standalone(), 1);
 var dmy = (d) => d ? String(d).slice(0, 10).split("-").reverse().join("/") : "";
 var eur = (n, c = "EUR") => `${n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === "EUR" ? "\u20AC" : c}`;
+var created = (d) => {
+  const t = Date.parse(`${String(d ?? "").slice(0, 10)}T00:00:00Z`);
+  return new Date(Number.isFinite(t) ? t : 0);
+};
 function renderPdf(inv) {
   const langs = legacyLangs(inv), both = langs.length > 1;
   const tr = (l, k) => LABELS[l]?.[k] ?? k;
@@ -50639,7 +50643,7 @@ function renderPdf(inv) {
   const TL = (k) => uniq(k + ":", " / ").replace(/:( \/ [^:]*):/g, "$1:");
   const TH = (k) => uniq(k, both ? "\n" : "");
   return new Promise((resolve, reject) => {
-    const doc = new import_pdfkit.default({ size: "A4", margin: 50, info: { Title: inv.number } });
+    const doc = new import_pdfkit.default({ size: "A4", margin: 50, info: { Title: inv.number, CreationDate: created(inv.issueDate) } });
     const chunks = [];
     doc.on("data", (c) => chunks.push(c));
     doc.on("end", () => resolve(import_buffer.Buffer.concat(chunks)));

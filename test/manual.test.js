@@ -63,7 +63,7 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
   assert.equal(r.issued, 3); assert.equal(r.heldNow, 1);
   assert.equal((await call('manual/issue', { text, attest: true })).body.issued, 0, 'no duplicate');
   const d = (await call('dashboard')).body; assert.equal(d.kpis.ready, 3); assert.equal(d.invoices.length, 3);
-  const zip = await call('pack'); assert.equal(zip.body.subarray(0, 2).toString(), 'PK'); assert.match(zip.body.toString('latin1'), /manifest\.csv/);
+  const zip = await call('pack', {}); assert.equal(zip.body.subarray(0, 2).toString(), 'PK'); assert.match(zip.body.toString('latin1'), /manifest\.csv/);
   assert.equal((await call('invoices/mark', { numbers: [d.invoices[0].number] })).body.marked, 1);
   assert.equal((await call('invoices/mark', { all: true })).body.marked, 2); assert.equal((await call('invoices/mark', { all: true })).body.marked, 0);
   assert.equal((await call('pack')).status, 404);

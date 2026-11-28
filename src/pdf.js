@@ -3,6 +3,10 @@ import { LABELS, legacyLangs, refLine } from './lang.js';
 const dmy = (d) => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 const eur = (n, c = 'EUR') => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === 'EUR' ? '€' : c}`;
 
+// A fixed creation date (the document's own issue date) makes the same document render to the same bytes,
+// so an unchanged pack re-exports identically. An unreadable date falls back to the epoch, never to "now".
+const created = (d) => { const t = Date.parse(`${String(d ?? '').slice(0, 10)}T00:00:00Z`); return new Date(Number.isFinite(t) ? t : 0); };
+
 export function renderPdf(inv) {
   const langs = legacyLangs(inv), both = langs.length > 1;
   const tr = (l, k) => LABELS[l]?.[k] ?? k;
@@ -11,7 +15,7 @@ export function renderPdf(inv) {
   const TL = (k) => uniq(k + ':', ' / ').replace(/:( \/ [^:]*):/g, '$1:');
   const TH = (k) => uniq(k, both ? '\n' : '');
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 50, info: { Title: inv.number } });
+    const doc = new PDFDocument({ size: 'A4', margin: 50, info: { Title: inv.number, CreationDate: created(inv.issueDate) } });
     const chunks = []; doc.on('data', c => chunks.push(c)); doc.on('end', () => resolve(Buffer.concat(chunks))); doc.on('error', reject);
     const rect = inv.type === 'rectificativa';
     doc.font('Helvetica-Bold').fontSize(both ? 13 : 18).text(T(rect ? 'FACTURA RECTIFICATIVA' : 'FACTURA'), 50, 50, { width: 285 });

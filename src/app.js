@@ -11,7 +11,7 @@ import { ARTICLES, articlesIndex, articlePage } from './articles.js';
 import { sampleRun, samplePdf, sampleRepair } from './sample.js';
 import { applyBootReset } from './reset.js';
 import { planUpload } from './manual.js';
-import { makeZip } from './zip.js';
+import { makeZip, packStamp } from './zip.js';
 import { oauthRoutes } from './oauth.js';
 import { hashPwAsync, checkPwAsync, hashQueueStats, Busy, encrypt, decrypt, newToken } from './auth.js';
 import { cachedValidator } from './viescache.js';
@@ -549,16 +549,31 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         return json(res, 200, { ok: true });
       }
       if (p === '/api/pack') {
-        const rows = db.prepare("SELECT number, issued_at, total, vat, json FROM invoices WHERE seller_id=? AND upload_status='ready' ORDER BY number LIMIT 2000").all(seller.id);
+        const rows = db.prepare("SELECT number, kind, rectifies, issued_at, total, vat, json FROM invoices WHERE seller_id=? AND upload_status='ready' ORDER BY number LIMIT 2000").all(seller.id);
         if (!rows.length) return json(res, 404, { error: 'No invoices are waiting. Upload an order report first.' });
-        // Closure trail: every issued correction travelling in this pack moves to 'exported'.
-        db.prepare("UPDATE repairs SET state='exported' WHERE seller_id=? AND state='issued' AND rect_number IN (SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready')").run(seller.id, seller.id);
-        for (const r of rows) logEvent(db, seller.id, 'exported', { number: r.number }); // per-order evidence: the pack left us
-        const safe = (x) => String(x ?? '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60), cell = (v) => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
-        const files = [], man = ['invoice_number,order_id,buyer,buyer_vat,issue_date,currency,total_incl_vat,vat,file'];
-        for (const r of rows) { const inv = JSON.parse(r.json), name = `${safe(inv.orderId)}_${safe(r.number)}.pdf`; files.push({ name, data: await renderPdf(inv) }); man.push([r.number, inv.orderId, inv.buyer?.name, inv.buyer?.vat, String(inv.issueDate ?? '').slice(0, 10), inv.currency, r.total, r.vat, name].map(cell).join(',')); }
+        // Pack fidelity (T9): the formula guard covers free-text cells only, so a negative amount stays a plain
+        // numeric -24.20 instead of the text '-24.20; amounts always carry exactly two decimals; and the archive
+        // is stamped with the newest issue date in it, so an unchanged pack re-exports to the same bytes.
+        // Rendering has no side effects: only a POST records that the pack left us, and only after it rendered.
+        const safe = (x) => String(x ?? '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60);
+        const txt = (v) => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; }; // free text: a leading = + - @ must never open a spreadsheet formula
+        const plain = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"'; // identifiers this tool writes itself: quoted, no formula guard
+        const amt = (v) => { const n = Number(v); return Number.isFinite(n) ? n.toFixed(2) : ''; }; // numeric columns: never quoted, never escaped, always 2 decimals
+        const files = [], man = ['invoice_number,order_id,buyer,buyer_vat,issue_date,currency,total_incl_vat,vat,file,kind,rectifies,mode,net'];
+        for (const r of rows) {
+          const inv = JSON.parse(r.json), name = `${safe(inv.orderId)}_${safe(r.number)}.pdf`;
+          files.push({ name, data: await renderPdf(inv) });
+          man.push([plain(r.number), txt(inv.orderId), txt(inv.buyer?.name), txt(inv.buyer?.vat), plain(String(inv.issueDate ?? '').slice(0, 10)), txt(inv.currency), amt(r.total), amt(r.vat), plain(name), txt(r.kind), txt(r.rectifies), txt(inv.mode), amt(inv.totals?.excl)].join(','));
+        }
         files.push({ name: 'manifest.csv', data: Buffer.from('\uFEFF' + man.join('\r\n') + '\r\n') }, { name: 'HOW-TO-UPLOAD.txt', data: Buffer.from(PACK_HOWTO) });
-        const zip = makeZip(files); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoiceguard-pack-${new Date().toISOString().slice(0, 10)}.zip"`, 'cache-control': 'no-store', 'content-length': zip.length }); return res.end(zip);
+        const zip = makeZip(files, packStamp(rows)); // the archive is built before anything is written down
+        if (req.method === 'POST') { // the pack really left us: record it once, never on a bare GET (prefetch, retry, crawler)
+          db.prepare("UPDATE repairs SET state='exported' WHERE seller_id=? AND state='issued' AND rect_number IN (SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready')").run(seller.id, seller.id);
+          const seen = new Set();
+          for (const e of db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='exported'").all(seller.id)) { try { const n = JSON.parse(e.detail)?.number; if (n) seen.add(n); } catch { /* a malformed old event must not stop the pack */ } }
+          for (const r of rows) if (!seen.has(r.number)) logEvent(db, seller.id, 'exported', { number: r.number }); // repeat exports do not pile up events
+        }
+        res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoiceguard-pack-${new Date().toISOString().slice(0, 10)}.zip"`, 'cache-control': 'no-store', 'content-length': zip.length }); return res.end(zip);
       }
       if (p === '/api/sync') return json(res, 200, await sync(seller));
       if (p === '/api/dashboard') return json(res, 200, dashboard(seller));
