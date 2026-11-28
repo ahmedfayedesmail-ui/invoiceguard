@@ -1,0 +1,264 @@
+TAP version 13
+# Subtest: K1: time alone never releases: a ten-day-old claim stays after every pass (no auto-release)
+not ok 1 - K1: time alone never releases: a ten-day-old claim stays after every pass (no auto-release)
+  ---
+  duration_ms: 63.508934
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:26:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    listStuckClaims (file:///home/sandbox/invoiceguard/src/claims.js:4:44)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:29:77)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: K2: release without an open review finding is refused
+not ok 2 - K2: release without an open review finding is refused
+  ---
+  duration_ms: 24.51549
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:32:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /no open review|no open finding/i. Input:
+    
+    'Error: not implemented'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+  error: 'not implemented'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    releaseStuckClaim (file:///home/sandbox/invoiceguard/src/claims.js:6:46)
+    file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:32:127
+    getActual (node:assert:609:5)
+    Function.throws (node:assert:757:24)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:32:114)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:32:114)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K3: release needs user, reason >= 10 characters and the exact fingerprint
+not ok 3 - K3: release needs user, reason >= 10 characters and the exact fingerprint
+  ---
+  duration_ms: 35.751764
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:33:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:34:43)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K4 pending: a document row for the event (upload pending) makes the claim NOT stuck and the release refused
+not ok 4 - K4 pending: a document row for the event (upload pending) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 28.717431
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:41:3'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:42:48)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K4 sending: a document row for the event (upload sending) makes the claim NOT stuck and the release refused
+not ok 5 - K4 sending: a document row for the event (upload sending) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 20.644078
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:41:3'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:42:48)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K4 unknown: a document row for the event (upload unknown) makes the claim NOT stuck and the release refused
+not ok 6 - K4 unknown: a document row for the event (upload unknown) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 15.288716
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:41:3'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:42:48)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K4 submitted: a document row for the event (upload submitted) makes the claim NOT stuck and the release refused
+not ok 7 - K4 submitted: a document row for the event (upload submitted) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 14.674105
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:41:3'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:42:48)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K4 ready: a document row for the event (upload ready) makes the claim NOT stuck and the release refused
+not ok 8 - K4 ready: a document row for the event (upload ready) makes the claim NOT stuck and the release refused
+  ---
+  duration_ms: 15.689866
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:41:3'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:42:48)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K5: a claim younger than the quiet period is not listed and cannot be released (an issuance may still own it)
+not ok 9 - K5: a claim younger than the quiet period is not listed and cannot be released (an issuance may still own it)
+  ---
+  duration_ms: 25.43348
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:48:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    listStuckClaims (file:///home/sandbox/invoiceguard/src/claims.js:4:44)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:50:16)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K6: the fingerprint binds the evidence: anything that changes after the review voids the decision
+not ok 10 - K6: the fingerprint binds the evidence: anything that changes after the review voids the decision
+  ---
+  duration_ms: 24.322629
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:52:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:53:46)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K7: a correct release is a documented HUMAN_DECISION with a full history, and the pair needs a NEW approval before anything issues
+not ok 11 - K7: a correct release is a documented HUMAN_DECISION with a full history, and the pair needs a NEW approval before anything issues
+  ---
+  duration_ms: 17.346596
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:57:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:58:48)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K8 (double-issue proof, order 1): release BEFORE the issuance writes its document -> the issuance refuses, no document, then a fresh approval issues once
+not ok 12 - K8 (double-issue proof, order 1): release BEFORE the issuance writes its document -> the issuance refuses, no document, then a fresh approval issues once
+  ---
+  duration_ms: 17.728887
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:69:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:70:51)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K9 (double-issue proof, order 2): the issuance writes its document FIRST -> the release is refused, the claim stays as the document’s claim
+not ok 13 - K9 (double-issue proof, order 2): the issuance writes its document FIRST -> the release is refused, the claim stays as the document’s claim
+  ---
+  duration_ms: 19.841338
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:76:1'
+  failureType: 'testCodeFailure'
+  error: 'not implemented'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    todo (file:///home/sandbox/invoiceguard/src/claims.js:2:28)
+    openStuckClaimReview (file:///home/sandbox/invoiceguard/src/claims.js:5:49)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:77:51)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: K10: claim creation is in the history, and a claim that is not stuck is never in the stuck list
+not ok 14 - K10: claim creation is in the history, and a claim that is not stuck is never in the stuck list
+  ---
+  duration_ms: 22.282038
+  type: 'test'
+  location: '/home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:82:1'
+  failureType: 'testCodeFailure'
+  error: 'no such table: credit_claim_history'
+  code: 'ERR_SQLITE_ERROR'
+  stack: |-
+    db.prepare (file:///home/sandbox/invoiceguard/src/db.js:10:65)
+    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/stuck-claim-recovery.test.js:85:16)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 0
+# fail 14
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 507.709085

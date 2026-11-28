@@ -679,7 +679,7 @@ function correctionReview(db, seller, rev, orig, list, claim = false, snap = {})
   if (claim && amount >= 0.005) db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at) VALUES (?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, new Date().toISOString());
   return null;
 }
-const reviewAtomic = (db, seller, rev, orig, list, claim, snap) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim, snap));
+export const reviewAtomic = (db, seller, rev, orig, list, claim, snap) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim, snap));
 
 /**
  * Amazon billing-data corrections (customer asked Amazon to change billing name/address). Amazon docs: the VIDR then lists
