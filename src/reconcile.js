@@ -7,6 +7,7 @@
 import { parseTable } from './manual.js';
 import { classifyTransactionId } from './txid.js';
 import { readFlag } from './vidr.js';
+import { readAmazonDate } from './date-reader.js';
 
 /** Literal strings, from Amazon's status table (SP-API "Create and upload invoices"; VCS guide 6.1 has 10 of the 11). Exact match, whitespace trimmed only. */
 export const STATUS_MAP = Object.freeze({
@@ -44,16 +45,22 @@ const iso3 = (y, m, d) => `${String(y).padStart(4, '0')}-${String(m).padStart(2,
 const declaredDay = (v) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v ?? '').trim()); return m && validDay(+m[1], +m[2], +m[3]) ? iso3(+m[1], +m[2], +m[3]) : null; };
 const isoDay = declaredDay; // used for the declared range only
 /** FILE dates (Amazon's own column `order-date`). Amazon's documented example is 17/05/2018 (DD/MM/YYYY), source:
- *  https://developer-docs.amazon/sp-api/docs/report-type-values-invoice-data . No other format is documented, so no other format is accepted.
- *  The whole string is matched (no prefix matching). Returns the two readings; which one applies is decided per FILE, never per value. */
-const FILE_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+ *  https://developer-docs.amazon/sp-api/docs/report-type-values-invoice-data . No other format is documented for this
+ *  column, so no other format is accepted here (ISO and the sample's with-time form stay UNRECOGNIZED in the checker,
+ *  even though the shared reader can read them: the gate's contract is wider). The readings come from the ONE shared
+ *  reader (./date-reader.js, swarm/t9-date-reader). The whole string is matched (no prefix matching). Returns the two
+ *  readings; which one applies is decided per FILE, never per value. */
 function fileDateReadings(v) {
   const t = String(v ?? '').trim(); if (t === '') return { kind: 'blank' };
-  const m = FILE_DATE.exec(t); if (!m) return { kind: 'unrecognized' };
-  const a = +m[1], b = +m[2], y = +m[3];
-  const dayFirst = validDay(y, b, a) ? iso3(y, b, a) : null, monthFirst = validDay(y, a, b) ? iso3(y, a, b) : null;
-  if (!dayFirst && !monthFirst) return { kind: 'impossible' };
-  return { kind: 'ok', dayFirst, monthFirst, provesDayFirst: !!dayFirst && a > 12, provesMonthFirst: !!monthFirst && b > 12 };
+  const r = readAmazonDate(t);
+  if (r.ok && r.kind === 'slash' && !r.hasTime) {
+    const parts = t.split('/');
+    if (r.order === 'DAY_FIRST') return { kind: 'ok', dayFirst: r.day, monthFirst: null, provesDayFirst: +parts[0] > 12, provesMonthFirst: false };
+    return { kind: 'ok', dayFirst: null, monthFirst: r.day, provesDayFirst: false, provesMonthFirst: +parts[1] > 12 };
+  }
+  if (!r.ok && r.kind === 'ambiguous') return { kind: 'ok', dayFirst: r.dayFirst, monthFirst: r.monthFirst, provesDayFirst: false, provesMonthFirst: false };
+  if (!r.ok && r.kind === 'impossible' && t.includes('/')) return { kind: 'impossible' }; // a slash-shaped value with no real calendar day (31/02/2018)
+  return { kind: 'unrecognized' };
 }
 /** Per-file date reading. DD/MM/YYYY is the ONLY accepted format. A value that proves month-first (second field over 12) is not a parse path:
  *  it makes the file unreadable (MONTH_FIRST_NOT_SUPPORTED, with the value as the example). A value that proves day-first (first field over 12)

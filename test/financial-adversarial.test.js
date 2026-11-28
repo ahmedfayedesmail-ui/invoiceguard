@@ -61,7 +61,7 @@ test('property: one hostile amount in a random cell of a random row never issues
   assert.ok(held > 40);
 });
 test('property: combinations of several independent defects: any blocking defect means no invoice; the ledger holds one record per (code, field) and every evidence entry names one line', async () => {
-  const muts = [(o) => ({ ...o, 'item-vat-amount': '8,4x' }), (o) => ({ ...o, currency: 'JPY' }), (o) => ({ ...o, 'quantity-purchased': '0' }), (o) => ({ ...o, 'shipment-date': '25/11/2026' }), (o) => ({ ...o, 'billing-name': 'Other Buyer ' + int(9) }), (o) => ({ ...o, 'item-vat-incl-amount': '1,234' })];
+  const muts = [(o) => ({ ...o, 'item-vat-amount': '8,4x' }), (o) => ({ ...o, currency: 'JPY' }), (o) => ({ ...o, 'quantity-purchased': '0' }), (o) => ({ ...o, 'shipment-date': '05/11/2026' }), (o) => ({ ...o, 'billing-name': 'Other Buyer ' + int(9) }), (o) => ({ ...o, 'item-vat-incl-amount': '1,234' })];
   for (let i = 0; i < 60; i++) {
     const n = 2 + int(3), base = Array.from({ length: n }, (_, k) => ({ 'order-item-id': String(800 + k), sku: 'SK' + k })); const k = 1 + int(3);
     for (let m = 0; m < k; m++) { const r = int(n), f = pick(muts); base[r] = f(base[r]); }

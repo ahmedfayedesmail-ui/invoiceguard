@@ -2,6 +2,7 @@
 // assessShipment is PURE: it reads only what parseVidr recorded (physical line and RAW tokens of each row) and returns findings. It uses the file's own arithmetic and consistency, never a tax rule, and never repairs or guesses.
 // Severity: BLOCK = the file contradicts itself (nothing can release it). HOLD = not issued until the cause is removed; resolution NEW_EVIDENCE (only a corrected file) or HUMAN_DECISION (a recorded decision tied to the exact evidence).
 import { sha256 } from './loop/sha256.js';
+import { readAmazonDate } from './date-reader.js';
 
 const sha = (x) => sha256(typeof x === 'string' ? x : JSON.stringify(x));
 const PARTS = ['item', 'shipping', 'gift-wrap', 'item-promo', 'shipping-promo', 'gift-promo'];
@@ -34,9 +35,12 @@ export function parseAmount(token) {
 const fmt = (c) => `${c < 0n ? '-' : ''}${(c < 0n ? -c : c) / 100n}.${String((c < 0n ? -c : c) % 100n).padStart(2, '0')}`;
 /** A rate as an exact decimal fraction: {num, den} or null. Both '.' and ',' accepted as the decimal mark. */
 const parseRate = (token) => { const t = String(token ?? '').trim(); const m = /^(\d{1,3})(?:[.,](\d{1,6}))?$/.exec(t); if (!m) return null; const d = m[2] ?? ''; return { num: BigInt(m[1] + d), den: 10n ** BigInt(d.length) }; };
-const ISO = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/; // YYYY-MM-DD, or an ISO date-time with an explicit time zone. Nothing else (no DMY, no MDY, no zone-less time) until a source-specific format is documented and tested.
+// Dates come from the ONE shared reader (./date-reader.js): ISO 8601, Amazon's documented DD/MM/YYYY, and the
+// month/day/year-with-time form of Amazon's published flat-file sample are read; a numeric date whose order is
+// ambiguous (both readings are real calendar days) is HELD with both readings named, never guessed; anything else
+// is unreadable. (swarm/t9-date-reader, owner ruling 2026-11-28.)
+const readDate = readAmazonDate;
 export const SUPPORTED_CURRENCIES = Object.freeze(['EUR', 'GBP', 'PLN', 'SEK']); // two minor units each (ISO 4217). A fixed list, not a rule: any other currency is held until its minor units are verified and this list is widened on purpose.
-const isoMs = (v) => { const m = ISO.exec(String(v ?? '').trim()); if (!m) return null; const [y, mo, d] = [+m[1], +m[2], +m[3]], t = Date.UTC(y, mo - 1, d); const dt = new Date(t); if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null; const p = Date.parse(String(v).trim()); return Number.isNaN(p) ? null : p; };
 const MAX_CENTS = 99999999999n; // 999,999,999.99 per cell
 const CORE_PARTS = ['item', 'shipping', 'gift-wrap'];
 const QTY = /^[1-9]\d{0,8}$/;
@@ -99,13 +103,16 @@ export function assessShipment(s) {
       else if (rate) rateSeen.add(`the ${p} rate ${rt} is above 1, so its unit (fraction or percent) is not provable`);
       else if (!rt && vat !== 0n) rateSeen.add(`the ${p} rate is blank`);
     }
-    // dates
+    // dates (the shared reader; the day is compared, never a guessed instant)
     const sd = String(r.attrs['shipment-date'] ?? '').trim();
     if (!sd) add('DATE_MISSING', 'HOLD', 'NEW_EVIDENCE', 'shipment-date', [ln(r)], {}, `The shipment-date cell on line ${ln(r)} is empty. The shipment date is required: the due time and the invoice date come from it, so nothing was issued and no date is assumed.`, NEW, ['']);
-    if (sd && isoMs(sd) === null) add('DATE_UNREADABLE', 'HOLD', 'NEW_EVIDENCE', 'shipment-date', [ln(r)], {}, `The shipment-date cell on line ${ln(r)} is not a complete ISO date (year-month-day), so nothing was issued. Day and month order is never guessed.`, NEW, [sd]);
+    const sdR = sd ? readDate(sd) : null;
+    if (sdR && !sdR.ok && sdR.kind === 'ambiguous') add('DATE_AMBIGUOUS', 'HOLD', 'NEW_EVIDENCE', 'shipment-date', [ln(r)], { dayFirst: sdR.dayFirst, monthFirst: sdR.monthFirst }, `The shipment-date cell on line ${ln(r)} could be ${sdR.dayFirst} (day first) or ${sdR.monthFirst} (month first), and both are real calendar days. The order is never guessed, so nothing was issued.`, 'Correct the date in your own copy so only one reading is possible (for example ISO year-month-day), or download the report again, and upload it. Nothing can be approved for this by hand.', [sd]);
+    else if (sdR && !sdR.ok) add('DATE_UNREADABLE', 'HOLD', 'NEW_EVIDENCE', 'shipment-date', [ln(r)], { reason: sdR.kind }, `The shipment-date cell on line ${ln(r)} is not a date we can read (ISO year-month-day, or Amazon's documented day/month/year), so nothing was issued. Day and month order is never guessed.`, NEW, [sd]);
     const od = String(r.orderDate ?? '').trim();
-    if (od && sd && isoMs(od) !== null && isoMs(sd) !== null && isoMs(od) > isoMs(sd)) add('DATE_ORDER', 'HOLD', 'HUMAN_DECISION', 'order-date', [ln(r)], {}, `The order-date on line ${ln(r)} is later than the shipment-date. That can be a time zone difference or a wrong value, and the file cannot tell which.`, 'Check the order in Seller Central. If the dates are right, record a decision with your reason. If not, upload a corrected report.', [od, sd]);
-    else if (od && isoMs(od) === null) notChecked.push({ check: 'order-date', reason: 'the order-date is not a complete ISO date, so its order against the shipment date was not compared' });
+    const odR = od ? readDate(od) : null;
+    if (od && sd && odR?.ok && sdR?.ok && odR.day > sdR.day) add('DATE_ORDER', 'HOLD', 'HUMAN_DECISION', 'order-date', [ln(r)], { values: { orderDate: odR.day, shipmentDate: sdR.day } }, `The order-date on line ${ln(r)} is later than the shipment-date. That can be a time zone difference or a wrong value, and the file cannot tell which.`, 'Check the order in Seller Central. If the dates are right, record a decision with your reason. If not, upload a corrected report.', [od, sd]);
+    else if (od && !odR?.ok) notChecked.push({ check: 'order-date', reason: odR?.kind === 'ambiguous' ? `the order-date could be ${odR.dayFirst} (day first) or ${odR.monthFirst} (month first), so its order against the shipment date was not compared` : 'the order-date is not a date we can read, so its order against the shipment date was not compared' });
   }
   for (const why of rateSeen) notChecked.push({ check: 'vat-vs-rate', reason: why });
   if (txType === 'SHIPMENT' && rows.length && totalKnown && totalCents <= 0n) add('NONPOSITIVE_TOTAL', 'HOLD', 'NEW_EVIDENCE', 'total', rows.map(ln), { values: { incl: fmt(totalCents) } }, `The total of this shipment (all amounts added) is ${fmt(totalCents)}, which is not an amount to invoice, so nothing was issued. A refund is a credit note, not a shipment invoice.`, NEW, [String(totalCents)], (l) => ({ values: { incl: fmt(rowTot.get(l) ?? 0n) } }));

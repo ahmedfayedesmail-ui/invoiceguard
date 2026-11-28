@@ -6,6 +6,7 @@ import { readLedger, readMoney } from './ledger.js';
 import { sha256 } from './sha256.js';
 import { eventShapeProblem, declarationProblem, DECLARATION_TYPES } from './events.js';
 import { buildCard } from './cards.js';
+import { readAmazonDate } from '../date-reader.js';
 
 import { coverageStatement } from './coverage.js';
 export const LOOP_VERSION = 'loop-1.0';
@@ -204,9 +205,11 @@ function evaluate(prefix, events, ctx) {
 
   // ---- coverage ----
   const booksCover = (d) => {
-    const mk = d.parts['marketplace-id'], ship = String(d.evidence.rows[0]?.['shipment-date'] ?? '').slice(0, 10), imp = impById.get(d.current.importId), rep = imp ? (day(imp.declared?.createdAt) ?? day(imp.declared?.downloadedAt)) : null;
+    // The shipment date comes from the ONE shared reader (../date-reader.js): never .slice(0, 10) on a raw cell.
+    const rawShip = String(d.evidence.rows[0]?.['shipment-date'] ?? ''), sdR = readAmazonDate(rawShip);
+    if (!sdR.ok) return { ok: false, why: [sdR.kind === 'ambiguous' ? `the shipment date on the Amazon row could be ${sdR.dayFirst} (day first) or ${sdR.monthFirst} (month first), and we do not guess` : 'the Amazon row has no readable shipment date'] };
+    const mk = d.parts['marketplace-id'], ship = sdR.day, imp = impById.get(d.current.importId), rep = imp ? (day(imp.declared?.createdAt) ?? day(imp.declared?.downloadedAt)) : null;
     const why = [];
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ship)) return { ok: false, why: ['the Amazon row has no readable shipment date'] };
     if (!rep) return { ok: false, why: ['the day the Amazon report was taken is not declared'] };
     if (!activeLed.length) return { ok: false, why: ['no accounting export has been loaded'] };
     for (const i of activeLed) { // only the files that stand after the replacement rule: a superseded export proves nothing

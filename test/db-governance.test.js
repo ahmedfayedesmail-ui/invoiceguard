@@ -56,7 +56,7 @@ test('WP3: a decision is atomic: if the last step fails, no decision is recorded
 });
 test('WP3: the ledger write of one evaluation is atomic: an interruption in the middle leaves neither a record without history nor history without a record', async () => {
   const db = openDb(); db.exec("CREATE TRIGGER t_crash2 BEFORE INSERT ON integrity_history WHEN NEW.code='DATE_UNREADABLE' BEGIN SELECT RAISE(ABORT,'simulated interruption'); END;");
-  const bad = file(rowOf(0, { 'item-vat-amount': '8,4x', 'shipment-date': '25/11/2026' })); let threw = false; try { await run(bad, db); } catch { threw = true; }
+  const bad = file(rowOf(0, { 'item-vat-amount': '8,4x', 'shipment-date': '25.11.2026' })); let threw = false; try { await run(bad, db); } catch { threw = true; } // 25.11.2026 is not a documented shape: still DATE_UNREADABLE, so the trigger fires (swarm/t9-date-reader)
   const recs = db.prepare('SELECT count(*) c FROM integrity_findings').get().c, hist = db.prepare("SELECT count(*) c FROM integrity_history WHERE event='OPENED'").get().c; assert.equal(recs, hist, `records ${recs} and OPENED history ${hist} agree`); assert.ok(threw || recs >= 0);
   assert.equal(db.prepare('SELECT count(*) c FROM invoices').get().c, 0, 'nothing issued');
   db.exec('DROP TRIGGER t_crash2'); const { out } = await run(bad, db); assert.equal(out.uploaded, 0); assert.ok(db.prepare('SELECT count(*) c FROM integrity_findings').get().c >= 2, 'the next evaluation completes the ledger');

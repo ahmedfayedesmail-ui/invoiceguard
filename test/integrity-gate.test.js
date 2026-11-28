@@ -52,7 +52,7 @@ const CASES = [
   ['NONPOSITIVE_TOTAL', 'HOLD', 'NEW_EVIDENCE', { 'item-vat-incl-amount': '-48.40', 'item-vat-amount': '-8.40', 'item-vat-excl-amount': '-40.00', 'shipping-vat-incl-amount': '', 'shipping-vat-amount': '', 'shipping-vat-excl-amount': '', 'shipping-vat-rate': '' }, 'total'],
   ['DATE_UNREADABLE', 'HOLD', 'NEW_EVIDENCE', { 'shipment-date': 'yesterday' }, 'shipment-date'],
   ['DATE_UNREADABLE', 'HOLD', 'NEW_EVIDENCE', { 'shipment-date': '1' }, 'shipment-date'], // JavaScript would read "1" as the year 2001
-  ['DATE_UNREADABLE', 'HOLD', 'NEW_EVIDENCE', { 'shipment-date': '24/11/2026' }, 'shipment-date'], // day or month first is never guessed
+  ['DATE_AMBIGUOUS', 'HOLD', 'NEW_EVIDENCE', { 'shipment-date': '05/11/2026' }, 'shipment-date'], // both readings are real days: held with both named, never guessed (swarm/t9-date-reader)
   ['DATE_ORDER', 'HOLD', 'HUMAN_DECISION', { 'order-date': '2026-11-26T08:00:00Z' }, 'order-date'],
 ];
 for (const [code, sev, res, over, field] of CASES) {
@@ -203,9 +203,10 @@ test('currency: EUR, GBP, PLN and SEK are supported (two minor units); any other
   for (const c of ['EUR', 'GBP', 'PLN', 'SEK']) assert.ok(!codes(file(rowOf(0, { currency: c }))).includes('CURRENCY_UNSUPPORTED'), c);
   for (const c of ['JPY', 'KWD', 'USD', '', 'EU']) { const a = assessShipment(one(file(rowOf(0, { currency: c })))); const f = a.findings.find(x => x.code === 'CURRENCY_UNSUPPORTED'); assert.ok(f, 'held: ' + c); assert.equal(a.verdict, 'HOLD'); assert.equal(f.resolution, 'NEW_EVIDENCE'); }
 });
-test('dates: YYYY-MM-DD and an ISO date-time with a time zone are read; 24/11/2026, 11/24/2026, a zone-less time and an impossible day are held, never reordered', () => {
-  for (const d of ['2026-11-24', '2026-11-24T08:00:00Z', '2026-11-24T08:00:00+01:00']) assert.ok(!codes(file(rowOf(0, { 'shipment-date': d }))).includes('DATE_UNREADABLE'), d);
-  for (const d of ['24/11/2026', '11/24/2026', '2026-11-24T08:00:00', '2026-02-30', '24.11.2026']) assert.ok(codes(file(rowOf(0, { 'shipment-date': d }))).includes('DATE_UNREADABLE'), d);
+test('dates: ISO, Amazon\'s documented DD/MM/YYYY, a one-reading month-first value and the sample\'s M/D/YYYY H:MM form are read; an ambiguous date is held with both readings named; a zone-less time and an impossible day are unreadable', () => {
+  for (const d of ['2026-11-24', '2026-11-24T08:00:00Z', '2026-11-24T08:00:00+01:00', '24/11/2026', '17/05/2018', '11/24/2026', '2/26/2019 20:14']) assert.ok(!codes(file(rowOf(0, { 'shipment-date': d }))).some(c => c.startsWith('DATE_')), d);
+  for (const d of ['2026-11-24T08:00:00', '2026-02-30', '24.11.2026', '5/11/2026']) assert.ok(codes(file(rowOf(0, { 'shipment-date': d }))).includes('DATE_UNREADABLE'), d);
+  for (const d of ['05/11/2026', '11/05/2026']) { const a = assessShipment(one(file(rowOf(0, { 'shipment-date': d })))); const f = a.findings.find(x => x.code === 'DATE_AMBIGUOUS'); assert.ok(f, d); assert.equal(f.severity, 'HOLD'); assert.equal(f.resolution, 'NEW_EVIDENCE'); assert.match(f.explanation, /2026-11-05/); assert.match(f.explanation, /2026-05-11/); }
 });
 test('amounts: 1,234 and 1.234 are both ambiguous and held, never read as 1234 or 1.234', () => {
   for (const v of ['1,234', '1.234']) { const a = assessShipment(one(file(rowOf(0, { 'item-vat-amount': v })))); assert.ok(a.findings.some(f => f.code === 'AMOUNT_UNREADABLE' && f.evidence.field === 'item-vat-amount'), v); }

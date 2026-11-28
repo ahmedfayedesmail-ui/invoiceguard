@@ -1,5 +1,10 @@
 import { resolveLangs } from './lang.js';
 import { nextNumber } from './db.js';
+import { readAmazonDate } from './date-reader.js';
+// The operation date is the shipment day read by the ONE shared reader (never .slice(0, 10) on a raw cell, which
+// mangles Amazon's documented DD/MM/YYYY). The issuance gate has already held any date the reader cannot resolve,
+// so an unreadable or ambiguous cell here yields null, never a wrong date on the document.
+const operationDayOf = (s) => { const r = readAmazonDate(s.shipmentDate); return r.ok ? r.day : null; };
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const sum = (a) => r2(a.reduce((x, y) => x + y, 0));
 
@@ -55,7 +60,7 @@ export function buildInvoice(db, seller, s, { date = new Date(), number } = {}) 
   const totals = totalsOf(lines);
   return {
     type: 'invoice', langs: resolveLangs(seller.invoice_lang ?? 'auto', seller.country ?? 'ES', s.billing.country), buyerCountry: s.billing.country, series: 'A', number: number ?? nextNumber(db, seller.id, 'A', date), issueDate: date.toISOString().slice(0, 10),
-    operationDate: s.shipmentDate ? s.shipmentDate.slice(0, 10) : null, orderId: s.orderId, shippingId: s.shippingId, currency: s.currency, poNumber: s.poNumber,
+    operationDate: s.shipmentDate ? operationDayOf(s) : null, orderId: s.orderId, shippingId: s.shippingId, currency: s.currency, poNumber: s.poNumber,
     seller: { name: seller.name, nif: seller.nif, address: seller.address, ...(pf.registrationNo ? { registrationNo: pf.registrationNo } : {}) },
     ...(hasPayment(pf) ? { payment: paymentOf(pf, date) } : {}),
     buyer: { name: s.billing.name || s.buyerCompany, company: s.buyerCompany, vat: s.buyerVat, address: [...s.billing.lines, `${s.billing.postal} ${s.billing.city}`.trim(), countryLine(s.billing.country)].filter(Boolean) },

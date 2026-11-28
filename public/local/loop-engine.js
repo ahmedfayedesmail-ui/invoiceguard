@@ -1883,6 +1883,49 @@ function sha256(str) {
   return [...H].map((x) => x.toString(16).padStart(8, "0")).join("");
 }
 
+// src/date-reader.js
+init_buffer_shim();
+var ISO = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2}))?$/;
+var SLASH = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+var SLASH_TIME = /^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2})(?::(\d{2}))?$/;
+var validDay = (y, m, d) => {
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return m >= 1 && m <= 12 && d >= 1 && d <= 31 && t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+};
+var iso3 = (y, m, d) => `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+function readAmazonDate(v) {
+  const t = String(v ?? "").trim();
+  if (t === "") return { ok: false, kind: "blank" };
+  const iso2 = ISO.exec(t);
+  if (iso2) {
+    const [y, mo, d] = [+iso2[1], +iso2[2], +iso2[3]];
+    if (!validDay(y, mo, d)) return { ok: false, kind: "impossible" };
+    if (iso2[4] !== void 0) {
+      const [hh, mm, ss] = [+iso2[4], +iso2[5], iso2[6] === void 0 ? 0 : +iso2[6]];
+      if (hh > 23 || mm > 59 || ss > 59) return { ok: false, kind: "impossible" };
+      const p = Date.parse(t);
+      if (Number.isNaN(p)) return { ok: false, kind: "impossible" };
+      return { ok: true, kind: "iso", order: "ISO", day: iso3(y, mo, d), ms: p, hasTime: true };
+    }
+    return { ok: true, kind: "iso", order: "ISO", day: iso3(y, mo, d), ms: Date.UTC(y, mo - 1, d), hasTime: false };
+  }
+  const slt = SLASH_TIME.exec(t), sl = SLASH.exec(t);
+  if (sl || slt) {
+    const m = slt ?? sl, hasTime = !!slt;
+    const a = +m[1], b = +m[2], y = +m[3];
+    if (hasTime) {
+      const hh = +m[4], mm = +m[5], ss = m[6] === void 0 ? 0 : +m[6];
+      if (hh > 23 || mm > 59 || ss > 59) return { ok: false, kind: "impossible" };
+    }
+    const dayFirst = validDay(y, b, a) ? iso3(y, b, a) : null, monthFirst = validDay(y, a, b) ? iso3(y, a, b) : null;
+    if (!dayFirst && !monthFirst) return { ok: false, kind: "impossible" };
+    if (dayFirst && monthFirst) return { ok: false, kind: "ambiguous", dayFirst, monthFirst };
+    const day2 = dayFirst ?? monthFirst, order = dayFirst ? "DAY_FIRST" : "MONTH_FIRST";
+    return { ok: true, kind: "slash", order, day: day2, ms: hasTime ? null : Date.UTC(y, +day2.slice(5, 7) - 1, +day2.slice(8, 10)), hasTime };
+  }
+  return { ok: false, kind: "unrecognized" };
+}
+
 // src/integrity-core.js
 var SUPPORTED_CURRENCIES = Object.freeze(["EUR", "GBP", "PLN", "SEK"]);
 
@@ -1963,26 +2006,28 @@ var REPORT_TYPE = "GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT";
 var REQUIRED_COLUMNS = ["marketplace-id", "order-id", "order-item-id", "shipping-id", "transaction-id", "transaction-type", "invoice-status", "invoice-number", "order-date"];
 var KEY_FIELDS = ["marketplace-id", "order-id", "shipping-id", "transaction-id", "transaction-type"];
 var DAY = 864e5;
-var validDay = (y, m, d) => {
+var validDay2 = (y, m, d) => {
   const t = new Date(Date.UTC(y, m - 1, d));
   return m >= 1 && m <= 12 && d >= 1 && d <= 31 && t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
 };
-var iso3 = (y, m, d) => `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+var iso32 = (y, m, d) => `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 var declaredDay = (v) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v ?? "").trim());
-  return m && validDay(+m[1], +m[2], +m[3]) ? iso3(+m[1], +m[2], +m[3]) : null;
+  return m && validDay2(+m[1], +m[2], +m[3]) ? iso32(+m[1], +m[2], +m[3]) : null;
 };
 var isoDay = declaredDay;
-var FILE_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 function fileDateReadings(v) {
   const t = String(v ?? "").trim();
   if (t === "") return { kind: "blank" };
-  const m = FILE_DATE.exec(t);
-  if (!m) return { kind: "unrecognized" };
-  const a = +m[1], b = +m[2], y = +m[3];
-  const dayFirst = validDay(y, b, a) ? iso3(y, b, a) : null, monthFirst = validDay(y, a, b) ? iso3(y, a, b) : null;
-  if (!dayFirst && !monthFirst) return { kind: "impossible" };
-  return { kind: "ok", dayFirst, monthFirst, provesDayFirst: !!dayFirst && a > 12, provesMonthFirst: !!monthFirst && b > 12 };
+  const r = readAmazonDate(t);
+  if (r.ok && r.kind === "slash" && !r.hasTime) {
+    const parts = t.split("/");
+    if (r.order === "DAY_FIRST") return { kind: "ok", dayFirst: r.day, monthFirst: null, provesDayFirst: +parts[0] > 12, provesMonthFirst: false };
+    return { kind: "ok", dayFirst: null, monthFirst: r.day, provesDayFirst: false, provesMonthFirst: +parts[1] > 12 };
+  }
+  if (!r.ok && r.kind === "ambiguous") return { kind: "ok", dayFirst: r.dayFirst, monthFirst: r.monthFirst, provesDayFirst: false, provesMonthFirst: false };
+  if (!r.ok && r.kind === "impossible" && t.includes("/")) return { kind: "impossible" };
+  return { kind: "unrecognized" };
 }
 function readFileDates(rows) {
   const rd = rows.map((r) => fileDateReadings(r["order-date"]));
@@ -2396,7 +2441,7 @@ function readDelimited(text, delimiter = null) {
   });
   return { ok: true, delimiter: d, head, rows, truncated: body.length > LEDGER_MAX_ROWS, blankLines, raggedRows };
 }
-var validDay2 = (y, m, d) => {
+var validDay3 = (y, m, d) => {
   const t = new Date(Date.UTC(y, m - 1, d));
   return m >= 1 && m <= 12 && t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
 };
@@ -2404,10 +2449,10 @@ var iso = (y, m, d) => `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0
 function dateReadings(v) {
   const s = String(v ?? "").trim(), r = {};
   let m;
-  if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)) && validDay2(+m[1], +m[2], +m[3])) r.ISO = iso(+m[1], +m[2], +m[3]);
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)) && validDay3(+m[1], +m[2], +m[3])) r.ISO = iso(+m[1], +m[2], +m[3]);
   if (m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(s)) {
-    if (validDay2(+m[3], +m[2], +m[1])) r.DMY = iso(+m[3], +m[2], +m[1]);
-    if (validDay2(+m[3], +m[1], +m[2])) r.MDY = iso(+m[3], +m[1], +m[2]);
+    if (validDay3(+m[3], +m[2], +m[1])) r.DMY = iso(+m[3], +m[2], +m[1]);
+    if (validDay3(+m[3], +m[1], +m[2])) r.MDY = iso(+m[3], +m[1], +m[2]);
   }
   return r;
 }
@@ -3174,9 +3219,10 @@ function evaluate(prefix, events, ctx) {
     }
   }
   const booksCover = (d) => {
-    const mk = d.parts["marketplace-id"], ship = String(d.evidence.rows[0]?.["shipment-date"] ?? "").slice(0, 10), imp = impById.get(d.current.importId), rep = imp ? day(imp.declared?.createdAt) ?? day(imp.declared?.downloadedAt) : null;
+    const rawShip = String(d.evidence.rows[0]?.["shipment-date"] ?? ""), sdR = readAmazonDate(rawShip);
+    if (!sdR.ok) return { ok: false, why: [sdR.kind === "ambiguous" ? `the shipment date on the Amazon row could be ${sdR.dayFirst} (day first) or ${sdR.monthFirst} (month first), and we do not guess` : "the Amazon row has no readable shipment date"] };
+    const mk = d.parts["marketplace-id"], ship = sdR.day, imp = impById.get(d.current.importId), rep = imp ? day(imp.declared?.createdAt) ?? day(imp.declared?.downloadedAt) : null;
     const why = [];
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ship)) return { ok: false, why: ["the Amazon row has no readable shipment date"] };
     if (!rep) return { ok: false, why: ["the day the Amazon report was taken is not declared"] };
     if (!activeLed.length) return { ok: false, why: ["no accounting export has been loaded"] };
     for (const i of activeLed) {

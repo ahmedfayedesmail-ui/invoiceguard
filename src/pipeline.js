@@ -13,6 +13,7 @@ import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
 import { newClaimToken, guardedUpload, lateUploadResult, ABANDON_QUIET_MS } from './claims.js';
 import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
 import { integrityGate, integrityNotes, correctionLedger, writeLedger, resolveGateFinding } from './integrity.js';
+import { readAmazonDate } from './date-reader.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -23,7 +24,11 @@ const DUE_HOURS = 24;
 export const explain = (m) => /FeatureNotAvailable|79509|closed beta/i.test(m) ? 'Amazon has not enabled invoice upload for this account. In Seller Central set VAT Calculation Service to "I will upload my own VAT invoices".' : /Tax Invoicing|Unauthorized|403/i.test(m) ? 'The app lacks the Tax Invoicing role. Amazon must approve it for this seller.' : m;
 
 export function upsertShipment(db, sellerId, s, status, reason = null) {
-  const t0 = s.shipmentDate ? new Date(s.shipmentDate).getTime() : NaN; const due = Number.isNaN(t0) ? null : new Date(t0 + DUE_HOURS * 3600e3).toISOString(); // an unreadable date has no due time (the gate holds it)
+  // The shared date reader (./date-reader.js): a date Amazon documents (DD/MM/YYYY included) gets a due time; an
+  // unreadable date has none (the gate holds it). A zone-less clock time proves the day, not the instant, so the
+  // countdown starts at the start of that day (UTC), the earliest the 24h SLA can mean.
+  const dr = s.shipmentDate ? readAmazonDate(s.shipmentDate) : null;
+  const t0 = dr?.ok ? (dr.ms ?? Date.parse(dr.day + 'T00:00:00Z')) : NaN; const due = Number.isNaN(t0) ? null : new Date(t0 + DUE_HOURS * 3600e3).toISOString();
   db.prepare(`INSERT INTO shipments (seller_id,key,order_id,shipping_id,buyer_vat,buyer,country,total,vat,shipment_date,due_at,status,reason,raw,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(seller_id,key) DO UPDATE SET status=excluded.status, reason=excluded.reason, raw=excluded.raw, updated_at=excluded.updated_at`)
     .run(sellerId, s.key, s.orderId, s.shippingId, s.buyerVat, s.buyerCompany, s.shipCountry, s.incl, s.vat, s.shipmentDate, due, status, reason, JSON.stringify(s), new Date().toISOString());

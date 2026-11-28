@@ -6,9 +6,10 @@
 // What these tests pin, deliberately:
 //  1. the VIDR fixture carries EVERY column Amazon documents today, in Amazon's order, so a trimmed fixture cannot silently hide a column gap;
 //  2. a multi-item shipment and a RETURN transaction are read the way a real file presents them;
-//  3. Amazon's documented DD/MM/YYYY dates are HELD by the issuing gate (DATE_UNREADABLE). That is a known, tracked gap, not a passing behaviour:
-//     the gate accepts ISO dates only, and no Amazon artifact we could read shows an ISO date in this report. The test fails loudly if the gate
-//     starts issuing from a date format it cannot prove, and it names the gap for whoever fixes it;
+//  3. Amazon's documented DD/MM/YYYY dates are READ by the issuing gate through the shared date reader
+//     (src/date-reader.js, squad swarm/t9-date-reader, owner ruling 2026-11-28): the clean two-item shipment
+//     passes the gate and is ready to invoice; an ambiguous date (both readings real days) would be held with
+//     both readings named, never guessed;
 //  4. a bottle-deposit row is held by exactly the deposit amounts, because this version reads no bottle-deposit column.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -62,18 +63,17 @@ test('VIDR fixture: one shipment per shipping-id, items kept apart, RETURN is it
   assert.equal(ret.incl, -60.5);
 });
 
-test('VIDR fixture: the documented DD/MM/YYYY dates are held by the issuing gate (known gap, not a pass)', () => {
+test('VIDR fixture: the documented DD/MM/YYYY dates are read by the issuing gate through the shared date reader (swarm/t9-date-reader)', () => {
   const parsed = parseVidr(VIDR);
   const a = assessShipment(parsed.find(s => s.key === 'SHIPMENT:S1001'));
-  assert.equal(a.verdict, 'HOLD');
-  const date = a.findings.filter(f => f.code === 'DATE_UNREADABLE');
-  assert.equal(date.length, 1);
-  assert.match(date[0].explanation, /ISO/);
-  // Every shipment in the fixture carries a date in Amazon's documented form, so none of them can be issued today.
+  assert.equal(a.verdict, 'CLEAR', JSON.stringify(a.findings.map(f => [f.code, f.severity])));
+  assert.ok(!a.findings.some(f => f.code.startsWith('DATE_')), 'documented dates are read, not held');
+  // The clean two-item shipment is now ready to invoice; only the bottle-deposit shipment stays held.
   const plan = planUpload(VIDR);
   assert.equal(plan.ok, true);
-  assert.equal(plan.shipments.length, 0, 'nothing is ready while the date format is unreadable');
-  assert.equal(plan.held.length, 2);
+  assert.deepEqual(plan.shipments.map(s => s.key), ['SHIPMENT:S1001']);
+  assert.equal(plan.held.length, 1);
+  assert.equal(plan.held[0].orderId, '303-7654321-0987654', 'the bottle-deposit shipment is the one still held');
 });
 
 test('VIDR fixture: a bottle-deposit row is held by exactly the deposit amounts, never silently under-invoiced', () => {

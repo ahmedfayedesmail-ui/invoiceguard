@@ -42526,7 +42526,7 @@ end`);
           "use strict";
           var Arr = typeof Uint8Array !== "undefined" ? Uint8Array : Array;
           var PLUS = "+".charCodeAt(0);
-          var SLASH = "/".charCodeAt(0);
+          var SLASH2 = "/".charCodeAt(0);
           var NUMBER = "0".charCodeAt(0);
           var LOWER = "a".charCodeAt(0);
           var UPPER = "A".charCodeAt(0);
@@ -42536,7 +42536,7 @@ end`);
             var code = elt.charCodeAt(0);
             if (code === PLUS || code === PLUS_URL_SAFE)
               return 62;
-            if (code === SLASH || code === SLASH_URL_SAFE)
+            if (code === SLASH2 || code === SLASH_URL_SAFE)
               return 63;
             if (code < NUMBER)
               return -1;
@@ -48886,6 +48886,49 @@ function sha256(str) {
   return [...H].map((x) => x.toString(16).padStart(8, "0")).join("");
 }
 
+// src/date-reader.js
+init_buffer_shim();
+var ISO = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2}))?$/;
+var SLASH = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+var SLASH_TIME = /^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2})(?::(\d{2}))?$/;
+var validDay = (y, m, d) => {
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return m >= 1 && m <= 12 && d >= 1 && d <= 31 && t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+};
+var iso3 = (y, m, d) => `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+function readAmazonDate(v) {
+  const t = String(v ?? "").trim();
+  if (t === "") return { ok: false, kind: "blank" };
+  const iso = ISO.exec(t);
+  if (iso) {
+    const [y, mo, d] = [+iso[1], +iso[2], +iso[3]];
+    if (!validDay(y, mo, d)) return { ok: false, kind: "impossible" };
+    if (iso[4] !== void 0) {
+      const [hh, mm, ss] = [+iso[4], +iso[5], iso[6] === void 0 ? 0 : +iso[6]];
+      if (hh > 23 || mm > 59 || ss > 59) return { ok: false, kind: "impossible" };
+      const p = Date.parse(t);
+      if (Number.isNaN(p)) return { ok: false, kind: "impossible" };
+      return { ok: true, kind: "iso", order: "ISO", day: iso3(y, mo, d), ms: p, hasTime: true };
+    }
+    return { ok: true, kind: "iso", order: "ISO", day: iso3(y, mo, d), ms: Date.UTC(y, mo - 1, d), hasTime: false };
+  }
+  const slt = SLASH_TIME.exec(t), sl = SLASH.exec(t);
+  if (sl || slt) {
+    const m = slt ?? sl, hasTime = !!slt;
+    const a = +m[1], b = +m[2], y = +m[3];
+    if (hasTime) {
+      const hh = +m[4], mm = +m[5], ss = m[6] === void 0 ? 0 : +m[6];
+      if (hh > 23 || mm > 59 || ss > 59) return { ok: false, kind: "impossible" };
+    }
+    const dayFirst = validDay(y, b, a) ? iso3(y, b, a) : null, monthFirst = validDay(y, a, b) ? iso3(y, a, b) : null;
+    if (!dayFirst && !monthFirst) return { ok: false, kind: "impossible" };
+    if (dayFirst && monthFirst) return { ok: false, kind: "ambiguous", dayFirst, monthFirst };
+    const day = dayFirst ?? monthFirst, order = dayFirst ? "DAY_FIRST" : "MONTH_FIRST";
+    return { ok: true, kind: "slash", order, day, ms: hasTime ? null : Date.UTC(y, +day.slice(5, 7) - 1, +day.slice(8, 10)), hasTime };
+  }
+  return { ok: false, kind: "unrecognized" };
+}
+
 // src/integrity-core.js
 var sha = (x) => sha256(typeof x === "string" ? x : JSON.stringify(x));
 var PARTS = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
@@ -48928,17 +48971,8 @@ var parseRate = (token) => {
   const d = m[2] ?? "";
   return { num: BigInt(m[1] + d), den: 10n ** BigInt(d.length) };
 };
-var ISO = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+var readDate = readAmazonDate;
 var SUPPORTED_CURRENCIES = Object.freeze(["EUR", "GBP", "PLN", "SEK"]);
-var isoMs = (v) => {
-  const m = ISO.exec(String(v ?? "").trim());
-  if (!m) return null;
-  const [y, mo, d] = [+m[1], +m[2], +m[3]], t = Date.UTC(y, mo - 1, d);
-  const dt = new Date(t);
-  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
-  const p = Date.parse(String(v).trim());
-  return Number.isNaN(p) ? null : p;
-};
 var MAX_CENTS = 99999999999n;
 var CORE_PARTS = ["item", "shipping", "gift-wrap"];
 var QTY = /^[1-9]\d{0,8}$/;
@@ -49036,10 +49070,13 @@ function assessShipment(s) {
     }
     const sd = String(r.attrs["shipment-date"] ?? "").trim();
     if (!sd) add("DATE_MISSING", "HOLD", "NEW_EVIDENCE", "shipment-date", [ln(r)], {}, `The shipment-date cell on line ${ln(r)} is empty. The shipment date is required: the due time and the invoice date come from it, so nothing was issued and no date is assumed.`, NEW, [""]);
-    if (sd && isoMs(sd) === null) add("DATE_UNREADABLE", "HOLD", "NEW_EVIDENCE", "shipment-date", [ln(r)], {}, `The shipment-date cell on line ${ln(r)} is not a complete ISO date (year-month-day), so nothing was issued. Day and month order is never guessed.`, NEW, [sd]);
+    const sdR = sd ? readDate(sd) : null;
+    if (sdR && !sdR.ok && sdR.kind === "ambiguous") add("DATE_AMBIGUOUS", "HOLD", "NEW_EVIDENCE", "shipment-date", [ln(r)], { dayFirst: sdR.dayFirst, monthFirst: sdR.monthFirst }, `The shipment-date cell on line ${ln(r)} could be ${sdR.dayFirst} (day first) or ${sdR.monthFirst} (month first), and both are real calendar days. The order is never guessed, so nothing was issued.`, "Correct the date in your own copy so only one reading is possible (for example ISO year-month-day), or download the report again, and upload it. Nothing can be approved for this by hand.", [sd]);
+    else if (sdR && !sdR.ok) add("DATE_UNREADABLE", "HOLD", "NEW_EVIDENCE", "shipment-date", [ln(r)], { reason: sdR.kind }, `The shipment-date cell on line ${ln(r)} is not a date we can read (ISO year-month-day, or Amazon's documented day/month/year), so nothing was issued. Day and month order is never guessed.`, NEW, [sd]);
     const od = String(r.orderDate ?? "").trim();
-    if (od && sd && isoMs(od) !== null && isoMs(sd) !== null && isoMs(od) > isoMs(sd)) add("DATE_ORDER", "HOLD", "HUMAN_DECISION", "order-date", [ln(r)], {}, `The order-date on line ${ln(r)} is later than the shipment-date. That can be a time zone difference or a wrong value, and the file cannot tell which.`, "Check the order in Seller Central. If the dates are right, record a decision with your reason. If not, upload a corrected report.", [od, sd]);
-    else if (od && isoMs(od) === null) notChecked.push({ check: "order-date", reason: "the order-date is not a complete ISO date, so its order against the shipment date was not compared" });
+    const odR = od ? readDate(od) : null;
+    if (od && sd && odR?.ok && sdR?.ok && odR.day > sdR.day) add("DATE_ORDER", "HOLD", "HUMAN_DECISION", "order-date", [ln(r)], { values: { orderDate: odR.day, shipmentDate: sdR.day } }, `The order-date on line ${ln(r)} is later than the shipment-date. That can be a time zone difference or a wrong value, and the file cannot tell which.`, "Check the order in Seller Central. If the dates are right, record a decision with your reason. If not, upload a corrected report.", [od, sd]);
+    else if (od && !odR?.ok) notChecked.push({ check: "order-date", reason: odR?.kind === "ambiguous" ? `the order-date could be ${odR.dayFirst} (day first) or ${odR.monthFirst} (month first), so its order against the shipment date was not compared` : "the order-date is not a date we can read, so its order against the shipment date was not compared" });
   }
   for (const why of rateSeen) notChecked.push({ check: "vat-vs-rate", reason: why });
   if (txType === "SHIPMENT" && rows.length && totalKnown && totalCents <= 0n) add("NONPOSITIVE_TOTAL", "HOLD", "NEW_EVIDENCE", "total", rows.map(ln), { values: { incl: fmt(totalCents) } }, `The total of this shipment (all amounts added) is ${fmt(totalCents)}, which is not an amount to invoice, so nothing was issued. A refund is a credit note, not a shipment invoice.`, NEW, [String(totalCents)], (l) => ({ values: { incl: fmt(rowTot.get(l) ?? 0n) } }));
@@ -50555,6 +50592,10 @@ var nextNumber = () => {
 };
 
 // src/invoice.js
+var operationDayOf = (s) => {
+  const r = readAmazonDate(s.shipmentDate);
+  return r.ok ? r.day : null;
+};
 var r22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 var sum = (a) => r22(a.reduce((x, y) => x + y, 0));
 var EXTRA_LABEL = { shipping: "Gastos de env\xEDo", "gift-wrap": "Envoltorio de regalo", "item-promo": "Promoci\xF3n", "shipping-promo": "Promoci\xF3n de env\xEDo", "gift-promo": "Promoci\xF3n de regalo" };
@@ -50612,7 +50653,7 @@ function buildInvoice(db, seller, s, { date = /* @__PURE__ */ new Date(), number
     series: "A",
     number: number ?? nextNumber(db, seller.id, "A", date),
     issueDate: date.toISOString().slice(0, 10),
-    operationDate: s.shipmentDate ? s.shipmentDate.slice(0, 10) : null,
+    operationDate: s.shipmentDate ? operationDayOf(s) : null,
     orderId: s.orderId,
     shippingId: s.shippingId,
     currency: s.currency,
