@@ -74,9 +74,12 @@ function parseDetail(raw) {
   catch { return {}; }
 }
 function makeRecord(kind, table, key, documentKey, payload) {
-  const payloadHash = digest(canonicalize(payload));
-  return {kind,sourceTable:table,sourceKey:String(key),sourceRef:`${table}:${key}:${payloadHash}`,
-    documentKey:documentKey==null?null:String(documentKey),payload};
+  const sourceKey=safeText(key,180);
+  if(sourceKey===null||sourceKey.length===0) throw new TypeError('Evidence source row in '+table+' has no usable key.');
+  const document=safeText(documentKey,180);
+  const payloadHash=digest(canonicalize(payload));
+  return {kind,sourceTable:table,sourceKey,sourceRef:table+':'+sourceKey+':'+payloadHash,
+    documentKey:document,payload};
 }
 function snapshotSources(reader, sellerId) {
   const out=[];
@@ -132,18 +135,13 @@ function snapshotSources(reader, sellerId) {
       seenCount:Number.isSafeInteger(r.seen_count)?r.seen_count:null,reopenedCount:Number.isSafeInteger(r.reopened_count)?r.reopened_count:null,
       resolvedAt:safeText(r.resolved_at,64)}
   }));
-  const eventTime = item => {
-    const raw = item.payload?.occurredAt;
-    const time = typeof raw === 'string' ? Date.parse(raw) : NaN;
-    return Number.isFinite(time) ? time : null;
-  };
-  return out.sort((a,b)=>{
-    const at=eventTime(a), bt=eventTime(b);
-    if(at!==null&&bt!==null&&at!==bt)return at-bt;
-    if(at!==null&&bt===null)return -1;
-    if(at===null&&bt!==null)return 1;
-    return a.sourceTable.localeCompare(b.sourceTable)||a.sourceKey.localeCompare(b.sourceKey)||a.sourceRef.localeCompare(b.sourceRef);
-  });
+  // All rows in this read transaction are one observed snapshot. Keep their
+  // append order deterministic without using source timestamps to reorder evidence.
+  return out.sort((a,b)=>
+    a.sourceTable.localeCompare(b.sourceTable)||
+    a.sourceKey.localeCompare(b.sourceKey)||
+    a.sourceRef.localeCompare(b.sourceRef)
+  );
 }
  
 function versionMutableSnapshots(source, priorRows, previousCoverage = null) {
@@ -517,20 +515,31 @@ export function exportEvidenceBundle(db,sellerId) {
     limitations:['An unsigned chain does not authenticate a source or operator.','A database controller can rewrite the chain or truncate its tail unless an earlier checkpoint is retained elsewhere.','Current snapshots do not reconstruct states that existed before the first seal.']};
 }
 export function verifyEvidenceBundle(bundle,{checkpoint=null}={}) {
-  if(!bundle||bundle.schema!=='invoiceguard.sealed-financial-evidence.v1'||!Array.isArray(bundle.chain)||typeof bundle.sellerId!=='string')
+  if(!bundle||bundle.schema!=='invoiceguard.sealed-financial-evidence.v1'||!Array.isArray(bundle.chain)||
+    typeof bundle.sellerId!=='string'||!bundle.sellerId.trim())
     return {valid:false,reason:'bundle-schema-invalid',brokenAt:1};
   let prev=ZERO;
   for(let i=0;i<bundle.chain.length;i++){
     const row=bundle.chain[i],seq=i+1;
+    if(!row||typeof row!=='object'||Array.isArray(row)||typeof row.canonicalJson!=='string'||
+      typeof row.hash!=='string'||!/^[a-f0-9]{64}$/.test(row.hash))
+      return {valid:false,reason:'entry-shape-invalid',brokenAt:seq};
     if(row.sequence!==seq||row.previousHash!==prev)return {valid:false,reason:'sequence-or-link-mismatch',brokenAt:seq};
     let body;try{body=JSON.parse(row.canonicalJson);}catch{return {valid:false,reason:'canonical-json-invalid',brokenAt:seq};}
-    if(body.schema!=='invoiceguard.sealed-financial-evidence.v1'||body.sellerId!==bundle.sellerId||
+    if(!body||typeof body!=='object'||Array.isArray(body)||
+      body.schema!=='invoiceguard.sealed-financial-evidence.v1'||body.sellerId!==bundle.sellerId||
       body.sequence!==seq||body.previousHash!==prev||body.kind!==row.kind||
       typeof body.sourceTable!=='string'||typeof body.sourceKey!=='string'||typeof body.sourceRef!=='string'||
+      (body.previousSourceRef!==null&&body.previousSourceRef!==undefined&&typeof body.previousSourceRef!=='string')||
       !body.payload||typeof body.payload!=='object'||Array.isArray(body.payload)||
-      body.sourceRef!==row.sourceRef||body.documentKey!==row.documentKey||
-      canonicalize(body)!==row.canonicalJson||digest(row.canonicalJson)!==row.hash)
+      body.sourceRef!==row.sourceRef||body.documentKey!==row.documentKey)
       return {valid:false,reason:'entry-hash-mismatch',brokenAt:seq};
+    try {
+      if(canonicalize(body)!==row.canonicalJson||digest(row.canonicalJson)!==row.hash)
+        return {valid:false,reason:'entry-hash-mismatch',brokenAt:seq};
+    } catch {
+      return {valid:false,reason:'entry-hash-mismatch',brokenAt:seq};
+    }
     prev=row.hash;
   }
   const checkpoints=[bundle.checkpoint,checkpoint].filter(Boolean);
