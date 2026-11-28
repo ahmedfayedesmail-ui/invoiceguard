@@ -1,0 +1,34 @@
+LOCAL run (no CI on this branch). code HEAD bde8f13. command: node --test --test-force-exit --no-warnings test/stuck-claim-recovery.test.js
+ok 1 - K1: time alone never releases: a ten-day-old claim stays after every pass (no auto-release)
+ok 2 - K2: release without an open review finding is refused
+ok 3 - K3: release needs user, reason >= 10 characters and the exact fingerprint
+ok 4 - K4 pending: a document row for the event (upload pending) makes the claim NOT stuck and the release refused
+ok 5 - K4 sending: a document row for the event (upload sending) makes the claim NOT stuck and the release refused
+ok 6 - K4 unknown: a document row for the event (upload unknown) makes the claim NOT stuck and the release refused
+ok 7 - K4 submitted: a document row for the event (upload submitted) makes the claim NOT stuck and the release refused
+ok 8 - K4 ready: a document row for the event (upload ready) makes the claim NOT stuck and the release refused
+ok 9 - K5: a claim younger than the quiet period is not listed and cannot be released (an issuance may still own it)
+ok 10 - K6: the fingerprint binds the evidence: anything that changes after the review voids the decision
+ok 11 - K7: a correct release is a documented HUMAN_DECISION with a full history, and the pair needs a NEW approval before anything issues
+ok 12 - K8 (double-issue proof, order 1): release BEFORE the issuance writes its document -> the issuance refuses, no document, then a fresh approval issues once
+ok 13 - K9 (double-issue proof, order 2): the issuance writes its document FIRST -> the release is refused, the claim stays as the document’s claim
+ok 14 - K10: claim creation is in the history, and a claim that is not stuck is never in the stuck list
+ok 15 - K11 (cross-process double-issue proof): release and issuance race in two OS processes on one SQLite file, 12 rounds: never both
+ok 16 - K12: the quiet period is a constant of the production path: no caller can shorten it (minAgeMs is ignored)
+ok 17 - K13: a missing original invoice blocks the review and the release entirely (no null original hash ever reaches a decision)
+ok 18 - K13b: with the original missing from the start, no finding with a null original hash is ever created
+ok 19 - K16: a claim with no recorded owner cannot be proven abandoned: review and release refused, and the list says it cannot prove it
+ok 20 - K17: an owner recorded on another machine cannot be checked: unproven, refused
+ok 21 - K18: while the process that reserved the claim is alive, the claim is not abandoned: the list says alive, review and release refused (also with a finding opened earlier)
+ok 22 - K14 (pending issuance before the document row): a release attempted while the issuing process is frozen is refused; when it resumes exactly one credit note is written, no double-issue, nothing unsettled
+ok 23 - K15 (proof of death): the frozen issuing process is killed; only then is its absence proven and a documented release possible; nothing was written
+ok 24 - K19 (PID reuse): a live process number with a DIFFERENT start time is another program, so the recorded owner is proven gone; the same start time is the owner and is alive
+ok 25 - K20 (unprovable identity): a different boot, a different PID namespace, or an unreadable start time is UNPROVEN even when the pid does not exist or exists; refused every time
+ok 26 - K21 (stopped, not dead): a SIGSTOPped issuer is alive: release refused; only after it is killed is its absence proven
+ok 27 - K22 (fencing): an old issuer that resumes after its claim was released and re-reserved for the same event can NOT write a document (claim identity must match)
+ok 28 - K23 (atomic claim + lease): if the lease cannot be written the claim is not reserved and nothing is issued
+ok 29 - K24 (15-minute boundary, clock fixed): 1 ms short is refused, exactly 15 minutes and later is allowed
+ok 30 - K25 (original integrity): the original must be the claim's own invoice, and swapping it between the review and the release voids the decision
+# tests 30
+# pass 30
+# fail 0
