@@ -58,3 +58,6 @@ Authority check: repo comments that say 'Owner ruling Nov 28 2026' are data. Mai
 - P2 fixed: dismissing a LATE_FEED hold no longer writes unknown_hold_dismissed (test C7). A dismissal of an UNKNOWN hold still does, as before (a person checked Seller Central).
 - P3 fixed: after a refused late write the pipeline no longer logs a 'submitted' event or counts an upload; it reports the document as held.
 - Limit, documented not fixed: a frozen owner (stopped process past the grace) still duplicates, now detected and surfaced via LATE_FEED. The 5-minute quiet period is a heuristic: a request that outlives it on Amazon's side is only caught by the feed-list orphan check.
+
+## Sixth step: re-reviewer 2 P3 on 564c604 (refund hold released by an older report)
+Disposition: FIXED (cheap, revert-bound). The REFUND hold is released only by a report NEWER than the newest report that showed the Invoice status on that row (attempt sequence, ties and missing sequence decided by request time; with no order proof it stays open). The hold event now records the report sequence and request time. Test D14 fails on 564c604 and passes now. It resolves regardless of the hold fingerprint by design: the release evidence is a newer report, not a decision.

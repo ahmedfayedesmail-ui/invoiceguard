@@ -52,7 +52,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
   for (const s of list) {
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
-    if (s.transactionType === 'REFUND' && !s.isCorrectedTx && !['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) resolveGateFinding(db, seller.id, s.key, 'REFUND_ROW_INVOICE_STATUS', 'a later report shows this refund row without an Invoice status'); // re-review 2 P2-2: a corrected report is the evidence that releases the hold
+    if (s.transactionType === 'REFUND' && !s.isCorrectedTx && !['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) resolveRefundHoldIfNewer(db, seller.id, s.key, reportReqTs, reportSeq); // re-review 2 P2-2: a corrected report is the evidence that releases the hold
     if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); } else out.skipped++; continue; }
     if ((s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus || '']).some(x => /^CreditNote(Uploaded|Rejected|Processing)$/.test(x))) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     // Round-15 (critic round-13 P1-B): a STALE report row must never drive an upload decision.
@@ -207,6 +207,18 @@ function staleDocForReport(db, seller, s, reportSeq) {
 const logStaleRow = (db, seller, s, doc, reportSeq) =>
   logEvent(db, seller.id, 'stale_report_row_skipped', { number: doc.number, key: s.key, status: s.invoiceStatus || null, attemptSeq: doc.attempt_seq, reportAttemptSeq: reportSeq });
 
+
+/** Only a report NEWER than the newest report that showed the Invoice status on this refund row is corrected evidence (re-review 2, P3). Order is proven by the attempt sequence, else by the request time; with neither known the hold stays open. */
+function resolveRefundHoldIfNewer(db, sid, key, reqTs, seq) {
+  const evs = db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='refund_row_invoice_status_hold' AND detail LIKE ?").all(sid, `%"key":${JSON.stringify(key)}%`).map(r => JSON.parse(r.detail));
+  if (!evs.length) return 0;
+  const maxSeq = Math.max(-1, ...evs.map(e => e.reportSeq ?? -1)), maxTs = Math.max(0, ...evs.map(e => Date.parse(e.reportRequestedAt ?? '') || 0));
+  const myTs = reqTs != null ? new Date(reqTs).getTime() : NaN;
+  const tsNewer = Number.isFinite(myTs) && maxTs > 0 && myTs > maxTs;
+  const newer = (Number.isInteger(seq) && maxSeq >= 0) ? (seq > maxSeq || (seq === maxSeq && tsNewer)) : tsNewer;
+  return newer ? resolveGateFinding(db, sid, key, 'REFUND_ROW_INVOICE_STATUS', 'a newer report shows this refund row without an Invoice status') : 0;
+}
+
 /** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
 const keepOtherFindings = (db, sid, key) => db.prepare('SELECT DISTINCT code FROM integrity_findings WHERE seller_id=? AND shipment_key=?').all(sid, key).map(r => r.code);
 export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = null) {
@@ -218,7 +230,7 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
       fingerprint: createHash('sha256').update(JSON.stringify(['REFUND_ROW_INVOICE_STATUS', s.key, evidence])).digest('hex'),
       explanation: `A REFUND row carries the status ${s.invoiceStatus}. What Amazon means by that is not proven, so it was not read as an acceptance or a rejection of the original invoice or of the credit note.`,
       action: 'Nothing was changed. Only documented Amazon evidence of what this combination means, or a corrected report, resolves it.' }], { partial: true });
-    logEvent(db, seller.id, 'refund_row_invoice_status_hold', { key: s.key, status: s.invoiceStatus });
+    logEvent(db, seller.id, 'refund_row_invoice_status_hold', { key: s.key, status: s.invoiceStatus, reportSeq: Number.isInteger(reportSeq) ? reportSeq : null, reportRequestedAt: reportReqTs != null && !Number.isNaN(new Date(reportReqTs).getTime()) ? new Date(reportReqTs).toISOString() : null });
     return;
   }
   const key = `SHIPMENT:${s.shippingId}`;

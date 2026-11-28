@@ -94,3 +94,10 @@ test('D13 a later report with the refund row without an Invoice status resolves 
   await ing(db, api, doc(rv('CreditNotePending')), { reportAttemptSeq: seq, reportRequestedAt: new Date('2026-11-25T13:00:00Z') }); assert.equal(st(), 'RESOLVED');
   assert.equal(db.prepare("SELECT count(*) c FROM events WHERE type='gate_finding_resolved'").get().c, 1);
 });
+test('D14 an OLDER or unordered report showing the refund row without an Invoice status does not release the REFUND hold (revert-bound ordering)', async () => {
+  const { api, db, seq } = await setup(); const row = rv('InvoiceUploaded'); row[ix('invoice-number')] = 'X'; const st = () => db.prepare("SELECT status FROM integrity_findings WHERE code='REFUND_ROW_INVOICE_STATUS'").get()?.status;
+  await ing(db, api, doc(row), { reportAttemptSeq: seq, reportRequestedAt: T2 }); assert.equal(st(), 'OPEN');
+  await ing(db, api, doc(rv('CreditNotePending')), { reportAttemptSeq: seq, reportRequestedAt: T1 }); assert.equal(st(), 'OPEN', 'an older report is not corrected evidence');
+  await ing(db, api, doc(rv('CreditNotePending')), {}); assert.equal(st(), 'OPEN', 'a report with no order proof is not corrected evidence');
+  await ing(db, api, doc(rv('CreditNotePending')), { reportAttemptSeq: seq, reportRequestedAt: new Date('2026-11-25T13:00:00Z') }); assert.equal(st(), 'RESOLVED');
+});
