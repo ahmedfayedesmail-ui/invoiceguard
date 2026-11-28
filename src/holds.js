@@ -1,0 +1,37 @@
+// Expedition W2-2: the review queue for ledger findings (HOLD / BLOCK). Until now these were written by the pipeline and read only by tests: no route listed them and none recorded the human decision.
+// Every item answers: what happened, why, which evidence, what the system knows, what it does not know, what is allowed, what is blocked, what happens next. Pure text from stored fields; nothing is inferred.
+import { releaseIntegrity } from './integrity.js';
+const parse = (s) => { try { return JSON.parse(s ?? 'null') ?? {}; } catch { return {}; } };
+const CN = {
+  CREDIT_NOTE_IDENTITY_UNPROVEN: { happened: 'Amazon sent a report row about a credit note, but the row could not be proven to be our document.', blocked: ['No status change on the credit note', 'No replacement invoice', 'No retry or re-upload of any correction document of this pair'] },
+  CREDIT_NOTE_ROWS_CONFLICT: { happened: 'The report rows of one credit note disagree with each other (different statuses).', blocked: ['No status change on the credit note', 'No replacement invoice', 'No retry or re-upload of any correction document of this pair'] },
+  CREDIT_NOTE_VERDICT_CONTRADICTION: { happened: 'Amazon reported this credit note as uploaded earlier and now reports it as rejected.', blocked: ['No replacement invoice (if none was issued yet)', 'No retry or re-upload of any correction document of this pair', 'Nothing is cancelled automatically'] },
+};
+export function explainFinding(f) {
+  const ev = parse(f.evidence); const snap = ev.snapshot ?? null; const cn = CN[f.code];
+  const known = [], unknown = [];
+  if (cn) {
+    known.push('Our stored credit note exists' + (ev.number ? ` (${ev.number})` : ''), 'The report was ingested and nothing was applied from it');
+    if (snap) { if (snap.documentNumbers?.length) known.push(`The report names document number(s): ${snap.documentNumbers.map(x => x === '' ? '(blank)' : x).join(', ')}`); if (snap.statuses?.length) known.push(`The report status set: ${snap.statuses.join(', ')}`); if (snap.reportRequestedAt) known.push(`Report requested at ${snap.reportRequestedAt}`); }
+    unknown.push('Whether Amazon actually holds our document under another number', 'Which of two conflicting reports is the right one', 'Amazon refund sign convention is not proven by a real report');
+    if (ev.failed?.length) known.push(`Checks that failed: ${ev.failed.join(', ')}`);
+  } else { known.push('The ledger recorded this finding from the data we hold'); unknown.push('Whether the finding is a real discrepancy or a data problem on the other side'); }
+  const releasable = f.status === 'OPEN' && f.resolution === 'HUMAN_DECISION' && f.severity !== 'BLOCK';
+  return {
+    key: f.shipment_key, code: f.code, severity: f.severity, status: f.status, fingerprint: f.fingerprint, firstSeen: f.first_seen, lastSeen: f.last_seen, seenCount: f.seen_count,
+    happened: cn?.happened ?? f.explanation ?? 'A finding is open.', why: f.explanation ?? '', evidence: ev,
+    known, unknown,
+    allowed: releasable ? ['Record a documented decision (your name and a reason of 10+ characters) for exactly this evidence'] : f.severity === 'BLOCK' ? [] : f.status === 'OPEN' ? ['Provide a corrected file'] : [],
+    blocked: cn?.blocked ?? (f.status === 'OPEN' ? ['Nothing automatic proceeds for this item until it is resolved'] : []),
+    next: f.status !== 'OPEN' ? 'No action: this finding is not open.' : releasable ? 'After a decision, the block lifts. Nothing is applied by the decision itself: the next matching Amazon report is evaluated again from scratch and a changed fingerprint needs a new decision.' : f.severity === 'BLOCK' ? 'Only a corrected file resolves this. A decision cannot release it.' : 'A corrected file resolves it.',
+    releasable,
+  };
+}
+export function listHolds(db, sellerId, { includeClosed = false } = {}) {
+  const rows = db.prepare(`SELECT * FROM integrity_findings WHERE seller_id=? ${includeClosed ? '' : "AND status='OPEN'"} AND severity IN ('HOLD','BLOCK') ORDER BY last_seen DESC LIMIT 200`).all(sellerId);
+  return rows.map(explainFinding);
+}
+export function decideHold(db, sellerId, { key, code, fingerprint, reason }, user) {
+  if (typeof key !== 'string' || typeof code !== 'string' || typeof fingerprint !== 'string') throw new Error('Choose the item and send its fingerprint.');
+  return releaseIntegrity(db, sellerId, key, code, fingerprint, { user, reason });
+}
