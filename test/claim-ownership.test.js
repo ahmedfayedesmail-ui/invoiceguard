@@ -166,3 +166,21 @@ test('C13 UNKNOWN-hold dismissal never lifts a recorded blocked feed (abandoned 
   await settle('invoice', db, api); await settle('invoice', db, api);
   assert.equal(api.calls.filter(n => n === first).length, 1, 'no second feed for one number'); assert.equal(ev(db, 'unknown_block_lifted').length, 0);
 });
+// ---- re-review 1 round 6 (attack7): compound state, crash/FATAL block on feedA, later resend whose abandoned request lands as feedB ----
+async function compoundDoc() {
+  const d = await lateFeedDoc(); // blocked feed is the late feed 'feedA'; model the first-writer-wins case: the block was written earlier by a crash feed
+  d.db.prepare("UPDATE invoices SET blocked_feed_id='crashX' WHERE number=?").run(d.first); return d;
+}
+test('C14 compound state: a late feed that is NOT the recorded blocked feed still makes UNKNOWN dismissal a non-key (no second submission)', async () => {
+  const { db, api, first } = await compoundDoc();
+  for (const u of db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'UNKNOWN:%'").all()) decideRepair(db, seller.id, u.k, 'dismissed');
+  await settle('invoice', db, api); await settle('invoice', db, api);
+  assert.equal(api.calls.filter(n => n === first).length, 1, 'no resend'); assert.equal(ev(db, 'unknown_block_lifted').length, 0);
+});
+test('C15 compound state: confirming the late feed\'s own LATE_FEED hold (the hold the block message points to) lifts; a foreign feed id still does not', async () => {
+  const { db, api, first } = await compoundDoc(); const k = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'LATE_FEED:%'").get().k;
+  const row = db.prepare("SELECT shipment_key sk FROM invoices WHERE number=?").get(first); const fk = `LATE_FEED:${row.sk}:feedZZ`;
+  db.prepare("INSERT INTO repairs (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at) VALUES (?,?,?,?,?,?,?,?,?)").run(seller.id, fk, 'unknown_outcome', first, row.sk, 'x', JSON.stringify({ number: first }), 'proposed', new Date().toISOString());
+  decideRepair(db, seller.id, fk, 'dismissed'); await settle('invoice', db, api); assert.equal(ev(db, 'unknown_block_lifted').length, 0, 'a feed that never landed late for this document lifts nothing');
+  decideRepair(db, seller.id, k, 'dismissed'); await settle('invoice', db, api); assert.ok(ev(db, 'unknown_block_lifted').length >= 1, 'its own late feed lifts');
+});

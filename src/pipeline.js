@@ -668,7 +668,9 @@ export async function unknownSettleCheck(db, seller, api, number) {
   const dismissed = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='unknown_hold_dismissed' AND detail LIKE ? AND ts >= ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`, new Date(attemptTs).toISOString());
   // A feed that landed LATE (late_upload_result event for exactly the blocked feed) is a feed Amazon provably holds next to a resend. For it the UNKNOWN dismissal is NOT a key:
   // only a same-feed LATE_FEED confirmation or CANCELLED lifts it (re-review 1 attack6 B). A blocked feed from the crash/FATAL path keeps the earlier human-dismissal route.
-  const lateLanded = doc?.blocked_feed_id ? db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_upload_result' AND detail LIKE ? AND detail LIKE ? LIMIT 1").get(seller.id, `%"number":"${number}"%`, `%"lateFeedId":${JSON.stringify(doc.blocked_feed_id)}%`) : null;
+  // Every feed that landed late for this document since the attempt began (not only the recorded blocked feed: blocked_feed_id is first-writer-wins, so after a crash/FATAL block a later abandoned request can land as another feed).
+  const lateFeeds = new Set(db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='late_upload_result' AND detail LIKE ? AND ts >= ?").all(seller.id, `%"number":"${number}"%`, new Date(attemptTs).toISOString()).map(r => { try { return JSON.parse(r.detail).lateFeedId; } catch { return null; } }).filter(Boolean));
+  const lateLanded = lateFeeds.size > 0;
   if (dismissed && !lateLanded) return null;
   const abandoned = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='upload_timeout_abandoned' AND detail LIKE ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`);
   if (abandoned && Date.now() - new Date(abandoned.ts).getTime() < ABANDON_QUIET_MS) return `The upload of ${number} timed out and the request was abandoned a moment ago. It is NOT resent until the abandoned request has had time to settle on Amazon's side, so it can never produce a second feed. The next sync after a few minutes checks again.`;
@@ -682,8 +684,9 @@ export async function unknownSettleCheck(db, seller, api, number) {
     const bf = doc.blocked_feed_id;
     let st = null;
     try { st = await api.feedStatus(bf); } catch { st = null; }
-    const acked = db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_feed_acknowledged' AND detail LIKE ? AND detail LIKE ? LIMIT 1").get(seller.id, `%"number":"${number}"%`, `%"feedId":${JSON.stringify(bf)}%`);
-    if (acked) logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'a person confirmed this exact feed in its LATE_FEED hold' });
+    const ackIds = [bf, ...lateFeeds]; // a person confirms a feed in ITS OWN LATE_FEED hold: the blocked feed, or a feed that provably landed late for this document (never a foreign id)
+    const acked = ackIds.some(fid => db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_feed_acknowledged' AND detail LIKE ? AND detail LIKE ? LIMIT 1").get(seller.id, `%"number":"${number}"%`, `%"feedId":${JSON.stringify(fid)}%`));
+    if (acked) logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'a person confirmed this feed in its own LATE_FEED hold' });
     else if (st?.status === 'CANCELLED') logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'feed CANCELLED - Amazon provably never processed it' });
     // Round-10c (reviewer decision): NO automatic lift from processing-report text. The real
     // report format is unproven against a live seller account, and keyword matching kept losing

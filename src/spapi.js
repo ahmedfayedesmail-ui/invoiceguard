@@ -38,7 +38,7 @@ export class SpApi {
     // drop on a POST leaves the outcome UNKNOWN (Amazon may have processed it): the feeds API offers no
     // idempotency key (create-and-upload-invoices doc, checked 2026-11-26), so a blind second POST
     // /feeds could double-submit the document. No automatic retry there - the caller reconciles first.
-    if (fence) await fence(); // re-run before EVERY attempt of a feed-creating request, including 429 retries after a backoff sleep
+    if (fence) await fence(); // re-run before EVERY attempt of a feed-creating request (POST /feeds), including 429 retries after a backoff sleep. POST /documents (creates no feed) retries without it
     let res;
     try { res = await this.f(this.base + path, { method, headers: { 'x-amz-access-token': await this.accessToken(), 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal }); }
     catch (e) { if (method === 'GET' && attempt < 4 && !signal?.aborted) { await this.sleep(1000 * 2 ** attempt); return this.call(method, path, body, attempt + 1, signal, fence); } throw e; }
