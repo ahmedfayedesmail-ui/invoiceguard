@@ -82,7 +82,7 @@ export function planUpload(text, opts = {}) {
   if (t.unsupported) return { ok: false, error: t.unsupported };
   if (!t.rows.length) return { ok: false, error: 'The file is empty or has no header line.' };
   const format = detectFormat(t.head);
-  if (!format) return { ok: false, error: 'We do not recognise this file. Use the Order Report (with the buyer tax columns switched on) or the VAT Invoice Data Report, both as tab-delimited text.' };
+  if (!format) return { ok: false, error: 'We do not recognise this file. Use the VAT Invoice Data Report as tab-delimited text. The Order Report (with the buyer tax columns switched on) is accepted as a preview only.' };
   if (format === 'allorders') return { ok: false, format, error: 'The All Orders Report has no buyer name, address or VAT number, so it cannot make an invoice. Use the Order Report with the buyer columns switched on.' };
   if (format === 'vidr') {
     // Same honesty as the Order Report: rows that cannot produce an invoice are counted as skipped up front,
