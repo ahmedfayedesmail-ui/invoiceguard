@@ -92,6 +92,19 @@ test('deletion of a previously sealed append-only source row is marked INCOMPLET
   assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
 });
 
+test('a corrupted prior chain is refused rather than silently extended', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER intel_chain_no_update');
+  db.prepare("UPDATE intel_evidence_chain SET entry_hash=? WHERE seller_id=? AND seq=1")
+    .run('f'.repeat(64),'seller-A');
+  assert.equal(verifyEvidenceChain(db,'seller-A').valid,false);
+  assert.throws(
+    () => sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /Refusing to append to a broken evidence chain/
+  );
+});
+
 test('two independent processes sealing one seller produce one ordered chain', async t => {
   const {db,path}=fixture(t);
   db.close();
