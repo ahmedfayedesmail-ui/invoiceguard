@@ -79,6 +79,19 @@ test('external checkpoint detects a truncated export and a modified entry', t =>
   assert.equal(verifyEvidenceBundle(modified).valid,false);
 });
 
+test('deletion of a previously sealed append-only source row is marked INCOMPLETE', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','AMOUNT_MISMATCH','total','opened','fingerprint-1','2026-11-28T10:02:00.000Z');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER integrity_history_no_delete');
+  db.prepare('DELETE FROM integrity_history WHERE seller_id=? AND shipment_key=?').run('seller-A','SHIP-1');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.missingPreviouslySealed.length>=1);
+  assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
+});
+
 test('two independent processes sealing one seller produce one ordered chain', async t => {
   const {db,path}=fixture(t);
   db.close();

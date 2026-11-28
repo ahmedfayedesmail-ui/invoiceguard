@@ -19,7 +19,7 @@ No signing key is created or stored in this slice. Ed25519 signing and out-of-ba
 
 ## Completeness
 
-The layer never asserts `COMPLETE` merely because a seal succeeded. It reports `UNKNOWN` because the `events` table is mutable and invoices, shipments and findings are current snapshots. The first seal cannot reconstruct history that predates it. A missing historical event before the first seal cannot be detected from a mutable source table. SQLite rowids are table-global across sellers, so seller-scoped rowid gaps are deliberately not treated as deletion evidence. A partial timeline must not be described as a complete history.
+The layer never asserts `COMPLETE` merely because a seal succeeded. It reports `UNKNOWN` because the `events` table is mutable and invoices, shipments and findings are current snapshots. For the append-only logs (`integrity_history`, `integrity_decisions`, and `credit_claim_history`), disappearance of a previously sealed record is detected on the next seal and changes coverage to `INCOMPLETE`; a source snapshot that changes during sealing also produces `INCOMPLETE`. An `INCOMPLETE` state is not cleared automatically. The first seal cannot reconstruct history that predates it, and a missing historical event before the first seal cannot be detected from a mutable source table. SQLite rowids are table-global across sellers, so seller-scoped rowid gaps are deliberately not treated as deletion evidence. A partial timeline must not be described as a complete history.
 
 ## Usage (not wired into app startup)
 
