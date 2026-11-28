@@ -49194,6 +49194,8 @@ function parseVidr(text) {
       }).get(key);
     }
     (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r["quantity-purchased"] ?? "", itemId: r["order-item-id"] ?? "", sig: Object.values(r).join("	"), orderDate: r["order-date"] ?? "", attrs: Object.fromEntries(CONFLICT_FIELDS.map((f) => [f, r[f] ?? ""])), bound: Object.fromEntries(BOUND_COLUMNS.map((f) => [f, r[f] ?? ""])), parts: Object.fromEntries(PARTS2.map((p) => [p, { incl: r[`${p}-vat-incl-amount`] ?? "", vat: r[`${p}-vat-amount`] ?? "", excl: r[`${p}-vat-excl-amount`] ?? "", rate: r[`${p}-vat-rate`] ?? "" }])) });
+    (s.rowMeta ??= []).push({ status: r["invoice-status"] ?? "", invoiceNumber: r["invoice-number"] ?? "", orderId: r["order-id"] ?? "", shippingId: r["shipping-id"] ?? "", currency: r.currency ?? "", marketplace: r["marketplace-id"] ?? "", type: r["transaction-type"] ?? "", transactionId: r["transaction-id"] || r["shipping-id"] || "", originalInvoiceNumber: r["original-vat-invoice-number"] ?? "", incl: PARTS2.reduce((q, p) => q + num(r[`${p}-vat-incl-amount`]), 0), vat: PARTS2.reduce((q, p) => q + num(r[`${p}-vat-amount`]), 0) });
+    s.invoiceNumberColumn = checked.head.includes("invoice-number");
     s.flagValues.push(r["is-amazon-invoiced"]);
     s.businessValues.push(r["is-business-order"]);
     const inclSum = PARTS2.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
 import { processReport, processCorrections } from '../src/pipeline.js';
 import { releaseIntegrity } from '../src/integrity.js';
-import { CODE, approveAll } from './correction-helpers.js';
+import { CODE, approveAll, acceptReport } from './correction-helpers.js';
 
 // Owner decision (Ahmed, Nov 28 2026) on CorrectionReversal: tests written BEFORE the fix, see audit/phase-b/pre-fix-run-13-correction-approval.spec.txt.
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
@@ -18,7 +18,7 @@ const replacement = (id, name) => { const f = [...base]; f[ix('transaction-id')]
 const NOW = new Date('2026-11-24T12:00:00Z');
 const start = async () => { const api = mkApi(), db = openDb(); await processReport(db, seller, text, { api, validate: vies, now: NOW }); api.calls.length = 0; return { api, db }; };
 const run = (db, api, rows) => processCorrections(db, seller, [head, ...rows].join('\n'), { api, validate: vies });
-const accept = (db, api, rows) => processReport(db, seller, [head, ...rows].join('\n'), { api, validate: vies, now: NOW });
+const accept = (db, api, rows) => acceptReport(db, seller, [head, ...rows].join('\n'), { api, validate: vies, now: NOW });
 const KEY = 'CORRECTION:REFUND:CorrectionReversal:X:1';
 const pair = (name = 'Name One SL', st = 'CreditNotePending') => [reversal('CorrectionReversal:X:1', null, st), replacement('Correction::X:2', name)];
 const credits = (db) => db.prepare("SELECT number, total FROM invoices WHERE kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%'").all();

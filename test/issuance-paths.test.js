@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
 import { processReport, processCorrections as processCorrectionsRaw } from '../src/pipeline.js';
-import { withApproval } from './correction-helpers.js';
+import { withApproval, acceptReport } from './correction-helpers.js';
 const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 
 // Night mission WP1: issuance path audit. Regression tests written BEFORE the fix (see audit/phase-b/pre-fix-run-7-wp1-correction-gate.spec.txt).
@@ -22,7 +22,7 @@ async function flow(names) {
   const api = mkApi(), db = openDb(), rep = correctionReport(names);
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   await processCorrections(db, seller, rep, { api, validate: vies });
-  await processReport(db, seller, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api, validate: vies });
+  await acceptReport(db, seller, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api, validate: vies });
   const r2 = await processCorrections(db, seller, rep, { api, validate: vies });
   return { api, db, r2, rep };
 }

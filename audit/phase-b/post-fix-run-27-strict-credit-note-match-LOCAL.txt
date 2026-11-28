@@ -1,0 +1,214 @@
+TAP version 13
+# Subtest: S0 control: every identity field right + CreditNoteUploaded + authenticated report sequence -> uploaded, replacement issues, no hold
+ok 1 - S0 control: every identity field right + CreditNoteUploaded + authenticated report sequence -> uploaded, replacement issues, no hold
+  ---
+  duration_ms: 130.597404
+  type: 'test'
+  ...
+# Subtest: S1 right transaction key + WRONG document number -> held, closed
+ok 2 - S1 right transaction key + WRONG document number -> held, closed
+  ---
+  duration_ms: 77.259404
+  type: 'test'
+  ...
+# Subtest: S2 right key + document number BLANK -> held, closed (a blank number is never a match)
+ok 3 - S2 right key + document number BLANK -> held, closed (a blank number is never a match)
+  ---
+  duration_ms: 63.799391
+  type: 'test'
+  ...
+# Subtest: S2b report with NO invoice-number column at all (not the All view) -> held, closed
+ok 4 - S2b report with NO invoice-number column at all (not the All view) -> held, closed
+  ---
+  duration_ms: 45.93511
+  type: 'test'
+  ...
+# Subtest: S3 right document number + WRONG transaction key -> nothing matches, closed
+ok 5 - S3 right document number + WRONG transaction key -> nothing matches, closed
+  ---
+  duration_ms: 39.134589
+  type: 'test'
+  ...
+# Subtest: S4 right key + WRONG seller (report processed for another seller) -> closed, our credit note untouched
+ok 6 - S4 right key + WRONG seller (report processed for another seller) -> closed, our credit note untouched
+  ---
+  duration_ms: 42.479582
+  type: 'test'
+  ...
+# Subtest: S5 right key + wrong MARKETPLACE -> held, closed
+ok 7 - S5 right key + wrong MARKETPLACE -> held, closed
+  ---
+  duration_ms: 49.650379
+  type: 'test'
+  ...
+# Subtest: S6 right key + wrong ORIGINAL invoice number in the row -> held, closed
+ok 8 - S6 right key + wrong ORIGINAL invoice number in the row -> held, closed
+  ---
+  duration_ms: 47.783334
+  type: 'test'
+  ...
+# Subtest: S7a right key + wrong ORDER id -> held, closed
+ok 9 - S7a right key + wrong ORDER id -> held, closed
+  ---
+  duration_ms: 54.691364
+  type: 'test'
+  ...
+# Subtest: S7b right key + wrong SHIPPING id -> held, closed
+ok 10 - S7b right key + wrong SHIPPING id -> held, closed
+  ---
+  duration_ms: 46.04862
+  type: 'test'
+  ...
+# Subtest: S8 right key + wrong CURRENCY -> held, closed
+ok 11 - S8 right key + wrong CURRENCY -> held, closed
+  ---
+  duration_ms: 42.46295
+  type: 'test'
+  ...
+# Subtest: S9a AMOUNT mismatch (item incl differs) -> held, closed
+ok 12 - S9a AMOUNT mismatch (item incl differs) -> held, closed
+  ---
+  duration_ms: 42.153981
+  type: 'test'
+  ...
+# Subtest: S9b VAT amount mismatch -> held, closed
+ok 13 - S9b VAT amount mismatch -> held, closed
+  ---
+  duration_ms: 67.775972
+  type: 'test'
+  ...
+# Subtest: S9c SIGN flipped (positive amounts where our credit note is negative) -> held, never silently accepted with an absolute value
+ok 14 - S9c SIGN flipped (positive amounts where our credit note is negative) -> held, never silently accepted with an absolute value
+  ---
+  duration_ms: 41.390672
+  type: 'test'
+  ...
+# Subtest: S10 MULTIPLE line items of one transaction whose amounts add up to our credit note -> accepted
+ok 15 - S10 MULTIPLE line items of one transaction whose amounts add up to our credit note -> accepted
+  ---
+  duration_ms: 53.527978
+  type: 'test'
+  ...
+# Subtest: S10b multiple line items where the parts do NOT add up to our credit note -> held, closed
+ok 16 - S10b multiple line items where the parts do NOT add up to our credit note -> held, closed
+  ---
+  duration_ms: 40.562237
+  type: 'test'
+  ...
+# Subtest: S11 conflicting statuses of one transaction in ONE report, Uploaded first -> held, nothing picked, closed
+ok 17 - S11 conflicting statuses of one transaction in ONE report, Uploaded first -> held, nothing picked, closed
+  ---
+  duration_ms: 37.890936
+  type: 'test'
+  ...
+# Subtest: S11b same conflict with the rows in REVERSE order -> same outcome (row order never matters)
+ok 18 - S11b same conflict with the rows in REVERSE order -> same outcome (row order never matters)
+  ---
+  duration_ms: 71.310752
+  type: 'test'
+  ...
+# Subtest: S11c rows that agree on status but DISAGREE on the document number -> held, closed (both orders)
+ok 19 - S11c rows that agree on status but DISAGREE on the document number -> held, closed (both orders)
+  ---
+  duration_ms: 101.150156
+  type: 'test'
+  ...
+# Subtest: S11d Pending in one row and Uploaded in another -> held (any difference between rows)
+ok 20 - S11d Pending in one row and Uploaded in another -> held (any difference between rows)
+  ---
+  duration_ms: 35.629653
+  type: 'test'
+  ...
+# Subtest: S12 duplicate reports (the same acceptance twice) -> idempotent: uploaded once, one replacement, no hold
+ok 21 - S12 duplicate reports (the same acceptance twice) -> idempotent: uploaded once, one replacement, no hold
+  ---
+  duration_ms: 58.033685
+  type: 'test'
+  ...
+# Subtest: S13 STALE report (older than our upload attempt) saying Uploaded -> ignored, closed
+ok 22 - S13 STALE report (older than our upload attempt) saying Uploaded -> ignored, closed
+  ---
+  duration_ms: 61.079553
+  type: 'test'
+  ...
+# Subtest: S13b a report that arrives AFTER a newer one cannot undo it: newer Uploaded applied, then an OLDER report (earlier request time) saying Rejected -> ignored
+ok 23 - S13b a report that arrives AFTER a newer one cannot undo it: newer Uploaded applied, then an OLDER report (earlier request time) saying Rejected -> ignored
+  ---
+  duration_ms: 39.566197
+  type: 'test'
+  ...
+# Subtest: S14 NO report sequence (not the authenticated download path) with an otherwise perfect row -> held, closed
+ok 24 - S14 NO report sequence (not the authenticated download path) with an otherwise perfect row -> held, closed
+  ---
+  duration_ms: 36.395069
+  type: 'test'
+  ...
+# Subtest: S15 Uploaded in one report, Rejected in a LATER report -> contradiction HOLD; the credit note stays uploaded, nothing cancelled, no retry proposed
+ok 25 - S15 Uploaded in one report, Rejected in a LATER report -> contradiction HOLD; the credit note stays uploaded, nothing cancelled, no retry proposed
+  ---
+  duration_ms: 38.823782
+  type: 'test'
+  ...
+# Subtest: S16 Rejected AFTER the replacement was issued -> HOLD; both documents stay exactly as they are; no further automatic action while the hold is open
+ok 26 - S16 Rejected AFTER the replacement was issued -> HOLD; both documents stay exactly as they are; no further automatic action while the hold is open
+  ---
+  duration_ms: 44.759106
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "CreditNoteAccepted" -> no state change, closed
+ok 27 - S17 unknown status "CreditNoteAccepted" -> no state change, closed
+  ---
+  duration_ms: 34.530922
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "creditnoteuploaded" -> no state change, closed
+ok 28 - S17 unknown status "creditnoteuploaded" -> no state change, closed
+  ---
+  duration_ms: 36.011265
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "Uploaded" -> no state change, closed
+ok 29 - S17 unknown status "Uploaded" -> no state change, closed
+  ---
+  duration_ms: 37.028353
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "" -> no state change, closed
+ok 30 - S17 unknown status "" -> no state change, closed
+  ---
+  duration_ms: 34.959435
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "CreditNoteUploaded;" -> no state change, closed
+ok 31 - S17 unknown status "CreditNoteUploaded;" -> no state change, closed
+  ---
+  duration_ms: 32.778438
+  type: 'test'
+  ...
+# Subtest: S18 CreditNoteProcessing is not acceptance: it records processing only, replacement stays closed
+ok 32 - S18 CreditNoteProcessing is not acceptance: it records processing only, replacement stays closed
+  ---
+  duration_ms: 35.822463
+  type: 'test'
+  ...
+# Subtest: R1 race, order 1: the pair's approval is voided (the replacement data changed) BEFORE the acceptance report is ingested -> uploaded, but no replacement without a new approval
+ok 33 - R1 race, order 1: the pair's approval is voided (the replacement data changed) BEFORE the acceptance report is ingested -> uploaded, but no replacement without a new approval
+  ---
+  duration_ms: 45.467755
+  type: 'test'
+  ...
+# Subtest: R2 race, order 2: the acceptance report is ingested FIRST, then the approval is voided before the next pass -> still no replacement
+ok 34 - R2 race, order 2: the acceptance report is ingested FIRST, then the approval is voided before the next pass -> still no replacement
+  ---
+  duration_ms: 39.952196
+  type: 'test'
+  ...
+1..34
+# tests 34
+# suites 0
+# pass 34
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1982.03504

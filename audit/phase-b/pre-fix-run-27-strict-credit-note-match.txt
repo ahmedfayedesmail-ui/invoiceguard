@@ -1,0 +1,649 @@
+TAP version 13
+# Subtest: S0 control: every identity field right + CreditNoteUploaded + authenticated report sequence -> uploaded, replacement issues, no hold
+ok 1 - S0 control: every identity field right + CreditNoteUploaded + authenticated report sequence -> uploaded, replacement issues, no hold
+  ---
+  duration_ms: 131.97896
+  type: 'test'
+  ...
+# Subtest: S1 right transaction key + WRONG document number -> held, closed
+not ok 2 - S1 right transaction key + WRONG document number -> held, closed
+  ---
+  duration_ms: 94.910048
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:30:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:30:162)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S2 right key + document number BLANK -> held, closed (a blank number is never a match)
+not ok 3 - S2 right key + document number BLANK -> held, closed (a blank number is never a match)
+  ---
+  duration_ms: 74.664952
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:31:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:31:171)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S2b report with NO invoice-number column at all (not the All view) -> held, closed
+not ok 4 - S2b report with NO invoice-number column at all (not the All view) -> held, closed
+  ---
+  duration_ms: 51.720086
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:32:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:32:597)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S3 right document number + WRONG transaction key -> nothing matches, closed
+ok 5 - S3 right document number + WRONG transaction key -> nothing matches, closed
+  ---
+  duration_ms: 38.040955
+  type: 'test'
+  ...
+# Subtest: S4 right key + WRONG seller (report processed for another seller) -> closed, our credit note untouched
+ok 6 - S4 right key + WRONG seller (report processed for another seller) -> closed, our credit note untouched
+  ---
+  duration_ms: 48.587714
+  type: 'test'
+  ...
+# Subtest: S5 right key + wrong MARKETPLACE -> held, closed
+not ok 7 - S5 right key + wrong MARKETPLACE -> held, closed
+  ---
+  duration_ms: 70.680123
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:35:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:35:147)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S6 right key + wrong ORIGINAL invoice number in the row -> held, closed
+not ok 8 - S6 right key + wrong ORIGINAL invoice number in the row -> held, closed
+  ---
+  duration_ms: 60.064376
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:36:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:36:182)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S7a right key + wrong ORDER id -> held, closed
+not ok 9 - S7a right key + wrong ORDER id -> held, closed
+  ---
+  duration_ms: 57.304939
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:37:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:37:144)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S7b right key + wrong SHIPPING id -> held, closed
+not ok 10 - S7b right key + wrong SHIPPING id -> held, closed
+  ---
+  duration_ms: 54.119002
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:38:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:38:136)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S8 right key + wrong CURRENCY -> held, closed
+not ok 11 - S8 right key + wrong CURRENCY -> held, closed
+  ---
+  duration_ms: 43.216763
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:39:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:39:127)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S9a AMOUNT mismatch (item incl differs) -> held, closed
+not ok 12 - S9a AMOUNT mismatch (item incl differs) -> held, closed
+  ---
+  duration_ms: 48.20805
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:40:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:40:151)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S9b VAT amount mismatch -> held, closed
+not ok 13 - S9b VAT amount mismatch -> held, closed
+  ---
+  duration_ms: 52.871996
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:41:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:41:130)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S9c SIGN flipped (positive amounts where our credit note is negative) -> held, never silently accepted with an absolute value
+not ok 14 - S9c SIGN flipped (positive amounts where our credit note is negative) -> held, never silently accepted with an absolute value
+  ---
+  duration_ms: 44.065935
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:42:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:42:241)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S10 MULTIPLE line items of one transaction whose amounts add up to our credit note -> accepted
+ok 15 - S10 MULTIPLE line items of one transaction whose amounts add up to our credit note -> accepted
+  ---
+  duration_ms: 68.390817
+  type: 'test'
+  ...
+# Subtest: S10b multiple line items where the parts do NOT add up to our credit note -> held, closed
+not ok 16 - S10b multiple line items where the parts do NOT add up to our credit note -> held, closed
+  ---
+  duration_ms: 67.488526
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:46:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:46:249)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S11 conflicting statuses of one transaction in ONE report, Uploaded first -> held, nothing picked, closed
+not ok 17 - S11 conflicting statuses of one transaction in ONE report, Uploaded first -> held, nothing picked, closed
+  ---
+  duration_ms: 46.621309
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:47:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:47:256)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S11b same conflict with the rows in REVERSE order -> same outcome (row order never matters)
+not ok 18 - S11b same conflict with the rows in REVERSE order -> same outcome (row order never matters)
+  ---
+  duration_ms: 65.155134
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:48:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'rejected'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:48:242)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S11c rows that agree on status but DISAGREE on the document number -> held, closed (both orders)
+not ok 19 - S11c rows that agree on status but DISAGREE on the document number -> held, closed (both orders)
+  ---
+  duration_ms: 61.447048
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:49:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the credit note is NOT marked uploaded
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    closed (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:27:32)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:49:326)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S11d Pending in one row and Uploaded in another -> held (any difference between rows)
+not ok 20 - S11d Pending in one row and Uploaded in another -> held (any difference between rows)
+  ---
+  duration_ms: 42.090153
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:50:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(x.holds.length >= 1)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:50:253)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S12 duplicate reports (the same acceptance twice) -> idempotent: uploaded once, one replacement, no hold
+ok 21 - S12 duplicate reports (the same acceptance twice) -> idempotent: uploaded once, one replacement, no hold
+  ---
+  duration_ms: 46.000556
+  type: 'test'
+  ...
+# Subtest: S13 STALE report (older than our upload attempt) saying Uploaded -> ignored, closed
+ok 22 - S13 STALE report (older than our upload attempt) saying Uploaded -> ignored, closed
+  ---
+  duration_ms: 34.013358
+  type: 'test'
+  ...
+# Subtest: S13b a report that arrives AFTER a newer one cannot undo it: newer Uploaded applied, then an OLDER report (earlier request time) saying Rejected -> ignored
+not ok 23 - S13b a report that arrives AFTER a newer one cannot undo it: newer Uploaded applied, then an OLDER report (earlier request time) saying Rejected -> ignored
+  ---
+  duration_ms: 35.95533
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:53:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'rejected'
+    - 'uploaded'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'uploaded'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:55:182)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S14 NO report sequence (not the authenticated download path) with an otherwise perfect row -> held, closed
+not ok 24 - S14 NO report sequence (not the authenticated download path) with an otherwise perfect row -> held, closed
+  ---
+  duration_ms: 43.645637
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:57:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'uploaded'
+    - 'submitted'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'submitted'
+  actual: 'uploaded'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:57:281)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S15 Uploaded in one report, Rejected in a LATER report -> contradiction HOLD; the credit note stays uploaded, nothing cancelled, no retry proposed
+not ok 25 - S15 Uploaded in one report, Rejected in a LATER report -> contradiction HOLD; the credit note stays uploaded, nothing cancelled, no retry proposed
+  ---
+  duration_ms: 35.391318
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:58:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    not flipped
+    + actual - expected
+    
+    + 'rejected'
+    - 'uploaded'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'uploaded'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:61:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S16 Rejected AFTER the replacement was issued -> HOLD; both documents stay exactly as they are; no further automatic action while the hold is open
+not ok 26 - S16 Rejected AFTER the replacement was issued -> HOLD; both documents stay exactly as they are; no further automatic action while the hold is open
+  ---
+  duration_ms: 45.965514
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:63:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    no document changed state
+    + actual - expected
+    ... Skipped lines
+    
+      [
+        [Object: null prototype] {
+          number: 'A-2026-000001',
+          upload_status: 'submitted'
+        },
+    ...
+          number: 'R-2026-000001',
+    +     upload_status: 'rejected'
+    -     upload_status: 'uploaded'
+        },
+        [Object: null prototype] {
+          number: 'R-2026-000002',
+          upload_status: 'submitted'
+        }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      number: 'A-2026-000001'
+      upload_status: 'submitted'
+    1:
+      number: 'A-2026-000002'
+      upload_status: 'submitted'
+    2:
+      number: 'A-2026-000003'
+      upload_status: 'submitted'
+    3:
+      number: 'R-2026-000001'
+      upload_status: 'uploaded'
+    4:
+      number: 'R-2026-000002'
+      upload_status: 'submitted'
+  actual:
+    0:
+      number: 'A-2026-000001'
+      upload_status: 'submitted'
+    1:
+      number: 'A-2026-000002'
+      upload_status: 'submitted'
+    2:
+      number: 'A-2026-000003'
+      upload_status: 'submitted'
+    3:
+      number: 'R-2026-000001'
+      upload_status: 'rejected'
+    4:
+      number: 'R-2026-000002'
+      upload_status: 'submitted'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/credit-note-strict-match.test.js:66:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: S17 unknown status "CreditNoteAccepted" -> no state change, closed
+ok 27 - S17 unknown status "CreditNoteAccepted" -> no state change, closed
+  ---
+  duration_ms: 34.105012
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "creditnoteuploaded" -> no state change, closed
+ok 28 - S17 unknown status "creditnoteuploaded" -> no state change, closed
+  ---
+  duration_ms: 35.929705
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "Uploaded" -> no state change, closed
+ok 29 - S17 unknown status "Uploaded" -> no state change, closed
+  ---
+  duration_ms: 33.076617
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "" -> no state change, closed
+ok 30 - S17 unknown status "" -> no state change, closed
+  ---
+  duration_ms: 36.804762
+  type: 'test'
+  ...
+# Subtest: S17 unknown status "CreditNoteUploaded;" -> no state change, closed
+ok 31 - S17 unknown status "CreditNoteUploaded;" -> no state change, closed
+  ---
+  duration_ms: 34.158019
+  type: 'test'
+  ...
+# Subtest: S18 CreditNoteProcessing is not acceptance: it records processing only, replacement stays closed
+ok 32 - S18 CreditNoteProcessing is not acceptance: it records processing only, replacement stays closed
+  ---
+  duration_ms: 43.795735
+  type: 'test'
+  ...
+# Subtest: R1 race, order 1: the pair's approval is voided (the replacement data changed) BEFORE the acceptance report is ingested -> uploaded, but no replacement without a new approval
+ok 33 - R1 race, order 1: the pair's approval is voided (the replacement data changed) BEFORE the acceptance report is ingested -> uploaded, but no replacement without a new approval
+  ---
+  duration_ms: 36.793108
+  type: 'test'
+  ...
+# Subtest: R2 race, order 2: the acceptance report is ingested FIRST, then the approval is voided before the next pass -> still no replacement
+ok 34 - R2 race, order 2: the acceptance report is ingested FIRST, then the approval is voided before the next pass -> still no replacement
+  ---
+  duration_ms: 40.076533
+  type: 'test'
+  ...
+1..34
+# tests 34
+# suites 0
+# pass 14
+# fail 20
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2037.573674

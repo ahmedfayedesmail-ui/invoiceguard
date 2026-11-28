@@ -7,6 +7,7 @@ import { openDb, verifyAudit } from '../src/db.js';
 import { parseVidr, needsInvoice } from '../src/vidr.js';
 import { processReport, processCorrections } from '../src/pipeline.js';
 import { releaseIntegrity } from '../src/integrity.js';
+import { acceptReport } from '../test/correction-helpers.js';
 import { detectRepairs, approveRepair, listRepairs } from '../src/repair.js';
 import { renderPdfCached as renderPdf } from '../src/pdf.js';
 import { planUpload } from '../src/manual.js';
@@ -215,7 +216,7 @@ async function part3(n) {
       const cn = calls[calls.length - 1];
       check(scn, cn.documentType === 'CreditNote' && cn.transactionId === 'CorrectionReversal:X:' + i, 'credit note TransactionId');
       // The replacement waits for Amazon's acceptance of the credit note; then the pair completes.
-      await processReport(db, SELLER, rep.replace('CreditNotePending', 'CreditNoteUploaded'), { api: mkApi(calls), validate: mkValidate() });
+      await acceptReport(db, SELLER, rep.replaceAll('CreditNotePending', 'CreditNoteUploaded'), { api: mkApi(calls), validate: mkValidate() });
       const rp = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
       check(scn, rp.invoices === 1 && rp.errors.length === 0, `replacement after acceptance: ${JSON.stringify({ i: rp.invoices, e: rp.errors })}`);
       const inv = calls[calls.length - 1];

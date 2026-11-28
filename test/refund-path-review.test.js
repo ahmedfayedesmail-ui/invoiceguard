@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
 import { processReport, processCorrections as processCorrectionsRaw } from '../src/pipeline.js';
-import { withApproval } from './correction-helpers.js';
+import { withApproval, acceptReport } from './correction-helpers.js';
 const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 
 // Night mission follow-up B (owner list, Nov 28): independent review of the REFUND / CorrectionReversal path. The SHIPMENT rules are NOT assumed to apply. Each test states the invariant, and was run against the unfixed code first (audit/phase-b/pre-fix-run-12-refund-path.spec.txt).
@@ -31,7 +31,7 @@ test('B1: a CorrectionReversal whose amounts differ from the invoice it reverses
 test('B2: a second correction event for an invoice that already has an accepted credit note does not issue a second full credit note against the same original', async () => {
   const { api, db } = await start();
   const r1 = [reversal('CorrectionReversal:X:1'), replacement('Correction::X:2', 'Name One SL')];
-  await pass(db, api, r1); await processReport(db, seller, [head, reversal('CorrectionReversal:X:1').replace('CreditNotePending', 'CreditNoteUploaded'), replacement('Correction::X:2', 'Name One SL')].join('\n'), { api, validate: vies, now: NOW }); await pass(db, api, r1);
+  await pass(db, api, r1); await acceptReport(db, seller, [head, reversal('CorrectionReversal:X:1').replace('CreditNotePending', 'CreditNoteUploaded'), replacement('Correction::X:2', 'Name One SL')].join('\n'), { api, validate: vies, now: NOW }); await pass(db, api, r1);
   assert.equal(credits(db).length, 1, 'the first pair produced one credit note');
   const r2 = [reversal('CorrectionReversal:X:3'), replacement('Correction::X:4', 'Name Two SL')];
   const out = await pass(db, api, r2);
@@ -39,7 +39,7 @@ test('B2: a second correction event for an invoice that already has an accepted 
 });
 test('B3 guard: one normal correction pair still issues exactly one credit note and one replacement, and a repeated pass issues nothing more', async () => {
   const { api, db } = await start(); const rows = [reversal('CorrectionReversal:X:1'), replacement('Correction::X:2', 'Name One SL')];
-  await pass(db, api, rows); await processReport(db, seller, [head, reversal('CorrectionReversal:X:1').replace('CreditNotePending', 'CreditNoteUploaded'), replacement('Correction::X:2', 'Name One SL')].join('\n'), { api, validate: vies, now: NOW });
+  await pass(db, api, rows); await acceptReport(db, seller, [head, reversal('CorrectionReversal:X:1').replace('CreditNotePending', 'CreditNoteUploaded'), replacement('Correction::X:2', 'Name One SL')].join('\n'), { api, validate: vies, now: NOW });
   const o = await pass(db, api, rows); await pass(db, api, rows);
   assert.equal(credits(db).length, 1); assert.equal(api.calls.filter(c => c.documentType === 'CreditNote').length, 1); assert.equal(api.calls.filter(c => c.documentType === 'Invoice').length, 1); void o;
 });

@@ -9,6 +9,7 @@ import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from
 import { createHash, randomUUID } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
+import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses } from './cn-gate.js';
 import { integrityGate, integrityNotes, correctionLedger } from './integrity.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
@@ -51,7 +52,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
     if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); } else out.skipped++; continue; }
-    if (/^CreditNote(Uploaded|Rejected|Processing)$/.test(s.invoiceStatus || '')) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
+    if ((s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus || '']).some(x => /^CreditNote(Uploaded|Rejected|Processing)$/.test(x))) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     // Round-15 (critic round-13 P1-B): a STALE report row must never drive an upload decision.
     // An old report saying "still pending" could otherwise pass the unknown-settle cross-check
     // (the new feed may not be visible in Amazon's feed list yet) and trigger ANOTHER resend over
@@ -268,22 +269,29 @@ function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = null) {
 
 /** Reconcile Amazon's verdict on an uploaded credit note (CreditNote* statuses on the refund row). */
 function reconcileCreditNote(db, seller, s, reportReqTs = null, reportSeq = null) {
-  const rect = db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
+  const rect = db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq, json, shipment_key FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key);
   if (!rect) return;
   // Round-14 (critic round-12): same sequence-ordered stale-report guard as reconcileInvoice.
   if (reportSeq != null && rect.attempt_seq != null && rect.attempt_seq > reportSeq) {
     logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, status: s.invoiceStatus, attemptSeq: rect.attempt_seq, reportAttemptSeq: reportSeq, sendingAt: rect.sending_at, reportRequestedAt: reportReqTs != null ? new Date(reportReqTs).toISOString() : null });
     return;
   }
+  // Owner ruling Nov 28 2026 (strict matching). Order of the checks: a newer report was already applied -> this one is stale; an open credit-note hold -> no automatic decision; rows disagree -> hold; then the acceptance gate.
+  if (reportReqTs != null) { const last = db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='cn_report_applied' ORDER BY rowid DESC LIMIT 50").all(seller.id).map(e => { try { return JSON.parse(e.detail); } catch { return {}; } }).filter(d => d.number === rect.number).map(d => d.reqTs).filter(x => x != null).sort((a, b) => b - a)[0]; if (last != null && reportReqTs < last) { logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, reason: 'a newer report was already applied', reportRequestedAt: new Date(reportReqTs).toISOString() }); return; } }
+  if (hasOpenCreditNoteHold(db, seller.id, s.key)) { logEvent(db, seller.id, 'credit_note_verdict_not_applied', { number: rect.number, reason: 'an open credit-note hold needs a person first' }); return; }
+  const stSet = s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus]; if (stSet.length > 1) { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_ROWS_CONFLICT', evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq }).failed, { number: rect.number }); return; }
+  const st = stSet[0];
+  if (st === 'CreditNoteRejected' && rect.upload_status === 'uploaded') { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_VERDICT_CONTRADICTION', [{ c: 'verdict-contradiction', why: `Amazon reported credit note ${rect.number} as uploaded earlier and now reports it as rejected. Nothing was changed or cancelled automatically; a person must look at both reports.` }], { number: rect.number, reportStatus: st }); return; }
+  if (st === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') { const v = evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq }); if (!v.ok) { openCreditNoteHold(db, seller.id, s.key, v.code, v.failed, { number: rect.number }); return; } logEvent(db, seller.id, 'cn_report_applied', { number: rect.number, reqTs: reportReqTs }); }
   const hasRepairs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='repairs'").get();
-  if (s.invoiceStatus === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
+  if (st === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
     tx(db, () => {
       db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, rect.number);
       if (hasRepairs) db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported','proposed','issuing','rejected','held')").run(seller.id, rect.number);
       closeRepairsFor(db, seller.id, [`UNKNOWN:${s.key}`, s.key], 'uploaded');
       logEvent(db, seller.id, 'confirmed_uploaded', { number: rect.number });
     });
-  } else if (s.invoiceStatus === 'CreditNoteProcessing') {
+  } else if (st === 'CreditNoteProcessing') {
     // Amazon's own statement that it HOLDS the credit note and is processing it (the doc: no seller
     // action is needed then). This settles a local 'unknown': the document provably arrived, so any
     // resend is forbidden - processCorrections' done() now counts it complete and skips it.
@@ -295,7 +303,7 @@ function reconcileCreditNote(db, seller, s, reportReqTs = null, reportSeq = null
       db.prepare("UPDATE invoices SET upload_status='processing' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
       logEvent(db, seller.id, 'credit_note_processing', { number: rect.number });
     }
-  } else if (s.invoiceStatus === 'CreditNoteRejected' && rect.upload_status !== 'rejected') {
+  } else if (st === 'CreditNoteRejected' && rect.upload_status !== 'rejected') {
     // Status write + retry proposal in ONE transaction (round-8), same crash-window discipline.
     tx(db, () => {
       db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, rect.number);
