@@ -25,12 +25,26 @@ test('document trajectory ignores unrelated seller-global sequence gaps',()=>{
   assert.match(trajectoryDigest(baseline),/^[a-f0-9]{64}$/);
 });
 
-test('outcome labels remain advisory and cannot change a financial state',()=>{
+test('manual authorization never masks incomplete or contradictory evidence',()=>{
   const incomplete=classifyEvidenceOutcome({completeness:'UNKNOWN',proven:true});
   assert.equal(incomplete.outcome,'INCOMPLETE');
   assert.equal(incomplete.authority,'ADVISORY_ONLY');
   assert.equal(incomplete.changesFinancialState,false);
-  const manual=classifyEvidenceOutcome({completeness:'INCOMPLETE',manualAuthorization:true});
-  assert.equal(manual.outcome,'MANUAL_AUTHORIZATION');
-  assert.equal(manual.changesFinancialState,false);
+
+  const incompleteManual=classifyEvidenceOutcome({completeness:'INCOMPLETE',manualAuthorization:true});
+  assert.equal(incompleteManual.outcome,'INCOMPLETE');
+  assert.equal(incompleteManual.manualAuthorizationRecorded,true);
+
+  const completeManual=classifyEvidenceOutcome({completeness:'COMPLETE',manualAuthorization:true});
+  assert.equal(completeManual.outcome,'MANUAL_AUTHORIZATION');
+  assert.equal(completeManual.changesFinancialState,false);
+
+  const contradiction=classifyEvidenceOutcome({completeness:'COMPLETE',contradicted:true,manualAuthorization:true});
+  assert.equal(contradiction.outcome,'CONTRADICTED');
+  assert.equal(contradiction.manualAuthorizationRecorded,true);
+
+  const mixed=classifyEvidenceOutcome({completeness:'INCOMPLETE',contradicted:true});
+  assert.equal(mixed.outcome,'CONTRADICTED');
+  assert.equal(mixed.completeness,'INCOMPLETE');
+  assert.equal(mixed.changesFinancialState,false);
 });

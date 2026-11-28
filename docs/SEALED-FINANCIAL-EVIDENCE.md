@@ -8,8 +8,9 @@ This is an advisory, read-side evidence layer. It records normalized observation
 - The writer creates and writes only `intel_evidence_chain` and `intel_evidence_head`.
 - The evidence chain is protected by SQLite triggers against UPDATE and DELETE. Each coverage statement is itself sealed into the chain; there is no separate mutable coverage cache.
 - Each sealing pass uses `BEGIN IMMEDIATE`; concurrent sealers serialize, and `(seller_id, source_ref)` makes retries idempotent.
-- Only allowlisted metadata is exported. Free-form event details, decision reasons, actor identities, invoice errors, finding explanations and raw evidence are represented by SHA-256 digests rather than copied into the bundle.
-- Monetary values are normalized to safe integer cents before hashing.
+- Only allowlisted metadata is exported. Free-form event details, decision reasons, actor identities, invoice errors, finding explanations and raw evidence are represented by SHA-256 digests rather than copied into the bundle. These digests are integrity fingerprints, not anonymization; low-entropy values may be guessable.
+- Monetary values are converted to safe integer cents with exact decimal arithmetic. Sub-cent or unsafe values fail the seal; they are never rounded into evidence.
+- Financial identifiers are rejected when they exceed the supported field length; they are never silently truncated into a potentially colliding document key.
 
 ## What the chain proves—and does not
 
@@ -40,3 +41,5 @@ try {
 
 This first implementation is intentionally not wired to a route, scheduler, or UI. Runtime integration, seller download path, checkpoint retention workflow, and performance qualification remain separate work.
 The automated tests also prove that a corrupted pre-existing chain is refused for further appends, while integrity verification and the source financial tables remain separate.
+
+Outcome labels preserve coverage, contradiction, and manual-authorization facts separately. A manual authorization never masks incomplete or contradictory evidence, and no outcome label can authorize a financial state transition.

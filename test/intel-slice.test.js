@@ -39,6 +39,10 @@ test('seal is deterministic and idempotent; bundle verifies; financial tables re
   assert.equal(a.coverage.status,'UNKNOWN');
   assert.equal(verifyEvidenceChain(db,'seller-A').valid,true);
   assert.equal(getEvidenceCoverage(db,'seller-A').status,'UNKNOWN');
+  const invoiceEntry=db.prepare("SELECT canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='invoice_snapshot'").get('seller-A');
+  const invoiceBody=JSON.parse(invoiceEntry.canonical_json);
+  assert.equal(invoiceBody.payload.totalCents,5990);
+  assert.equal(invoiceBody.payload.vatCents,990);
   const bundle=exportEvidenceBundle(db,'seller-A');
   assert.equal(verifyEvidenceBundle(bundle).valid,true);
   assert.deepEqual(db.prepare('SELECT * FROM invoices WHERE seller_id=?').all('seller-A'),before);
@@ -47,6 +51,28 @@ test('seal is deterministic and idempotent; bundle verifies; financial tables re
   assert.deepEqual(b.head,a.head);
   assert.equal(bundle.chain.some(x=>x.kind==='coverage_statement'),true);
   assert.equal(bundle.chain.some(x=>x.canonicalJson.includes('private free text')),false,'free text is represented by a digest');
+});
+
+test('sub-cent money is refused rather than rounded into financial evidence', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare("UPDATE invoices SET total=? WHERE seller_id=? AND number=?").run(1.005,'seller-A','A-2026-000001');
+  assert.throws(
+    () => sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /sub-cent precision/
+  );
+  assert.equal(db.prepare("SELECT total FROM invoices WHERE seller_id=? AND number=?").get('seller-A','A-2026-000001').total,1.005);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM intel_evidence_chain WHERE seller_id=?").get('seller-A').n,0);
+});
+
+test('oversized financial identifiers are rejected instead of being silently truncated', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  const longNumber='X'.repeat(181);
+  db.prepare("UPDATE invoices SET number=? WHERE seller_id=? AND number=?").run(longNumber,'seller-A','A-2026-000001');
+  assert.throws(
+    () => sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /supported length/
+  );
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM intel_evidence_chain WHERE seller_id=?").get('seller-A').n,0);
 });
 
 test('reader is read-only and sealed chain rows cannot be updated or deleted', t => {

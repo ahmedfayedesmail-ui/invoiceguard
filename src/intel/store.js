@@ -30,14 +30,42 @@ export function ensureIntelTables(db) {
   `);
 }
 const digest = value => sha256Hex(String(value ?? ''));
-const safeText = (value, max=180) => value == null ? null : String(value).slice(0,max);
+function safeText(value, max=180) {
+  if (value == null) return null;
+  const text = String(value);
+  if (text.length > max) throw new RangeError(`Evidence field exceeds its supported length (${max})`);
+  return text;
+}
 function cents(value, field) {
   if (value == null || value === '') return null;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  const c = Math.round(n*100);
-  if (!Number.isSafeInteger(c)) throw new RangeError(`Unsafe money value at ${field}`);
-  return c;
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    throw new TypeError(`Invalid monetary value at ${field}`);
+  }
+  const raw = String(value).trim();
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(raw);
+  if (!match) throw new TypeError(`Invalid monetary value at ${field}`);
+  const negative = match[1] === '-';
+  const fraction = match[3] ?? '';
+  const digits = BigInt((match[2] + fraction).replace(/^0+(?=\d)/, ''));
+  const exponent = Number(match[4] ?? 0);
+  if (!Number.isSafeInteger(exponent) || Math.abs(exponent) > 100) {
+    throw new RangeError(`Monetary exponent is outside the supported range at ${field}`);
+  }
+  const scale = 2 + exponent - fraction.length;
+  let minor;
+  if (scale >= 0) {
+    minor = digits * (10n ** BigInt(scale));
+  } else {
+    const divisor = 10n ** BigInt(-scale);
+    if (digits % divisor !== 0n) {
+      throw new RangeError(`Monetary value contains sub-cent precision at ${field}; refusing to round evidence`);
+    }
+    minor = digits / divisor;
+  }
+  if (negative) minor = -minor;
+  const limit = BigInt(Number.MAX_SAFE_INTEGER);
+  if (minor > limit || minor < -limit) throw new RangeError(`Unsafe money value at ${field}`);
+  return Number(minor);
 }
 function parseDetail(raw) {
   try { const value=JSON.parse(raw ?? '{}'); return value && typeof value==='object' && !Array.isArray(value) ? value : {}; }

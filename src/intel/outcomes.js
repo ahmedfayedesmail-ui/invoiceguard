@@ -13,10 +13,13 @@ export function classifyEvidenceOutcome({
   contradicted = false,
   manualAuthorization = false
 } = {}) {
+  // A manual record must never mask a coverage gap or an observed contradiction.
+  // Contradiction remains visible even when the wider history is incomplete;
+  // completeness is returned separately so neither fact is lost.
   let outcome;
-  if (manualAuthorization) outcome = 'MANUAL_AUTHORIZATION';
+  if (contradicted) outcome = 'CONTRADICTED';
   else if (completeness !== 'COMPLETE') outcome = 'INCOMPLETE';
-  else if (contradicted) outcome = 'CONTRADICTED';
+  else if (manualAuthorization) outcome = 'MANUAL_AUTHORIZATION';
   else if (proven) outcome = 'PROVEN';
   else outcome = 'UNRESOLVED';
 
@@ -27,5 +30,13 @@ export function classifyEvidenceOutcome({
     INCOMPLETE: 'The evidence history has a known or unresolved coverage gap.',
     MANUAL_AUTHORIZATION: 'A recorded human authorization exists; it is not an Amazon fact.'
   };
-  return Object.freeze({ outcome, meaning: meanings[outcome], authority: 'ADVISORY_ONLY', changesFinancialState: false });
+  return Object.freeze({
+    outcome,
+    meaning: meanings[outcome],
+    completeness,
+    contradicted: Boolean(contradicted),
+    manualAuthorizationRecorded: Boolean(manualAuthorization),
+    authority: 'ADVISORY_ONLY',
+    changesFinancialState: false
+  });
 }
