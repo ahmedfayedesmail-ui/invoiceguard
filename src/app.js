@@ -524,7 +524,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/repairs/approve' || p === '/api/repairs/dismiss') {
         if (typeof body.key !== 'string' || !body.key || body.key.length > 200) return json(res, 400, { error: 'Choose a repair first.' });
         try {
-          if (p === '/api/repairs/dismiss') { decideRepair(db, seller.id, body.key, 'dismissed'); logEvent(db, seller.id, 'repair_dismissed', { key: body.key }); return json(res, 200, { ok: true }); }
+          if (p === '/api/repairs/dismiss') { decideRepair(db, seller.id, body.key, 'dismissed', body, user.email ?? user.id); logEvent(db, seller.id, 'repair_dismissed', { key: body.key }); return json(res, 200, { ok: true }); }
           const r = await approveRepair(db, seller, body.key, { api: apiFor(seller), validate });
           logEvent(db, seller.id, 'repair_issued', { key: body.key, rect: r.rectNumber, rectifies: r.original });
           return json(res, 200, r);

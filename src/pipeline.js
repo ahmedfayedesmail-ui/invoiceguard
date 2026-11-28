@@ -694,8 +694,11 @@ export async function unknownSettleCheck(db, seller, api, number) {
     let st = null;
     try { st = await api.feedStatus(bf); } catch { st = null; }
     const ackIds = [bf, ...lateFeeds]; // a person confirms a feed in ITS OWN LATE_FEED hold: the blocked feed, or a feed that provably landed late for this document (never a foreign id)
-    const acked = ackIds.some(fid => db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_feed_acknowledged' AND detail LIKE ? AND detail LIKE ? LIMIT 1").get(seller.id, `%"number":"${number}"%`, `%"feedId":${JSON.stringify(fid)}%`));
-    if (acked) { proven = true; logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'a person confirmed this feed in its own LATE_FEED hold' }); }
+    // Review (ruling 5, decision 3): a confirmation of a feed is ONE-SHOT, like any retry authorization: once a resend consumed it, a later unknown outcome needs a new human decision.
+    const ackRow = (type, fid) => db.prepare("SELECT rowid r FROM events WHERE seller_id=? AND type=? AND detail LIKE ? AND detail LIKE ? ORDER BY rowid DESC LIMIT 1").get(seller.id, type, `%"number":"${number}"%`, `%"feedId":${JSON.stringify(fid)}%`);
+    const ackedFeed = ackIds.find(fid => { const a = ackRow('late_feed_acknowledged', fid); if (!a || !db.prepare("SELECT detail FROM events WHERE rowid=?").get(a.r).detail.includes('"checkedBy"')) return false; const u = ackRow('late_feed_ack_consumed', fid); return !(u && u.r > a.r); });
+    const acked = ackedFeed != null;
+    if (acked) { proven = true; logEvent(db, seller.id, 'late_feed_ack_consumed', { number, feedId: ackedFeed }); logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'a person confirmed this feed in its own LATE_FEED hold' }); }
     else if (st?.status === 'CANCELLED') { proven = true; logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'feed CANCELLED - Amazon provably never processed it' }); }
     // Round-10c (reviewer decision): NO automatic lift from processing-report text. The real
     // report format is unproven against a live seller account, and keyword matching kept losing

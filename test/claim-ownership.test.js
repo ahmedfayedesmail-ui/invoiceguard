@@ -15,6 +15,7 @@ const okApi = () => ({ calls: [], uploadInvoice: async function (a) { this.calls
 /** an api whose upload call stays open until release(feedId) */
 const hangApi = () => { let rel; const gate = new Promise(r => { rel = r; }); return { calls: [], first: null, release: (f) => rel(f), uploadInvoice: async function (a) { this.calls.push(a); if (this.first) return 'other-' + this.calls.length; this.first = a.number; return gate; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] }; };
 const settle = (name, db, api, rep1) => name === 'invoice' ? processReport(db, seller, text, { api, validate: vies, now: NOW }) : settleUnknownDocuments(db, seller, rep1, { api, validate: vies });
+const confirmLate = (db, k) => decideRepair(db, seller.id, k, 'dismissed', { checkedBy: 'Reviewer A', checkedAt: new Date().toISOString(), result: 'feed_failed', reason: 'Checked the feed in Seller Central', acknowledgeRisk: true }, 'owner@x.test');
 const waitFor = async (fn) => { for (let i = 0; i < 200; i++) { if (fn()) return; await new Promise(r => setTimeout(r, 10)); } assert.fail('condition not reached'); };
 const ev = (db, t) => db.prepare('SELECT detail FROM events WHERE type=?').all(t).map(r => JSON.parse(r.detail));
 const kinds = {
@@ -89,7 +90,7 @@ test('C7 dismissing a LATE_FEED hold never unlocks the resend block of the docum
   process.env.IG_UPLOAD_TIMEOUT_MS = '100'; try {
     const { db } = await kinds.invoice.setup(); const calls = []; const api = { calls, async uploadInvoice(a) { calls.push(a.number); if (calls.length === 1) { await new Promise(r => setTimeout(r, 300)); return 'abandoned-feed'; } return 'x'; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
     await kinds.invoice.start(db, api); await new Promise(r => setTimeout(r, 400));
-    const k = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'LATE_FEED:%'").get().k; decideRepair(db, seller.id, k, 'dismissed');
+    const k = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'LATE_FEED:%'").get().k; assert.throws(() => decideRepair(db, seller.id, k, 'dismissed'), /who checked/i); /* review: a bare confirmation is refused */
     assert.equal(db.prepare("SELECT count(*) c FROM events WHERE type='unknown_hold_dismissed'").get().c, 0);
   } finally { delete process.env.IG_UPLOAD_TIMEOUT_MS; }
 });
@@ -114,13 +115,13 @@ async function lateFeedDoc() {
 test('C9 keyed lift, SAME feed: confirming the LATE_FEED hold of the blocked feed lifts the block (the document may then be resent)', async () => {
   const { db, api, first } = await lateFeedDoc(); const k = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'LATE_FEED:%'").get().k; assert.ok(k.endsWith(':feedA'));
   await settle('invoice', db, api); assert.equal(api.calls.filter(n => n === first).length, 1, 'blocked before the confirmation'); assert.ok(ev(db, 'unknown_resend_blocked').length >= 1);
-  decideRepair(db, seller.id, k, 'dismissed'); await settle('invoice', db, api);
+  confirmLate(db, k); await settle('invoice', db, api);
   assert.ok(ev(db, 'unknown_block_lifted').some(e => e.feedId === 'feedA'), 'the lift names the feed');
 });
 test('C10 keyed lift, DIFFERENT feed: confirming another feed\'s LATE_FEED hold never lifts the block of the blocked feed', async () => {
   const { db, api, first } = await lateFeedDoc(); const row = db.prepare("SELECT shipment_key sk FROM invoices WHERE number=?").get(first);
   const key = `LATE_FEED:${row.sk}:feedB`; db.prepare("INSERT INTO repairs (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at) VALUES (?,?,?,?,?,?,?,?,?)").run(seller.id, key, 'unknown_outcome', first, row.sk, 'x', JSON.stringify({ number: first }), 'proposed', new Date().toISOString());
-  decideRepair(db, seller.id, key, 'dismissed'); await settle('invoice', db, api);
+  confirmLate(db, key); await settle('invoice', db, api);
   assert.equal(api.calls.filter(n => n === first).length, 1, 'still blocked'); assert.ok(ev(db, 'unknown_resend_blocked').length >= 1); assert.equal(ev(db, 'unknown_block_lifted').length, 0); assert.equal(ev(db, 'unknown_hold_dismissed').length, 0);
 });
 test('C11 the sweep reports what it knows: no claim that the app stopped, no claim that a resend is safe', async () => {
@@ -181,6 +182,6 @@ test('C15 compound state: confirming the late feed\'s own LATE_FEED hold (the ho
   const { db, api, first } = await compoundDoc(); const k = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'LATE_FEED:%'").get().k;
   const row = db.prepare("SELECT shipment_key sk FROM invoices WHERE number=?").get(first); const fk = `LATE_FEED:${row.sk}:feedZZ`;
   db.prepare("INSERT INTO repairs (seller_id, event_key, kind, original_number, shipment_key, reason, suggestion, state, created_at) VALUES (?,?,?,?,?,?,?,?,?)").run(seller.id, fk, 'unknown_outcome', first, row.sk, 'x', JSON.stringify({ number: first }), 'proposed', new Date().toISOString());
-  decideRepair(db, seller.id, fk, 'dismissed'); await settle('invoice', db, api); assert.equal(ev(db, 'unknown_block_lifted').length, 0, 'a feed that never landed late for this document lifts nothing');
-  decideRepair(db, seller.id, k, 'dismissed'); await settle('invoice', db, api); assert.ok(ev(db, 'unknown_block_lifted').length >= 1, 'its own late feed lifts');
+  confirmLate(db, fk); await settle('invoice', db, api); assert.equal(ev(db, 'unknown_block_lifted').length, 0, 'a feed that never landed late for this document lifts nothing');
+  confirmLate(db, k); await settle('invoice', db, api); assert.ok(ev(db, 'unknown_block_lifted').length >= 1, 'its own late feed lifts');
 });

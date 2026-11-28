@@ -511,19 +511,30 @@ export function authorizeUnknownRetry(db, sellerId, eventKey, a, user) {
   logEvent(db, sellerId, 'unknown_retry_authorized', { key: eventKey, number, feedId: feedId || null, feedStatus: feedStatus || null, checkedBy: who, checkedAt: new Date(at).toISOString(), result: a.result, reason: String(a.reason).trim().slice(0, 500), authorizedBy: String(user).trim(), residualRiskAcknowledged: true, kind: 'operational authorization, not an Amazon fact' });
   return { authorized: true, oneShot: true };
 }
-export function decideRepair(db, sellerId, eventKey, decision) {
+export function decideRepair(db, sellerId, eventKey, decision, details = null, user = null) {
   ensureRepairTables(db);
   if (!['approved', 'dismissed'].includes(decision)) throw new Error(`Unknown decision "${decision}"`);
   const prev = db.prepare('SELECT kind, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(sellerId, eventKey);
   // Ruling 5 (decision 4): the generic dismissal of an unknown-outcome hold is GONE (it was a one-click, ten-character door to a resend). Only a LATE_FEED hold keeps its keyed confirmation.
   if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && !String(eventKey).startsWith('LATE_FEED:')) throw new Error('An unknown-outcome hold cannot be dismissed. Check Seller Central, then record that check and authorize ONE retry (who checked, when, what you found), or wait for Amazon evidence.');
+  // Review (ruling 5, decision 3): confirming a late feed lets ONE resend go out, so it is a human retry authorization and records what decision 3 asks for: who checked Seller Central, when, what was found, and that the residual risk was understood.
+  let lateRec = null;
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && String(eventKey).startsWith('LATE_FEED:')) {
+    const a = details ?? {}; const who = String(a.checkedBy ?? '').trim(); if (who.length < 2) throw new Error('Say who checked Seller Central.');
+    if (!String(user ?? '').trim()) throw new Error('A confirmation needs the user who gives it.');
+    const at = Date.parse(a.checkedAt ?? ''); if (!Number.isFinite(at)) throw new Error('Give the time of the Seller Central check.'); if (at > Date.now() + 60e3) throw new Error('The check time is in the future.');
+    if (!['document_not_found', 'feed_not_found', 'feed_failed', 'inconclusive'].includes(a.result)) throw new Error('Say what the check found: document_not_found, feed_not_found, feed_failed, inconclusive.');
+    if (String(a.reason ?? '').trim().length < 10) throw new Error('Give a reason of at least 10 characters.');
+    if (a.acknowledgeRisk !== true) throw new Error('Confirm that you understand the residual risk: an earlier request can still land and Amazon would then hold two submissions.');
+    lateRec = { checkedBy: who, checkedAt: new Date(at).toISOString(), result: a.result, reason: String(a.reason).trim().slice(0, 500), feedStatus: String(a.feedStatus ?? '').trim() || null, authorizedBy: String(user).trim(), residualRiskAcknowledged: true, kind: 'operational authorization, not an Amazon fact' };
+  }
   const r = db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(decision, sellerId, eventKey);
   if (!r.changes) throw new Error(`No proposed repair ${eventKey}`);
   if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && String(eventKey).startsWith('LATE_FEED:')) {
     // Keyed lift (re-review 1 round 4 D1): a person who checked Seller Central confirms THIS feed only. The event carries the feed id; unknownSettleCheck lifts the block only for a document whose blocked feed is exactly this one.
     let number = null; try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
     const feedId = String(eventKey).slice(String(eventKey).lastIndexOf(':') + 1);
-    logEvent(db, sellerId, 'late_feed_acknowledged', { key: eventKey, number, feedId });
+    logEvent(db, sellerId, 'late_feed_acknowledged', { key: eventKey, number, feedId, ...lateRec });
   }
 }
 
