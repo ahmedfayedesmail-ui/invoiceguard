@@ -680,8 +680,11 @@ function correctionReview(db, seller, rev, orig, list, claim = false, snap = {})
   if (claim && amount >= 0.005) {
     // every claim has an identity: a failing attempt may only roll back the claim IT created (claim_id), never a newer attempt's claim for the same event
     const claimId = randomUUID(), prev = db.prepare('SELECT claim_id FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, rev.key), at = new Date().toISOString();
+    const fpApproved = fp(CORRECTION_REVIEW); // the fingerprint the person approved: every history event of this claim carries it
+    const addHist = db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,fingerprint,at) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    if (prev) { const was = db.prepare("SELECT fingerprint FROM credit_claim_history WHERE seller_id=? AND reversal_key=? AND claim_id=? AND event='CLAIMED' ORDER BY id LIMIT 1").get(seller.id, rev.key, prev.claim_id ?? ''); addHist.run(seller.id, rev.key, orig.number, amount, 'SUPERSEDED', prev.claim_id ?? null, 'system', `superseded by the claim ${claimId} of a later attempt for the same event`, was?.fingerprint ?? null, at); }
     db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at, claim_id) VALUES (?,?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, at, claimId);
-    db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,at) VALUES (?,?,?,?,?,?,?,?,?)').run(seller.id, rev.key, orig.number, amount, 'CLAIMED', claimId, 'system', prev ? `replaces the claim ${prev.claim_id ?? 'without id'} of an earlier attempt for the same event` : 'reserved with the approved pair review', at);
+    addHist.run(seller.id, rev.key, orig.number, amount, 'CLAIMED', claimId, 'system', prev ? `replaces the claim ${prev.claim_id ?? 'without id'} of an earlier attempt for the same event` : 'reserved with the approved pair review', fpApproved, at);
     snap.claimId = claimId;
   }
   return null;
@@ -771,7 +774,8 @@ export function rollbackPreIssueClaim(db, sellerId, key, claimId, why = '') {
     const c = db.prepare('SELECT original_number, amount FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').get(sellerId, key, claimId); if (!c) return false;
     if (db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(sellerId, key)) return false;
     db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=? AND claim_id=?').run(sellerId, key, claimId);
-    db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,at) VALUES (?,?,?,?,?,?,?,?,?)').run(sellerId, key, c.original_number, c.amount, 'ABORTED', claimId, 'system', `PRE_ISSUE_FAILURE: the issuance that reserved this claim failed before any document row existed, so nothing was uploaded (${String(why).slice(0, 120)})`, new Date().toISOString());
+    const was = db.prepare("SELECT fingerprint FROM credit_claim_history WHERE seller_id=? AND reversal_key=? AND claim_id=? AND event='CLAIMED' ORDER BY id LIMIT 1").get(sellerId, key, claimId);
+    db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,claim_id,actor,reason,fingerprint,at) VALUES (?,?,?,?,?,?,?,?,?,?)').run(sellerId, key, c.original_number, c.amount, 'ABORTED', claimId, 'system', `PRE_ISSUE_FAILURE: the issuance that reserved this claim failed before any document row existed, so nothing was uploaded (${String(why).slice(0, 120)})`, was?.fingerprint ?? null, new Date().toISOString());
     return true;
   });
 }

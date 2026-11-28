@@ -23,6 +23,8 @@ export function openDb(file = ':memory:') {
   -- Credit claims on an original invoice (owner review Nov 28): a CorrectionReversal reserves its amount here in the same BEGIN IMMEDIATE transaction that checks the creditable balance, so two events can never both see the same free balance. A claim whose document exists is counted as that document, not twice.
   CREATE TABLE IF NOT EXISTS credit_claims (seller_id TEXT, original_number TEXT, reversal_key TEXT, amount REAL, claimed_at TEXT, claim_id TEXT, PRIMARY KEY (seller_id, reversal_key));
   CREATE TABLE IF NOT EXISTS credit_claim_history (id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id TEXT, reversal_key TEXT, original_number TEXT, amount REAL, event TEXT, claim_id TEXT, actor TEXT, reason TEXT, fingerprint TEXT, at TEXT);
+  CREATE TRIGGER IF NOT EXISTS credit_claim_history_no_update BEFORE UPDATE ON credit_claim_history BEGIN SELECT RAISE(ABORT,'credit_claim_history is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS credit_claim_history_no_delete BEFORE DELETE ON credit_claim_history BEGIN SELECT RAISE(ABORT,'credit_claim_history is append-only'); END;
   CREATE TABLE IF NOT EXISTS integrity_history (seller_id TEXT, shipment_key TEXT, code TEXT, field TEXT, event TEXT, fingerprint TEXT, at TEXT);
   CREATE TRIGGER IF NOT EXISTS integrity_release_needs_decision_u BEFORE UPDATE OF status ON integrity_findings WHEN NEW.status='RELEASED' AND NOT EXISTS (SELECT 1 FROM integrity_decisions d WHERE d.seller_id=NEW.seller_id AND d.shipment_key=NEW.shipment_key AND d.code=NEW.code AND d.field=NEW.field AND d.fingerprint=NEW.fingerprint)
     BEGIN SELECT RAISE(ABORT,'RELEASED needs a recorded decision'); END;
