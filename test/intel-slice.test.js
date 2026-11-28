@@ -301,3 +301,29 @@ test('reader and writer must reference the same persistent database file', t => 
     /same persistent SQLite database file/
   );
 });
+
+
+test('snapshot append order is deterministic and does not use source timestamps', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO events (ts,seller_id,type,detail) VALUES (?,?,?,?)')
+    .run('2026-11-01T00:00:00.000Z','seller-A','earlier_timestamp','{}');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const rows=db.prepare("SELECT canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='seller_or_system_event' ORDER BY seq").all('seller-A');
+  assert.deepEqual(rows.map(row=>JSON.parse(row.canonical_json).sourceKey),['1','2']);
+  assert.deepEqual(rows.map(row=>JSON.parse(row.canonical_json).payload.occurredAt),[
+    '2026-11-28T10:01:00.000Z','2026-11-01T00:00:00.000Z'
+  ]);
+});
+
+test('invalid source keys and malformed external bundle rows fail closed', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run('seller-A',null,'SHIP-2','invoice','2026-11-28T10:00:00.000Z',10,1,'ready');
+  assert.throws(()=>sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),/no usable key/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM intel_evidence_chain WHERE seller_id=?').get('seller-A').n,0);
+
+  db.prepare("DELETE FROM invoices WHERE seller_id=? AND number IS NULL").run('seller-A');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const bundle=exportEvidenceBundle(db,'seller-A');
+  assert.equal(verifyEvidenceBundle({...bundle,chain:[null]}).valid,false);
+});
