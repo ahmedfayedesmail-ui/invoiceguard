@@ -274,13 +274,23 @@ function verifyRows(rows,sellerId,head=null) {
   }
   return {valid:true,sequence:rows.length,hash:prev};
 }
+// A retained checkpoint anchors a PREFIX: the entry at checkpoint.sequence must carry checkpoint.hash. A longer chain is a valid continuation;
+// a shorter one is truncation; a different entry at that position is tampering.
+function checkpointAnchorReason(cp,sellerId,entryHashes) {
+  if(!cp||typeof cp!=='object'||cp.sellerId!==sellerId||!Number.isSafeInteger(cp.sequence)||cp.sequence<0||typeof cp.hash!=='string'||!/^[a-f0-9]{64}$/.test(cp.hash))
+    return 'external-checkpoint-mismatch';
+  if(cp.sequence===0) return cp.hash===ZERO?null:'external-checkpoint-mismatch';
+  if(cp.sequence>entryHashes.length) return 'external-checkpoint-truncated';
+  return entryHashes[cp.sequence-1]===cp.hash?null:'external-checkpoint-mismatch';
+}
 export function verifyEvidenceChain(db,sellerId,checkpoint=null) {
   const rows=rowsFor(db,sellerId);
   const head=db.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get(sellerId);
   const result=verifyRows(rows,sellerId,head);
   if(!result.valid)return result;
-  if(checkpoint&&(checkpoint.sellerId!==sellerId||checkpoint.sequence!==rows.length||checkpoint.hash!==result.hash)) {
-    return {valid:false,brokenAt:rows.length||1,reason:'external-checkpoint-mismatch'};
+  if(checkpoint) {
+    const reason=checkpointAnchorReason(checkpoint,sellerId,rows.map(row=>row.entry_hash));
+    if(reason) return {valid:false,brokenAt:rows.length||1,reason};
   }
   return result;
 }
@@ -569,12 +579,16 @@ export function verifyEvidenceBundle(bundle,{checkpoint=null}={}) {
     }
     prev=row.hash;
   }
-  const checkpoints=[bundle.checkpoint,checkpoint].filter(Boolean);
-  if(checkpoints.length===0) return {valid:false,reason:'checkpoint-missing',brokenAt:bundle.chain.length||1};
-  for(const cp of checkpoints) {
-    if(!cp||cp.sellerId!==bundle.sellerId||!Number.isSafeInteger(cp.sequence)||cp.sequence<0||
-      !/^[a-f0-9]{64}$/.test(cp.hash??'')||cp.sequence!==bundle.chain.length||cp.hash!==prev)
+  if(!bundle.checkpoint&&!checkpoint) return {valid:false,reason:'checkpoint-missing',brokenAt:bundle.chain.length||1};
+  const hashes=bundle.chain.map(row=>row.hash);
+  if(bundle.checkpoint) { // the bundle's own checkpoint describes its own head exactly
+    const cp=bundle.checkpoint;
+    if(checkpointAnchorReason(cp,bundle.sellerId,hashes)||cp.sequence!==bundle.chain.length||cp.hash!==prev)
       return {valid:false,reason:'external-checkpoint-mismatch',brokenAt:bundle.chain.length||1};
+  }
+  if(checkpoint) { // a retained earlier or equal checkpoint anchors a prefix
+    const reason=checkpointAnchorReason(checkpoint,bundle.sellerId,hashes);
+    if(reason) return {valid:false,reason,brokenAt:bundle.chain.length||1};
   }
   let sealedCoverage=null;
   for(let i=bundle.chain.length-1;i>=0;i--) {
