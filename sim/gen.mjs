@@ -31,9 +31,16 @@ export function baseSeller(i, R, opts = {}) {
 }
 const dmy = (t, d) => { const x = new Date(t), Y = x.getUTCFullYear(), M = pad(x.getUTCMonth() + 1), D = pad(x.getUTCDate()); return d.date === 'ISO' ? `${Y}-${M}-${D}` : `${D}${d.sep}${M}${d.sep}${Y}`; };
 export const iso = (t) => new Date(t).toISOString().slice(0, 10);
+/** Amazon's VIDR date columns, as Amazon publishes them, in one place. The report-type page documents DD/MM/YYYY ("17/05/2018");
+ *  the flat-file sample linked from create-and-upload-invoices writes month/day/year with a time ("2/26/2019 20:14"). The two
+ *  Amazon sources disagree, so this generator emits the DOCUMENTED form, which is also the only form src/reconcile.js accepts.
+ *  Before this change the generator emitted ISO 8601 with a zone ("2026-11-24T08:00:00Z") - a format neither Amazon source shows -
+ *  so the 500-seller numbers were measured against a file Amazon does not produce. Change this line only with a real downloaded
+ *  VIDR in hand that settles the format. */
+export const amzFlatDate = (t) => { const x = new Date(t); return `${pad(x.getUTCDate())}/${pad(x.getUTCMonth() + 1)}/${x.getUTCFullYear()}`; };
 export function vidrText(s, { delim = '\t', rows = s.txs } = {}) {
   const out = [H.join(delim)];
-  for (const t of rows.filter(x => !x.hideAmazon)) { const x = new Date(t.od); out.push([s.mk, t.order, String(1000 + t.k), t.ship, t.ship, 'SHIPMENT', t.status === 'InvoiceUploaded' || t.status === 'InvoiceRejected' || t.status === 'InvoiceProcessing' ? t.num : '', t.status, t.desc, t.amzInv ? 'TRUE' : 'FALSE', `${pad(x.getUTCDate())}/${pad(x.getUTCMonth() + 1)}/${x.getUTCFullYear()}`, new Date(t.sd).toISOString().replace('.000Z', 'Z'), t.bvat ? 'TRUE' : 'FALSE', t.bvat, t.cur, t.amt.toFixed(2)].join(delim)); }
+  for (const t of rows.filter(x => !x.hideAmazon)) { out.push([s.mk, t.order, String(1000 + t.k), t.ship, t.ship, 'SHIPMENT', t.status === 'InvoiceUploaded' || t.status === 'InvoiceRejected' || t.status === 'InvoiceProcessing' ? t.num : '', t.status, t.desc, t.amzInv ? 'TRUE' : 'FALSE', amzFlatDate(t.od), amzFlatDate(t.sd), t.bvat ? 'TRUE' : 'FALSE', t.bvat, t.cur, t.amt.toFixed(2)].join(delim)); }
   return out.join('\n') + '\n';
 }
 const money = (v, d, thou) => { let s = Math.abs(v).toFixed(2); if (thou) s = s.replace(/\B(?=(\d{3})+(?!\d))/g, ',').replace(/\.(\d\d)$/, '.$1'); if (d.dec === ',') s = s.replace(/\./g, '#').replace(/,/g, '.').replace('#', ','); return (v < 0 ? '-' : '') + s; };
