@@ -146,8 +146,9 @@ function snapshotSources(reader, sellerId) {
   });
 }
  
-function versionMutableSnapshots(source, priorRows) {
+function versionMutableSnapshots(source, priorRows, previousCoverage = null) {
   const latest = new Map();
+  const previouslyMissing = new Set(Array.isArray(previousCoverage?.missingMutableSnapshots) ? previousCoverage.missingMutableSnapshots : []);
   for (const row of priorRows) {
     const body = JSON.parse(row.canonical_json);
     if (!MUTABLE_SOURCES.includes(body.sourceTable)) continue;
@@ -163,7 +164,7 @@ function versionMutableSnapshots(source, priorRows) {
     const key = JSON.stringify([item.sourceTable, item.sourceKey]);
     const payloadHash = sha256Hex(canonicalize(item.payload));
     const previous = latest.get(key) ?? null;
-    if (previous && previous.payloadHash === payloadHash) {
+    if (previous && previous.payloadHash === payloadHash && !previouslyMissing.has(previous.sourceRef)) {
       return { ...item, sourceRef: previous.sourceRef, previousSourceRef: null };
     }
 
@@ -288,7 +289,7 @@ export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date(
     if(!lockedCheck.valid) throw new Error('Refusing to append to a broken evidence chain: '+lockedCheck.reason);
     const priorRows=rowsFor(writerDb,sellerId);
     const previousCoverage=latestCoverageFromRows(priorRows);
-    source=versionMutableSnapshots(rawSource,priorRows);
+    source=versionMutableSnapshots(rawSource,priorRows,previousCoverage);
 
     const sourceRefs=new Set(source.map(item=>item.sourceRef));
     const missingPreviouslySealed=priorRows.filter(row=>{
@@ -346,7 +347,7 @@ export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date(
   }
 
   const allSealedRows=rowsFor(writerDb,sellerId);
-  const afterSource=versionMutableSnapshots(afterRawSource,allSealedRows);
+  const afterSource=versionMutableSnapshots(afterRawSource,allSealedRows,coverage);
   const beforeRefs=source.filter(item=>item.sourceTable!=='intel_coverage').map(item=>item.sourceRef).sort();
   const afterRefs=afterSource.map(item=>item.sourceRef).sort();
   const sourceChangedDuringSeal=canonicalize(beforeRefs)!==canonicalize(afterRefs);

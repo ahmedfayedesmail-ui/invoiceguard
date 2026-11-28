@@ -129,6 +129,25 @@ test('deletion of a previously sealed mutable snapshot is marked INCOMPLETE', t 
   assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
 });
 
+test('a mutable row that reappears after a sealed absence gets a new version', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const original=db.prepare("SELECT source_ref FROM intel_evidence_chain WHERE seller_id=? AND kind='invoice_snapshot'").get('seller-A').source_ref;
+
+  db.prepare('DELETE FROM invoices WHERE seller_id=? AND number=?').run('seller-A','A-2026-000001');
+  const absent=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(absent.coverage.status,'INCOMPLETE');
+
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run('seller-A','A-2026-000001','SHIP-1','invoice','2026-11-28T10:00:00.000Z',59.90,9.90,'ready');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const rows=db.prepare("SELECT source_ref,canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='invoice_snapshot' ORDER BY seq").all('seller-A');
+  assert.equal(rows.length,2);
+  assert.notEqual(rows[1].source_ref,original);
+  assert.equal(JSON.parse(rows[1].canonical_json).previousSourceRef,original);
+  assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
+});
+
 test('a corrupted prior chain is refused rather than silently extended', t => {
   const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
   sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
