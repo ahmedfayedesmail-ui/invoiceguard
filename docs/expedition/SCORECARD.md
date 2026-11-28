@@ -12,3 +12,5 @@
 | 9 Operability | Met locally | npm run demo, docs | |
 | 10 Independent verification | Met for the reviewed scopes | 6 real reviewers, 6 delivered, IDs in registry.json; re-reviews ran on the latest fixes | B2 residual, real Amazon unseen |
 Not production-proven. Production claims need a complete real-seller cycle.
+
+Ruling 5: see EVIDENCE-BOUND-TRANSITIONS.md. No financial-document state change without proven meaning, identity, recency and outcome certainty; unknown upload outcomes are never resent automatically; B2 is not closed.

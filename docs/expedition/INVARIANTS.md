@@ -10,3 +10,5 @@ Each line names the enforcing place and the test that would fail if it broke. "D
 8. Credit total of one original never exceeds the original (credit cap inside the issuing transaction). Tests: stage 1 suites.
 9. A claim is released automatically only by the Definite Pre-Issue Failure Rollback (src/pipeline.js rollbackPreIssueClaim). Tests: stuck-claim branch, not in this branch's scope.
 NOT enforced by the database (code only): invariants 1 to 3 and 8 live in code inside transactions. A SQL trigger for 3 would need the evidence tables; not done.
+
+Ruling 5: see EVIDENCE-BOUND-TRANSITIONS.md. No financial-document state change without proven meaning, identity, recency and outcome certainty; unknown upload outcomes are never resent automatically; B2 is not closed.

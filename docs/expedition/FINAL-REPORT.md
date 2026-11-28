@@ -67,3 +67,6 @@ Six remediation rounds, beyond the 2-pass cap in ruling 3. Main approved the ext
 
 ## Not done (by rule)
 No merge, deploy, release, Stage 2, Document Seal, accounts, paid infra, live data, or financial or Amazon rule change.
+
+## Addendum: owner ruling 5 (supersedes the statements below on R12, R13 and R21)
+R12 and R13 are closed by independent gates, pending independent review. R21 (B2) is NOT closed: retries are human-gated with a displayed residual risk. See EVIDENCE-BOUND-TRANSITIONS.md and the ruling 5 section of FINDINGS.md. CI for the final HEAD is reported separately.

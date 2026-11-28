@@ -7,3 +7,6 @@ Not verified here: a real reboot recovery, a second PID namespace, live Amazon.
 
 ## Trigger migration note (re-review 2, P3)
 openDb upgrades the invoice_uploaded_is_terminal trigger when an older definition is stored. If the upgrade hits a locked database it is skipped silently and retried at the next open (next boot or next process start). Until then an older database keeps the older rule: a seller-declared rejection of an uploaded invoice is refused there. Check with: SELECT sql FROM sqlite_master WHERE name='invoice_uploaded_is_terminal' (it must contain NOT IN ('uploaded','rejected')).
+
+## Unknown upload outcome (ruling 5)
+Nothing resends an unknown outcome automatically. Check the document and the feed in Seller Central, then in Repairs record who checked, when, what you found, the feed id and status, tick the residual risk box and authorize ONE retry. The authorization is used by the next resend only. A late-landed document is confirmed in its own LATE_FEED hold instead. B2 is not closed.
