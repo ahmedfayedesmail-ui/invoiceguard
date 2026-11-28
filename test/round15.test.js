@@ -13,7 +13,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth, currentAttemptSeq, nextAttemptSeq, txImm } from '../src/db.js';
-import { processReport, processCorrections, settleUnknownDocuments } from '../src/pipeline.js';
+import { processReport, processCorrections as processCorrectionsRaw, settleUnknownDocuments } from '../src/pipeline.js';
+import { withApproval } from './correction-helpers.js';
+const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 import { listRepairs, approveRepair } from '../src/repair.js';
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');

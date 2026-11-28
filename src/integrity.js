@@ -13,7 +13,12 @@ export function integrityGate(db, seller, s) {
 function gateWrite(db, seller, s) {
   let a;
   try { a = assessShipment(s); } catch { return { reason: 'Not issued: the numbers of this shipment could not be checked, so nothing was issued.', findings: [] }; }
-  const now = new Date().toISOString(), key = s.key, sid = seller.id;
+  return writeLedger(db, seller.id, s.key, a.findings);
+}
+/** The ledger write shared by shipments and correction pairs: findings in, blocking findings out. */
+export function writeLedger(db, sid, key, findings) {
+  const a = { findings };
+  const now = new Date().toISOString();
   const rows = new Map(db.prepare('SELECT * FROM integrity_findings WHERE seller_id=? AND shipment_key=?').all(sid, key).map(r => [r.code + '|' + r.field, r]));
   const hist = (f, event) => db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at,evidence) VALUES (?,?,?,?,?,?,?,?)').run(sid, key, f.code, f.evidence.field, event, f.fingerprint, now, event === 'RECHECKED_SAME' ? null : JSON.stringify(f.evidence));
   let changed = false; const blocking = [];
@@ -55,3 +60,6 @@ export function releaseIntegrity(db, sellerId, shipmentKey, code, fingerprint, {
     return { released: true };
   });
 }
+
+/** Ledger write for a correction pair (one transaction unless the caller holds one). */
+export function correctionLedger(db, sellerId, key, findings) { return db.isTransaction ? writeLedger(db, sellerId, key, findings) : txImm(db, () => writeLedger(db, sellerId, key, findings)); }

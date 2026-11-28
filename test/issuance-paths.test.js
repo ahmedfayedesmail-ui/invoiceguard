@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
-import { processReport, processCorrections } from '../src/pipeline.js';
+import { processReport, processCorrections as processCorrectionsRaw } from '../src/pipeline.js';
+import { withApproval } from './correction-helpers.js';
+const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 
 // Night mission WP1: issuance path audit. Regression tests written BEFORE the fix (see audit/phase-b/pre-fix-run-7-wp1-correction-gate.spec.txt).
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');

@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, verifyAudit } from '../src/db.js';
-import { processReport, processCorrections, explain } from '../src/pipeline.js';
+import { processReport, processCorrections as processCorrectionsRaw, explain } from '../src/pipeline.js';
+import { withApproval } from './correction-helpers.js';
+const processCorrections = withApproval(processCorrectionsRaw); // owner decision Nov 28: a person approves the pair first (older tests, assertions unchanged)
 
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };

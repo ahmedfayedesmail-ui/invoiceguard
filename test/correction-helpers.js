@@ -6,3 +6,5 @@ export const openReviews = (db) => db.prepare("SELECT * FROM integrity_findings 
 export function approveAll(db, sellerId, who = 'reviewer-1', reason = 'checked the pair against the original invoice') {
   const rows = openReviews(db); for (const f of rows) releaseIntegrity(db, sellerId, f.shipment_key, f.code, f.fingerprint, { user: who, reason }); return rows.length;
 }
+/** For the older correction tests written before the owner decision: stage the review, approve it as a reviewer would, then run the pass that issues. Their assertions are unchanged. */
+export const withApproval = (pc) => async (db, seller, ...rest) => { const a = await pc(db, seller, ...rest); approveAll(db, seller.id); const b = await pc(db, seller, ...rest); return { creditNotes: a.creditNotes + b.creditNotes, invoices: a.invoices + b.invoices, skipped: b.skipped, errors: [...a.errors, ...b.errors] }; };

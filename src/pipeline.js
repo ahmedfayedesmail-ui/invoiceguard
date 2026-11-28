@@ -9,7 +9,7 @@ import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from
 import { createHash } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
-import { integrityGate, integrityNotes } from './integrity.js';
+import { integrityGate, integrityNotes, correctionLedger } from './integrity.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -640,6 +640,26 @@ export async function settleUnknownDocuments(db, seller, reportText, { api, vali
   return out;
 }
 
+/** Owner decision (Nov 28 2026): every CorrectionReversal needs a documented human decision for the whole pair (credit note + replacement) before anything is issued. The review is a ledger finding (CORRECTION:<reversal key>), decided with releaseIntegrity like any HUMAN_DECISION hold, and bound to the fingerprint of the evidence below. Partial or over-balance reversals are NEW_EVIDENCE holds: no decision can release them. Returns null when the pair is approved for exactly this evidence, else { reason }. */
+export const CORRECTION_REVIEW = 'CORRECTION_PAIR_REVIEW';
+function correctionReview(db, seller, rev, orig, list) {
+  const o = JSON.parse(orig.json), origIncl = Math.abs(o.totals?.incl ?? 0), amount = Math.abs(rev.incl);
+  const other = db.prepare("SELECT number, total FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND shipment_key<>? AND upload_status<>'rejected' ORDER BY number").all(seller.id, orig.number, rev.key);
+  const credited = Math.round(other.reduce((a, c) => a + Math.abs(c.total ?? 0), 0) * 100) / 100, balance = Math.round((origIncl - credited) * 100) / 100;
+  const rowsOf = (x) => x.src.map(r => { const { 'invoice-status': _st, ...attrs } = r.attrs ?? {}; return { itemId: r.itemId, qty: r.qty, parts: r.parts, attrs }; });
+  const reps = list.filter(x => x.isCorrectedTx && x.shippingId === rev.shippingId).sort((a, b) => (a.key < b.key ? -1 : 1));
+  const evidence = { field: 'correction', original: { number: orig.number, totalIncl: origIncl, sha256: createHash('sha256').update(orig.json).digest('hex') }, reversalKey: rev.key, reversalRows: rowsOf(rev),
+    replacementRows: reps.map(x => ({ key: x.key, buyer: { name: x.billing?.name, company: x.buyerCompany, vat: x.buyerVat, address: x.billing?.lines, city: x.billing?.city, postal: x.billing?.postal, country: x.billing?.country }, rows: rowsOf(x) })),
+    amounts: { original: origIncl, reversal: Math.round(amount * 100) / 100, cumulativeCredited: credited, creditableBalance: balance, differenceToOriginal: Math.round((amount - origIncl) * 100) / 100 }, otherCreditNotes: other.map(c => c.number) };
+  const fp = (code) => createHash('sha256').update(JSON.stringify([code, evidence])).digest('hex');
+  let f;
+  if (Math.abs(amount - origIncl) >= 0.005) f = { code: 'CORRECTION_PARTIAL_REVERSAL', resolution: 'NEW_EVIDENCE', explanation: `The reversal row states ${rev.incl.toFixed(2)} but the invoice it reverses is ${origIncl.toFixed(2)}: the amounts differ. A partial reversal is never turned into a full credit note, and no partial credit-note path exists yet.`, action: 'Only a corrected report can resolve this.' };
+  else if (amount > balance + 0.005) f = { code: 'CORRECTION_EXCEEDS_BALANCE', resolution: 'NEW_EVIDENCE', explanation: `Invoice ${orig.number} has ${credited.toFixed(2)} already credited (${other.map(c => c.number).join(', ') || 'none'}): this reversal of ${amount.toFixed(2)} would exceed the creditable balance of ${balance.toFixed(2)}. Not issued.`, action: 'Only a corrected report can resolve this.' };
+  else f = { code: CORRECTION_REVIEW, resolution: 'HUMAN_DECISION', explanation: `Correction pair for invoice ${orig.number} (credit note ${amount.toFixed(2)} and replacement) needs a person's decision before anything is issued.`, action: 'Review the original invoice, every reversal row and the replacement data, then decide with a reason.' };
+  const g = correctionLedger(db, seller.id, 'CORRECTION:' + rev.key, [{ ...f, severity: 'HOLD', fingerprint: fp(f.code), evidence }]);
+  return g ? { reason: g.reason.replace(/^Not issued: /, 'Held for review: ').replace(/ Nothing was guessed\.$/, '') } : null;
+}
+
 /**
  * Amazon billing-data corrections (customer asked Amazon to change billing name/address). Amazon docs: the VIDR then lists
  * a REFUND "CorrectionReversal:..." (seller must upload a credit note) and a SHIPMENT "Correction::..." (seller must upload a new invoice),
@@ -674,10 +694,8 @@ export async function processCorrections(db, seller, reportText, { api, validate
     if (staleRev) { logStaleRow(db, seller, s, staleRev, reportSeq); out.skipped.push({ key: s.key, reason: 'stale report row: the credit note has a newer attempt than this report - no upload is driven by old information' }); continue; }
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
     if (zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'zero-amount original: nothing to reverse' }); continue; }
-    // Follow-up B (Nov 28): the credit note is built from the STORED original, never from the refund row, so the row must agree with it. A reversal row that states another amount is not "this invoice, reversed in full": hold it, issue nothing.
-    { const o0 = JSON.parse(orig.json).totals?.incl ?? 0; if (Math.abs(Math.abs(s.incl) - Math.abs(o0)) >= 0.005) { const reason = `the reversal row states ${s.incl.toFixed(2)} but the invoice it reverses is ${o0.toFixed(2)}: the amounts differ, so no credit note is issued until a person has read it`; logEvent(db, seller.id, 'held', { key: s.key, reason, check: 'refund-amount' }); out.skipped.push({ key: s.key, reason }); continue; } }
-    // One full credit note per original: a second reversal event for an invoice that already has a live credit note (any state but rejected) never produces another one.
-    { const ex = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND shipment_key<>? AND upload_status<>'rejected' LIMIT 1").get(seller.id, orig.number, s.key); if (ex) { const reason = `invoice ${orig.number} already has credit note ${ex.number}: a second full credit note is not issued`; logEvent(db, seller.id, 'held', { key: s.key, reason, check: 'refund-duplicate' }); out.skipped.push({ key: s.key, reason }); continue; } }
+    // Owner decision Nov 28: a person decides on the pair first (partial and over-balance reversals can never be approved). A credit note already issued and pending a retry was approved when it was issued.
+    if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) { const g = correctionReview(db, seller, s, orig, list); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; } }
     const block1 = await unknownBlock(s.key);
     if (block1) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block1 }); out.skipped.push({ key: s.key, reason: block1 }); continue; }
     try {
@@ -698,6 +716,12 @@ export async function processCorrections(db, seller, reportText, { api, validate
     // that a feed exists. 'submitted' is only a created feed id and 'processing' a running feed -
     // both can still end FATAL/CANCELLED or rejected, and the replacement would then be stranded as
     // a half pair at Amazon. The pair waits for acceptance; the next sync picks it up.
+    // The approval covers the PAIR: the replacement needs the reversal's decision to still hold for exactly this evidence (replacement data included). An issued replacement awaiting a retry was approved when it was issued.
+    if (!zeroTotal(orig) && !db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) {
+      const revs = list.filter(x => x.isCorrectionReversal && x.shippingId === s.shippingId);
+      if (!revs.length) { out.skipped.push({ key: s.key, reason: 'no reversal row for this correction in the report: the pair cannot be reviewed' }); continue; }
+      const g = revs.map(r => correctionReview(db, seller, r, orig, list)).find(Boolean); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; }
+    }
     const cn = db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND upload_status='uploaded'").get(seller.id, orig.number);
     if (!zeroTotal(orig) && !cn) { out.skipped.push({ key: s.key, reason: 'credit-note reversal not yet confirmed accepted by Amazon - the pair is kept together and the replacement waits for the next report' }); continue; }
     try {

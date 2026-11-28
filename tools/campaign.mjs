@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { openDb, verifyAudit } from '../src/db.js';
 import { parseVidr, needsInvoice } from '../src/vidr.js';
 import { processReport, processCorrections } from '../src/pipeline.js';
+import { releaseIntegrity } from '../src/integrity.js';
 import { detectRepairs, approveRepair, listRepairs } from '../src/repair.js';
 import { renderPdfCached as renderPdf } from '../src/pdf.js';
 import { planUpload } from '../src/manual.js';
@@ -202,6 +203,12 @@ async function part3(n) {
         rv[ix('invoice-status')] = 'CreditNotePending'; return rv.join('\t'); });
       const fixed = [...base]; fixed[ix('transaction-id')] = 'Correction::X:' + i; fixed[ix('billing-name')] = 'Nombre Corregido S.L.'; fixed[ix('buyer-company-name')] = 'Nombre Corregido S.L.';
       const rep = [HEAD, ...revRows, fixed.join('\t')].join('\n') + '\n';
+      // CASE CHANGED (Nov 28 2026, owner decision on CorrectionReversal): nothing is issued before a person decides on the pair. Stage 1: held, a durable OPEN finding, no upload. Then a documented decision bound to the fingerprint, then the same pass as before. The assertions that followed are unchanged; the count rises from 10358 to 10658. See audit/phase-b/campaign-p3-correction-approval.md.
+      const r0 = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() }); const nBefore = calls.length;
+      const fnd = db.prepare("SELECT * FROM integrity_findings WHERE code='CORRECTION_PAIR_REVIEW' AND status='OPEN'").all();
+      check(scn, r0.creditNotes === 0 && r0.invoices === 0 && nBefore === calls.length - 0 && fnd.length === 1, `held for review, nothing issued: ${JSON.stringify({ c: r0.creditNotes, f: fnd.length })}`);
+      for (const f of fnd) releaseIntegrity(db, SELLER.id, f.shipment_key, f.code, f.fingerprint, { user: 'campaign-reviewer', reason: 'campaign: pair checked against the original' });
+      check(scn, calls.length === nBefore, 'the decision itself issues nothing');
       const r = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
       check(scn, r.creditNotes === 1 && r.invoices === 0 && r.errors.length === 0, `correction pair staged (replacement waits): ${JSON.stringify({ c: r.creditNotes, i: r.invoices, e: r.errors })}`);
       const cn = calls[calls.length - 1];
