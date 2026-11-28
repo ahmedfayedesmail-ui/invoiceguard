@@ -53,7 +53,7 @@ const apis = new Map(); // seller_id -> api instance (mock keeps state)
 
 export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'dev-secret-change-me', validate = cachedValidator(validateVat), env = process.env, oauthFetch = fetch } = {}) {
   migrateAuth(db); migrateSecurity(db); migrateSecLog(db); ensureRepairTables(db); // round-22: the pack/mark/reject routes touch the repairs table directly, so it must exist from boot, not only after the first manual upload
-  const MAX_INFLIGHT = Number(process.env.MAX_INFLIGHT ?? 400); let inflight = 0;
+  const MAX_INFLIGHT = Number(env.MAX_INFLIGHT ?? 400); let inflight = 0;
   const fails = new Map(); // login throttle: key -> { n, until }
   const FAIL_MAX = 8, FAIL_WINDOW = 15 * 60e3;
   const failKey = (req, email) => `${req.socket.remoteAddress}|${email}`;
@@ -61,10 +61,27 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const noteFail = (k) => { const f = fails.get(k); if (!f || f.until < Date.now()) fails.set(k, { n: 1, until: Date.now() + FAIL_WINDOW }); else f.n++; if (fails.size > 50000) fails.delete(fails.keys().next().value); };
   const secureFlag = (req) => (process.env.COOKIE_SECURE === '1' || req.headers['x-forwarded-proto'] === 'https') ? '; Secure' : '';
   const json = (res, code, body, headers = {}) => { if (res.headersSent || res.writableEnded) { try { res.end(); } catch { /* socket already gone */ } return; } /* a late error after the reply started must not throw out of the handler */ res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
-  const readBody = (req, limit = 64e3) => new Promise((ok, no) => { let d = '', big = false; const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
-    req.on('data', c => { if (big) return; d += c; if (d.length > limit) { big = true; d = ''; } });
-    req.on('end', () => { if (big) return no(fail('That request is too large. Uploaded PDFs can be up to 5 MB.', 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
-    req.on('error', () => no(fail('bad request', 400))); });
+  // Body reader. The limit is counted in BYTES (never UTF-16 units). The moment it is crossed the request is answered 413 and the socket is destroyed, so a huge
+  // stream is not drained. A per-request deadline (BODY_READ_DEADLINE_MS, default 30s, independent of server.requestTimeout) reaps idle / trickling bodies.
+  // After a rejection reply: flush it and half-close, then discard at most DRAIN_MAX more bytes (or DRAIN_MS) so the client can still read the reply, then destroy the socket. A 50 MB upload is never drained whole.
+  const DRAIN_MAX = Number(env.REJECT_DRAIN_BYTES ?? 8e6), DRAIN_MS = Number(env.REJECT_DRAIN_MS ?? 5e3);
+  const closeAfterReply = (req, res, drain = true) => { const sock = req.socket; if (res && !res.headersSent) res.setHeader('connection', 'close');
+    const stop0 = () => { try { sock.end(); } catch { /* gone */ } setTimeout(() => { try { sock.destroy(); } catch { /* gone */ } }, 200).unref(); };
+    const kill = () => { if (!drain) return stop0(); const start = sock.bytesRead; let t; const stop = () => { clearTimeout(t); try { sock.destroy(); } catch { /* gone */ } };
+      try { req.on('data', () => { if (sock.bytesRead - start > DRAIN_MAX) stop(); }); req.resume(); } catch { /* gone */ } t = setTimeout(stop, DRAIN_MS); t.unref?.(); sock.once('close', () => clearTimeout(t)); };
+    if (res && !res.writableEnded) res.once('finish', kill); else kill(); };
+  const BODY_DEADLINE_MS = Number(env.BODY_READ_DEADLINE_MS ?? 30e3);
+  const fmtBytes = (n) => n.toLocaleString('en-US') + ' bytes';
+  const readBody = (req, limit = 64e3, what = 'This request') => new Promise((ok, no) => { const chunks = []; let n = 0, done = false;
+    const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
+    const cut = () => closeAfterReply(req, req.res);
+    const finish = (fn) => { if (done) return false; done = true; clearTimeout(timer); req.off('data', onData); return fn(), true; };
+    const timer = setTimeout(() => { finish(() => { closeAfterReply(req, req.res, false); no(fail('The request body was not received in time (' + Math.round(BODY_DEADLINE_MS / 1000) + ' s limit). Please try again.', 408)); }); }, BODY_DEADLINE_MS); timer.unref?.();
+    const onData = (c) => { n += c.length; if (n > limit) finish(() => { chunks.length = 0; cut(); no(fail(`That request is too large. ${what} can be at most ${fmtBytes(limit)}.`, 413)); }); else chunks.push(c); };
+    const declared = Number(req.headers['content-length']); if (Number.isFinite(declared) && declared > limit) { finish(() => { cut(); no(fail(`That request is too large. ${what} can be at most ${fmtBytes(limit)}.`, 413)); }); return; }
+    req.on('data', onData);
+    req.on('end', () => finish(() => { let v; try { const d = Buffer.concat(chunks).toString('utf8'); v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); }));
+    req.on('error', () => finish(() => no(fail('bad request', 400)))); req.on('aborted', () => finish(() => no(fail('bad request', 400)))); req.on('close', () => finish(() => no(fail('bad request', 400)))); });
   const cookie = (req, n) => (req.headers.cookie ?? '').split(/;\s*/).map(c => c.split('=')).find(([k]) => k === n)?.[1];
   const userOf = (req) => { const t = cookie(req, 'sid'); if (!t) return null; return db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>=?').get(t, Date.now()) ?? null; };
   const sellerOf = (u) => u?.seller_id ? db.prepare('SELECT * FROM sellers WHERE id=?').get(u.seller_id) : null;
@@ -287,7 +304,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const h = (x) => createHash('sha256').update(x).digest();
         if (tok.length < 24 || !timingSafeEqual(h(tok), h(got))) return json(res, 404, { error: 'not found' });
         const chunks = []; let n = 0; const LIM = 200e6;
-        for await (const c of req) { n += c.length; if (n > LIM) return json(res, 413, { error: 'snapshot too large' }); chunks.push(c); }
+        for await (const c of req) { n += c.length; if (n > LIM) { closeAfterReply(req, res); return json(res, 413, { error: `Snapshot too large: the limit is ${LIM.toLocaleString('en-US')} bytes.` }); } chunks.push(c); }
         const { stageRestore } = await import('./restore.js');
         const r = stageRestore(Buffer.concat(chunks), process.env.DB_FILE ?? 'invoiceguard.db');
         console.log('db-restore staging:', r.ok ? 'validated and staged' : 'refused: ' + r.reason);
@@ -313,7 +330,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         return json(res, 404, { error: 'not found' });
       }
       if (req.method !== 'GET' && !String(req.headers['content-type']).startsWith('application/json')) return json(res, 415, { error: 'json only' });
-      const body = req.method === 'GET' ? {} : await readBody(req, p === '/api/export/external' ? 8e6 : p.startsWith('/api/manual/') ? 6e6 : 64e3);
+      const body = req.method === 'GET' ? {} : p === '/api/export/external' ? await readBody(req, 8e6, 'An uploaded PDF (sent as JSON/base64)') : p.startsWith('/api/manual/') ? await readBody(req, 6e6, 'An uploaded report file (CSV/TSV text sent as JSON)') : await readBody(req, 64e3);
       if (p === '/api/signup') {
         const email = String(body.email ?? '').trim().toLowerCase(), pw = String(body.password ?? '');
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(res, 400, { error: 'Enter a valid email' });
@@ -590,6 +607,11 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       return json(res, 404, { error: 'not found' });
     } catch (e) { if (e?.busy) return json(res, 503, { error: e.message }, { 'retry-after': '3' }); if (e?.status) return json(res, e.status, { error: e.message }); console.error('internal error', req.method, req.url, e?.stack || e); return json(res, 500, { error: 'Something went wrong on our side. Nothing was changed. Please try again.' }); }
   });
+  // F2: per-peer connection cap. Counted on the TCP peer address; behind a reverse proxy every client shares the proxy's address, so raise MAX_CONN_PER_IP there (0 disables).
+  const MAX_CONN_PER_IP = Number(env.MAX_CONN_PER_IP ?? 20), connsByIp = new Map();
+  server.on('connection', (sock) => { if (!(MAX_CONN_PER_IP > 0)) return; const ip = sock.remoteAddress ?? 'unknown', c = (connsByIp.get(ip) ?? 0) + 1;
+    if (c > MAX_CONN_PER_IP) { try { sock.end('HTTP/1.1 503 Service Unavailable\r\nretry-after: 2\r\nconnection: close\r\ncontent-length: 0\r\n\r\n'); } catch { /* ignore */ } setTimeout(() => sock.destroy(), 1000).unref(); return; }
+    connsByIp.set(ip, c); sock.once('close', () => { const k = (connsByIp.get(ip) ?? 1) - 1; if (k <= 0) connsByIp.delete(ip); else connsByIp.set(ip, k); }); });
   server.requestTimeout = 60e3; server.headersTimeout = 15e3; server.keepAliveTimeout = 65e3;
   return { server, db, sync, stats: () => ({ inflight, ...hashQueueStats(), vies: validate.stats?.() }) };
 }
