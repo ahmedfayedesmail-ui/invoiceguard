@@ -28,6 +28,7 @@ import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
 import { PACKS } from './rules.js';
 import { listHolds, decideHold, addHoldNote } from './holds.js';
+import { publicError } from './errors.js';
 
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
@@ -61,10 +62,12 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const noteFail = (k) => { const f = fails.get(k); if (!f || f.until < Date.now()) fails.set(k, { n: 1, until: Date.now() + FAIL_WINDOW }); else f.n++; if (fails.size > 50000) fails.delete(fails.keys().next().value); };
   const secureFlag = (req) => (process.env.COOKIE_SECURE === '1' || req.headers['x-forwarded-proto'] === 'https') ? '; Secure' : '';
   const json = (res, code, body, headers = {}) => { if (res.headersSent || res.writableEnded) { try { res.end(); } catch { /* socket already gone */ } return; } /* a late error after the reply started must not throw out of the handler */ res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
+  // Error contract: a catch-all that answers e.message goes through here, so a driver, runtime or Amazon error text never reaches the client.
+  const failJson = (res, req, e, fallbackStatus) => { const pe = publicError(e, fallbackStatus); if (pe.log) console.error('internal error', req.method, String(req.url).split('?')[0], e?.stack || e); return json(res, pe.status, { error: pe.message }); };
   const readBody = (req, limit = 64e3) => new Promise((ok, no) => { let d = '', big = false; const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
     req.on('data', c => { if (big) return; d += c; if (d.length > limit) { big = true; d = ''; } });
-    req.on('end', () => { if (big) return no(fail('That request is too large. Uploaded PDFs can be up to 5 MB.', 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
-    req.on('error', () => no(fail('bad request', 400))); });
+    req.on('end', () => { if (big) return no(fail('That request is too large. Uploaded PDFs can be up to 5 MB.', 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('The request body is not valid JSON.', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
+    req.on('error', () => no(fail('The request could not be read. Please try again.', 400))); });
   const cookie = (req, n) => (req.headers.cookie ?? '').split(/;\s*/).map(c => c.split('=')).find(([k]) => k === n)?.[1];
   const userOf = (req) => { const t = cookie(req, 'sid'); if (!t) return null; return db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>=?').get(t, Date.now()) ?? null; };
   const sellerOf = (u) => u?.seller_id ? db.prepare('SELECT * FROM sellers WHERE id=?').get(u.seller_id) : null;
@@ -72,7 +75,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const oauth = oauthRoutes({ db, secret, env, fetchImpl: oauthFetch, userOf, sellerOf, forgetApi: (id) => apis.delete(id) });
   function apiFor(seller) {
     const c = db.prepare('SELECT * FROM amazon_conn WHERE seller_id=?').get(seller.id);
-    if (!c) throw new Error('Amazon is not connected');
+    if (!c) throw Object.assign(new Error('Amazon is not connected yet. Connect your account or upload an order report first.'), { status: 409 });
     // Real-data gate, enforced at the execution choke point (critic round-8) and checked BEFORE the
     // client cache (critic round-9): EVERY Amazon call (sync, repair approval, correction retry,
     // settling) builds its client here, so neither a legacy live connection in the database nor a
@@ -213,7 +216,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (req.method === 'GET' && (p === '/articles' || p.startsWith('/articles/'))) {
         if (!PUBLIC_READY) return json(res, 404, { error: 'Not found' });
-        const html = p === '/articles' ? articlesIndex(process.env) : articlePage(decodeURIComponent(p.slice(10)).replace(/[^a-z0-9-]/g, ''), process.env);
+        const html = p === '/articles' ? articlesIndex(process.env) : articlePage((() => { try { return decodeURIComponent(p.slice(10)); } catch { return ''; } })().replace(/[^a-z0-9-]/g, ''), process.env);
         if (html) bump('pv:' + p);
         if (!html) { res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' }); return res.end(notFound(process.env)); }
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'", 'cache-control': 'public, max-age=300' });
@@ -312,7 +315,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         if (req.method === 'GET' && PUBLIC_READY) { res.writeHead(404, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'" }); return res.end(notFound(process.env)); }
         return json(res, 404, { error: 'not found' });
       }
-      if (req.method !== 'GET' && !String(req.headers['content-type']).startsWith('application/json')) return json(res, 415, { error: 'json only' });
+      if (req.method !== 'GET' && !String(req.headers['content-type']).startsWith('application/json')) return json(res, 415, { error: 'This request must be sent as JSON.' });
       const body = req.method === 'GET' ? {} : await readBody(req, p === '/api/export/external' ? 8e6 : p.startsWith('/api/manual/') ? 6e6 : 64e3);
       if (p === '/api/signup') {
         const email = String(body.email ?? '').trim().toLowerCase(), pw = String(body.password ?? '');
@@ -443,7 +446,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="invoices.csv"' }); return res.end(csv);
       }
       if (p === '/api/radar') return json(res, 200, { ...F.radar(db, seller, new Date(), 500), alerts: F.listAlerts(db, seller) });
-      if (p === '/api/wizard') return json(res, 200, F.wizard(db, { country: seller.country ?? 'ES', ...body, marketplaces: body.marketplaces ?? JSON.parse(seller.marketplace_ids || '[]') }));
+      if (p === '/api/wizard') { if (body.marketplaces != null && !Array.isArray(body.marketplaces)) return json(res, 400, { error: 'Choose your marketplaces as a list.' }); return json(res, 200, F.wizard(db, { country: seller.country ?? 'ES', ...body, marketplaces: body.marketplaces ?? JSON.parse(seller.marketplace_ids || '[]') })); }
       const mt = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/trail$/);
       if (mt) { // per-order evidence trail: every recorded step for this invoice and its order, oldest first
         const num = mt[1], inv = db.prepare('SELECT shipment_key, number, rectifies, issued_at, uploaded_at FROM invoices WHERE seller_id=? AND number=?').get(seller.id, num);
@@ -457,12 +460,12 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       const mc = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/checks$/);
       if (mc) { const r = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, mc[1]); return r ? json(res, 200, { warnings: F.buyerCountryCheck(JSON.parse(r.json), seller.country ?? 'ES') }) : json(res, 404, { error: 'not found' }); }
-      if (p === '/api/export.zip') { try { const x = await F.buildExport(db, seller, body.from, body.to); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoices-${body.from}-to-${body.to}.zip"`, 'x-count': String(x.count) }); return res.end(x.zip); } catch (e) { return json(res, 400, { error: e.message }); } }
-      if (p === '/api/export/external') { try { return json(res, 200, F.addExternalDoc(db, seller, body)); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/export.zip') { try { const x = await F.buildExport(db, seller, body.from, body.to); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoices-${body.from}-to-${body.to}.zip"`, 'x-count': String(x.count) }); return res.end(x.zip); } catch (e) { return failJson(res, req, e, 400); } }
+      if (p === '/api/export/external') { try { return json(res, 200, F.addExternalDoc(db, seller, body)); } catch (e) { return failJson(res, req, e, 400); } }
       if (p === '/api/buyer/message') return json(res, 200, F.buyerMessage(String(body.orderId ?? ''), body.country));
-      if (p === '/api/b2c') { try { return json(res, 200, F.convertToConsumerInvoice(db, seller, String(body.key), seller.email ?? seller.name)); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/b2c') { try { return json(res, 200, F.convertToConsumerInvoice(db, seller, String(body.key), seller.email ?? seller.name)); } catch (e) { return failJson(res, req, e, 400); } }
       if (p === '/api/watch') return json(res, 200, F.watchReport(db, seller));
-      if (p === '/api/watch/add') { try { return json(res, 200, F.watchAdd(db, seller, body.vat, body.label)); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/watch/add') { try { return json(res, 200, F.watchAdd(db, seller, body.vat, body.label)); } catch (e) { return failJson(res, req, e, 400); } }
       if (p === '/api/watch/remove') { F.watchRemove(db, seller, body.vat); return json(res, 200, { ok: true }); }
       if (p === '/api/watch/run') return json(res, 200, { changes: await F.watchRun(db, seller, validate.fresh ?? validate, { force: true }) });
       if (p === '/api/explainer') return json(res, 200, F.explainerState(db, seller));
@@ -472,7 +475,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       const isOperator = OPERATORS.has(String(seller.email ?? '').toLowerCase());
       if (p === '/api/rules') return json(res, 200, { packs: allRuleStates(db, undefined, undefined, { operator: isOperator }), notResearched: ['GB', 'CH'], disclaimer: 'Reference data with official sources. Not legal or tax advice: have a gestor or lawyer review it before you rely on it.' });
       if (p === '/api/rules/check') { const r = await checkSources(db, { only: body.rule }); return json(res, 200, { checked: r.length, unreachable: r.filter(x => x.fetch !== 'ok').length, missing: r.filter(x => x.missing.length).map(x => x.id) }); }
-      if (p === '/api/rules/review') { if (!isOperator) return json(res, 403, { error: 'Only the InvoiceGuard operator can mark a rule as reviewed.' }); try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/rules/review') { if (!isOperator) return json(res, 403, { error: 'Only the InvoiceGuard operator can mark a rule as reviewed.' }); try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return failJson(res, req, e, 400); } }
       if (p === '/api/manual/preview' || p === '/api/manual/issue') {
         if (env.ALLOW_MANUAL_UPLOAD !== '1') return json(res, 403, { error: 'Uploading your own report is not open yet - the pilot runs on made-up sample data only, exactly as the homepage says.' });
         const plan = planUpload(String(body.text ?? ''));
@@ -505,11 +508,11 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/holds') { const holds = listHolds(db, seller.id, { includeClosed: url.searchParams.get('all') === '1' }); return json(res, 200, { holds, truncated: !!holds.truncated }); } // expedition W2-2: the review queue for HOLD and BLOCK findings
       if (p === '/api/holds/decide') {
         if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
-        try { const r = decideHold(db, seller.id, body, user.email ?? user.id); logEvent(db, seller.id, 'hold_decided', { key: body.key, code: body.code }); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+        try { const r = decideHold(db, seller.id, body, user.email ?? user.id); logEvent(db, seller.id, 'hold_decided', { key: body.key, code: body.code }); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return failJson(res, req, e, 422); }
       }
       if (p === '/api/holds/note') { // ruling 5: investigation notes never change state
         if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
-        try { return json(res, 200, addHoldNote(db, seller.id, body, user.email ?? user.id)); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+        try { return json(res, 200, addHoldNote(db, seller.id, body, user.email ?? user.id)); } catch (e) { if (e?.busy) throw e; return failJson(res, req, e, 422); }
       }
       if (p === '/api/repairs') { // review queue: proposed first, then the recent history
         const snap = latestReportSnapshot(db, seller.id); // round-16/17: the review shows each proposal's freshness, ordered by report generation
@@ -519,7 +522,8 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (p === '/api/repairs/authorize-retry') {
         if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
-        try { const r = authorizeUnknownRetry(db, seller.id, body.key, body, user.email ?? user.id); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+        if (typeof body.key !== 'string' || !body.key || body.key.length > 200) return json(res, 400, { error: 'Choose a document first.' });
+        try { const r = authorizeUnknownRetry(db, seller.id, body.key, body, user.email ?? user.id); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return failJson(res, req, e, 422); }
       }
       if (p === '/api/repairs/approve' || p === '/api/repairs/dismiss') {
         if (typeof body.key !== 'string' || !body.key || body.key.length > 200) return json(res, 400, { error: 'Choose a repair first.' });
@@ -528,7 +532,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
           const r = await approveRepair(db, seller, body.key, { api: apiFor(seller), validate });
           logEvent(db, seller.id, 'repair_issued', { key: body.key, rect: r.rectNumber, rectifies: r.original });
           return json(res, 200, r);
-        } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+        } catch (e) { if (e?.busy) throw e; return failJson(res, req, e, 422); }
       }
       if (p === '/api/invoices/mark') {
         const nums = body.all === true ? db.prepare("SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready'").all(seller.id).map(r => r.number) : (Array.isArray(body.numbers) ? body.numbers.map(String).slice(0, 5000) : []);
@@ -570,10 +574,10 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/rectify') {
         const { number, mode, reason } = body; const row = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, String(number));
         if (!row) return json(res, 404, { error: 'Invoice not found' });
-        let changes; try { changes = applyEdits(JSON.parse(row.json), body); } catch (e) { return json(res, 400, { error: e.message }); }
+        let changes; try { changes = applyEdits(JSON.parse(row.json), body); } catch (e) { return failJson(res, req, e, 400); }
         if (!changes.changed) return json(res, 400, { error: 'Nothing to correct. Change at least one field.' });
         if (mode === 'differences' && !changes.amountChanged) return json(res, 400, { error: 'The differences method needs an amount change. Use substitution for data-only corrections.' });
-        let r; try { r = await issueRectificativa(db, seller, number, { mode: mode ?? 'substitution', reason, changes }, { api: apiFor(seller), validate }); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); } // a refusal by a rule pack: shown to the user, not a server fault
+        let r; try { r = await issueRectificativa(db, seller, number, { mode: mode ?? 'substitution', reason, changes }, { api: apiFor(seller), validate }); } catch (e) { if (e?.busy) throw e; return failJson(res, req, e, 422); } // a refusal by a rule pack: shown to the user, not a server fault
         return json(res, 200, { number: r.rect.number, documentType: r.documentType });
       }
       if ((p === '/api/release' || p === '/api/retry') && (typeof body.key !== 'string' || !body.key || body.key.length > 200)) return json(res, 400, { error: 'Choose a shipment first.' });
@@ -588,7 +592,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         db.prepare("UPDATE shipments SET status='detected', reason=NULL WHERE seller_id=? AND key=? AND status IN ('held','error','rejected')").run(seller.id, body.key); return json(res, 200, { ok: true });
       }
       return json(res, 404, { error: 'not found' });
-    } catch (e) { if (e?.busy) return json(res, 503, { error: e.message }, { 'retry-after': '3' }); if (e?.status) return json(res, e.status, { error: e.message }); console.error('internal error', req.method, req.url, e?.stack || e); return json(res, 500, { error: 'Something went wrong on our side. Nothing was changed. Please try again.' }); }
+    } catch (e) { if (e?.busy) return json(res, 503, { error: e.message }, { 'retry-after': '3' }); if (e?.status) return json(res, e.status, { error: e.message }); return failJson(res, req, e, 500); }
   });
   server.requestTimeout = 60e3; server.headersTimeout = 15e3; server.keepAliveTimeout = 65e3;
   return { server, db, sync, stats: () => ({ inflight, ...hashQueueStats(), vies: validate.stats?.() }) };

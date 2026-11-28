@@ -13,6 +13,7 @@ import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
 import { newClaimToken, guardedUpload, lateUploadResult, ABANDON_QUIET_MS } from './claims.js';
 import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
 import { integrityGate, integrityNotes, correctionLedger, writeLedger, resolveGateFinding } from './integrity.js';
+import { isUpstreamError, upstreamMessage } from './errors.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -20,7 +21,13 @@ import { integrityGate, integrityNotes, correctionLedger, writeLedger, resolveGa
 // (it never tells you you're on time when Amazon would call you late), so the countdown uses it.
 const DUE_HOURS = 24;
 
-export const explain = (m) => /FeatureNotAvailable|79509|closed beta/i.test(m) ? 'Amazon has not enabled invoice upload for this account. In Seller Central set VAT Calculation Service to "I will upload my own VAT invoices".' : /Tax Invoicing|Unauthorized|403/i.test(m) ? 'The app lacks the Tax Invoicing role. Amazon must approve it for this seller.' : m;
+export const explain = (m) => {
+  m = String(m ?? '');
+  if (/FeatureNotAvailable|79509|closed beta/i.test(m)) return 'Amazon has not enabled invoice upload for this account. In Seller Central set VAT Calculation Service to "I will upload my own VAT invoices".';
+  if (/Tax Invoicing|Unauthorized|(^|[^0-9])403([^0-9]|$)/i.test(m)) return 'The app lacks the Tax Invoicing role. Amazon must approve it for this seller.'; // "403" only as a whole number: a request id such as 14031122 must not match
+  if (isUpstreamError({ message: m })) return upstreamMessage({ message: m }); // the seller sees the HTTP status, never the endpoint path or Amazon's raw error body
+  return m;
+};
 
 export function upsertShipment(db, sellerId, s, status, reason = null) {
   const t0 = s.shipmentDate ? new Date(s.shipmentDate).getTime() : NaN; const due = Number.isNaN(t0) ? null : new Date(t0 + DUE_HOURS * 3600e3).toISOString(); // an unreadable date has no due time (the gate holds it)
