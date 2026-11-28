@@ -91,3 +91,16 @@ test('B2-9 (guard) PROVEN exit: a blocked feed that Amazon reports CANCELLED lif
   await d.sync(); assert.equal(d.calls(), 2, 'a provably never-processed feed is resent once');
   assert.ok(d.db.prepare("SELECT 1 FROM events WHERE type='unknown_block_lifted'").get());
 });
+test('B2-10 the route POST /api/repairs/authorize-retry exists, needs a session, and refuses unknown keys', async () => {
+  const { createApp } = await import('../src/app.js');
+  const { server, db } = createApp({ validate: async (v) => ({ status: 'valid', vat: v }), secret: 'test' }); await new Promise(r => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`; const J = { 'content-type': 'application/json' };
+  try {
+    const anon = await fetch(base + '/api/repairs/authorize-retry', { method: 'POST', headers: J, body: '{}' }); assert.ok([401, 403].includes(anon.status), 'anonymous refused: ' + anon.status);
+    const r1 = await fetch(base + '/api/signup', { method: 'POST', headers: J, body: JSON.stringify({ email: 'b2@example.test', password: 'Long-Enough-Pw-42!' }) }); const cookie = r1.headers.get('set-cookie').split(';')[0];
+    await fetch(base + '/api/seller', { method: 'POST', headers: { ...J, cookie }, body: JSON.stringify({ name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid', marketplaces: ['DE'] }) });
+    await fetch(base + '/api/amazon/connect', { method: 'POST', headers: { ...J, cookie }, body: JSON.stringify({ demo: true }) });
+    const r = await fetch(base + '/api/repairs/authorize-retry', { method: 'POST', headers: { ...J, cookie }, body: JSON.stringify({ key: 'UNKNOWN:NOPE' }) });
+    const bd = await r.json(); assert.equal(r.status, 422, JSON.stringify(bd)); assert.match(bd.error, /no open unknown-outcome hold/i);
+  } finally { server.close(); }
+});
