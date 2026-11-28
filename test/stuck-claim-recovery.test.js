@@ -80,7 +80,7 @@ test('K8 (double-issue proof, order 1): release BEFORE the issuance writes its d
 });
 test('K9 (double-issue proof, order 2): the issuance writes its document FIRST -> the release is refused, the claim stays as the document\u2019s claim', async () => {
   const { api, db, o } = await stuck(); const f = openStuckClaimReview(db, seller.id, KEY); const j = JSON.parse(o.json);
-  await issueRectificativa(db, seller, o.number, { mode: 'differences', reason: 'x', changes: { lines: j.lines.map(l => ({ ...l, excl: 0, vat: 0 })) }, documentType: 'CreditNote', recordKey: KEY }, { api, validate: vies });
+  await issueRectificativa(db, seller, o.number, { mode: 'differences', reason: 'x', changes: { lines: j.lines.map(l => ({ ...l, excl: 0, vat: 0 })) }, documentType: 'CreditNote', recordKey: KEY, claimId: db.prepare('SELECT claim_id FROM credit_claims WHERE reversal_key=?').get(KEY).claim_id }, { api, validate: vies }); // fail-closed round: the issuer must now present its claim identity (input only; assertions below unchanged)
   assert.throws(() => releaseStuckClaim(db, seller.id, KEY, f.fingerprint, { user: 'u', reason: 'the process crashed before the document' }), /document|upload|evidence changed/i);
   assert.equal(claimCount(db), 1); assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE kind='rectificativa' AND total<0").get().c, 1);
 });

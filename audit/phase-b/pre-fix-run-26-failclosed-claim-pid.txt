@@ -1,0 +1,300 @@
+TAP version 13
+# Subtest: F1: a held claim and NO claimId (option absent) -> issuance refused, nothing written
+not ok 1 - F1: a held claim and NO claimId (option absent) -> issuance refused, nothing written
+  ---
+  duration_ms: 159.284653
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:34:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:35:70)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: F2: a held claim and claimId = null -> refused
+not ok 2 - F2: a held claim and claimId = null -> refused
+  ---
+  duration_ms: 92.248269
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:37:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:37:137)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: F2b: a held claim and claimId = undefined / empty string -> refused
+not ok 3 - F2b: a held claim and claimId = undefined / empty string -> refused
+  ---
+  duration_ms: 86.902007
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:38:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection: undefined'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  operator: 'rejects'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:38:162)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: F3: a held claim and a WRONG claimId -> refused
+ok 4 - F3: a held claim and a WRONG claimId -> refused
+  ---
+  duration_ms: 65.555214
+  type: 'test'
+  ...
+# Subtest: F3b: a claimId that differs from the held one only by case or a trailing space is refused (exact literal match)
+ok 5 - F3b: a claimId that differs from the held one only by case or a trailing space is refused (exact literal match)
+  ---
+  duration_ms: 54.110287
+  type: 'test'
+  ...
+# Subtest: F4: NO claim held at all and a claimId given -> refused
+ok 6 - F4: NO claim held at all and a claimId given -> refused
+  ---
+  duration_ms: 53.181518
+  type: 'test'
+  ...
+# Subtest: F5 (guard): the EXACT held claimId issues exactly one credit note
+ok 7 - F5 (guard): the EXACT held claimId issues exactly one credit note
+  ---
+  duration_ms: 60.106264
+  type: 'test'
+  ...
+# Subtest: F5b (guard): the normal approved path (processCorrections) still issues the pair with the claim identity it reserved
+ok 8 - F5b (guard): the normal approved path (processCorrections) still issues the pair with the claim identity it reserved
+  ---
+  duration_ms: 55.045008
+  type: 'test'
+  ...
+# Subtest: P1 (null): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+not ok 9 - P1 (null): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 60.694215
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:51:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    proven must be false
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:52:81)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P1 (zero): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+ok 10 - P1 (zero): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 65.419607
+  type: 'test'
+  ...
+# Subtest: P1 (negative): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+not ok 11 - P1 (negative): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 63.564984
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:51:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    proven must be false
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:52:81)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P1 (non-integer 1.5): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+not ok 12 - P1 (non-integer 1.5): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 51.886413
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:51:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    proven must be false
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:52:81)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P1 (text): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+not ok 13 - P1 (text): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 53.749227
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:51:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    proven must be false
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:52:81)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P1 (empty text): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+not ok 14 - P1 (empty text): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 53.825965
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:51:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    proven must be false
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:52:81)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P1 (NaN-like text): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+not ok 15 - P1 (NaN-like text): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 54.309826
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:51:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    proven must be false
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:52:81)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P1 (huge): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+not ok 16 - P1 (huge): a stored PID that is not a positive integer is UNPROVEN, never gone; review and release refused
+  ---
+  duration_ms: 50.608939
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:51:3'
+  failureType: 'testCodeFailure'
+  error: 'Value is too large to be represented as a JavaScript number: 9007199254740992'
+  code: 'ERR_OUT_OF_RANGE'
+  name: 'RangeError'
+  stack: |-
+    ownerState (file:///home/sandbox/pre-wt4/src/lease.js:18:91)
+    file:///home/sandbox/pre-wt4/src/claims.js:33:15
+    Array.map (<anonymous>)
+    listStuckClaims (file:///home/sandbox/pre-wt4/src/claims.js:32:179)
+    owner (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:49:23)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:52:63)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: P2: the PID column is missing from the row (lease row removed) -> unproven
+ok 17 - P2: the PID column is missing from the row (lease row removed) -> unproven
+  ---
+  duration_ms: 53.038911
+  type: 'test'
+  ...
+# Subtest: P3 (guard): an absent PID with matching boot, host and namespace is proven gone (real ended process)
+ok 18 - P3 (guard): an absent PID with matching boot, host and namespace is proven gone (real ended process)
+  ---
+  duration_ms: 50.908555
+  type: 'test'
+  ...
+# Subtest: P4 (guard): an existing valid PID with matching identity (this process) is alive, not gone
+ok 19 - P4 (guard): an existing valid PID with matching identity (this process) is alive, not gone
+  ---
+  duration_ms: 50.933962
+  type: 'test'
+  ...
+# Subtest: P5: a pid whose kill probe fails with an error other than "no such process" (e.g. invalid argument) is never proof of absence
+not ok 20 - P5: a pid whose kill probe fails with an error other than "no such process" (e.g. invalid argument) is never proof of absence
+  ---
+  duration_ms: 51.257844
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:60:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/fail-closed-claim-pid.test.js:60:231)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 9
+# fail 11
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1543.794554
