@@ -650,7 +650,14 @@ export async function settleUnknownDocuments(db, seller, reportText, { api, vali
 
 /** Owner decision (Nov 28 2026): every CorrectionReversal needs a documented human decision for the whole pair (credit note + replacement) before anything is issued. The review is a ledger finding (CORRECTION:<reversal key>), decided with releaseIntegrity like any HUMAN_DECISION hold, and bound to the fingerprint of the evidence below. Partial or over-balance reversals are NEW_EVIDENCE holds: no decision can release them. Returns null when the pair is approved for exactly this evidence, else { reason }. */
 export const CORRECTION_REVIEW = 'CORRECTION_PAIR_REVIEW';
-function correctionReview(db, seller, rev, orig, list, claim = false) {
+/** Stage 1 round 2 (decision 1): the snapshot a person approves also covers what the document builder takes from the live seller record and the VIES status each replacement buyer VAT had at decision time. Evidence holds only hashes of the seller snapshot (no name, NIF or address) and the VIES status per VAT. */
+export function sellerSnapshot(seller, orig) { const o = JSON.parse(orig.json); const canon = JSON.stringify({ live: { name: seller.name ?? null, nif: seller.nif ?? null, address: seller.address ?? null, country: seller.country ?? null, invoiceLang: seller.invoice_lang ?? null }, onOriginal: o.seller ?? null }); return { sha256: createHash('sha256').update(canon).digest('hex'), fields: ['name', 'nif', 'address', 'country', 'invoiceLang', 'originalSeller'] }; }
+export async function viesSnapshot(validate, rev, list) {
+  const vats = [...new Set(list.filter(x => x.isCorrectedTx && x.shippingId === rev.shippingId).map(x => x.buyerVat).filter(Boolean))].sort();
+  const out = []; for (const vat of vats) { let st; try { st = (await validate(vat))?.status ?? 'unknown'; } catch { st = 'unavailable'; } out.push({ vat, status: st }); }
+  return out;
+}
+function correctionReview(db, seller, rev, orig, list, claim = false, snap = {}) {
   const o = JSON.parse(orig.json), origIncl = Math.abs(o.totals?.incl ?? 0), amount = Math.abs(rev.incl);
   const other = db.prepare("SELECT number, total FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND shipment_key<>? AND upload_status<>'rejected' ORDER BY number").all(seller.id, orig.number, rev.key);
   // an unfinished claim of ANOTHER event counts as credited until its document exists (then the document counts)
@@ -660,7 +667,7 @@ function correctionReview(db, seller, rev, orig, list, claim = false) {
   const reps = list.filter(x => x.isCorrectedTx && x.shippingId === rev.shippingId).sort((a, b) => (a.key < b.key ? -1 : 1));
   const evidence = { field: 'correction', original: { number: orig.number, totalIncl: origIncl, sha256: createHash('sha256').update(orig.json).digest('hex') }, reversalKey: rev.key, reversalRows: rowsOf(rev), reversalReason: rev.correctionDetails ?? null,
     replacementRows: reps.map(x => ({ key: x.key, reason: x.correctionDetails ?? null, buyer: { name: x.billing?.name, company: x.buyerCompany, vat: x.buyerVat, address: x.billing?.lines, city: x.billing?.city, postal: x.billing?.postal, country: x.billing?.country }, rows: rowsOf(x) })),
-    amounts: { original: origIncl, reversal: Math.round(amount * 100) / 100, cumulativeCredited: credited, creditableBalance: balance, differenceToOriginal: Math.round((amount - origIncl) * 100) / 100 }, otherCreditNotes: [...other.map(c => c.number), ...claims.map(c => 'claim:' + c.reversal_key)] };
+    amounts: { original: origIncl, reversal: Math.round(amount * 100) / 100, cumulativeCredited: credited, creditableBalance: balance, differenceToOriginal: Math.round((amount - origIncl) * 100) / 100 }, otherCreditNotes: [...other.map(c => c.number), ...claims.map(c => 'claim:' + c.reversal_key)], sellerSnapshot: sellerSnapshot(seller, orig), vies: snap.vies ?? [] };
   const fp = (code) => createHash('sha256').update(JSON.stringify([code, evidence])).digest('hex');
   let f;
   if (Math.abs(amount - origIncl) >= 0.005) f = { code: 'CORRECTION_PARTIAL_REVERSAL', resolution: 'NEW_EVIDENCE', explanation: `The reversal row states ${rev.incl.toFixed(2)} but the invoice it reverses is ${origIncl.toFixed(2)}: the amounts differ. A partial reversal is never turned into a full credit note, and no partial credit-note path exists yet.`, action: 'Only a corrected report can resolve this.' };
@@ -672,7 +679,7 @@ function correctionReview(db, seller, rev, orig, list, claim = false) {
   if (claim && amount >= 0.005) db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at) VALUES (?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, new Date().toISOString());
   return null;
 }
-const reviewAtomic = (db, seller, rev, orig, list, claim) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim));
+const reviewAtomic = (db, seller, rev, orig, list, claim, snap) => txImm(db, () => correctionReview(db, seller, rev, orig, list, claim, snap));
 
 /**
  * Amazon billing-data corrections (customer asked Amazon to change billing name/address). Amazon docs: the VIDR then lists
@@ -709,7 +716,7 @@ export async function processCorrections(db, seller, reportText, { api, validate
     const orig = original(s); if (!orig) { out.skipped.push({ key: s.key, reason: 'original invoice not issued by us' }); continue; }
     if (zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'zero-amount original: nothing to reverse' }); continue; }
     // Owner decision Nov 28: a person decides on the pair first (partial and over-balance reversals can never be approved). A credit note already issued and pending a retry was approved when it was issued.
-    if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) { const g = reviewAtomic(db, seller, s, orig, list, true); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; } }
+    if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) { const g = reviewAtomic(db, seller, s, orig, list, true, { vies: await viesSnapshot(validate, s, list) }); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; } }
     const block1 = await unknownBlock(s.key);
     if (block1) { logEvent(db, seller.id, 'unknown_resend_blocked', { key: s.key, reason: block1 }); out.skipped.push({ key: s.key, reason: block1 }); continue; }
     try {
@@ -735,7 +742,7 @@ export async function processCorrections(db, seller, reportText, { api, validate
       let revs = list.filter(x => x.isCorrectionReversal && x.shippingId === s.shippingId);
       // A zero-value original has nothing to reverse, but the owner never approved an exception: its replacement is reviewed too (keyed by the replacement when no reversal row exists).
       if (!revs.length) { if (!zeroTotal(orig)) { out.skipped.push({ key: s.key, reason: 'no reversal row for this correction in the report: the pair cannot be reviewed' }); continue; } revs = [{ key: s.key, incl: 0, src: [], shippingId: s.shippingId }]; }
-      const g = revs.map(r => reviewAtomic(db, seller, r, orig, list, false)).find(Boolean); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; }
+      const snaps = []; for (const r of revs) snaps.push({ vies: await viesSnapshot(validate, r, list) }); const g = revs.map((r, i) => reviewAtomic(db, seller, r, orig, list, false, snaps[i])).find(Boolean); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; }
     }
     const cn = db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND upload_status='uploaded'").get(seller.id, orig.number);
     if (!zeroTotal(orig) && !cn) { out.skipped.push({ key: s.key, reason: 'credit-note reversal not yet confirmed accepted by Amazon - the pair is kept together and the replacement waits for the next report' }); continue; }
