@@ -291,7 +291,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const { stageRestore } = await import('./restore.js');
         const r = stageRestore(Buffer.concat(chunks), process.env.DB_FILE ?? 'invoiceguard.db');
         console.log('db-restore staging:', r.ok ? 'validated and staged' : 'refused: ' + r.reason);
-        return json(res, r.ok ? 200 : 422, r.ok ? { ok: true, staged: true, counts: r.counts, next: 'Restart or redeploy the service to apply it. The current database is kept as backups/pre-restore-*.db.' } : { ok: false, error: r.reason });
+        return json(res, r.ok ? 200 : 422, r.ok ? { ok: true, staged: true, counts: r.counts, ...(r.warnings ? { warnings: r.warnings } : {}), next: 'Restart or redeploy the service to apply it. The current database is kept as backups/pre-restore-*.db.' } : { ok: false, error: r.reason });
       }
       if (req.method === 'GET' && p === '/admin/weekly-summary') { // operator half of the weekly summary: aggregates only
         const tok = process.env.ADMIN_TOKEN ?? '', got = String(req.headers.authorization ?? '').replace(/^Bearer /, '');

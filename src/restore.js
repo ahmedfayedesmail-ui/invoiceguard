@@ -5,6 +5,7 @@
 //      database is kept as backups/pre-restore-<time>.db, and the snapshot takes its place. Invalid pending files are deleted.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { openDb, verifyAudit } from './db.js';
 
@@ -54,10 +55,22 @@ export function validateSnapshot(file, opts = {}) {
       if (max >= a.entries) return { ok: false, reason: `audit chain for seller ${a.seller} has no entry ${a.entries} although it extends to ${max}; it does not match the anchor`, counts };
       behind.push({ seller: a.seller, anchoredEntries: a.entries, snapshotEntries: max, anchoredAt: a.at });
     }
-    if (behind.length && !allowBehindAnchor) return { ok: false, reason: `snapshot is behind the anchor log for ${new Set(behind.map(b => b.seller)).size} seller(s) (audit tail truncated, wiped or snapshot older than the last anchor); pass an explicit operator override to accept an older snapshot`, behindAnchor: behind, counts };
-    return { ok: true, counts, chains: chains.length, anchorsChecked: anchors.length, anchorsFilePresent: anchorsPresent, ...(behind.length ? { behindAnchor: behind } : {}) };
+    if (behind.length && !allowBehindAnchor) return { ok: false, reason: `snapshot is behind the anchor log for ${new Set(behind.map(b => b.seller)).size} seller(s) (audit tail truncated, wiped or snapshot older than the last anchor); set ALLOW_BEHIND_ANCHOR=1 in the service environment (at staging AND at the restart that applies it) to accept an older snapshot`, behindAnchor: behind, counts };
+    const warnings = [];
+    if (!anchorsPresent) warnings.push('anchors.log was not found' + (anchorsFile ? ` at ${anchorsFile}` : ' (no anchors file given)') + ': this snapshot was NOT checked against any anchor, so a truncated, wiped or rolled-back snapshot cannot be detected. Restore only a snapshot you trust.');
+    return { ok: true, counts, chains: chains.length, anchorsChecked: anchors.length, anchorsFilePresent: anchorsPresent, ...(warnings.length ? { warnings } : {}), ...(behind.length ? { behindAnchor: behind } : {}) };
   } catch (e) { return { ok: false, reason: 'cannot read as a database: ' + String(e.message).slice(0, 120) }; }
   finally { try { db?.close(); } catch { /* closed */ } }
+}
+
+/** Operator override for a snapshot older than the anchor log: an explicit option wins, else the ALLOW_BEHIND_ANCHOR=1 environment variable. Off by default. */
+export const behindAnchorOverride = (opts = {}, env = process.env) => opts.allowBehindAnchor !== undefined ? !!opts.allowBehindAnchor : String(env.ALLOW_BEHIND_ANCHOR ?? '') === '1';
+/** Loud report of an override that was used, or of a missing anchors.log. Goes to the log (warn) and is returned to the caller. */
+function loudReport(v, where, log) {
+  const out = [...(v.warnings ?? [])];
+  if (v.behindAnchor) out.push(`OVERRIDE ACTIVE (ALLOW_BEHIND_ANCHOR): the snapshot is BEHIND the anchor log for ${new Set(v.behindAnchor.map(b => b.seller)).size} seller(s); audit history after the snapshot is lost. ` + v.behindAnchor.map(b => `seller ${b.seller}: snapshot has ${b.snapshotEntries} audit entries, anchored ${b.anchoredEntries} at ${b.anchoredAt}`).join('; '));
+  for (const w of out) log(`restore ${where} WARNING: ${w}`);
+  return out;
 }
 
 /** Where backup.js writes anchors.log for a given database file. */
@@ -67,10 +80,11 @@ export function stageRestore(bytes, dbFile, opts = {}) {
   const scratch = `${dbFile}.restore-scratch`;
   try {
     writeFileSync(scratch, bytes);
-    const v = validateSnapshot(scratch, { anchorsFile: anchorsPathFor(dbFile), ...opts });
+    const v = validateSnapshot(scratch, { anchorsFile: anchorsPathFor(dbFile), ...opts, allowBehindAnchor: behindAnchorOverride(opts) });
     if (!v.ok) return v;
+    const warnings = loudReport(v, 'staging', (opts.log ?? console.warn));
     renameSync(scratch, `${dbFile}.restore-pending`);
-    return { ...v, staged: true };
+    return { ...v, ...(warnings.length ? { warnings } : {}), staged: true };
   } finally { for (const s of ['', '-wal', '-shm']) rmSync(scratch + s, { force: true }); }
 }
 
@@ -78,14 +92,15 @@ export function stageRestore(bytes, dbFile, opts = {}) {
 export function applyPendingRestore(dbFile, log = console.log, opts = {}) {
   const pending = `${dbFile}.restore-pending`;
   if (!existsSync(pending)) return { applied: false };
-  const v = validateSnapshot(pending, { anchorsFile: anchorsPathFor(dbFile), ...opts });
+  const v = validateSnapshot(pending, { anchorsFile: anchorsPathFor(dbFile), ...opts, allowBehindAnchor: behindAnchorOverride(opts) });
   if (!v.ok) { rmSync(pending, { force: true }); for (const s of ['-wal', '-shm']) rmSync(pending + s, { force: true }); log('restore refused, pending file deleted: ' + v.reason); return { applied: false, reason: v.reason }; }
+  const warnings = loudReport(v, 'apply', log);
   // Abort = keep the pending file, the live database AND its WAL untouched, so the next boot can retry.
   const abort = (reason) => { log('restore NOT applied, pending file and live database left untouched: ' + reason); return { applied: false, aborted: true, reason }; };
   let kept = null;
   if (existsSync(dbFile)) {
     const dir = join(dirname(dbFile), 'backups'); mkdirSync(dir, { recursive: true });
-    kept = join(dir, `pre-restore-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16)}.db`);
+    kept = join(dir, `pre-restore-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}-${randomBytes(3).toString('hex')}.db`); // seconds + random suffix: two applies in one minute must not overwrite each other's kept copy
     let d;
     try {
       d = new DatabaseSync(dbFile);
@@ -109,5 +124,5 @@ export function applyPendingRestore(dbFile, log = console.log, opts = {}) {
   for (const s of ['-wal', '-shm']) rmSync(pending + s, { force: true });
   renameSync(pending, dbFile);
   log(`restore applied from the staged snapshot (${JSON.stringify(v.counts)}); previous database kept as ${kept}` + (v.behindAnchor ? ' (OVERRIDE: snapshot is BEHIND the anchor log)' : ''));
-  return { applied: true, kept, counts: v.counts, ...(v.behindAnchor ? { behindAnchor: v.behindAnchor } : {}) };
+  return { applied: true, kept, counts: v.counts, ...(warnings.length ? { warnings } : {}), ...(v.behindAnchor ? { behindAnchor: v.behindAnchor } : {}) };
 }
