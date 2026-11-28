@@ -27,56 +27,59 @@ button.no{background:#fff;border:1px solid #c9d2db;padding:12px 16px;border-radi
 .pencil{font-family:'Segoe Print','Bradley Hand',cursive;color:var(--pencil);border-bottom:2px dashed var(--pencil);padding:0 4px}
 .checks{list-style:none;padding:0;margin:10px 0}.checks li{padding:6px 0 6px 28px;position:relative}.checks li:before{content:'';position:absolute;left:0;top:10px;width:16px;height:16px;border-radius:50%;background:var(--pri)}.checks li.bad:before{background:var(--red)}.checks li.bad{color:var(--red)}
 .legend{display:flex;gap:18px;font-size:14px;color:var(--mut);margin:0 0 12px}
+.seq{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0 0 16px;counter-reset:s}.seq div{padding:10px 12px;border:1px solid var(--line);background:#fff;font-size:14px;position:relative}.seq div b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}.seq .now{background:#f0faf8;border-color:var(--pri)}@media(max-width:820px){.seq{grid-template-columns:1fr}}
+.sec{font:600 16px Georgia,serif;margin:26px 0 2px}.buyer{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0 4px}.buyer th,.buyer td{text-align:left;padding:5px 8px;border-bottom:1px dotted var(--line)}.buyer th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+.slip{font-variant-numeric:tabular-nums}.tag.ink{background:#e8edf2;color:var(--ink)}.tag.ok{background:#e2f4f1;color:var(--pri)}
 </style></head><body>
 <div class="proto">PROTOTYPE. Synthetic data. Nothing is sent, stored or issued. Not part of the production app.</div>
 <header><h1>InvoiceGuard</h1><p class="sub">Two things need a person: a correction to approve, and a reserved amount that never became a document.</p></header>
-<nav role="tablist"><button role="tab" aria-selected="true" data-tab="cards">Corrections to approve <span id="n1">(2)</span></button><button role="tab" aria-selected="false" data-tab="pencil">Reserved but not written <span id="n2">(2)</span></button></nav>
+<nav role="tablist"><button role="tab" aria-selected="true" data-tab="cards">Corrections to approve <span id="n1">(2)</span></button><button role="tab" aria-selected="false" data-tab="pencil">Reserved amounts <span id="n2">(2)</span></button></nav>
 <main><section class="sheet" id="cards">
 <div class="list" id="cardlist"></div>
 <div id="card"></div></section>
-<section class="sheet" id="pencil" hidden><div class="list" id="pencillist"></div><div id="pcard"></div></section></main>
+<section class="sheet" id="pencil" hidden><p class=q>Reserved in pencil, never written</p><p class=why>These reservations have no document. A person may review each one.</p><div class="list" id="pencillist"></div><div id="pcard"></div><h2 class=sec>Already in ink: not listed for release</h2><p class=why>These reservations belong to a document that exists. The document counts the amount now, so there is nothing to release.</p><div class="list" id="inklist"></div></section></main>
+<script src="data.js"></script>
 <script>
-const CARDS=[
-{id:'c1',buyer:'Atlas Trading GmbH',orig:{no:'A-2026-000123',total:'121.00',lines:[['Cable HDMI 2.1 2m x2','80.00'],['Shipping','10.00'],['VAT 21%','31.00']],date:'12 Nov 2026'},
- credit:{no:'to be created',total:'-121.00',lines:[['Cancels invoice A-2026-000123','-121.00']]},
- repl:{no:'to be created',total:'121.00',lines:[['Same items','111.00'],['Buyer name','<span class=chg>Atlas Handels GmbH</span>'],['VAT 21%','31.00']]},
- sums:['Already credited on this invoice: 0.00','Left to credit: 121.00','This correction credits: 121.00 (all of it)'],reason:'Buyer asked Amazon to change the billing name.',warn:false},
-{id:'c2',buyer:'Nordic Parts AB',orig:{no:'A-2026-000140',total:'60.50',lines:[['Adapter USB-C','50.00'],['VAT 21%','10.50']],date:'15 Nov 2026'},
- credit:{no:'to be created',total:'-60.50',lines:[['Cancels invoice A-2026-000140','-60.50']]},
- repl:{no:'to be created',total:'60.50',lines:[['Buyer VAT number','<span class=chg>changed since the last check</span>']]},
- sums:['The VAT number check (VIES) answered differently from when this card was first shown','Please look at the VAT number again before you decide'],reason:'The buyer VAT number differs from the first import.',warn:true}];
-const PENCIL=[
-{id:'p1',inv:'A-2026-000123',amt:'121.00',since:'2 days ago',checks:[['No credit note exists for this event',1],['No upload is waiting or in progress',1],['Reserved more than 15 minutes ago',1],['Nothing is running on it right now',1]]},
-{id:'p2',inv:'A-2026-000140',amt:'60.50',since:'3 days ago',checks:[['A credit note already exists (R-2026-000007)',0],['Its upload is waiting for Amazon',0]]}];
+const {cards:CARDS,pencil:PENCIL}=window.PROTO_DATA;
 const $=s=>document.querySelector(s);let cur=null,pcur=null;
-function renderList(){ $('#cardlist').innerHTML=CARDS.map(c=>`<div class=item role=button tabindex=0 data-id=${c.id} aria-current=${cur===c.id}><span><b>${c.buyer}</b><br><span class=hint>Invoice ${c.orig.no}</span></span><span class=tag>needs your decision</span></div>`).join('');
+const esc=t=>String(t??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const rows=l=>l.map(r=>`<div class="row slip"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
+const FIELDS=[['name','Name'],['vat','VAT number'],['address','Address'],['postal','Postal code'],['city','City'],['country','Country']];
+function buyerTable(c){return `<table class=buyer><tr><th>Buyer data</th><th>On the original</th><th>On the new invoice</th></tr>${FIELDS.map(([k,l])=>{const a=c.buyerBefore[k]||'(blank)',b=c.buyerAfter[k]||'(blank)',ch=a!==b;return `<tr><td>${l}</td><td>${esc(a)}</td><td>${ch?`<span class=chg>${esc(b)}</span> <span class=hint>changed</span>`:esc(b)}</td></tr>`}).join('')}</table>`}
+function renderList(){ $('#cardlist').innerHTML=CARDS.map(c=>`<div class=item role=button tabindex=0 data-id=${c.id} aria-current=${cur===c.id}><span><b>${esc(c.buyerBefore.name)}</b><br><span class=hint>Invoice ${c.invNo}</span></span><span class=tag>needs your decision</span></div>`).join('');
  document.querySelectorAll('#cardlist .item').forEach(e=>{e.onclick=()=>{cur=e.dataset.id;renderList();renderCard()};e.onkeydown=k=>{if(k.key==='Enter')e.click()}})}
-const rows=l=>l.map(r=>`<div class=row><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
 function renderCard(){const c=CARDS.find(x=>x.id===cur);if(!c){$('#card').innerHTML='<p class=why>Pick a correction above.</p>';return}
- $('#card').innerHTML=`<p class=q>Should this correction go ahead?</p><p class=why>${c.reason} Approving lets InvoiceGuard create one credit note and one new invoice. Nothing is sent to Amazon before you decide.</p>
- <div class=legend><span>Ink = a document that exists</span><span>Dotted = a document that would be created</span><span><span class=chg>highlight</span> = what changes</span></div>
- <div class=trio><div class=doc><span class="ribbon ink">in ink</span><h3>Original invoice</h3><p class=no>${c.orig.no}</p>${rows(c.orig.lines)}<div class=row><span>Total</span><b>${c.orig.total}</b></div></div>
- <div class=doc style="border-style:dashed"><span class="ribbon nib">would be created</span><h3>Credit note</h3><p class=no>${c.credit.no}</p>${rows(c.credit.lines)}<div class=row><span>Total</span><b class=neg>${c.credit.total}</b></div></div>
- <div class=doc style="border-style:dashed"><span class="ribbon nib">would be created</span><h3>New invoice</h3><p class=no>${c.repl.no}</p>${rows(c.repl.lines)}<div class=row><span>Total</span><b>${c.repl.total}</b></div></div></div>
- <div class="sums ${c.warn?'warn':''}">${c.sums.map(s=>`<div>${s}</div>`).join('')}</div>
- <div class=decide><label for=why>Why are you deciding this? (at least 10 characters)</label><textarea id=why placeholder="For example: I compared the new name with the buyer's message in Amazon."></textarea>
+ $('#card').innerHTML=`<p class=q>Should this correction go ahead?</p><p class=why>${esc(c.reason)} Approving lets InvoiceGuard create one credit note and, after Amazon accepts it, one new invoice. Nothing is sent to Amazon before you decide.</p>
+ <div class=seq><div class=now><b>Step 1 · after you approve</b>Credit note is created and sent</div><div><b>Step 2 · Amazon</b>Amazon confirms it accepted the credit note</div><div><b>Step 3 · only then</b>The new invoice is created and sent</div></div>
+ <div class=legend><span>Ink = a document that exists</span><span>Dashed = a document that would be created</span><span><span class=chg>highlight</span> = what changes</span></div>
+ <div class=trio><div class=doc><span class="ribbon ink">in ink</span><h3>Original invoice</h3><p class=no>${c.invNo}</p>${rows(c.orig.lines)}<div class="row slip"><span>Total (incl. VAT)</span><b>${c.orig.total}</b></div></div>
+ <div class=doc style="border-style:dashed"><span class="ribbon nib">step 1</span><h3>Credit note</h3><p class=no>to be created</p>${rows(c.credit.lines)}<div class="row slip"><span>Total (incl. VAT)</span><b class=neg>${c.credit.total}</b></div></div>
+ <div class=doc style="border-style:dashed"><span class="ribbon nib">step 3</span><h3>New invoice</h3><p class=no>to be created</p>${rows(c.repl.lines)}<div class="row slip"><span>Total (incl. VAT)</span><b>${c.repl.total}</b></div></div></div>
+ ${buyerTable(c)}
+ <div class="sums ${c.warn?'warn':''}"><div>Already credited on this invoice: ${c.balance.already}</div><div>Left to credit: ${c.balance.left}</div><div>This correction credits: ${c.balance.thisOne} (all of it)</div>${c.warn?`<div><b>${esc(c.warnText)}</b></div>`:''}</div>
+ <div class=decide><label for=why>Why are you deciding this? (at least 10 characters)</label><textarea id=why placeholder="For example: I compared the new name and address with the buyer's message in Amazon."></textarea>
  <div class=who><span>Deciding as: <b>reviewer-1</b></span><span id=when></span></div>
  <button class=go id=ok disabled>Approve this correction</button><button class=no id=no>Not now</button>
- <p class=hint>Your decision is saved with your name, the time, your reason and a fingerprint of exactly what is on this card. If anything on the card changes later, your decision stops counting and you will see a new card.</p>
+ <p class=hint>Your decision is saved with your name, the time, your reason and a fingerprint of exactly what is on this card, including the buyer data and the report details behind it. If anything on the card changes later, your decision stops counting and you will see a new card.</p>
  <div class=stamp id=st>Decision signed<small id=sm></small></div></div>`;
  $('#when').textContent='Time is recorded when you sign.';
  const t=$('#why'),b=$('#ok');t.oninput=()=>{b.disabled=t.value.trim().length<10};
  b.onclick=()=>{$('#st').style.display='block';$('#sm').textContent='by reviewer-1, reason saved, fingerprint 9f3a…c1 (prototype only)';b.disabled=true;t.disabled=true};
  $('#no').onclick=()=>{cur=null;renderList();renderCard()}}
-function renderPencil(){ $('#pencillist').innerHTML=PENCIL.map(p=>`<div class=item role=button tabindex=0 data-id=${p.id} aria-current=${pcur===p.id}><span><b>Invoice ${p.inv}</b><br><span class=hint>Reserved <span class=pencil>${p.amt}</span> ${p.since}</span></span><span class=tag>${p.checks.every(c=>c[1])?'can be erased by you':'has ink, cannot be erased'}</span></div>`).join('');
+const CHECKS=p=>[['No credit note exists for this event',true],['No upload is waiting or in progress',true],['No issuance is running on it right now',true],['Reserved more than 15 minutes ago (time alone is never proof, it is only one of the checks)',true]];
+function renderPencil(){ const own=PENCIL.filter(p=>!p.owned),ink=PENCIL.filter(p=>p.owned);
+ $('#pencillist').innerHTML=own.map(p=>`<div class=item role=button tabindex=0 data-id=${p.id} aria-current=${pcur===p.id}><span><b>Invoice ${p.invNo}</b><br><span class=hint>Reserved <span class=pencil>${p.amt}</span> ${p.since}</span></span><span class=tag>Eligible for human review</span></div>`).join('')||'<p class=hint>None.</p>';
+ $('#inklist').innerHTML=ink.map(p=>`<div class=item style="cursor:default"><span><b>Invoice ${p.invNo}</b><br><span class=hint>${p.amt} is counted by credit note ${p.doc} (${p.docState})</span></span><span class="tag ink">in ink</span></div>`).join('');
  document.querySelectorAll('#pencillist .item').forEach(e=>{e.onclick=()=>{pcur=e.dataset.id;renderPencil();renderP()};e.onkeydown=k=>{if(k.key==='Enter')e.click()}})}
-function renderP(){const p=PENCIL.find(x=>x.id===pcur);if(!p){$('#pcard').innerHTML='<p class=why>Pick a reserved amount above.</p>';return}const ok=p.checks.every(c=>c[1]);
- $('#pcard').innerHTML=`<p class=q>This amount was reserved in pencil, but no document was ever written.</p><p class=why>A reservation (pencil) keeps ${p.amt} on invoice ${p.inv} from being credited twice. It was set when a correction was approved. It never wears off by itself. You can erase it only if nothing was written or sent.</p>
+function renderP(){const p=PENCIL.find(x=>x.id===pcur);if(!p||p.owned){$('#pcard').innerHTML='<p class=why>Pick a reservation above to review it.</p>';return}
+ $('#pcard').innerHTML=`<p class=q>Review this reservation</p><p class=why>${p.amt} is reserved on invoice ${p.invNo}. It keeps that amount from being credited twice. It was set when a correction was approved and it never expires by itself. InvoiceGuard will not release it for you: a person decides, and only when these checks hold.</p>
  <div class=sums><span class=pencil>${p.amt} reserved in pencil</span></div>
- <ul class=checks>${p.checks.map(c=>`<li class="${c[1]?'':'bad'}">${c[0]}</li>`).join('')}</ul>
- ${ok?`<div class=decide><label for=pw>Why are you erasing it? (at least 10 characters)</label><textarea id=pw placeholder="For example: the app stopped during that run and no credit note was created."></textarea><button class=go id=pok disabled>Erase the pencil mark</button>
- <p class=hint>After erasing, the old approval of this correction no longer counts. A new approval is needed before anything is created.</p><div class=stamp id=pst>Pencil mark erased<small>by reviewer-1, reason saved, history kept (prototype only)</small></div></div>`:`<p class=hint>This reservation belongs to a document that already exists. It cannot be erased here.</p>`}`;
- if(ok){const t=$('#pw'),b=$('#pok');t.oninput=()=>{b.disabled=t.value.trim().length<10};b.onclick=()=>{$('#pst').style.display='block';b.disabled=true;t.disabled=true}}}
+ <ul class=checks>${CHECKS(p).map(c=>`<li>${c[0]}</li>`).join('')}</ul>
+ <div class=decide><label for=pw>Why are you releasing it? (at least 10 characters)</label><textarea id=pw placeholder="For example: the app stopped during that run and no credit note was created."></textarea>
+ <button class=go id=pok disabled>Release reservation</button>
+ <p class=hint><b>Releasing the reservation cancels the earlier approval of this correction.</b> A new approval is needed before anything is created. The release is saved with your name, the time and your reason, and the history is kept.</p>
+ <div class=stamp id=pst>Reservation released<small>by reviewer-1, reason saved, history kept (prototype only)</small></div></div>`;
+ const t=$('#pw'),b=$('#pok');t.oninput=()=>{b.disabled=t.value.trim().length<10};b.onclick=()=>{$('#pst').style.display='block';b.disabled=true;t.disabled=true}}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));$('#cards').hidden=b.dataset.tab!=='cards';$('#pencil').hidden=b.dataset.tab!=='pencil'});
 renderList();renderCard();renderPencil();renderP();
 const h=location.hash.slice(1);if(h.startsWith('c')){cur=h;renderList();renderCard()}if(h.startsWith('p')){pcur=h;document.querySelector('[data-tab=pencil]').click();renderPencil();renderP()}

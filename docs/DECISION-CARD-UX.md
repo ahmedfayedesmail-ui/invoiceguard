@@ -22,9 +22,9 @@ This is a design language for InvoiceGuard, not a generic dashboard table.
 Never offered: a button for a finding that needs new evidence (partial reversal, over balance, BLOCK). Those show "A corrected report from Amazon is needed" and no approve button.
 
 ## Flow 2: Pencil marks (stuck claims)
-1. List: invoice number, reserved amount, age in words ("2 days ago"), and either "can be erased by you" or "has ink, cannot be erased".
+1. List: invoice number, reserved amount, age in words ("2 days ago"), and either "eligible for human review" or "has ink, cannot be erased".
 2. Detail: four checks shown as a list, each with a plain sentence: no credit note exists for this event; no upload is waiting or in progress; reserved more than 15 minutes ago; nothing is running on it right now. Any failed check hides the erase form completely.
-3. Erase: reason (10+ characters), button "Erase the pencil mark". After it, the old approval of the correction does not count and a new Decision Card is needed.
+3. Erase: reason (10+ characters), button "Release reservation". After it, the old approval of the correction does not count and a new Decision Card is needed.
 
 ## API contract (proposal, JSON, authenticated seller session)
 All amounts are strings with two decimals. All times are ISO with offset; the client formats them for the seller. Every response carries `fingerprint` where a decision is possible.
@@ -46,3 +46,10 @@ Keyboard operable lists (Enter opens), labels tied to fields, colour is never th
 
 ## What the prototype proves and does not
 It shows the flow, the wording and the look with synthetic data and checks the disabled/enabled rules in the page script. It does not prove usability with real sellers: that needs real users and is untested.
+
+## Round 3 changes (owner review, Nov 28 2026)
+- Amounts on every card are computed from the synthetic fixture rows (gen-data.mjs, data.js) and checked by data.check.test.js: lines plus VAT equal the total on every document, the credit note is the exact negative of the original, the new invoice repeats the amounts. The earlier "111.00 + 31.00 = 121.00" mismatch was hand-typed data and cannot recur.
+- The card shows the sequence: credit note first, then Amazon confirms it accepted it, then the new invoice.
+- All buyer data is compared field by field (name, VAT number, address, postal code, city, country), changed fields highlighted.
+- Reserved amounts: reservations a person may review are separate from reservations that belong to a document ("in ink", not listed for release). Label: "Eligible for human review". Primary action: "Release reservation", with the note that it cancels the earlier approval and a new approval is needed.
+- No financial rule, computed result or approval condition was changed.
