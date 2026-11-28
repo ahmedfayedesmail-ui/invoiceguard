@@ -1,7 +1,7 @@
 // Expedition re-review 1 (in-flight duplicate-submission class): upload claim ownership.
 // The IN-FLIGHT order, on both document kinds: a claim is taken, the upload call is still running, THEN a sweep / another run acts, THEN the late result arrives.
 import test from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs';
-import { openDb } from '../src/db.js'; import { processReport, processCorrections, issueRectificativa } from '../src/pipeline.js'; import { recoverUncertainUploads } from '../src/repair.js'; import { approveAll } from './correction-helpers.js';
+import { openDb } from '../src/db.js'; import { processReport, processCorrections, issueRectificativa, settleUnknownDocuments } from '../src/pipeline.js'; import { decideRepair } from '../src/repair.js'; import { recoverUncertainUploads } from '../src/repair.js'; import { approveAll } from './correction-helpers.js';
 const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid', country: 'ES', invoice_lang: 'auto' };
 const vies = async (v) => ({ status: 'valid', vat: v }); const NOW = new Date('2026-11-24T12:00:00Z');
 const [head0, ...body] = text.trim().split('\n'); const cols = head0.split('\t'); const X = ['invoice-number', 'original-vat-invoice-number']; const ix = n => cols.includes(n) ? cols.indexOf(n) : cols.length + X.indexOf(n);
@@ -66,4 +66,29 @@ test('C5 REAL second process: a sweep with a short grace in process B never take
   const swept = recoverUncertainUploads(b, { minAgeMs: 500 }); assert.equal(swept, 0, 'the live owner is protected by its heartbeat');
   await new Promise(r => w.on('close', r)); const done = JSON.parse(out.trim().split('\n').pop()); assert.ok(done.done, out);
   const st = b.prepare('SELECT upload_status s, feed_id f FROM invoices WHERE number=?').get(done.first); assert.ok(['submitted', 'processing'].includes(st.s)); assert.equal(st.f, 'w-' + done.first); b.close();
+});
+
+// Re-review 1 round 3 (P1): the timeout abandons the call; it must neither be resendable nor land unseen.
+for (const [name, K] of Object.entries(kinds)) {
+  test(`C6 [${name}] timeout, resend attempt, abandoned request lands later => still ONE submission, the late feed is recorded and blocks, the call was aborted`, async () => {
+    process.env.IG_UPLOAD_TIMEOUT_MS = '120'; try {
+      const { db } = await K.setup(); let sig = null, landed = null; const calls = [];
+      const api = { calls, async uploadInvoice(a) { calls.push(a.number); if (calls.length === 1) { sig = a.signal; await new Promise(r => setTimeout(r, 500)); landed = 'abandoned-feed'; return landed; } return 'resent-' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
+      await K.start(db, api); const first = calls[0];
+      assert.equal(db.prepare('SELECT upload_status s FROM invoices WHERE number=?').get(first).s, 'unknown'); assert.equal(sig.aborted, true, 'the request was aborted, not just abandoned');
+      const t = [head0 + '\tinvoice-correction-details'].length; const rep1 = name === 'invoice' ? text : [H, rv().join('\t')].join('\n');
+      await settleUnknownDocuments(db, seller, rep1, { api, validate: vies }); assert.equal(calls.filter(n => n === first).length, 1, 'no resend inside the quiet period');
+      await waitFor(() => landed); await new Promise(r => setTimeout(r, 50));
+      const r = db.prepare('SELECT upload_status s, blocked_feed_id b FROM invoices WHERE number=?').get(first); assert.equal(r.b, 'abandoned-feed', 'the abandoned request landed: its feed blocks any resend'); assert.equal(ev(db, 'late_upload_result').length, 1);
+      assert.equal(db.prepare("SELECT count(*) c FROM repairs WHERE event_key LIKE 'LATE_FEED:%'").get().c, 1);
+    } finally { delete process.env.IG_UPLOAD_TIMEOUT_MS; }
+  });
+}
+test('C7 dismissing a LATE_FEED hold never unlocks the resend block of the document', async () => {
+  process.env.IG_UPLOAD_TIMEOUT_MS = '100'; try {
+    const { db } = await kinds.invoice.setup(); const calls = []; const api = { calls, async uploadInvoice(a) { calls.push(a.number); if (calls.length === 1) { await new Promise(r => setTimeout(r, 300)); return 'abandoned-feed'; } return 'x'; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
+    await kinds.invoice.start(db, api); await new Promise(r => setTimeout(r, 400));
+    const k = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'LATE_FEED:%'").get().k; decideRepair(db, seller.id, k, 'dismissed');
+    assert.equal(db.prepare("SELECT count(*) c FROM events WHERE type='unknown_hold_dismissed'").get().c, 0);
+  } finally { delete process.env.IG_UPLOAD_TIMEOUT_MS; }
 });

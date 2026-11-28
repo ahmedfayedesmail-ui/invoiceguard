@@ -9,7 +9,7 @@ import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from
 import { createHash, randomUUID } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
-import { newClaimToken, guardedUpload, lateUploadResult } from './claims.js';
+import { newClaimToken, guardedUpload, lateUploadResult, ABANDON_QUIET_MS } from './claims.js';
 import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
 import { integrityGate, integrityNotes, correctionLedger, writeLedger, resolveGateFinding } from './integrity.js';
 
@@ -154,7 +154,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
     if (!claim.changes) { out.skipped++; continue; }
     upsertShipment(db, seller.id, s, 'sending');
     try {
-      const feedId = await guardedUpload(db, tok_claim, () => api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat }));
+      const feedId = await guardedUpload(db, tok_claim, (signal) => api.uploadInvoice({ signal, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat }), { sellerId: seller.id, number: inv.number });
       // Round-12 (critic round-10): the stamp was already cleared at the claim. If a sync stamped a
       // FRESH VIDR verdict (or moved the state) while this call was in flight, that newer evidence
       // wins: the document lands in 'processing' (or keeps the verdict's state), never regresses.
@@ -162,7 +162,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
         ELSE 'submitted' END WHERE seller_id=? AND number=? AND claim_token=?`).run(feedId, feedId, seller.id, inv.number, tok_claim); if (!lateRes.changes) lateUploadResult(db, seller.id, inv.number, feedId);
-      upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++;
+      if (lateRes.changes) { upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++; } else { out.held.push({ key: s.key, orderId: s.orderId, reason: `The upload of ${inv.number} finished after its claim was lost; the late feed ${feedId} is held for a person.` }); }
     } catch (e) {
       if (e.unknownOutcome) {
         // The feed may or may not have reached Amazon (network drop / 5xx after submission).
@@ -511,7 +511,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       if (!claim0.changes) throw new Error(`Correction document ${prev.number} is already being uploaded by another run. Nothing was re-uploaded.`);
       let feedId0;
       try {
-        feedId0 = await guardedUpload(db, tok_claim0, () => api.uploadInvoice({ marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId }));
+        feedId0 = await guardedUpload(db, tok_claim0, (signal) => api.uploadInvoice({ signal, marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId }), { sellerId: seller.id, number: prev.number });
       } catch (e) {
         if (e.unknownOutcome) {
           tx(db, () => {
@@ -606,7 +606,7 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     const claimR = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), tok_claimR, nextAttemptSeq(db, seller.id), seller.id, rect.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
     if (!claimR.changes) throw new Error(`Correction document ${rect.number} is already being uploaded by another run. Nothing was re-uploaded.`);
     try {
-      feedId = await guardedUpload(db, tok_claimR, () => api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId }));
+      feedId = await guardedUpload(db, tok_claimR, (signal) => api.uploadInvoice({ signal, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId }), { sellerId: seller.id, number: rect.number });
       // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
       const lateRes = db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
@@ -652,6 +652,8 @@ export async function unknownSettleCheck(db, seller, api, number) {
   // feed in Seller Central dismisses the hold; the dismissal is recorded here and clears the resend.
   const dismissed = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='unknown_hold_dismissed' AND detail LIKE ? AND ts >= ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`, new Date(attemptTs).toISOString());
   if (dismissed) return null;
+  const abandoned = db.prepare("SELECT ts FROM events WHERE seller_id=? AND type='upload_timeout_abandoned' AND detail LIKE ? ORDER BY ts DESC LIMIT 1").get(seller.id, `%"number":"${number}"%`);
+  if (abandoned && Date.now() - new Date(abandoned.ts).getTime() < ABANDON_QUIET_MS) return `The upload of ${number} timed out and the request was abandoned a moment ago. It is NOT resent until the abandoned request has had time to settle on Amazon's side, so it can never produce a second feed. The next sync after a few minutes checks again.`;
   // Round-10 (critic round-8): the feed whose outcome was never resolved at document level is a
   // KNOWN feed - its id is saved on the document, so the orphan cross-check below can never see
   // it. It must block resend BY ITSELF until trustworthy document-level evidence exists: the feed

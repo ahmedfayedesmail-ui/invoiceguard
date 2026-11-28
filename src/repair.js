@@ -211,7 +211,7 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
   try {
-    feedId = await guardedUpload(db, tok_claim, () => api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) }));
+    feedId = await guardedUpload(db, tok_claim, (signal) => api.uploadInvoice({ signal, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) }), { sellerId: seller.id, number: number });
   } catch (e) {
     // Same discipline as the first upload: an unknown outcome is never resent blindly. The document
     // goes to 'unknown' with a human-visible hold; the next Amazon report settles it.
@@ -485,7 +485,7 @@ export function decideRepair(db, sellerId, eventKey, decision) {
   const prev = db.prepare('SELECT kind, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(sellerId, eventKey);
   const r = db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(decision, sellerId, eventKey);
   if (!r.changes) throw new Error(`No proposed repair ${eventKey}`);
-  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome') {
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && !String(eventKey).startsWith('LATE_FEED:')) { // a LATE_FEED dismissal acknowledges a feed Amazon already holds: it must never unlock the resend block of the document (re-review 1 P2)
     // Human resolution of the feed-list orphan hold: the human checked Amazon, and unknownSettleCheck
     // treats a dismissal newer than the attempt time as clearing the cross-check, so the next sync
     // resends the same document if a fresh report still lists it as due.
