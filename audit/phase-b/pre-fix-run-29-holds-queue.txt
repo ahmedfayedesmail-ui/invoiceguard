@@ -1,0 +1,112 @@
+TAP version 13
+# Subtest: HQ1 an open credit-note hold is listed with what happened, why, evidence, known, unknown, allowed, blocked and next; no empty field and no "undefined"
+not ok 1 - HQ1 an open credit-note hold is listed with what happened, why, evidence, known, unknown, allowed, blocked and next; no empty field and no "undefined"
+  ---
+  duration_ms: 96.518994
+  type: 'test'
+  location: '/home/sandbox/pre-wt5/test/holds-queue.test.js:11:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading 'length')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt5/test/holds-queue.test.js:13:66)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: HQ2 a seller never sees another seller's holds
+not ok 2 - HQ2 a seller never sees another seller's holds
+  ---
+  duration_ms: 133.357848
+  type: 'test'
+  location: '/home/sandbox/pre-wt5/test/holds-queue.test.js:18:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading 'length')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt5/test/holds-queue.test.js:19:216)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: HQ3 unauthenticated callers get 401 on both routes; GET on decide is refused
+ok 3 - HQ3 unauthenticated callers get 401 on both routes; GET on decide is refused
+  ---
+  duration_ms: 53.737305
+  type: 'test'
+  ...
+# Subtest: HQ4 the decision needs a reason of 10+ characters and the CURRENT fingerprint; a wrong one changes nothing
+not ok 4 - HQ4 the decision needs a reason of 10+ characters and the CURRENT fingerprint; a wrong one changes nothing
+  ---
+  duration_ms: 48.855641
+  type: 'test'
+  location: '/home/sandbox/pre-wt5/test/holds-queue.test.js:24:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading '0')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt5/test/holds-queue.test.js:25:167)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: HQ5 a valid decision records WHO decided, releases exactly that finding and lists it as closed
+not ok 5 - HQ5 a valid decision records WHO decided, releases exactly that finding and lists it as closed
+  ---
+  duration_ms: 48.725273
+  type: 'test'
+  location: '/home/sandbox/pre-wt5/test/holds-queue.test.js:30:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading '0')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt5/test/holds-queue.test.js:31:167)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: HQ6 a decision on old evidence cannot release a hold whose evidence changed (the API gives the same refusal as the ledger)
+not ok 6 - HQ6 a decision on old evidence cannot release a hold whose evidence changed (the API gives the same refusal as the ledger)
+  ---
+  duration_ms: 44.015273
+  type: 'test'
+  location: '/home/sandbox/pre-wt5/test/holds-queue.test.js:36:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading '0')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt5/test/holds-queue.test.js:37:169)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: HQ7 a BLOCK finding is listed but offers no decision and the API refuses to release it
+not ok 7 - HQ7 a BLOCK finding is listed but offers no decision and the API refuses to release it
+  ---
+  duration_ms: 47.292717
+  type: 'test'
+  location: '/home/sandbox/pre-wt5/test/holds-queue.test.js:42:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading '0')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt5/test/holds-queue.test.js:45:49)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 1
+# fail 6
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 717.067324

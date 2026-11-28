@@ -21,11 +21,13 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, ensureRepairTables, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, beginManualVidr, finishManualVidr } from './repair.js';
+import { pairHoldOpen } from './cn-gate.js';
+import { authorizeUnknownRetry, detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, ensureRepairTables, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, beginManualVidr, finishManualVidr } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
 import { PACKS } from './rules.js';
+import { listHolds, decideHold, addHoldNote } from './holds.js';
 
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
@@ -500,16 +502,29 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
           return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
         } finally { if (isVidr) clearReportInFlight(db, seller.id); } // the report is already stored: success or failure, approval revalidates against it
       }
+      if (p === '/api/holds') { const holds = listHolds(db, seller.id, { includeClosed: url.searchParams.get('all') === '1' }); return json(res, 200, { holds, truncated: !!holds.truncated }); } // expedition W2-2: the review queue for HOLD and BLOCK findings
+      if (p === '/api/holds/decide') {
+        if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
+        try { const r = decideHold(db, seller.id, body, user.email ?? user.id); logEvent(db, seller.id, 'hold_decided', { key: body.key, code: body.code }); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+      }
+      if (p === '/api/holds/note') { // ruling 5: investigation notes never change state
+        if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
+        try { return json(res, 200, addHoldNote(db, seller.id, body, user.email ?? user.id)); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+      }
       if (p === '/api/repairs') { // review queue: proposed first, then the recent history
         const snap = latestReportSnapshot(db, seller.id); // round-16/17: the review shows each proposal's freshness, ordered by report generation
         const proposed = listRepairs(db, seller.id, 'proposed').map(r => ({ ...r, fresher: snap != null && snap.gen != null && snap.gen > (r.report_gen ?? -1) }));
         const history = ['issued', 'exported', 'uploaded', 'rejected', 'approved', 'dismissed', 'held'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
         return json(res, 200, { proposed, history });
       }
+      if (p === '/api/repairs/authorize-retry') {
+        if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
+        try { const r = authorizeUnknownRetry(db, seller.id, body.key, body, user.email ?? user.id); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+      }
       if (p === '/api/repairs/approve' || p === '/api/repairs/dismiss') {
         if (typeof body.key !== 'string' || !body.key || body.key.length > 200) return json(res, 400, { error: 'Choose a repair first.' });
         try {
-          if (p === '/api/repairs/dismiss') { decideRepair(db, seller.id, body.key, 'dismissed'); logEvent(db, seller.id, 'repair_dismissed', { key: body.key }); return json(res, 200, { ok: true }); }
+          if (p === '/api/repairs/dismiss') { decideRepair(db, seller.id, body.key, 'dismissed', body, user.email ?? user.id); logEvent(db, seller.id, 'repair_dismissed', { key: body.key }); return json(res, 200, { ok: true }); }
           const r = await approveRepair(db, seller, body.key, { api: apiFor(seller), validate });
           logEvent(db, seller.id, 'repair_issued', { key: body.key, rect: r.rectNumber, rectifies: r.original });
           return json(res, 200, r);
@@ -517,9 +532,9 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (p === '/api/invoices/mark') {
         const nums = body.all === true ? db.prepare("SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready'").all(seller.id).map(r => r.number) : (Array.isArray(body.numbers) ? body.numbers.map(String).slice(0, 5000) : []);
-        let n = 0; const now = new Date().toISOString();
-        for (const num of nums) { const r = db.prepare("SELECT shipment_key FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, num); logEvent(db, seller.id, 'uploaded', { number: num }); n++; }
-        if (n) logEvent(db, seller.id, 'marked_uploaded', { count: n }); return json(res, 200, { ok: true, marked: n });
+        let n = 0, heldBack = 0; const now = new Date().toISOString();
+        for (const num of nums) { const r = db.prepare("SELECT shipment_key, kind, rectifies FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; if (r.kind === 'rectificativa' && pairHoldOpen(db, seller.id, r.rectifies, r.shipment_key)) { heldBack++; continue; } db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, num); logEvent(db, seller.id, 'uploaded', { number: num }); n++; }
+        if (n) logEvent(db, seller.id, 'marked_uploaded', { count: n }); return json(res, 200, { ok: true, marked: n, heldBack, ...(heldBack ? { note: `${heldBack} correction document(s) were not marked: an open credit-note hold needs a decision first (Documents > Holds).` } : {}) });
       }
       if (p === '/api/invoices/reject') { // manual product: Amazon refused an upload; keep the error, close nothing, offer the fix path
         const num = String(body.number ?? ''); if (!num || num.length > 40) return json(res, 400, { error: 'Which invoice?' });
@@ -602,7 +617,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   reconcileReportMarksAtBoot(db); // round-20: a crashed run cannot prove no newer report arrived - leftover in-flight marks become store_pending and block approvals until a successful store; a failure here fails boot loudly rather than leaving a gap
   // Documents caught in the crash window between Amazon accepting an upload and the local write of
   // its result ('sending') become 'unknown' with a human-visible hold; the next report settles them.
-  try { recoverUncertainUploads(db); } catch { /* invoices table is created on first use */ }
+  // A claim younger than 10 minutes may belong to another live process (overlapping deploy): leave it, and sweep again once it is old enough.
+  const UPLOAD_GRACE_MS = 10 * 60 * 1000;
+  try { recoverUncertainUploads(db, { minAgeMs: UPLOAD_GRACE_MS }); } catch { /* invoices table is created on first use */ }
+  const sweep = setTimeout(() => { try { recoverUncertainUploads(db, { minAgeMs: UPLOAD_GRACE_MS }); } catch { /* ignore */ } }, UPLOAD_GRACE_MS + 5000); sweep.unref?.();
   applyBootReset(db); rotateKeys(db, process.env.APP_SECRET ?? 'dev-secret-change-me', process.env.APP_SECRET_PREVIOUS); purgeSecLog(db); setInterval(() => { try { purgeSecLog(db); } catch (e) { console.error(e.message); } }, 24 * 3600e3).unref(); purge(); const piiPurge = () => { try { const n = purgeBuyerData(db); if (n) console.log(`buyer data removed from ${n} shipment record(s)`); } catch (e) { console.error('buyer-data purge failed', e.message); } }; piiPurge(); setInterval(piiPurge, 6 * 3600e3).unref(); setInterval(purge, 3600e3).unref();
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));

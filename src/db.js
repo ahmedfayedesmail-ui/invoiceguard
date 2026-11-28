@@ -36,6 +36,8 @@ export function openDb(file = ':memory:') {
   -- Owner ruling Nov 28 2026 (A1): an OPEN credit-note hold on a pair blocks every automatic correction document of that original IN THE DATABASE, so no code path, retry or race can issue or re-upload around it. Checked inside whatever transaction does the write.
   CREATE TRIGGER IF NOT EXISTS cn_hold_blocks_issue BEFORE INSERT ON invoices WHEN NEW.kind='rectificativa' AND EXISTS (SELECT 1 FROM integrity_findings f WHERE f.seller_id=NEW.seller_id AND f.status='OPEN' AND f.code IN ('CREDIT_NOTE_IDENTITY_UNPROVEN','CREDIT_NOTE_ROWS_CONFLICT','CREDIT_NOTE_VERDICT_CONTRADICTION') AND (f.shipment_key=NEW.shipment_key OR f.shipment_key IN (SELECT i.shipment_key FROM invoices i WHERE i.seller_id=NEW.seller_id AND i.kind='rectificativa' AND i.rectifies=NEW.rectifies))) BEGIN SELECT RAISE(ABORT,'credit-note hold: an open credit-note hold needs a person before any correction document is issued or sent'); END;
   CREATE TRIGGER IF NOT EXISTS cn_hold_blocks_send BEFORE UPDATE OF upload_status ON invoices WHEN NEW.kind='rectificativa' AND NEW.upload_status='sending' AND EXISTS (SELECT 1 FROM integrity_findings f WHERE f.seller_id=NEW.seller_id AND f.status='OPEN' AND f.code IN ('CREDIT_NOTE_IDENTITY_UNPROVEN','CREDIT_NOTE_ROWS_CONFLICT','CREDIT_NOTE_VERDICT_CONTRADICTION') AND (f.shipment_key=NEW.shipment_key OR f.shipment_key IN (SELECT i.shipment_key FROM invoices i WHERE i.seller_id=NEW.seller_id AND i.kind='rectificativa' AND i.rectifies=NEW.rectifies))) BEGIN SELECT RAISE(ABORT,'credit-note hold: an open credit-note hold needs a person before any correction document is issued or sent'); END;
+  -- Expedition W2-1: the document upload state machine, enforced by the database. 'uploaded' is Amazon-confirmed and terminal: no path may send, re-queue or reject an accepted document again.
+  CREATE TRIGGER IF NOT EXISTS invoice_uploaded_is_terminal BEFORE UPDATE OF upload_status ON invoices WHEN OLD.upload_status='uploaded' AND (NEW.upload_status IS NULL OR NEW.upload_status NOT IN ('uploaded','rejected')) BEGIN SELECT RAISE(ABORT,'state machine: an uploaded document never changes status again (except to rejected, declared by the seller)'); END;
   CREATE TRIGGER IF NOT EXISTS integrity_history_no_update BEFORE UPDATE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
   CREATE TRIGGER IF NOT EXISTS integrity_history_no_delete BEFORE DELETE ON integrity_history BEGIN SELECT RAISE(ABORT,'integrity_history is append-only'); END;
   CREATE TRIGGER IF NOT EXISTS integrity_decision_must_be_valid BEFORE INSERT ON integrity_decisions
@@ -85,6 +87,22 @@ export function openDb(file = ':memory:') {
   // any length this is the anchor for the feed-list settle window - the recovery event's own time is
   // boot time, which can be hours later.
   try { db.exec('ALTER TABLE invoices ADD COLUMN sending_at TEXT'); } catch { /* column exists */ }
+  // Re-review 2 (P3): CREATE TRIGGER IF NOT EXISTS never upgrades an existing trigger, so a database created under an older definition kept the old rule (no seller-declared rejection). Versioned upgrade: if the stored definition lacks the current rule, drop and recreate it inside ONE immediate transaction that re-checks first, so concurrent opens never both try (a bare DROP + CREATE outside a transaction crashed concurrent opens, expedition 6e2a4ca).
+  try {
+    const cur = () => db.prepare("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='invoice_uploaded_is_terminal'").get()?.sql ?? '';
+    if (!cur().includes("NOT IN ('uploaded','rejected')")) {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if (!cur().includes("NOT IN ('uploaded','rejected')")) {
+          db.exec('DROP TRIGGER IF EXISTS invoice_uploaded_is_terminal');
+          db.exec("CREATE TRIGGER invoice_uploaded_is_terminal BEFORE UPDATE OF upload_status ON invoices WHEN OLD.upload_status='uploaded' AND (NEW.upload_status IS NULL OR NEW.upload_status NOT IN ('uploaded','rejected')) BEGIN SELECT RAISE(ABORT,'state machine: an uploaded document never changes status again (except to rejected, declared by the seller)'); END");
+        }
+        db.exec('COMMIT');
+      } catch (e) { try { db.exec('ROLLBACK'); } catch { /* already */ } throw e; }
+    }
+  } catch (e) { if (!/locked|busy/i.test(String(e.message))) throw e; }
+  try { db.exec('ALTER TABLE invoices ADD COLUMN claim_heartbeat TEXT'); } catch { /* column exists */ }
+  try { db.exec('ALTER TABLE invoices ADD COLUMN claim_token TEXT'); } catch { /* column exists */ } // re-review 1: upload claim ownership token (src/claims.js)
   try { db.exec('ALTER TABLE invoices ADD COLUMN vidr_processing_at TEXT'); } catch { /* column exists */ } // round-11: when Amazon's report last stated document-level processing
   // Round-14 (critic round-12): monotonic PER-SELLER upload-attempt sequence. Millisecond clocks
   // cannot order a report request against an attempt claimed in the same ms; a sequence can. Every

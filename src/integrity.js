@@ -16,7 +16,10 @@ function gateWrite(db, seller, s) {
   return writeLedger(db, seller.id, s.key, a.findings);
 }
 /** The ledger write shared by shipments and correction pairs: findings in, blocking findings out. */
-export function writeLedger(db, sid, key, findings, { keepCodes = [] } = {}) {
+/** Findings that a human-decision gate owns. A ledger write that does not itself evaluate such a code must never resolve it silently (re-review 2, same bug class as F1). */
+const GATE_OWNED = ['UPLOADED_THEN_REJECTED', 'REFUND_ROW_INVOICE_STATUS', 'CREDIT_NOTE_IDENTITY_UNPROVEN', 'CREDIT_NOTE_ROWS_CONFLICT', 'CREDIT_NOTE_VERDICT_CONTRADICTION'];
+export function writeLedger(db, sid, key, findings, { keepCodes = [], partial = false } = {}) {
+  // partial: the caller evaluates only the findings it passes. It never resolves any other finding on the key (re-review 2: a CN hold silently resolved a BLOCK). Full evaluators (the shipment and correction gates) leave it false and may resolve what they themselves stopped reporting.
   const a = { findings };
   const now = new Date().toISOString();
   const rows = new Map(db.prepare('SELECT * FROM integrity_findings WHERE seller_id=? AND shipment_key=?').all(sid, key).map(r => [r.code + '|' + r.field, r]));
@@ -32,7 +35,7 @@ export function writeLedger(db, sid, key, findings, { keepCodes = [] } = {}) {
     db.prepare('UPDATE integrity_findings SET last_seen=?, seen_count=seen_count+1 WHERE seller_id=? AND shipment_key=? AND code=? AND field=?').run(now, sid, key, f.code, f.evidence.field); hist(f, 'RECHECKED_SAME');
     if (row.status === 'OPEN') blocking.push(f);
   }
-  for (const row of rows.values()) if (row.status !== 'RESOLVED' && !keepCodes.includes(row.code)) { db.prepare("UPDATE integrity_findings SET status='RESOLVED', resolved_at=? WHERE seller_id=? AND shipment_key=? AND code=? AND field=?").run(now, sid, key, row.code, row.field); db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sid, key, row.code, row.field, 'RESOLVED', row.fingerprint, now); }
+  for (const row of rows.values()) if (row.status !== 'RESOLVED' && !partial && !keepCodes.includes(row.code) && !GATE_OWNED.includes(row.code)) { db.prepare("UPDATE integrity_findings SET status='RESOLVED', resolved_at=? WHERE seller_id=? AND shipment_key=? AND code=? AND field=?").run(now, sid, key, row.code, row.field); db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sid, key, row.code, row.field, 'RESOLVED', row.fingerprint, now); }
   if (changed) logEvent(db, sid, 'integrity', { key, codes: blocking.map(f => f.code), severities: blocking.map(f => f.severity) });
   return blocking.length ? { reason: gateReason(blocking), findings: blocking } : null;
 }
@@ -63,3 +66,10 @@ export function releaseIntegrity(db, sellerId, shipmentKey, code, fingerprint, {
 
 /** Ledger write for a correction pair (one transaction unless the caller holds one). */
 export function correctionLedger(db, sellerId, key, findings) { return db.isTransaction ? writeLedger(db, sellerId, key, findings) : txImm(db, () => writeLedger(db, sellerId, key, findings)); }
+
+/** A later report row on this key no longer shows the condition that opened a gate-owned finding (a corrected report is the evidence). Resolves only that code, never a decision, and records why. */
+export function resolveGateFinding(db, sid, key, code, why) {
+  const r = db.prepare("UPDATE integrity_findings SET status='RESOLVED', resolved_at=? WHERE seller_id=? AND shipment_key=? AND code=? AND status='OPEN'").run(new Date().toISOString(), sid, key, code);
+  if (r.changes) logEvent(db, sid, 'gate_finding_resolved', { key, code, why });
+  return r.changes;
+}

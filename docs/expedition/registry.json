@@ -1,0 +1,137 @@
+{
+  "note": "Real records only. Orchestrator: the single operator agent (chat-01M89X8RHBMGGAEZQMEP3TMSG4). No worker agents were launched by it. Model identity of the runtime is unverified and NOT claimed. 6 independent reviewer agents were launched by Main (4 red reviewers, 2 re-reviewers); all 6 delivered. Final state: re-reviewer 2 closed on its scope; re-reviewer 1 closed on 608a415 with the B2 residual documented.",
+  "branch": "expedition/invoiceguard-product-grade",
+  "base": "8d9e6d9",
+  "agents_launched": 6,
+  "agents_completed": 6,
+  "tasks": [
+    {
+      "id": "W1-T1",
+      "owner": "operator",
+      "domain": "Architecture & Data",
+      "output": "docs/expedition/STATE-MACHINE.md",
+      "evidence": "full-suite transition trace on 8d9e6d9",
+      "status": "done"
+    },
+    {
+      "id": "W1-T2",
+      "owner": "operator",
+      "domain": "Financial Integrity",
+      "output": "docs/expedition/INVARIANTS.md",
+      "status": "done"
+    },
+    {
+      "id": "W1-T3",
+      "owner": "operator",
+      "domain": "Security Intelligence",
+      "output": "docs/expedition/THREAT-MODEL.md",
+      "status": "done"
+    },
+    {
+      "id": "W2-1",
+      "owner": "operator",
+      "domain": "Distributed Systems",
+      "output": "src/db.js trigger invoice_uploaded_is_terminal; test/state-machine.test.js",
+      "status": "implemented (commit fd76adc), CI pending"
+    },
+    {
+      "id": "W1-T4",
+      "owner": "operator",
+      "domain": "UX Intelligence",
+      "output": "finding F-UX-1 in docs/expedition/FINDINGS.md",
+      "evidence": "grep: releaseIntegrity and integrity_findings have no route in src/app.js",
+      "status": "done"
+    },
+    {
+      "id": "W2-2",
+      "owner": "operator",
+      "domain": "UX Intelligence / Reconciliation",
+      "output": "src/holds.js, routes /api/holds and /api/holds/decide, test/holds-queue.test.js",
+      "evidence": "audit/phase-b/pre-fix-run-29-holds-queue.txt (6 of 7 fail before)",
+      "status": "implemented, CI pending"
+    },
+    {
+      "id": "W2-3",
+      "owner": "operator",
+      "domain": "Product/Testing",
+      "output": "tools/demo-e2e.mjs, test/demo-e2e.test.js",
+      "status": "done (local)"
+    },
+    {
+      "id": "W3-0",
+      "owner": "operator",
+      "domain": "Testing & Simulation",
+      "output": "test/model-based-flow.test.js",
+      "evidence": "mutation of hold guards fails the test",
+      "status": "done (local)"
+    },
+    {
+      "id": "W3-1",
+      "agent_id": "agent-01M8GZ15YAG0DHCVSPZVN7BA97",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
+      "domain": "Independent Red Team",
+      "question": "acceptance bypass",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "delivered: no P0/P1; 5 P2 hardening items (unreproduced)",
+      "report_received": true
+    },
+    {
+      "id": "W3-2",
+      "agent_id": "agent-01M8GZ17K6ZXSSB4RZKKT19PJ2",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
+      "domain": "Independent Red Team",
+      "question": "concurrency",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "delivered: 2 P1, 2 P2, 1 P3 (repro scripts exp1-4.mjs)",
+      "report_received": true
+    },
+    {
+      "id": "W3-3",
+      "agent_id": "agent-01M8GZ18JQCN170ENVWW3SE4CZ",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
+      "domain": "Independent Red Team",
+      "question": "holds API/UI",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "delivered: no P0/P1; 2 P2, 2 P3",
+      "report_received": true
+    },
+    {
+      "id": "W3-4",
+      "agent_id": "agent-01M8GZ19P2CK7CENJ6H08W4338",
+      "spawned_by": "main (agent-01M851Z6C7R02GR3KG3Z290KYW), 2026-11-28 13:35 EET",
+      "domain": "Independent Red Team",
+      "question": "state machine",
+      "permissions": "read-only",
+      "target": "HEAD acc7c50",
+      "status": "delivered: 2 P1, 1 P2",
+      "report_received": true
+    },
+    {
+      "id": "RR1",
+      "agent_id": "agent-01M8GZVRMZ3Q8PVCHRNQ8MM2RA",
+      "task": "re-review of boot recovery and duplicate submission, 006e633 then 6e2a4ca",
+      "launched_by": "Main",
+      "status": "delivered 6 reports over 6 rounds; FINAL confirmation on 608a415: all findings closed except the documented B2 residual (abandoned request landing past the quiet window)",
+      "verdict": "NOT FIXED (P1) at 6e2a4ca: in-flight order still duplicates; fixes in third round, not yet confirmed"
+    },
+    {
+      "id": "RR2",
+      "agent_id": "agent-01M8GZVSJ38MAFVV52TFVMVWAA",
+      "task": "re-review of holds UI and remediation diffs, 006e633 then 6e2a4ca",
+      "launched_by": "Main",
+      "status": "delivered; scope fully closed (D14, D15 confirmed)",
+      "verdict": "F1 and UI trio confirmed fixed at 6e2a4ca; 2 P2 and 1 P3 found, fixed in third round, not yet confirmed"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "decision": "Enforce only the terminal 'uploaded' rule in the database; document the odd observed transitions instead of forbidding them",
+      "why": "no Amazon evidence read to prove them impossible; forbidding a real path would strand a document",
+      "needs_owner": false
+    }
+  ]
+}

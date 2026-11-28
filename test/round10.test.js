@@ -1,3 +1,4 @@
+import { authorizeRetry } from './helpers/prove-verdict.js';
 // Round-10: external critic round-8 findings on 32d2266.
 // G1 (P0): the live-Amazon gate was not comprehensive - oauth/start, the OAuth callback, sync()
 //   and the hourly scheduler bypassed ALLOW_LIVE_CONNECT, so a legacy live connection or SP-API
@@ -151,9 +152,10 @@ test('G2 (round-10c contract): report text NEVER lifts the block - only CANCELLE
   db = openDb(); const n3 = seedUnknownCorrection(db);
   proposeRejectedRetry(db, seller, { eventKey: 'UNKNOWN:REFUND:TX9', kind: 'unknown_outcome', number: n3, originalNumber: 'A-2026-000001', shipmentKey: 'REFUND:TX9', rectNumber: n3, action: 'hold', reason: 'test hold' });
   const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
-  decideRepair(db, seller.id, hold.event_key, 'dismissed');
+  assert.throws(() => decideRepair(db, seller.id, hold.event_key, 'dismissed'), /cannot be dismissed/); // ruling 5: generic dismissal gone
+  await authorizeRetry(db, seller.id, hold.event_key);
   const out3 = await settleUnknownDocuments(db, seller, pendingReport(), { api: apiF, validate: vies });
-  assert.deepEqual(out3.resubmitted, [n3], 'a human dismissal clears the same-document resend');
+  assert.deepEqual(out3.resubmitted, [n3], 'a recorded one-shot authorization clears the same-document resend (ruling 5)');
 });
 
 test('G2: a crash-window document (no blocking feed recorded) still uses the orphan cross-check', async () => {

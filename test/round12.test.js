@@ -9,7 +9,7 @@
 //   are preserved: a verdict from a PREVIOUS cycle dies at the claim.
 // P2: feed_conflict inserted a duplicate event every hourly poll. Now one event per
 //   document+feed+status; repeats only bump its counter and last-seen time.
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
 import { acceptReport, matchStoredCreditNote } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -49,7 +49,7 @@ test('R10-1 (invoice): a retry overlapping a sync must not wipe a mid-flight VID
   const inv = db.prepare("SELECT * FROM invoices WHERE seller_id=? AND kind='invoice' AND feed_id='feed-TARGET'").get(seller.id);
   const [head, ...rows] = text.trim().split('\n');
   // Amazon rejects (document level, technical reason) -> reviewed retry proposed, human approves.
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' })), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.equal(statusOf(db, inv.number), 'rejected');
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   assert.ok(q, 'a reviewed retry was proposed');
@@ -61,7 +61,7 @@ test('R10-1 (invoice): a retry overlapping a sync must not wipe a mid-flight VID
   assert.equal(statusOf(db, inv.number), 'sending', 'the retry claimed the document');
   assert.equal(vidrAt(db, inv.number), null, 'the claim cleared the stale verdict BEFORE the call');
   // ...WHILE the call is in flight, the scheduled sync records a fresh InvoiceProcessing verdict.
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' })), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.ok(vidrAt(db, inv.number), 'the mid-flight verdict was stamped');
   // The upload returns success: the fresh verdict must NOT be wiped.
   release(); await retry;
@@ -125,9 +125,9 @@ test('R10-3: a verdict from a previous cycle is cleared at the claim, never prot
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT * FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
   const [head, ...rows] = text.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' })), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.ok(vidrAt(db, inv.number), 'cycle 1 verdict recorded');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' })), { ...seqOpt(db, seller.id), api, validate: vies });
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   await approveRepair(db, seller, q.event_key, { api: { ...api, uploadInvoice: async () => 'feed-B' }, validate: vies });
   assert.equal(vidrAt(db, inv.number), null, 'cleared at the claim');
@@ -147,7 +147,7 @@ test('R10-4: repeated polls aggregate one feed_conflict event instead of duplica
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT * FROM invoices WHERE seller_id=? AND kind='invoice' AND feed_id='feed-TARGET'").get(seller.id);
   const [head, ...rows] = text.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceProcessing' })), { ...seqOpt(db, seller.id), api, validate: vies });
   await pollFeeds(db, seller, api);
   await pollFeeds(db, seller, api);
   await pollFeeds(db, seller, api);

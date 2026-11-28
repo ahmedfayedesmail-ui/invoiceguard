@@ -49,7 +49,7 @@ test('H3 a hold from an EARLIER sync still blocks the next sync: later duplicate
 });
 test('H4 the retry / re-upload path refuses while a hold is open for the pair (issueRectificativa on the credit note key, upload status pending)', async () => {
   const { api, db, seq } = await setup(); const n = cn(db).number; await ing(db, api, doc(good(n)), { reportAttemptSeq: seq, reportRequestedAt: T1 }); await ing(db, api, doc(rejRow(n)), { reportAttemptSeq: seq, reportRequestedAt: T2 });
-  db.prepare("UPDATE invoices SET upload_status='pending' WHERE number=?").run(n); const calls = api.calls.length;
+  db.exec('DROP TRIGGER invoice_uploaded_is_terminal'); /* test setup only: forces the accepted credit note back to pending to exercise the retry path */ db.prepare("UPDATE invoices SET upload_status='pending' WHERE number=?").run(n); const calls = api.calls.length;
   await assert.rejects(() => issueRectificativa(db, seller, JSON.parse(cn(db).json).rectifies.number, { recordKey: KEY, allowUnknownRetry: true }, { api, validate: vies }), /hold|review/i); assert.equal(api.calls.length, calls, 'no re-upload');
 });
 test('H5 the replacement path itself refuses while a hold is open for the pair it belongs to (direct call, CN status forced to uploaded)', async () => {
@@ -106,11 +106,12 @@ async function raceRound(round, delayMs) {
   const payload = join(dir, 'p.json'); writeFileSync(payload, JSON.stringify({ seller, pairReport: rep(rv(), rp()), rejectedReport: doc(rejRow(n)), seq, reqTs: T2.toISOString(), delayMs }));
   const run = (role) => new Promise((res) => { const p = spawn('node', ['--no-warnings', WORKER, file, role, go, payload]); let o = ''; p.stdout.on('data', d => { o += d; }); p.on('close', () => res(o.trim().split('\n').pop())); });
   const a = run('issue'), b = run('contradict'); await new Promise(r => setTimeout(r, 700)); writeFileSync(go, '1'); const outs = (await Promise.all([a, b])).map(x => JSON.parse(x));
-  const d2 = openDb(file); const out = { outs, repl: repl(d2), holds: d2.prepare("SELECT first_seen f FROM integrity_findings WHERE code='CREDIT_NOTE_VERDICT_CONTRADICTION'").all(), issuedAt: d2.prepare("SELECT issued_at t FROM invoices WHERE kind='rectificativa' AND shipment_key LIKE '%Correction::%'").all().map(r => r.t) }; d2.close(); return out;
+  const d2 = openDb(file); const out = { outs, repl: repl(d2), holds: d2.prepare("SELECT first_seen f FROM integrity_findings WHERE code='CREDIT_NOTE_VERDICT_CONTRADICTION'").all(), issuedAt: d2.prepare("SELECT issued_at t FROM invoices WHERE kind='rectificativa' AND shipment_key LIKE '%Correction::%'").all().map(r => r.t), replEv: d2.prepare("SELECT e.rowid r FROM events e WHERE e.type='rectificativa' AND json_extract(e.detail,'$.number') IN (SELECT number FROM invoices WHERE kind='rectificativa' AND shipment_key LIKE '%Correction::%') ORDER BY e.rowid").all().map(r => r.r), holdEv: d2.prepare("SELECT min(rowid) r FROM events WHERE type='credit_note_hold'").get().r }; d2.close(); return out;
 }
 test('A4a REAL race, 6 rounds (two OS processes, one SQLite file, barrier start, varied delays): a replacement may exist only if it was issued BEFORE the hold opened; after the race another pass never adds one', async () => {
   for (let i = 0; i < 6; i++) { const x = await raceRound(i, { issue: (i % 3) * 15, contradict: ((i + 1) % 3) * 15 }); assert.ok(x.outs.every(o => o.ok), JSON.stringify(x.outs)); assert.equal(x.holds.length, 1, 'the contradiction hold exists: ' + JSON.stringify(x));
-    if (x.repl) assert.ok(x.issuedAt[0] <= x.holds[0].f, `round ${i}: replacement issued at ${x.issuedAt[0]} AFTER the hold opened at ${x.holds[0].f}`); assert.ok(x.repl <= 1, 'never two replacements'); }
+    // Expedition: ordering is by COMMIT ORDER (events rowid; the replacement's event is written in the same transaction as its row, the hold's event in the hold's transaction), not by wall-clock stamps taken before a transaction waits for the write lock (that produced a false failure in CI run 46140997242).
+    if (x.repl) assert.ok(x.replEv.length >= 1 && x.holdEv != null && x.replEv[0] < x.holdEv, `round ${i}: replacement event ${x.replEv[0]} is not before the hold event ${x.holdEv}`); assert.ok(x.repl <= 1, 'never two replacements'); }
 });
 test('A4b REAL cross-process order: process 1 opens the hold and EXITS, then process 2 runs the correction pass -> no replacement', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cnrace-')); const file = join(dir, 'race.db'); const api = mkApi(), db = openDb(file); await processReport(db, seller, text, { api, validate: vies, now: NOW }); await processCorrections(db, seller, rep(rv(), rp()), { api, validate: vies }); approveAll(db, seller.id); await processCorrections(db, seller, rep(rv(), rp()), { api, validate: vies });
@@ -122,6 +123,7 @@ test('A4b REAL cross-process order: process 1 opens the hold and EXITS, then pro
 // Added AFTER the fix commit (guard, passes on the fixed code only by design of the trigger): every claim to send a correction document of the pair (the repair retry, the settle retry, the correction retry) is a write of upload_status='sending', which the database refuses while a hold is open.
 test('H7 (guard, added after the fix) the database itself refuses to claim ANY correction document of the pair for sending while a hold is open, and allows it after the hold is released', async () => {
   const { api, db, seq } = await setup(); const n = cn(db).number; await ing(db, api, doc(good(n)), { reportAttemptSeq: seq, reportRequestedAt: T1 }); await ing(db, api, doc(rejRow(n)), { reportAttemptSeq: seq, reportRequestedAt: T2 });
+  db.exec('DROP TRIGGER invoice_uploaded_is_terminal'); /* test setup only: isolates the hold trigger from the terminal-state trigger */
   assert.throws(() => db.prepare("UPDATE invoices SET upload_status='sending' WHERE number=?").run(n), /credit-note hold/);
   const h = hold(db, 'CREDIT_NOTE_VERDICT_CONTRADICTION')[0]; releaseIntegrity(db, seller.id, h.shipment_key, h.code, h.fingerprint, { user: 'reviewer-1', reason: 'compared both reports with the stored credit note' });
   db.prepare("UPDATE invoices SET upload_status='sending' WHERE number=?").run(n);

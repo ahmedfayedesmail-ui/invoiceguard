@@ -105,7 +105,7 @@ test('N3: a rule-pack refusal (warnings) burns NO number either', async () => {
 });
 
 test('N4: recoverUncertainUploads never loses the hold - status write and proposal are atomic', async () => {
-  const db = openDb(); seed(db);
+  const db = openDb(); seed(db); db.exec('DROP TRIGGER invoice_uploaded_is_terminal'); /* test setup only: this test forces an accepted document back to an earlier state to build its scenario */ 
   db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number='A-2026-000001'").run(new Date().toISOString(), seller.id);
   recoverUncertainUploads(db); // no stuck rows here beyond the one above? it processes it - so reset
   db.prepare("UPDATE invoices SET upload_status='sending', sending_at=? WHERE seller_id=? AND number='A-2026-000001'").run(new Date().toISOString(), seller.id);

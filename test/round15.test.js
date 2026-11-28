@@ -9,7 +9,7 @@
 //   CreditNotePending in settleUnknownDocuments, not via CorrectionReversal/Correction:: rows in
 //   processCorrections. His closing principle: it is not enough to stop a stale report from
 //   changing state; it must also never cause a new upload based on old information.
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt, authorizeRetry } from './helpers/prove-verdict.js';
 import { acceptReport } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -59,7 +59,7 @@ async function seedUnknownInvoice(db) {
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT * FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
   const [head, ...rows] = text.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' })), { ...seqOpt(db, seller.id), api, validate: vies });
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   const staleSeq = currentAttemptSeq(db, seller.id); // a report requested NOW predates the retry
   await assert.rejects(approveRepair(db, seller, q.event_key, { api: failingApi(), validate: vies }));
@@ -102,7 +102,11 @@ test('R13-2 (control): a FRESH report still settles the same unknown document - 
   const spy = { uploads: 0 };
   const freshSeq = currentAttemptSeq(db, seller.id); // requested AFTER the unknown attempt
   await processReport(db, seller, text, { api: spyApi(spy), validate: vies, reportAttemptSeq: freshSeq });
-  assert.equal(spy.uploads, 1, 'the fresh report resubmits the same document');
+  assert.equal(spy.uploads, 0, 'ruling 5: a fresh report alone never resubmits an unknown outcome');
+  const hold = db.prepare("SELECT event_key k FROM repairs WHERE kind='unknown_outcome' AND state='proposed'").get();
+  await authorizeRetry(db, seller.id, hold.k);
+  await processReport(db, seller, text, { api: spyApi(spy), validate: vies, reportAttemptSeq: freshSeq });
+  assert.equal(spy.uploads, 1, 'after the one-shot authorization the same document is resubmitted');
   assert.equal(statusOf(db, inv.number), 'submitted');
 });
 

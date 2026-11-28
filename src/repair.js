@@ -8,6 +8,7 @@ import { renderPdf } from './pdf.js';
 import { marketplaceFor } from './spapi.js';
 import { EXTRA_LABEL, totalsOf } from './invoice.js';
 import { logEvent, tx, txImm, nextAttemptSeq } from './db.js';
+import { newClaimToken, guardedUpload, isLiveClaim, lateUploadResult, HEARTBEAT_MS } from './claims.js';
 
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const MANUAL_FIX = 'Correct the invoice yourself in Documents > Invoices - nothing was issued.';
@@ -204,28 +205,30 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   // Round-15 (critic round-13 P1-A): sequence allocation + conditional claim in ONE IMMEDIATE
   // transaction - no report can observe the new counter before the attempt is recorded. A lost
   // claim burns a number (documented, harmless gap).
-  const claim = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
+  const tok_claim = newClaimToken();
+    const claim = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), tok_claim, nextAttemptSeq(db, seller.id), seller.id, number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
   if (!claim.changes) throw new Error(`Document ${number} is already being retried by another run. Nothing was re-uploaded.`);
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
   try {
-    feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) });
+    feedId = await guardedUpload(db, tok_claim, (signal, fence) => api.uploadInvoice({ signal, fence, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) }), { sellerId: seller.id, number: number });
   } catch (e) {
+    if (e.claimLost) throw e;
     // Same discipline as the first upload: an unknown outcome is never resent blindly. The document
     // goes to 'unknown' with a human-visible hold; the next Amazon report settles it.
     if (e.unknownOutcome) {
       // Status write + hold proposal in ONE transaction (round-8): no crash can lose the hold.
       tx(db, () => {
-        db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=?").run(seller.id, number);
+        db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND claim_token=?").run(seller.id, number, tok_claim);
         db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
         logEvent(db, seller.id, 'upload_unknown_outcome', { number, error: e.message });
         proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${row.shipment_key}`, kind: 'unknown_outcome', number, shipmentKey: row.shipment_key, action: 'hold',
-          reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there, cross-checked against Amazon's own feed list, lets the next sync resubmit it; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+          reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. A verdict in the next Amazon report closes it. Nothing is resent automatically: after you check Seller Central you can authorize ONE retry here, recording who checked, when and what you found. That authorization cannot guarantee that the earlier request will not still land later, and then Amazon would hold two submissions.` });
       });
     } else {
       // A DEFINITE refusal (Amazon never accepted the retry): restore 'rejected' so the reviewed
       // retry stays available. Only an unknown outcome holds.
-      db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=?").run(seller.id, number);
+      db.prepare("UPDATE invoices SET upload_status='rejected' WHERE seller_id=? AND number=? AND claim_token=?").run(seller.id, number, tok_claim);
       db.prepare("UPDATE shipments SET status='rejected' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
     }
     throw e;
@@ -233,10 +236,10 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   // Round-12 (critic round-10): the stamp was already cleared at the claim. A VIDR verdict that
   // landed while this upload was in flight is FRESH evidence and wins: the document lands in
   // 'processing' (or keeps the state the verdict set), never regressed to 'submitted'.
-  db.prepare(`UPDATE invoices SET feed_id=?, upload_status = CASE
+  const lateRes = db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE blocked_feed_id END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, seller.id, number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=? AND claim_token=?`).run(feedId, feedId, seller.id, number, tok_claim); if (!lateRes.changes) lateUploadResult(db, seller.id, number, feedId);
   db.prepare("UPDATE shipments SET status='submitted' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   logEvent(db, seller.id, 'rejected_upload_retried', { number });
   return feedId;
@@ -246,22 +249,26 @@ async function retryRejectedUpload(db, seller, number, { api }) {
  * feed id: such documents sit in 'sending'. Local data alone cannot prove whether Amazon holds them,
  * so they become 'unknown' with a human-visible hold - and the next Amazon report settles them
  * (still due there = safe automatic resend of the same document; a verdict = closed). */
-export function recoverUncertainUploads(db) {
+export function recoverUncertainUploads(db, { minAgeMs = 0 } = {}) {
   ensureRepairTables(db);
-  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at, feed_id FROM invoices WHERE upload_status='sending'").all();
+  // Reviewer 2 F1: another process may have an upload in flight RIGHT NOW. With minAgeMs a claim younger than that is left alone (a later sweep picks it up); a row without a readable claim time is always recovered.
+  if (minAgeMs > 0) minAgeMs = Math.max(minAgeMs, 3 * HEARTBEAT_MS); // a grace shorter than a few heartbeats could sweep a live owner between two beats
+  const cutoff = Date.now() - minAgeMs;
+  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at, claim_heartbeat, feed_id, claim_token FROM invoices WHERE upload_status='sending'").all().filter(r => !isLiveClaim(r.claim_token) && !(minAgeMs > 0 && Math.max(Date.parse(r.sending_at ?? '') || 0, Date.parse(r.claim_heartbeat ?? '') || 0) > cutoff));
   for (const inv of stuck) {
     // Round-9 (N4): status write + hold proposal in ONE transaction - a crash between them used to
     // leave the document 'unknown' with no visible hold (settle checks still prevented a resend,
     // but the hold was lost). Synchronous writes only; no awaits inside.
     tx(db, () => {
-      db.prepare("UPDATE invoices SET upload_status='unknown', blocked_feed_id=? WHERE seller_id=? AND number=?").run(inv.feed_id ?? null, inv.seller_id, inv.number);
+      const took = db.prepare("UPDATE invoices SET upload_status='unknown', blocked_feed_id=? WHERE seller_id=? AND number=? AND upload_status='sending' AND claim_token IS ?").run(inv.feed_id ?? null, inv.seller_id, inv.number, inv.claim_token ?? null);
+      if (!took.changes) return; // the owner finished or re-claimed while we looked: not ours to take
       db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=? AND status='sending'").run(inv.seller_id, inv.shipment_key);
       // attemptedAt = when the attempt STARTED (written before the Amazon call); the settle window
       // anchors on it (unknownSettleCheck), not on this recovery event's time, so a long downtime
       // cannot push the original feed outside the cross-check window.
-      logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'the app stopped between Amazon accepting the upload and saving the result' });
+      logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'no result was saved for this upload (the app stopped or was suspended); Amazon may or may not have received it' });
       proposeRejectedRetry(db, { id: inv.seller_id }, { eventKey: `UNKNOWN:${inv.shipment_key}`, kind: 'unknown_outcome', number: inv.number, originalNumber: inv.rectifies ?? inv.number, shipmentKey: inv.shipment_key, rectNumber: inv.kind === 'rectificativa' ? inv.number : null, action: 'hold',
-        reason: `The app stopped while uploading ${inv.number}; Amazon may already have received the document. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the next sync resubmits the same document safely, a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+        reason: `No result was saved for the upload of ${inv.number} (the app stopped or was suspended); Amazon may already hold the document, and the original upload may still complete later. It was NOT resent automatically. A verdict in the next Amazon report closes it. Nothing is resent automatically: after you check Seller Central you can authorize ONE retry here, recording who checked, when and what you found. That authorization cannot guarantee that the earlier request will not still land later, and then Amazon would hold two submissions.` });
     });
   }
   return stuck.length;
@@ -473,19 +480,61 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
 }
 
 /** Record a human decision on a proposal (approved | dismissed). */
-export function decideRepair(db, sellerId, eventKey, decision) {
+/** Ruling 5 (decisions 3 and 4): the ONLY manual exit of an unknown-outcome hold. A specific, recorded, ONE-SHOT authorization of one retry after a Seller Central check. It is an operational decision: it is never stored as an Amazon fact
+ * ("Amazon confirmed absence"), it cannot release a late-landed document (that is the LATE_FEED path), and it does not guarantee that the earlier request will not still land. */
+export function authorizeUnknownRetry(db, sellerId, eventKey, a, user) {
+  ensureRepairTables(db);
+  const prev = db.prepare("SELECT kind, suggestion, state FROM repairs WHERE seller_id=? AND event_key=?").get(sellerId, eventKey);
+  if (!prev || prev.kind !== 'unknown_outcome' || prev.state !== 'proposed') throw new Error('There is no open unknown-outcome hold with that key.');
+  if (String(eventKey).startsWith('LATE_FEED:')) throw new Error('A late-landed feed is not released by an authorization: confirm that exact feed in its own LATE_FEED hold.');
+  let number = null; try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
+  if (!number) throw new Error('The hold does not name a document.');
+  const doc = db.prepare('SELECT sending_at, blocked_feed_id FROM invoices WHERE seller_id=? AND number=?').get(sellerId, number); if (!doc) throw new Error('The document is not one of ours.');
+  const late = db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_upload_result' AND detail LIKE ? LIMIT 1").get(sellerId, `%"number":"${number}"%`);
+  if (late) throw new Error('A feed landed late for this document: it is released only through its own LATE_FEED hold, never by an authorization.');
+  const open = db.prepare("SELECT rowid r FROM events WHERE seller_id=? AND type='unknown_retry_authorized' AND detail LIKE ? ORDER BY rowid DESC LIMIT 1").get(sellerId, `%"number":"${number}"%`);
+  const used = db.prepare("SELECT rowid r FROM events WHERE seller_id=? AND type='unknown_retry_consumed' AND detail LIKE ? ORDER BY rowid DESC LIMIT 1").get(sellerId, `%"number":"${number}"%`);
+  if (open && !(used && used.r > open.r)) throw new Error('One retry is already authorized for this document and has not been used yet.');
+  const who = String(a?.checkedBy ?? '').trim(); if (who.length < 2) throw new Error('Say who checked Seller Central.');
+  if (!String(user ?? '').trim()) throw new Error('An authorization needs the user who gives it.');
+  const at = Date.parse(a?.checkedAt ?? ''); if (!Number.isFinite(at)) throw new Error('Give the time of the Seller Central check.');
+  if (at > Date.now() + 60e3) throw new Error('The check time is in the future.');
+  if (doc.sending_at && at < Date.parse(doc.sending_at)) throw new Error('The check happened before the upload attempt started, so it cannot describe its outcome.');
+  const RESULTS = ['document_not_found', 'feed_not_found', 'feed_failed', 'inconclusive'];
+  if (!RESULTS.includes(a?.result)) throw new Error(`Say what the check found: ${RESULTS.join(', ')}.`);
+  if (String(a?.reason ?? '').trim().length < 10) throw new Error('Give a reason of at least 10 characters.');
+  const feedId = String(a?.feedId ?? '').trim(), feedStatus = String(a?.feedStatus ?? '').trim();
+  if (doc.blocked_feed_id) { if (feedId !== doc.blocked_feed_id) throw new Error(`Name the feed you checked: it is ${doc.blocked_feed_id}.`); if (!feedStatus) throw new Error('Give the status of that feed as you saw it.'); }
+  else if (feedId && !feedStatus) throw new Error('Give the status of the feed you name.');
+  if (a?.acknowledgeRisk !== true) throw new Error('Confirm that you understand the residual risk: an earlier request can still land and Amazon would then hold two submissions.');
+  db.prepare("UPDATE repairs SET state='dismissed' WHERE seller_id=? AND event_key=? AND state='proposed'").run(sellerId, eventKey);
+  logEvent(db, sellerId, 'unknown_retry_authorized', { key: eventKey, number, feedId: feedId || null, feedStatus: feedStatus || null, checkedBy: who, checkedAt: new Date(at).toISOString(), result: a.result, reason: String(a.reason).trim().slice(0, 500), authorizedBy: String(user).trim(), residualRiskAcknowledged: true, kind: 'operational authorization, not an Amazon fact' });
+  return { authorized: true, oneShot: true };
+}
+export function decideRepair(db, sellerId, eventKey, decision, details = null, user = null) {
   ensureRepairTables(db);
   if (!['approved', 'dismissed'].includes(decision)) throw new Error(`Unknown decision "${decision}"`);
   const prev = db.prepare('SELECT kind, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(sellerId, eventKey);
+  // Ruling 5 (decision 4): the generic dismissal of an unknown-outcome hold is GONE (it was a one-click, ten-character door to a resend). Only a LATE_FEED hold keeps its keyed confirmation.
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && !String(eventKey).startsWith('LATE_FEED:')) throw new Error('An unknown-outcome hold cannot be dismissed. Check Seller Central, then record that check and authorize ONE retry (who checked, when, what you found), or wait for Amazon evidence.');
+  // Review (ruling 5, decision 3): confirming a late feed lets ONE resend go out, so it is a human retry authorization and records what decision 3 asks for: who checked Seller Central, when, what was found, and that the residual risk was understood.
+  let lateRec = null;
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && String(eventKey).startsWith('LATE_FEED:')) {
+    const a = details ?? {}; const who = String(a.checkedBy ?? '').trim(); if (who.length < 2) throw new Error('Say who checked Seller Central.');
+    if (!String(user ?? '').trim()) throw new Error('A confirmation needs the user who gives it.');
+    const at = Date.parse(a.checkedAt ?? ''); if (!Number.isFinite(at)) throw new Error('Give the time of the Seller Central check.'); if (at > Date.now() + 60e3) throw new Error('The check time is in the future.');
+    if (!['document_not_found', 'feed_not_found', 'feed_failed', 'inconclusive'].includes(a.result)) throw new Error('Say what the check found: document_not_found, feed_not_found, feed_failed, inconclusive.');
+    if (String(a.reason ?? '').trim().length < 10) throw new Error('Give a reason of at least 10 characters.');
+    if (a.acknowledgeRisk !== true) throw new Error('Confirm that you understand the residual risk: an earlier request can still land and Amazon would then hold two submissions.');
+    lateRec = { checkedBy: who, checkedAt: new Date(at).toISOString(), result: a.result, reason: String(a.reason).trim().slice(0, 500), feedStatus: String(a.feedStatus ?? '').trim() || null, authorizedBy: String(user).trim(), residualRiskAcknowledged: true, kind: 'operational authorization, not an Amazon fact' };
+  }
   const r = db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(decision, sellerId, eventKey);
   if (!r.changes) throw new Error(`No proposed repair ${eventKey}`);
-  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome') {
-    // Human resolution of the feed-list orphan hold: the human checked Amazon, and unknownSettleCheck
-    // treats a dismissal newer than the attempt time as clearing the cross-check, so the next sync
-    // resends the same document if a fresh report still lists it as due.
-    let number = null;
-    try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
-    logEvent(db, sellerId, 'unknown_hold_dismissed', { key: eventKey, number });
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && String(eventKey).startsWith('LATE_FEED:')) {
+    // Keyed lift (re-review 1 round 4 D1): a person who checked Seller Central confirms THIS feed only. The event carries the feed id; unknownSettleCheck lifts the block only for a document whose blocked feed is exactly this one.
+    let number = null; try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
+    const feedId = String(eventKey).slice(String(eventKey).lastIndexOf(':') + 1);
+    logEvent(db, sellerId, 'late_feed_acknowledged', { key: eventKey, number, feedId, ...lateRec });
   }
 }
 

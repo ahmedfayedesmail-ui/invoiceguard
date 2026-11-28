@@ -11,7 +11,7 @@
 // Hardening: apiFor checks ALLOW_LIVE_CONNECT before the client cache; /oauth/amazon/login and
 //   /oauth/amazon/continue are gated while the feature is closed; the duplicate preflight names
 //   the actual document numbers.
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
 import { acceptReport, matchStoredCreditNote } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -67,7 +67,7 @@ test('R9-1: VIDR InvoiceProcessing + feed FATAL -> document stays processing, no
   const db = openDb(); seedSeller(db);
   const { api, uploads, inv } = await uploadFirst(db);
   // VIDR states document-level processing, then the SAME sync's feed poll sees the feed FATAL.
-  await processReport(db, seller, processingReport(), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, processingReport()), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.equal(statusOf(db, inv.number), 'processing');
   assert.ok(vidrAt(db, inv.number), 'the verdict is recorded with its timestamp');
   const p = await pollFeeds(db, seller, api);
@@ -104,7 +104,7 @@ test('R9-2: VIDR CreditNoteProcessing + feed FATAL -> credit note stays processi
 test('R9-3: VIDR InvoiceProcessing + feed CANCELLED -> no automatic rejected, no retry proposal', async () => {
   const db = openDb(); seedSeller(db);
   const { api, inv } = await uploadFirst(db);
-  await processReport(db, seller, processingReport(), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, processingReport()), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.equal(statusOf(db, inv.number), 'processing');
   const cancelled = { ...api, feedStatus: async (id) => ({ status: id === inv.feed_id ? 'CANCELLED' : 'DONE' }) };
   const p = await pollFeeds(db, seller, cancelled);
@@ -134,11 +134,11 @@ test('R9-4: processing from a DONE feed (NO VIDR verdict) + FATAL -> unknown + h
 test('R9-5: a verdict from a PREVIOUS cycle never protects a retry - cleared on resubmission', async () => {
   const db = openDb(); seedSeller(db);
   const { api, inv } = await uploadFirst(db);
-  await processReport(db, seller, processingReport(), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, processingReport()), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.ok(vidrAt(db, inv.number), 'cycle 1: verdict recorded');
   // Amazon then REJECTS the document (document-level) and the human approves the reviewed retry.
   const [head, ...rows] = text.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' })), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.equal(statusOf(db, inv.number), 'rejected');
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   assert.ok(q, 'a reviewed retry was proposed');

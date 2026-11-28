@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
@@ -54,7 +54,7 @@ test('pipeline: uploads valid B2B, holds bad VAT, ignores B2C and already-upload
   // A finished feed is not acceptance: DONE moves to processing, and only the report verdict uploads.
   const p = await pollFeeds(db, seller, api); assert.equal(p.processing, 3); assert.equal(p.rejected, 0);
   assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 0);
-  await processReport(db, seller, withStatus(text, { S1001: 'InvoiceUploaded', S1002: 'InvoiceUploaded' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
+  await processReport(db, seller, proved(db, seller.id, withStatus(text, { S1001: 'InvoiceUploaded', S1002: 'InvoiceUploaded' })), { ...seqOpt(db, seller.id), api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
   assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 2);
   assert.equal(api.calls.length, 3, 'confirmation re-uploads nothing');
 });
@@ -65,7 +65,7 @@ test('acceptance: DONE alone never marks uploaded; the report verdict does, and 
   const p = await pollFeeds(db, seller, api);
   assert.equal(p.processing, 3);
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE upload_status='processing'").get().c, 3);
-  await processReport(db, seller, withStatus(text, { S1001: 'InvoiceRejected', S1002: 'InvoiceUploaded' }, { S1001: 'TotalAmount does not match' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
+  await processReport(db, seller, proved(db, seller.id, withStatus(text, { S1001: 'InvoiceRejected', S1002: 'InvoiceUploaded' }, { S1001: 'TotalAmount does not match' })), { ...seqOpt(db, seller.id), api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
   const s1 = db.prepare("SELECT status, reason FROM shipments WHERE key='SHIPMENT:S1001'").get();
   assert.equal(s1.status, 'rejected'); assert.match(s1.reason, /TotalAmount does not match/);
   assert.equal(db.prepare("SELECT upload_status FROM invoices WHERE shipment_key='SHIPMENT:S1001'").get().upload_status, 'rejected');
@@ -138,10 +138,10 @@ test('SP-API client: LWA token, feed options, throttle, retry on 429', async () 
     throw new Error('unexpected ' + url);
   };
   const sleeps = []; const api = new SpApi({ clientId: 'c', clientSecret: 's', refreshToken: 'r', fetchImpl: f, sleepFn: async (ms) => sleeps.push(ms) });
-  const id = await api.uploadInvoice({ marketplaceId: 'A1RKKUPIHCS9HS', pdf: Buffer.from('x'), orderId: '405-1', shippingId: 'S1', number: 'A-2026-000001', total: 54.45, vat: 9.45 });
+  const id = await api.uploadInvoice({ fence: async () => {}, marketplaceId: 'A1RKKUPIHCS9HS', pdf: Buffer.from('x'), orderId: '405-1', shippingId: 'S1', number: 'A-2026-000001', total: 54.45, vat: 9.45 });
   assert.equal(id, 'F9'); assert.ok(sleeps.includes(1000), 'retried after 429');
   const feedCall = log.find(l => l[1].endsWith('/feeds/2021-06-30/feeds')); assert.equal(feedCall[2], 'Atza|t');
-  await assert.rejects(api.uploadInvoice({ marketplaceId: 'x', pdf: Buffer.from('x'), orderId: '1', number: 'A"1', total: 1, vat: 0 }), /Invalid character/);
+  await assert.rejects(api.uploadInvoice({ fence: async () => {}, marketplaceId: 'x', pdf: Buffer.from('x'), orderId: '1', number: 'A"1', total: 1, vat: 0 }), /Invalid character/);
 });
 
 test('PDF renders and starts with %PDF (written to /tmp/sample-invoice.pdf for visual check)', async () => {
