@@ -265,6 +265,10 @@ export function verifyEvidenceChain(db,sellerId,checkpoint=null) {
 export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date().toISOString()}) {
   if(!writerDb||!readerDb||writerDb===readerDb) throw new TypeError('Separate writer and read-only reader connections are required.');
   if(readerDb.prepare('PRAGMA query_only').get().query_only!==1) throw new Error('Reader must enforce PRAGMA query_only=ON.');
+  const writerFile=writerDb.prepare('PRAGMA database_list').all().find(row=>row.name==='main')?.file??'';
+  const readerFile=readerDb.prepare('PRAGMA database_list').all().find(row=>row.name==='main')?.file??'';
+  if(!writerFile||!readerFile||writerFile!==readerFile)
+    throw new Error('Writer and read-only reader must target the same persistent SQLite database file.');
   if(typeof sellerId!=='string'||!sellerId.trim()||sellerId.length>200) throw new TypeError('A valid seller id is required.');
 
   ensureIntelTables(writerDb);
