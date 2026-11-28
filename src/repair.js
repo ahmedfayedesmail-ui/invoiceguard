@@ -223,7 +223,7 @@ async function retryRejectedUpload(db, seller, number, { api }) {
         db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
         logEvent(db, seller.id, 'upload_unknown_outcome', { number, error: e.message });
         proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${row.shipment_key}`, kind: 'unknown_outcome', number, shipmentKey: row.shipment_key, action: 'hold',
-          reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still pending there, cross-checked against Amazon's own feed list, lets the next sync resubmit it; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+          reason: `The retry upload of invoice ${number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. A verdict in the next Amazon report closes it. Nothing is resent automatically: after you check Seller Central you can authorize ONE retry here, recording who checked, when and what you found. That authorization cannot guarantee that the earlier request will not still land later, and then Amazon would hold two submissions.` });
       });
     } else {
       // A DEFINITE refusal (Amazon never accepted the retry): restore 'rejected' so the reviewed
@@ -268,7 +268,7 @@ export function recoverUncertainUploads(db, { minAgeMs = 0 } = {}) {
       // cannot push the original feed outside the cross-check window.
       logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'no result was saved for this upload (the app stopped or was suspended); Amazon may or may not have received it' });
       proposeRejectedRetry(db, { id: inv.seller_id }, { eventKey: `UNKNOWN:${inv.shipment_key}`, kind: 'unknown_outcome', number: inv.number, originalNumber: inv.rectifies ?? inv.number, shipmentKey: inv.shipment_key, rectNumber: inv.kind === 'rectificativa' ? inv.number : null, action: 'hold',
-        reason: `No result was saved for the upload of ${inv.number} (the app stopped or was suspended); Amazon may already hold the document, and the original upload may still complete later. It was NOT resent automatically. The next Amazon report and Amazon's feed list are checked before any resend, but a late upload from the old attempt cannot be excluded: if it happens a LATE_FEED hold opens and one of the two feeds must be cancelled at Amazon. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+        reason: `No result was saved for the upload of ${inv.number} (the app stopped or was suspended); Amazon may already hold the document, and the original upload may still complete later. It was NOT resent automatically. A verdict in the next Amazon report closes it. Nothing is resent automatically: after you check Seller Central you can authorize ONE retry here, recording who checked, when and what you found. That authorization cannot guarantee that the earlier request will not still land later, and then Amazon would hold two submissions.` });
     });
   }
   return stuck.length;
@@ -480,10 +480,43 @@ async function approveClaimed(db, seller, r, { api, validate } = {}) {
 }
 
 /** Record a human decision on a proposal (approved | dismissed). */
+/** Ruling 5 (decisions 3 and 4): the ONLY manual exit of an unknown-outcome hold. A specific, recorded, ONE-SHOT authorization of one retry after a Seller Central check. It is an operational decision: it is never stored as an Amazon fact
+ * ("Amazon confirmed absence"), it cannot release a late-landed document (that is the LATE_FEED path), and it does not guarantee that the earlier request will not still land. */
+export function authorizeUnknownRetry(db, sellerId, eventKey, a, user) {
+  ensureRepairTables(db);
+  const prev = db.prepare("SELECT kind, suggestion, state FROM repairs WHERE seller_id=? AND event_key=?").get(sellerId, eventKey);
+  if (!prev || prev.kind !== 'unknown_outcome' || prev.state !== 'proposed') throw new Error('There is no open unknown-outcome hold with that key.');
+  if (String(eventKey).startsWith('LATE_FEED:')) throw new Error('A late-landed feed is not released by an authorization: confirm that exact feed in its own LATE_FEED hold.');
+  let number = null; try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
+  if (!number) throw new Error('The hold does not name a document.');
+  const doc = db.prepare('SELECT sending_at, blocked_feed_id FROM invoices WHERE seller_id=? AND number=?').get(sellerId, number); if (!doc) throw new Error('The document is not one of ours.');
+  const late = db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_upload_result' AND detail LIKE ? LIMIT 1").get(sellerId, `%"number":"${number}"%`);
+  if (late) throw new Error('A feed landed late for this document: it is released only through its own LATE_FEED hold, never by an authorization.');
+  const open = db.prepare("SELECT rowid r FROM events WHERE seller_id=? AND type='unknown_retry_authorized' AND detail LIKE ? ORDER BY rowid DESC LIMIT 1").get(sellerId, `%"number":"${number}"%`);
+  const used = db.prepare("SELECT rowid r FROM events WHERE seller_id=? AND type='unknown_retry_consumed' AND detail LIKE ? ORDER BY rowid DESC LIMIT 1").get(sellerId, `%"number":"${number}"%`);
+  if (open && !(used && used.r > open.r)) throw new Error('One retry is already authorized for this document and has not been used yet.');
+  const who = String(a?.checkedBy ?? '').trim(); if (who.length < 2) throw new Error('Say who checked Seller Central.');
+  if (!String(user ?? '').trim()) throw new Error('An authorization needs the user who gives it.');
+  const at = Date.parse(a?.checkedAt ?? ''); if (!Number.isFinite(at)) throw new Error('Give the time of the Seller Central check.');
+  if (at > Date.now() + 60e3) throw new Error('The check time is in the future.');
+  if (doc.sending_at && at < Date.parse(doc.sending_at)) throw new Error('The check happened before the upload attempt started, so it cannot describe its outcome.');
+  const RESULTS = ['document_not_found', 'feed_not_found', 'feed_failed', 'inconclusive'];
+  if (!RESULTS.includes(a?.result)) throw new Error(`Say what the check found: ${RESULTS.join(', ')}.`);
+  if (String(a?.reason ?? '').trim().length < 10) throw new Error('Give a reason of at least 10 characters.');
+  const feedId = String(a?.feedId ?? '').trim(), feedStatus = String(a?.feedStatus ?? '').trim();
+  if (doc.blocked_feed_id) { if (feedId !== doc.blocked_feed_id) throw new Error(`Name the feed you checked: it is ${doc.blocked_feed_id}.`); if (!feedStatus) throw new Error('Give the status of that feed as you saw it.'); }
+  else if (feedId && !feedStatus) throw new Error('Give the status of the feed you name.');
+  if (a?.acknowledgeRisk !== true) throw new Error('Confirm that you understand the residual risk: an earlier request can still land and Amazon would then hold two submissions.');
+  db.prepare("UPDATE repairs SET state='dismissed' WHERE seller_id=? AND event_key=? AND state='proposed'").run(sellerId, eventKey);
+  logEvent(db, sellerId, 'unknown_retry_authorized', { key: eventKey, number, feedId: feedId || null, feedStatus: feedStatus || null, checkedBy: who, checkedAt: new Date(at).toISOString(), result: a.result, reason: String(a.reason).trim().slice(0, 500), authorizedBy: String(user).trim(), residualRiskAcknowledged: true, kind: 'operational authorization, not an Amazon fact' });
+  return { authorized: true, oneShot: true };
+}
 export function decideRepair(db, sellerId, eventKey, decision) {
   ensureRepairTables(db);
   if (!['approved', 'dismissed'].includes(decision)) throw new Error(`Unknown decision "${decision}"`);
   const prev = db.prepare('SELECT kind, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(sellerId, eventKey);
+  // Ruling 5 (decision 4): the generic dismissal of an unknown-outcome hold is GONE (it was a one-click, ten-character door to a resend). Only a LATE_FEED hold keeps its keyed confirmation.
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && !String(eventKey).startsWith('LATE_FEED:')) throw new Error('An unknown-outcome hold cannot be dismissed. Check Seller Central, then record that check and authorize ONE retry (who checked, when, what you found), or wait for Amazon evidence.');
   const r = db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(decision, sellerId, eventKey);
   if (!r.changes) throw new Error(`No proposed repair ${eventKey}`);
   if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && String(eventKey).startsWith('LATE_FEED:')) {
@@ -491,27 +524,7 @@ export function decideRepair(db, sellerId, eventKey, decision) {
     let number = null; try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
     const feedId = String(eventKey).slice(String(eventKey).lastIndexOf(':') + 1);
     logEvent(db, sellerId, 'late_feed_acknowledged', { key: eventKey, number, feedId });
-  } else if (decision === 'dismissed' && prev?.kind === 'unknown_outcome') { // a LATE_FEED dismissal acknowledges a feed Amazon already holds: it must never unlock the resend block of the document (re-review 1 P2)
-    // Human resolution of the feed-list orphan hold: the human checked Amazon, and unknownSettleCheck
-    // treats a dismissal newer than the attempt time as clearing the cross-check, so the next sync
-    // resends the same document if a fresh report still lists it as due.
-    let number = null;
-    try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
-    logEvent(db, sellerId, 'unknown_hold_dismissed', { key: eventKey, number });
   }
-}
-
-/** Round-22 (critic round-19 P1): the protection must exist the moment a manual VIDR is
- * ACCEPTED, before the first await of processing. begin: mark in-flight + store-pending, then
- * store the report EARLY (approvals bind to the freshest data); in_flight stays up through
- * processing. A failed store throws and leaves store_pending=1 (loud AND blocking). The caller
- * lifts in_flight with clearReportInFlight when processing ends (success or failure: the new
- * report is already stored, so approval revalidates against it). VIDR ONLY - an Order Report
- * carries no refund evidence and must never touch the stored VIDR snapshot or release a block. */
-export function beginManualVidr(db, seller, text, { gen, seq, requestedAt, store = storeDownloadedReport }) {
-  markReportInFlight(db, seller.id, requestedAt);
-  markReportStorePending(db, seller.id);
-  store(db, seller.id, { gen, seq, requestedAt, text });
 }
 /** Proposal detection after processing. Only an empty result is quiet; any database/execution
  * error is loud (critic round-19 note). */

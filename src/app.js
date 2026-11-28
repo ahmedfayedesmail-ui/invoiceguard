@@ -22,7 +22,7 @@ import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
 import { pairHoldOpen } from './cn-gate.js';
-import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, ensureRepairTables, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, beginManualVidr, finishManualVidr } from './repair.js';
+import { authorizeUnknownRetry, detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, ensureRepairTables, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, beginManualVidr, finishManualVidr } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
@@ -516,6 +516,10 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const proposed = listRepairs(db, seller.id, 'proposed').map(r => ({ ...r, fresher: snap != null && snap.gen != null && snap.gen > (r.report_gen ?? -1) }));
         const history = ['issued', 'exported', 'uploaded', 'rejected', 'approved', 'dismissed', 'held'].flatMap(st => listRepairs(db, seller.id, st)).slice(0, 50);
         return json(res, 200, { proposed, history });
+      }
+      if (p === '/api/repairs/authorize-retry') {
+        if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
+        try { const r = authorizeUnknownRetry(db, seller.id, body.key, body, user.email ?? user.id); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
       }
       if (p === '/api/repairs/approve' || p === '/api/repairs/dismiss') {
         if (typeof body.key !== 'string' || !body.key || body.key.length > 200) return json(res, 400, { error: 'Choose a repair first.' });
