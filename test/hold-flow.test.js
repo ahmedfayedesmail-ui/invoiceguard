@@ -16,7 +16,7 @@ const one = (([h, r]) => [h, r].join('\n'))(full.trim().split('\n'));
 const vies = async (v) => ({ status: 'valid', vat: v });
 const seller = { id: SID, name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
 const BAD = /undefined|\bnull\b|NaN|\[object|\b[A-Z]{3,}(?:_[A-Z0-9]+)+\b|\d{4}-\d\d-\d\dT\d\d:\d\d[^ ]*Z/;
-const visible = (x) => JSON.stringify({ title: x.title, happened: x.happened, why: x.why, known: x.known, unknown: x.unknown, allowed: x.allowed, blocked: x.blocked, next: x.next, resolutions: x.resolutions, held: x.held, residualRisk: x.residualRisk });
+const visible = (x) => JSON.stringify({ title: x.title, happened: x.happened, why: x.why, known: x.known, unknown: x.unknown, allowed: x.allowed, blocked: x.blocked, next: x.next, resolutions: (x.resolutions ?? []).map(r => r.text), held: x.held?.text, residualRisk: x.residualRisk });
 
 // ---- HF1: coverage. Every code the source can emit as HOLD or BLOCK has plain guidance ----
 test('HF1 every HOLD/BLOCK code emitted anywhere in src/ has a plain title and at least one resolution', () => {

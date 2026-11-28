@@ -27,7 +27,7 @@ import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
 import { PACKS } from './rules.js';
-import { listHolds, decideHold, addHoldNote } from './holds.js';
+import { listHolds, decideHold, addHoldNote, holdSummary } from './holds.js';
 
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
@@ -502,7 +502,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
           return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
         } finally { if (isVidr) clearReportInFlight(db, seller.id); } // the report is already stored: success or failure, approval revalidates against it
       }
-      if (p === '/api/holds') { const holds = listHolds(db, seller.id, { includeClosed: url.searchParams.get('all') === '1' }); return json(res, 200, { holds, truncated: !!holds.truncated }); } // expedition W2-2: the review queue for HOLD and BLOCK findings
+      if (p === '/api/holds') { const holds = listHolds(db, seller.id, { includeClosed: url.searchParams.get('all') === '1' }); return json(res, 200, { holds, truncated: !!holds.truncated, summary: holdSummary(holds) }); } // expedition W2-2: the review queue for HOLD and BLOCK findings
       if (p === '/api/holds/decide') {
         if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
         try { const r = decideHold(db, seller.id, body, user.email ?? user.id); logEvent(db, seller.id, 'hold_decided', { key: body.key, code: body.code }); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
