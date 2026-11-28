@@ -82,3 +82,51 @@ test('R7: the approval is for the PAIR: replacement data changed after the credi
   const r = await run(db, api, pair('Changed After Approval SL', 'CreditNoteUploaded'));
   assert.equal(r.invoices, 0); assert.equal(api.calls.filter(c => c.documentType === 'Invoice').length, 0); assert.equal(finding(db)[0].status, 'OPEN');
 });
+
+// ---- Round 2 (owner review of ca032bb, Nov 28 2026): concurrency of the credit cap, and the zero-value original ----
+test('C1: two concurrent passes over two full reversals of the SAME original never issue more than the creditable balance', async () => {
+  const { api, db } = await start();
+  const rev1 = reversal('CorrectionReversal:X:1'), rev3 = reversal('CorrectionReversal:X:3');
+  await run(db, api, [rev1, rev3]); assert.equal(approveAll(db, seller.id), 2, 'both events are approved while the balance is still untouched');
+  // a slow upload makes the two passes overlap at the await, as two real requests would
+  const slow = { calls: api.calls, uploadInvoice: async (a) => { await new Promise(r => setTimeout(r, 25)); api.calls.push(a); return 'f' + api.calls.length; }, feedStatus: api.feedStatus };
+  await Promise.all([run(db, slow, [rev1, rev3]), run(db, slow, [rev3, rev1]), run(db, slow, [rev3, rev1])]);
+  const orig = Math.abs(db.prepare("SELECT total FROM invoices WHERE kind='invoice'").get().total);
+  const total = credits(db).reduce((a, c) => a + Math.abs(c.total), 0);
+  assert.ok(total <= orig + 0.005, `credited ${total} of ${orig}`); assert.equal(credits(db).length, 1, 'exactly one full credit note'); assert.equal(api.calls.filter(c => c.documentType === 'CreditNote').length, 1, 'one credit note uploaded');
+});
+test('C2: the claim on the original is atomic in the database: a second event cannot reserve what the first one holds, and a failed issue releases it', async () => {
+  const { api, db } = await start();
+  const rev1 = reversal('CorrectionReversal:X:1'), rev3 = reversal('CorrectionReversal:X:3');
+  await run(db, api, [rev1, rev3]); approveAll(db, seller.id);
+  const failing = { calls: [], uploadInvoice: async () => { throw new Error('network down'); }, feedStatus: api.feedStatus };
+  await run(db, failing, [rev1]);
+  const live = () => db.prepare("SELECT count(*) c FROM invoices WHERE kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND upload_status<>'rejected'").get().c;
+  await run(db, api, [rev3, rev1]); assert.ok(live() <= 1, 'never two live credit notes on one original'); assert.ok(credits(db).length <= 1);
+});
+const zeroRow = (over = {}) => { const r = [...base]; ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount'].forEach(n => { r[ix(n)] = '0.00'; }); for (const [k, v] of Object.entries(over)) r[ix(k)] = v; return r; };
+// Phase B holds a 0.00 shipment (NONPOSITIVE_TOTAL), so a zero-value original is built the way the earlier tool could have issued one: a normal original whose stored document and total are rewritten to 0.00. The reversal row is 0.00; the replacement rows carry normal amounts so the integrity gate has nothing to hold.
+const startZero = async () => { const api = mkApi(), db = openDb(); await processReport(db, seller, text, { api, validate: vies, now: NOW });
+  const row = db.prepare("SELECT number, json FROM invoices WHERE kind='invoice'").get(); const j = JSON.parse(row.json); j.totals = { ...j.totals, incl: 0, vat: 0, excl: 0 };
+  db.prepare("UPDATE invoices SET json=?, total=0, vat=0 WHERE number=?").run(JSON.stringify(j), row.number); const o = db.prepare("SELECT total, number FROM invoices WHERE kind='invoice'").get(); api.calls.length = 0; return { api, db, o }; };
+test('Z1: a zero-value original: no replacement before a documented decision on the pair, with or without a reversal row', async () => {
+  for (const withReversal of [true, false]) {
+    const { api, db, o } = await startZero(); assert.ok(o && Math.abs(o.total) < 0.005, 'fixture: the original has a zero total');
+    const rev = zeroRow({ 'transaction-type': 'REFUND', 'transaction-id': 'CorrectionReversal:X:1', 'invoice-status': 'CreditNotePending' }).join('\t');
+    const rep = replacement('Correction::X:2', 'Zero Name SL'); // normal amounts: the integrity gate has nothing to hold, so only the pair review stands between the zero original and the replacement
+    const rows = withReversal ? [rev, rep] : [rep];
+    const r = await run(db, api, rows);
+    assert.equal(api.calls.length, 0, `nothing issued before a decision (reversal row: ${withReversal})`); assert.equal(r.invoices, 0);
+    const open = db.prepare("SELECT * FROM integrity_findings WHERE code=? AND status='OPEN'").all(CODE); assert.equal(open.length, 1, 'a durable HUMAN_DECISION hold exists');
+    approveAll(db, seller.id); const r2 = await run(db, api, rows);
+    assert.equal(r2.invoices, 1, 'after the decision exactly one replacement'); assert.equal(api.calls.filter(c => c.documentType === 'Invoice').length, 1); assert.equal(api.calls.filter(c => c.documentType === 'CreditNote').length, 0, 'no credit note for a zero original');
+    await run(db, api, rows); assert.equal(api.calls.length, 1, 'idempotent');
+  }
+});
+test('Z2: a zero-value original: changed replacement data after the decision voids it', async () => {
+  const { api, db } = await startZero();
+  const mk = (name) => replacement('Correction::X:2', name);
+  await run(db, api, [mk('Zero Name SL')]); approveAll(db, seller.id);
+  const r = await run(db, api, [mk('Changed Name SL')]); assert.equal(r.invoices, 0); assert.equal(api.calls.length, 0);
+  assert.equal(db.prepare("SELECT status FROM integrity_findings WHERE code=?").get(CODE).status, 'OPEN');
+});
