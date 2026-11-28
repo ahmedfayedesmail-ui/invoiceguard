@@ -28,6 +28,7 @@ import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
 import { PACKS } from './rules.js';
 import { listHolds, decideHold, addHoldNote } from './holds.js';
+import { openIntelReader, sealSellerEvidence, verifyEvidenceChain, getEvidenceCoverage, buildDocumentTimeline, exportEvidenceBundle } from './intel/store.js';
 
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
@@ -53,6 +54,7 @@ const apis = new Map(); // seller_id -> api instance (mock keeps state)
 
 export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'dev-secret-change-me', validate = cachedValidator(validateVat), env = process.env, oauthFetch = fetch } = {}) {
   migrateAuth(db); migrateSecurity(db); migrateSecLog(db); ensureRepairTables(db); // round-22: the pack/mark/reject routes touch the repairs table directly, so it must exist from boot, not only after the first manual upload
+  const mainDbPath = db.prepare('PRAGMA database_list').all().find(row => row.name === 'main')?.file ?? ''; // evidence sealing requires a persistent database and a separate read-only connection
   const MAX_INFLIGHT = Number(process.env.MAX_INFLIGHT ?? 400); let inflight = 0;
   const fails = new Map(); // login throttle: key -> { n, until }
   const FAIL_MAX = 8, FAIL_WINDOW = 15 * 60e3;
@@ -415,6 +417,69 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         db.prepare('UPDATE users SET seller_id=? WHERE id=?').run(id, user.id); return json(res, 200, { ok: true });
       }
       const seller = sellerOf(user); if (!seller) return json(res, 409, { error: 'Complete your seller profile first' });
+
+      // Sealed evidence is an explicitly requested, seller-scoped advisory snapshot.
+      // It never feeds back into invoice, hold, claim, repair, upload or decision paths.
+      const intelTablesReady = () => db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('intel_evidence_chain','intel_evidence_head')").get().n === 2;
+      const sellerHasSealedEvidence = () => intelTablesReady() &&
+        Boolean(db.prepare('SELECT 1 FROM intel_evidence_chain WHERE seller_id=? LIMIT 1').get(seller.id));
+      if (p === '/api/intel/seal') {
+        if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
+        if (!mainDbPath) return json(res, 503, { code: 'PERSISTENT_DATABASE_REQUIRED', error: 'Evidence sealing is available only when InvoiceGuard is using its persistent database. No financial records were changed.' });
+        let reader = null;
+        try {
+          reader = openIntelReader(mainDbPath);
+          const result = sealSellerEvidence({ writerDb: db, readerDb: reader, sellerId: seller.id });
+          return json(res, 200, {
+            ok: true,
+            added: result.added,
+            head: result.head,
+            verification: result.verification,
+            coverage: result.coverage,
+            sourceCount: result.sourceCount,
+            authority: 'ADVISORY_ONLY',
+            changesFinancialState: false
+          });
+        } catch (e) {
+          if (e?.busy) throw e;
+          console.error('intel evidence seal refused', e?.message || e);
+          return json(res, 409, { code: 'EVIDENCE_SEAL_REFUSED', error: 'The evidence snapshot could not be sealed. No invoice or financial decision was changed.' });
+        } finally {
+          try { reader?.close(); } catch {}
+        }
+      }
+      if (p === '/api/intel/timeline') {
+        if (req.method !== 'GET') return json(res, 405, { error: 'Use GET.' });
+        const number = String(url.searchParams.get('number') ?? '').trim();
+        if (!number || number.length > 200) return json(res, 400, { error: 'Choose a valid invoice number.' });
+        if (!db.prepare('SELECT 1 FROM invoices WHERE seller_id=? AND number=?').get(seller.id, number)) return json(res, 404, { error: 'Invoice not found.' });
+        if (!sellerHasSealedEvidence()) return json(res, 409, { code: 'EVIDENCE_NOT_SEALED', error: 'No sealed evidence snapshot exists for this seller yet.' });
+        const verification = verifyEvidenceChain(db, seller.id);
+        if (!verification.valid) return json(res, 409, { code: 'EVIDENCE_CHAIN_INVALID', error: 'The sealed evidence chain did not verify. Do not rely on this timeline.' });
+        const timeline = buildDocumentTimeline(db, seller.id, number);
+        return json(res, 200, {
+          ...timeline,
+          checkpoint: { sellerId: seller.id, sequence: verification.sequence, hash: verification.hash },
+          verification,
+          authority: 'ADVISORY_ONLY',
+          changesFinancialState: false
+        });
+      }
+      if (p === '/api/intel/export') {
+        if (req.method !== 'GET') return json(res, 405, { error: 'Use GET.' });
+        if (!sellerHasSealedEvidence()) return json(res, 409, { code: 'EVIDENCE_NOT_SEALED', error: 'No sealed evidence snapshot exists for this seller yet.' });
+        const verification = verifyEvidenceChain(db, seller.id);
+        if (!verification.valid) return json(res, 409, { code: 'EVIDENCE_CHAIN_INVALID', error: 'The sealed evidence chain did not verify. Export refused.' });
+        const bundle = exportEvidenceBundle(db, seller.id);
+        const filename = 'invoiceguard-evidence-' + new Date().toISOString().slice(0, 10) + '.json';
+        res.writeHead(200, {
+          'content-type': 'application/json; charset=utf-8',
+          'content-disposition': 'attachment; filename="' + filename + '"',
+          'cache-control': 'no-store',
+          'x-invoiceguard-checkpoint': verification.hash
+        });
+        return res.end(JSON.stringify(bundle, null, 2));
+      }
       if (p === '/api/seller/profile') { const c = cleanProfile(body); if (c.errors.length) return json(res, 400, { error: c.errors.join('. ') }); db.prepare('UPDATE sellers SET profile=? WHERE id=?').run(JSON.stringify(c.profile), seller.id); logEvent(db, seller.id, 'profile_updated', { fields: Object.keys(c.profile) }); return json(res, 200, { ok: true, profile: c.profile }); }
       if (p === '/api/amazon/oauth/start') { if (env.ALLOW_LIVE_CONNECT !== '1') return json(res, 403, { error: 'A direct Amazon connection is not open yet - the pilot runs on sample data only, exactly as the homepage says.' }); const r = oauth.start(user, seller, body); return json(res, r.code, r.body); }
       if (p === '/api/amazon/connect') {

@@ -1,0 +1,363 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { spawn } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
+import { openDb } from '../src/db.js';
+import {
+  openIntelReader, ensureIntelTables, sealSellerEvidence, verifyEvidenceChain, getEvidenceCoverage,
+  exportEvidenceBundle, verifyEvidenceBundle, buildDocumentTimeline, compareDocumentEvidenceBundles
+} from '../src/intel/store.js';
+
+function fixture(t) {
+  const dir = mkdtempSync(join(tmpdir(), 'invoiceguard-intel-'));
+  const path = join(dir, 'seller.db');
+  const db = openDb(path);
+  db.prepare('INSERT INTO sellers (id,name,created_at) VALUES (?,?,?)').run('seller-A','Test Seller','2026-11-28T10:00:00.000Z');
+  db.prepare('INSERT INTO events (ts,seller_id,type,detail) VALUES (?,?,?,?)')
+    .run('2026-11-28T10:01:00.000Z','seller-A','invoice_created',JSON.stringify({number:'A-2026-000001',status:'ready',reason:'private free text'}));
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run('seller-A','A-2026-000001','SHIP-1','invoice','2026-11-28T10:00:00.000Z',59.90,9.90,'ready');
+  t.after(()=>{ try{db.close()}catch{}; rmSync(dir,{recursive:true,force:true}); });
+  return {db,path};
+}
+function runWorker(path,sellerId) {
+  return new Promise((resolvePromise,reject)=>{
+    const p=spawn(process.execPath,[resolve('test/intel-seal-worker.mjs'),path,sellerId],{stdio:['ignore','pipe','pipe']});
+    let out='',err=''; p.stdout.on('data',x=>out+=x); p.stderr.on('data',x=>err+=x);
+    p.on('error',reject); p.on('close',code=>code===0?resolvePromise(JSON.parse(out)):reject(new Error(err||('worker exited '+code))));
+  });
+}
+
+test('an unsealed seller cannot export an empty evidence bundle', t => {
+  const {db}=fixture(t);
+  ensureIntelTables(db);
+  assert.throws(
+    () => exportEvidenceBundle(db,'seller-A'),
+    /before this seller has a sealed snapshot/
+  );
+});
+
+test('seal is deterministic and idempotent; bundle verifies; financial tables remain unchanged', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  const before=db.prepare('SELECT * FROM invoices WHERE seller_id=?').all('seller-A');
+  const a=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.ok(a.added>=3);
+  assert.equal(a.coverage.status,'UNKNOWN');
+  assert.equal(verifyEvidenceChain(db,'seller-A').valid,true);
+  assert.equal(getEvidenceCoverage(db,'seller-A').status,'UNKNOWN');
+  const invoiceEntry=db.prepare("SELECT canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='invoice_snapshot'").get('seller-A');
+  const invoiceBody=JSON.parse(invoiceEntry.canonical_json);
+  assert.equal(invoiceBody.payload.totalCents,5990);
+  assert.equal(invoiceBody.payload.vatCents,990);
+  const bundle=exportEvidenceBundle(db,'seller-A');
+  assert.equal(verifyEvidenceBundle(bundle).valid,true);
+  assert.deepEqual(db.prepare('SELECT * FROM invoices WHERE seller_id=?').all('seller-A'),before);
+  const b=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(b.added,0,'identical source snapshots must not create duplicate chain entries');
+  assert.deepEqual(b.head,a.head);
+  assert.equal(bundle.chain.some(x=>x.kind==='coverage_statement'),true);
+  assert.equal(bundle.chain.some(x=>x.canonicalJson.includes('private free text')),false,'free text is represented by a digest');
+});
+
+test('sub-cent money is refused rather than rounded into financial evidence', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare("UPDATE invoices SET total=? WHERE seller_id=? AND number=?").run(1.005,'seller-A','A-2026-000001');
+  assert.throws(
+    () => sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /sub-cent precision/
+  );
+  assert.equal(db.prepare("SELECT total FROM invoices WHERE seller_id=? AND number=?").get('seller-A','A-2026-000001').total,1.005);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM intel_evidence_chain WHERE seller_id=?").get('seller-A').n,0);
+});
+
+test('oversized financial identifiers are rejected instead of being silently truncated', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  const longNumber='X'.repeat(181);
+  db.prepare("UPDATE invoices SET number=? WHERE seller_id=? AND number=?").run(longNumber,'seller-A','A-2026-000001');
+  assert.throws(
+    () => sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /supported length/
+  );
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM intel_evidence_chain WHERE seller_id=?").get('seller-A').n,0);
+});
+
+test('reader is read-only and sealed chain rows cannot be updated or deleted', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  assert.throws(()=>reader.exec("INSERT INTO events (ts,seller_id,type,detail) VALUES ('x','seller-A','x','{}')"),/readonly|query.only/i);
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.throws(()=>db.exec("UPDATE intel_evidence_chain SET kind='forged' WHERE seller_id='seller-A'"),/append-only/i);
+  assert.throws(()=>db.exec("DELETE FROM intel_evidence_chain WHERE seller_id='seller-A'"),/append-only/i);
+  assert.throws(()=>db.exec("DELETE FROM intel_evidence_head WHERE seller_id='seller-A'"),/cannot be deleted/i);
+});
+
+test('a changed invoice snapshot is appended to its document timeline', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.prepare("UPDATE invoices SET upload_status='uploaded', feed_id='feed-1' WHERE seller_id=? AND number=?").run('seller-A','A-2026-000001');
+  const later=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.ok(later.added>=1);
+  const timeline=buildDocumentTimeline(db,'seller-A','A-2026-000001');
+  assert.ok(timeline.events.length>=2);
+  assert.match(timeline.trajectoryDigest,/^[a-f0-9]{64}$/);
+});
+
+test('external checkpoint detects a truncated export and a modified entry', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const bundle=exportEvidenceBundle(db,'seller-A');
+  const short={...bundle,chain:bundle.chain.slice(0,-1)};
+  assert.equal(verifyEvidenceBundle(short,{checkpoint:bundle.checkpoint}).valid,false);
+  const modified={...bundle,chain:bundle.chain.map(x=>({...x}))};
+  modified.chain[0].canonicalJson=modified.chain[0].canonicalJson.replace('seller-A','seller-B');
+  assert.equal(verifyEvidenceBundle(modified).valid,false);
+});
+
+test('deletion of a previously sealed append-only source row is marked INCOMPLETE', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','AMOUNT_MISMATCH','total','opened','fingerprint-1','2026-11-28T10:02:00.000Z');
+  db.prepare('INSERT INTO shipments (seller_id,key,order_id,shipping_id,total,vat,shipment_date,due_at,status,reason,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','ORDER-1','SHIP-1',59.90,9.90,'2026-11-28','2026-12-28','open','test','2026-11-28T10:01:00.000Z');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER integrity_history_no_delete');
+  db.prepare('DELETE FROM integrity_history WHERE seller_id=? AND shipment_key=?').run('seller-A','SHIP-1');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.missingPreviouslySealed.length>=1);
+  assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
+});
+
+test('deletion of a previously sealed mutable snapshot is marked INCOMPLETE', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.prepare('DELETE FROM invoices WHERE seller_id=? AND number=?').run('seller-A','A-2026-000001');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.missingMutableSnapshots.length>=1);
+  assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
+});
+
+test('a mutable row that reappears after a sealed absence gets a new version', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const original=db.prepare("SELECT source_ref FROM intel_evidence_chain WHERE seller_id=? AND kind='invoice_snapshot'").get('seller-A').source_ref;
+
+  db.prepare('DELETE FROM invoices WHERE seller_id=? AND number=?').run('seller-A','A-2026-000001');
+  const absent=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(absent.coverage.status,'INCOMPLETE');
+
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run('seller-A','A-2026-000001','SHIP-1','invoice','2026-11-28T10:00:00.000Z',59.90,9.90,'ready');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const rows=db.prepare("SELECT source_ref,canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='invoice_snapshot' ORDER BY seq").all('seller-A');
+  assert.equal(rows.length,2);
+  assert.notEqual(rows[1].source_ref,original);
+  assert.equal(JSON.parse(rows[1].canonical_json).previousSourceRef,original);
+  assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
+});
+
+test('a corrupted prior chain is refused rather than silently extended', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER intel_chain_no_update');
+  db.prepare("UPDATE intel_evidence_chain SET entry_hash=? WHERE seller_id=? AND seq=1")
+    .run('f'.repeat(64),'seller-A');
+  assert.equal(verifyEvidenceChain(db,'seller-A').valid,false);
+  assert.throws(
+    () => sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /Refusing to append to a broken evidence chain/
+  );
+});
+
+test('a missing head checkpoint is detected and cannot be exported as valid', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER intel_head_no_delete');
+  db.prepare('DELETE FROM intel_evidence_head WHERE seller_id=?').run('seller-A');
+  const verification=verifyEvidenceChain(db,'seller-A');
+  assert.equal(verification.valid,false);
+  assert.equal(verification.reason,'head-missing');
+  assert.throws(()=>exportEvidenceBundle(db,'seller-A'),/broken evidence chain/);
+});
+
+test('mutable snapshot transitions preserve an A-to-B-to-A return', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO shipments (seller_id,key,total,vat,status,updated_at) VALUES (?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1',59.90,9.90,'open','2026-11-28T10:00:00.000Z');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+
+  db.prepare('UPDATE shipments SET total=?,updated_at=? WHERE seller_id=? AND key=?')
+    .run(60.00,'2026-11-28T10:02:00.000Z','seller-A','SHIP-1');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+
+  // Return the full observed payload to its original value. A global unique
+  // payload reference must not erase this later state transition.
+  db.prepare('UPDATE shipments SET total=?,updated_at=? WHERE seller_id=? AND key=?')
+    .run(59.90,'2026-11-28T10:00:00.000Z','seller-A','SHIP-1');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+
+  const rows=db.prepare("SELECT source_ref,canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='shipment_snapshot' ORDER BY seq").all('seller-A');
+  assert.equal(rows.length,3);
+  assert.equal(new Set(rows.map(row=>row.source_ref)).size,3);
+  const bodies=rows.map(row=>JSON.parse(row.canonical_json));
+  assert.deepEqual(bodies.map(body=>body.payload.totalCents),[5990,6000,5990]);
+  assert.equal(bodies[2].previousSourceRef,bodies[1].sourceRef);
+});
+
+test('invoice timeline includes related shipment integrity history without mixing sibling invoices', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','AMOUNT_MISMATCH','total','opened','fingerprint-1','2026-11-28T10:02:00.000Z');
+  db.prepare('INSERT INTO events (ts,seller_id,type,detail) VALUES (?,?,?,?)')
+    .run('2026-11-28T10:02:30.000Z','seller-A','held',JSON.stringify({key:'SHIP-1',reason:'private hold reason'}));
+  db.prepare('INSERT INTO shipments (seller_id,key,order_id,shipping_id,total,vat,shipment_date,due_at,status,reason,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','ORDER-1','SHIP-1',59.90,9.90,'2026-11-28','2026-12-28','open','test','2026-11-28T10:01:00.000Z');
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run('seller-A','SIBLING-2','SHIP-1','rectificativa','2026-11-28T10:03:00.000Z',-59.90,-9.90,'ready');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const timeline=buildDocumentTimeline(db,'seller-A','A-2026-000001');
+  assert.deepEqual(timeline.relatedShipmentKeys,['SHIP-1']);
+  assert.ok(timeline.events.some(event=>event.kind==='integrity_transition'));
+  assert.ok(timeline.events.some(event=>event.kind==='seller_or_system_event'&&event.documentKey==='SHIP-1'&&event.payload.eventType==='held'));
+  assert.equal(timeline.events.some(event=>event.kind==='invoice_snapshot'&&event.documentKey==='SIBLING-2'),false);
+  assert.equal(timeline.relatedEvidenceCount,3);
+  assert.equal(timeline.events.some(event=>JSON.stringify(event.payload).includes('private hold reason')),false);
+});
+
+test('verified evidence bundle comparison localizes the first document difference and stays advisory', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const baseline=exportEvidenceBundle(db,'seller-A');
+  db.prepare("UPDATE invoices SET upload_status='uploaded',feed_id='feed-compare' WHERE seller_id=? AND number=?")
+    .run('seller-A','A-2026-000001');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const comparison=exportEvidenceBundle(db,'seller-A');
+  const result=compareDocumentEvidenceBundles(baseline,comparison,'A-2026-000001');
+  assert.equal(result.valid,true);
+  assert.equal(result.unchanged,false);
+  assert.equal(result.divergence.reason,'trajectory-length-diverged');
+  assert.equal(result.authority,'ADVISORY_ONLY');
+  assert.equal(result.changesFinancialState,false);
+  const tampered={...comparison,chain:comparison.chain.map(row=>({...row}))};
+  tampered.chain[0].canonicalJson=tampered.chain[0].canonicalJson.replace('seller-A','seller-B');
+  assert.equal(compareDocumentEvidenceBundles(baseline,tampered,'A-2026-000001').valid,false);
+});
+
+test('missing append-only protection is surfaced as INCOMPLETE', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.exec('DROP TRIGGER integrity_history_no_update');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.unprotectedAppendLogs.includes('integrity_history'));
+  assert.ok(result.coverage.reasons.some(reason=>reason.includes('protection triggers')));
+});
+
+test('two independent processes sealing one seller produce one ordered chain', async t => {
+  const {db,path}=fixture(t);
+  db.close();
+  const results=await Promise.all([runWorker(path,'seller-A'),runWorker(path,'seller-A')]);
+  const check=new DatabaseSync(path,{readOnly:true,timeout:5000});
+  t.after(()=>check.close());
+  const head=check.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get('seller-A');
+  const rows=check.prepare('SELECT seq FROM intel_evidence_chain WHERE seller_id=? ORDER BY seq').all('seller-A');
+  assert.equal(rows.length,head.seq);
+  assert.deepEqual(rows.map(x=>x.seq),Array.from({length:rows.length},(_,i)=>i+1));
+  assert.equal(results.reduce((n,x)=>n+x.added,0),rows.length);
+  assert.equal(verifyEvidenceChain(check,'seller-A').valid,true);
+});
+
+
+test('bundle checkpoint and summary coverage are anchored by the sealed chain', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const bundle=exportEvidenceBundle(db,'seller-A');
+
+  const missingCheckpoint={...bundle};
+  delete missingCheckpoint.checkpoint;
+  assert.equal(verifyEvidenceBundle(missingCheckpoint).valid,false);
+  assert.equal(verifyEvidenceBundle(missingCheckpoint).reason,'checkpoint-missing');
+
+  const alteredCoverage={...bundle,coverage:{...bundle.coverage,status:'COMPLETE'}};
+  assert.equal(verifyEvidenceBundle(alteredCoverage).valid,false);
+  assert.equal(verifyEvidenceBundle(alteredCoverage).reason,'coverage-mismatch');
+
+  const externalOnly={...bundle};
+  delete externalOnly.checkpoint;
+  assert.equal(verifyEvidenceBundle(externalOnly,{checkpoint:bundle.checkpoint}).valid,true);
+
+  const empty=compareDocumentEvidenceBundles(bundle,bundle,'DOCUMENT-NOT-IN-BUNDLE');
+  assert.equal(empty.valid,true);
+  assert.equal(empty.comparable,false);
+  assert.equal(empty.unchanged,false,'two empty trajectories must not be presented as an unchanged document');
+});
+
+
+test('reader and writer must reference the same persistent database file', t => {
+  const {db,path}=fixture(t);
+  const otherPath=join(tmpdir(),'invoiceguard-intel-other-'+process.pid+'-'+Date.now()+'.db');
+  const otherDb=openDb(otherPath);
+  const wrongReader=openIntelReader(otherPath);
+  t.after(()=>{try{wrongReader.close()}catch{};try{otherDb.close()}catch{};rmSync(otherPath,{force:true});});
+  assert.throws(
+    ()=>sealSellerEvidence({writerDb:db,readerDb:wrongReader,sellerId:'seller-A'}),
+    /same persistent SQLite database file/
+  );
+  const memoryWriter=openDb();
+  t.after(()=>{try{memoryWriter.close()}catch{}});
+  const correctReader=openIntelReader(path);
+  t.after(()=>{try{correctReader.close()}catch{}});
+  assert.throws(
+    ()=>sealSellerEvidence({writerDb:memoryWriter,readerDb:correctReader,sellerId:'seller-A'}),
+    /same persistent SQLite database file/
+  );
+});
+
+
+test('snapshot append order is deterministic and does not use source timestamps', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO events (ts,seller_id,type,detail) VALUES (?,?,?,?)')
+    .run('2026-11-01T00:00:00.000Z','seller-A','earlier_timestamp','{}');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const rows=db.prepare("SELECT canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='seller_or_system_event' ORDER BY seq").all('seller-A');
+  assert.deepEqual(rows.map(row=>JSON.parse(row.canonical_json).sourceKey),['1','2']);
+  assert.deepEqual(rows.map(row=>JSON.parse(row.canonical_json).payload.occurredAt),[
+    '2026-11-28T10:01:00.000Z','2026-11-01T00:00:00.000Z'
+  ]);
+});
+
+test('invalid source keys and malformed external bundle rows fail closed', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run('seller-A',null,'SHIP-2','invoice','2026-11-28T10:00:00.000Z',10,1,'ready');
+  assert.throws(()=>sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),/no usable key/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM intel_evidence_chain WHERE seller_id=?').get('seller-A').n,0);
+
+  db.prepare("DELETE FROM invoices WHERE seller_id=? AND number IS NULL").run('seller-A');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const bundle=exportEvidenceBundle(db,'seller-A');
+  assert.equal(verifyEvidenceBundle({...bundle,chain:[null]}).valid,false);
+});
+
+
+test('a same-named but ineffective source trigger is not counted as append-only protection', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.exec('DROP TRIGGER integrity_history_no_delete');
+  db.exec('CREATE TRIGGER integrity_history_no_delete BEFORE DELETE ON integrity_history BEGIN SELECT 1; END');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.unprotectedAppendLogs.includes('integrity_history'));
+});
+
+test('a same-named but ineffective evidence-chain trigger blocks further sealing', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.exec('DROP TRIGGER intel_chain_no_delete');
+  db.exec('CREATE TRIGGER intel_chain_no_delete BEFORE DELETE ON intel_evidence_chain BEGIN SELECT 1; END');
+  assert.throws(
+    ()=>sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'}),
+    /Missing or invalid append-only evidence protection: intel_chain_no_delete/
+  );
+});
