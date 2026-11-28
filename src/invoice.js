@@ -46,7 +46,7 @@ export const ES_INTRA_EU_FALLBACK = 'Entrega intracomunitaria exenta de IVA, art
 export const EU27 = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE']);
 // Prefix a VAT number carries when it differs from the ISO country code.
 const VAT_PREFIX = { GR: 'EL' };
-// Territories that sit outside the EU VAT area although the country code is an EU one. Only the billing postal code is on the shipment, so this is a best-effort exclusion: [country, postal regex].
+// Territories that sit outside the EU VAT area although the country code is an EU one. The ship postal code (s.shipPostal) decides; the billing postal is only a fallback when the file has no ship postal: [country, postal regex].
 const SPECIAL_TERRITORY = [['ES', /^(35|38|51|52)\d{3}$/], ['DE', /^(78266|27498)$/], ['IT', /^(23030|22060)$/], ['FI', /^22\d{3}$/], ['FR', /^(97|98)\d{3}$/], ['GR', /^63086$/]];
 const inSpecialTerritory = (country, postal) => { const p = String(postal ?? '').replace(/\s/g, ''); return SPECIAL_TERRITORY.some(([c, re]) => c === country && re.test(p)); };
 
@@ -55,7 +55,11 @@ export function intraEUShape(s) {
   if (!(s && s.vat === 0 && s.excl > 0)) return false;
   const to = s.shipCountry, from = s.shipFromCountry;
   if (!EU27.has(to) || !EU27.has(from) || to === from) return false;
-  if (inSpecialTerritory(to, s.billing?.country === to ? s.billing?.postal : null)) return false;
+  // N4: key the exclusion on the SHIP destination. Ship postal (ship-postal-code) is authoritative; rows that disagree on it are refused.
+  // Only when the file has no ship postal at all do we fall back to the billing postal, and only when billing country == ship country (best effort).
+  if (s.shipPostalConflict) return false;
+  const postal = s.shipPostal ? s.shipPostal : (s.billing?.country === to ? s.billing?.postal : null);
+  if (inSpecialTerritory(to, postal)) return false;
   return true;
 }
 /** Intra-EU exempt supply to a buyer who can be treated as such: the shape, a buyer VAT number whose prefix is the destination state, and a VIES result that is not negative (valid is preferred; invalid or unavailable is not enough). */

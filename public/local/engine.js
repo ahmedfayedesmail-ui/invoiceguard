@@ -49179,6 +49179,7 @@ function parseVidr(text) {
         poNumber: r["purchase-order-number"] || null,
         billing: { name: r["billing-name"], lines: [r["bill-address-1"], r["bill-address-2"], r["bill-address-3"]].filter(Boolean), city: r["bill-city"], postal: r["bill-postal-code"], country: r["bill-country"] },
         shipCountry: r["ship-country"],
+        shipPostal: r["ship-postal-code"] || null,
         shipFromCountry: r["ship-from-country"],
         isCorrection: bool(r["is-invoice-corrected"]),
         isCorrectionReversal: classifyTransactionId(r["transaction-id"], r["transaction-type"]).role === "REVERSAL",
@@ -49196,6 +49197,13 @@ function parseVidr(text) {
     (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r["quantity-purchased"] ?? "", itemId: r["order-item-id"] ?? "", sig: Object.values(r).join("	"), orderDate: r["order-date"] ?? "", attrs: Object.fromEntries(CONFLICT_FIELDS.map((f) => [f, r[f] ?? ""])), bound: Object.fromEntries(BOUND_COLUMNS.map((f) => [f, r[f] ?? ""])), parts: Object.fromEntries(PARTS2.map((p) => [p, { incl: r[`${p}-vat-incl-amount`] ?? "", vat: r[`${p}-vat-amount`] ?? "", excl: r[`${p}-vat-excl-amount`] ?? "", rate: r[`${p}-vat-rate`] ?? "" }])) });
     (s.rowMeta ??= []).push({ status: r["invoice-status"] ?? "", invoiceNumber: r["invoice-number"] ?? "", orderId: r["order-id"] ?? "", shippingId: r["shipping-id"] ?? "", currency: r.currency ?? "", marketplace: r["marketplace-id"] ?? "", type: r["transaction-type"] ?? "", transactionId: r["transaction-id"] || r["shipping-id"] || "", originalInvoiceNumber: r["original-vat-invoice-number"] ?? "", incl: PARTS2.reduce((q, p) => q + num(r[`${p}-vat-incl-amount`]), 0), vat: PARTS2.reduce((q, p) => q + num(r[`${p}-vat-amount`]), 0) });
     s.invoiceNumberColumn = checked.head.includes("invoice-number");
+    {
+      const sp = r["ship-postal-code"];
+      if (sp) {
+        if (!s.shipPostal) s.shipPostal = sp;
+        else if (String(sp).replace(/\s/g, "").toUpperCase() !== String(s.shipPostal).replace(/\s/g, "").toUpperCase()) s.shipPostalConflict = true;
+      }
+    }
     s.flagValues.push(r["is-amazon-invoiced"]);
     s.businessValues.push(r["is-business-order"]);
     const inclSum = PARTS2.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
@@ -50555,7 +50563,9 @@ function intraEUShape(s) {
   if (!(s && s.vat === 0 && s.excl > 0)) return false;
   const to = s.shipCountry, from = s.shipFromCountry;
   if (!EU27.has(to) || !EU27.has(from) || to === from) return false;
-  if (inSpecialTerritory(to, s.billing?.country === to ? s.billing?.postal : null)) return false;
+  if (s.shipPostalConflict) return false;
+  const postal = s.shipPostal ? s.shipPostal : s.billing?.country === to ? s.billing?.postal : null;
+  if (inSpecialTerritory(to, postal)) return false;
   return true;
 }
 function isIntraEUExempt(s) {

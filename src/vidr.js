@@ -73,7 +73,7 @@ export function parseVidr(text) {
         buyerTaxType: r['buyer-tax-registration-type'] || null, buyerCompany: r['buyer-company-name'] || r['billing-name'] || r['buyer-name'],
         poNumber: r['purchase-order-number'] || null,
         billing: { name: r['billing-name'], lines: [r['bill-address-1'], r['bill-address-2'], r['bill-address-3']].filter(Boolean), city: r['bill-city'], postal: r['bill-postal-code'], country: r['bill-country'] },
-        shipCountry: r['ship-country'], shipFromCountry: r['ship-from-country'], isCorrection: bool(r['is-invoice-corrected']),
+        shipCountry: r['ship-country'], shipPostal: r['ship-postal-code'] || null, shipFromCountry: r['ship-from-country'], isCorrection: bool(r['is-invoice-corrected']),
         isCorrectionReversal: classifyTransactionId(r['transaction-id'], r['transaction-type']).role === 'REVERSAL', isCorrectedTx: classifyTransactionId(r['transaction-id'], r['transaction-type']).role === 'CORRECTED', unknownTxFormat: classifyTransactionId(r['transaction-id'], r['transaction-type']).unknown, originalInvoiceNumber: r['original-vat-invoice-number'] || null, correctionDetails: r['invoice-correction-details'] || null,
         citation: r['citation-es'] || r['citation-en'] || null, items: [], incl: 0, vat: 0, excl: 0,
       }).get(key);
@@ -81,6 +81,7 @@ export function parseVidr(text) {
     // Provenance for the integrity gate: the physical line and the raw tokens of every row that fed this shipment. Nothing is interpreted here.
     (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r['quantity-purchased'] ?? '', itemId: r['order-item-id'] ?? '', sig: Object.values(r).join('\t'), orderDate: r['order-date'] ?? '', attrs: Object.fromEntries(CONFLICT_FIELDS.map(f => [f, r[f] ?? ''])), bound: Object.fromEntries(BOUND_COLUMNS.map(f => [f, r[f] ?? ''])), parts: Object.fromEntries(PARTS.map(p => [p, { incl: r[`${p}-vat-incl-amount`] ?? '', vat: r[`${p}-vat-amount`] ?? '', excl: r[`${p}-vat-excl-amount`] ?? '', rate: r[`${p}-vat-rate`] ?? '' }])) });
     (s.rowMeta ??= []).push({ status: r['invoice-status'] ?? '', invoiceNumber: r['invoice-number'] ?? '', orderId: r['order-id'] ?? '', shippingId: r['shipping-id'] ?? '', currency: r.currency ?? '', marketplace: r['marketplace-id'] ?? '', type: r['transaction-type'] ?? '', transactionId: r['transaction-id'] || r['shipping-id'] || '', originalInvoiceNumber: r['original-vat-invoice-number'] ?? '', incl: PARTS.reduce((q, p) => q + num(r[`${p}-vat-incl-amount`]), 0), vat: PARTS.reduce((q, p) => q + num(r[`${p}-vat-amount`]), 0) }); s.invoiceNumberColumn = checked.head.includes('invoice-number'); // per-row evidence for the credit-note acceptance gate (src/cn-gate.js); nothing here changes a financial figure
+    { const sp = r['ship-postal-code']; if (sp) { if (!s.shipPostal) s.shipPostal = sp; else if (String(sp).replace(/\s/g, '').toUpperCase() !== String(s.shipPostal).replace(/\s/g, '').toUpperCase()) s.shipPostalConflict = true; } } // N4: ship destination postal; rows that disagree make the territory unknowable, so the exempt shape is refused
     s.flagValues.push(r['is-amazon-invoiced']); s.businessValues.push(r['is-business-order']);
     const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
     const vatSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-amount`]), 0);
