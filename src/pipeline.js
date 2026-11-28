@@ -9,6 +9,7 @@ import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from
 import { createHash, randomUUID } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
+import { newClaimToken, guardedUpload, lateUploadResult } from './claims.js';
 import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
 import { integrityGate, integrityNotes, correctionLedger, writeLedger } from './integrity.js';
 
@@ -147,18 +148,19 @@ export async function processReport(db, seller, reportText, { api, validate = va
     // IMMEDIATE transaction - no report can observe the incremented counter before the attempt is
     // recorded on the document. A lost claim burns a number (documented gap): ordering only needs
     // monotonicity, never gaplessness.
-    const claim = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, inv.number)); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after; round-14: the claim takes the next attempt sequence
+    const tok_claim = newClaimToken();
+    const claim = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), tok_claim, nextAttemptSeq(db, seller.id), seller.id, inv.number)); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after; round-14: the claim takes the next attempt sequence
     if (!claim.changes) { out.skipped++; continue; }
     upsertShipment(db, seller.id, s, 'sending');
     try {
-      const feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat });
+      const feedId = await guardedUpload(db, tok_claim, () => api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat }));
       // Round-12 (critic round-10): the stamp was already cleared at the claim. If a sync stamped a
       // FRESH VIDR verdict (or moved the state) while this call was in flight, that newer evidence
       // wins: the document lands in 'processing' (or keeps the verdict's state), never regresses.
-      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
+      const lateRes = db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, feedId, seller.id, inv.number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=? AND claim_token=?`).run(feedId, feedId, seller.id, inv.number, tok_claim); if (!lateRes.changes) lateUploadResult(db, seller.id, inv.number, feedId);
       upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++;
     } catch (e) {
       if (e.unknownOutcome) {
@@ -173,14 +175,14 @@ export async function processReport(db, seller, reportText, { api, validate = va
         // Status write + hold proposal land in ONE transaction (round-8): a crash between them
         // must never leave an unknown document without its human hold.
         tx(db, () => {
-          db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND upload_status<>'uploaded'").run(seller.id, inv.number);
+          db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND upload_status<>'uploaded' AND claim_token=?").run(seller.id, inv.number, tok_claim);
           upsertShipment(db, seller.id, s, 'unknown', 'the upload outcome is unknown - Amazon may have received the document');
           logEvent(db, seller.id, 'upload_unknown_outcome', { number: inv.number, error: e.message });
           proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${s.key}`, kind: 'unknown_outcome', number: inv.number, shipmentKey: s.key, action: 'hold',
             reason: `The upload of invoice ${inv.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report will confirm whether Amazon has it; if the shipment stays pending there, the next sync resubmits it safely. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
         });
       } else {
-        db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=? AND upload_status<>'uploaded'").run(seller.id, inv.number); upsertShipment(db, seller.id, s, 'error', explain(e.message));
+        db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=? AND upload_status<>'uploaded' AND claim_token=?").run(seller.id, inv.number, tok_claim); upsertShipment(db, seller.id, s, 'error', explain(e.message));
       }
       out.errors.push({ key: s.key, error: e.message });
     }
@@ -503,15 +505,16 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       // never upload the same correction document twice.
       // Round-15 (critic round-13 P1-A): allocation + claim in ONE IMMEDIATE transaction (see the
       // first-upload claim). A lost claim burns a number - a documented, harmless gap.
-      const claim0 = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, prev.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
+      const tok_claim0 = newClaimToken();
+    const claim0 = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','rejected','unknown')").run(new Date().toISOString(), tok_claim0, nextAttemptSeq(db, seller.id), seller.id, prev.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
       if (!claim0.changes) throw new Error(`Correction document ${prev.number} is already being uploaded by another run. Nothing was re-uploaded.`);
       let feedId0;
       try {
-        feedId0 = await api.uploadInvoice({ marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId });
+        feedId0 = await guardedUpload(db, tok_claim0, () => api.uploadInvoice({ marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId }));
       } catch (e) {
         if (e.unknownOutcome) {
           tx(db, () => {
-            db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND upload_status<>'uploaded'").run(seller.id, prev.number);
+            db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND upload_status<>'uploaded' AND claim_token=?").run(seller.id, prev.number, tok_claim0);
             logEvent(db, seller.id, 'upload_unknown_outcome', { number: prev.number, error: e.message });
             proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${opts.recordKey}`, kind: 'unknown_outcome', number: prev.number, originalNumber, shipmentKey: opts.recordKey, rectNumber: prev.number, action: 'hold',
               reason: `The retry upload of correction document ${prev.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there, cross-checked against Amazon's own feed list, means the same document is resent; a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
@@ -519,15 +522,15 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
         } else {
           // A DEFINITE refusal (Amazon never accepted): restore the prior state so the reviewed
           // retry stays available. Only an unknown outcome holds.
-          db.prepare("UPDATE invoices SET upload_status=? WHERE seller_id=? AND number=?").run(prev.upload_status, seller.id, prev.number);
+          db.prepare("UPDATE invoices SET upload_status=? WHERE seller_id=? AND number=? AND claim_token=?").run(prev.upload_status, seller.id, prev.number, tok_claim0);
         }
         throw e;
       }
       // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
-      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
+      const lateRes = db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId0, feedId0, seller.id, prev.number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=? AND claim_token=?`).run(feedId0, feedId0, seller.id, prev.number, tok_claim0); if (!lateRes.changes) lateUploadResult(db, seller.id, prev.number, feedId0);
       logEvent(db, seller.id, 'rectificativa_upload_retried', { number: prev.number });
       return { rect, feedId: feedId0, documentType: documentType0, pdf: pdf0, retried: true };
     }
@@ -598,29 +601,30 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     // Round-8: atomic claim on the upload, same as the first-upload path.
     // Round-15 (critic round-13 P1-A): allocation + claim in ONE IMMEDIATE transaction (see the
     // first-upload claim). A lost claim burns a number - a documented, harmless gap.
-    const claimR = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), nextAttemptSeq(db, seller.id), seller.id, rect.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
+    const tok_claimR = newClaimToken();
+    const claimR = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), tok_claimR, nextAttemptSeq(db, seller.id), seller.id, rect.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
     if (!claimR.changes) throw new Error(`Correction document ${rect.number} is already being uploaded by another run. Nothing was re-uploaded.`);
     try {
-      feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
+      feedId = await guardedUpload(db, tok_claimR, () => api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId }));
       // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
-      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
+      const lateRes = db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, feedId, seller.id, rect.number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=? AND claim_token=?`).run(feedId, feedId, seller.id, rect.number, tok_claimR); if (!lateRes.changes) lateUploadResult(db, seller.id, rect.number, feedId);
     } catch (e) {
       // Unknown outcome: Amazon may hold the document. Mark it honestly AND put a visible hold in the
       // Repairs queue - no blind resend; a fresh report that still asks for the document is the only
       // retry trigger (processCorrections / settleUnknownDocuments with allowUnknownRetry).
       if (e.unknownOutcome) {
         tx(db, () => {
-          db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND upload_status<>'uploaded'").run(seller.id, rect.number);
+          db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND upload_status<>'uploaded' AND claim_token=?").run(seller.id, rect.number, tok_claimR);
           logEvent(db, seller.id, 'upload_unknown_outcome', { number: rect.number, error: e.message });
           const docKey = opts.recordKey ?? row.shipment_key;
           proposeRejectedRetry(db, seller, { eventKey: `UNKNOWN:${docKey}`, kind: 'unknown_outcome', number: rect.number, originalNumber: originalNumber, shipmentKey: docKey, rectNumber: rect.number, action: 'hold',
             reason: `The upload of correction document ${rect.number} was interrupted after Amazon may already have received it. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the same document is resent automatically, a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
         });
       }
-      else { db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=? AND upload_status<>'uploaded'").run(seller.id, rect.number); logEvent(db, seller.id, 'upload_error', { number: rect.number, error: explain(e.message) }); }
+      else { db.prepare("UPDATE invoices SET upload_status='pending' WHERE seller_id=? AND number=? AND upload_status<>'uploaded' AND claim_token=?").run(seller.id, rect.number, tok_claimR); logEvent(db, seller.id, 'upload_error', { number: rect.number, error: explain(e.message) }); }
       throw e;
     }
   }

@@ -66,7 +66,7 @@ import { recoverUncertainUploads } from '../src/repair.js'; import { settleUnkno
 test('D9 a late upload result after a boot sweep keeps the document blocked: the settle path never resubmits it', async () => {
   const db = openDb(); let open; const gate = new Promise(r => { open = r; }); const slow = { calls: [], uploadInvoice: async function (a) { this.calls.push(a); await gate; return 'late-feed-' + this.calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
   const p = processReport(db, seller, text, { api: slow, validate: vies, now: NOW }); for (let i = 0; i < 200 && !slow.calls.length; i++) await new Promise(r => setTimeout(r, 10)); assert.ok(slow.calls.length, 'an upload is in flight');
-  const first = slow.calls[0].number; assert.ok(recoverUncertainUploads(db) >= 1); open(); await p;
+  const first = slow.calls[0].number; assert.equal(recoverUncertainUploads(db), 0, 'a live claim is not swept (claim ownership, re-review 1)'); assert.equal(db.prepare("UPDATE invoices SET upload_status='unknown', blocked_feed_id=NULL WHERE number=? AND upload_status='sending'").run(first).changes, 1, 'emulates a sweep by a process that saw no heartbeat (owner stalled, not dead)'); open(); await p;
   const row = db.prepare("SELECT upload_status, feed_id, blocked_feed_id FROM invoices WHERE number=?").get(first); assert.equal(row.upload_status, 'unknown'); assert.ok(row.feed_id, 'the late result was recorded'); assert.equal(row.blocked_feed_id, row.feed_id, 'and that feed blocks a resend');
   const api2 = mkApi(); await settleUnknownDocuments(db, seller, text, { api: api2, validate: vies }); assert.ok(api2.calls.every(c => c.number !== first), 'the same document is never submitted twice');
 });

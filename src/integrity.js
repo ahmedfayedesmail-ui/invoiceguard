@@ -16,6 +16,8 @@ function gateWrite(db, seller, s) {
   return writeLedger(db, seller.id, s.key, a.findings);
 }
 /** The ledger write shared by shipments and correction pairs: findings in, blocking findings out. */
+/** Findings that a human-decision gate owns. A ledger write that does not itself evaluate such a code must never resolve it silently (re-review 2, same bug class as F1). */
+const GATE_OWNED = ['UPLOADED_THEN_REJECTED', 'REFUND_ROW_INVOICE_STATUS', 'CREDIT_NOTE_IDENTITY_UNPROVEN', 'CREDIT_NOTE_ROWS_CONFLICT', 'CREDIT_NOTE_VERDICT_CONTRADICTION'];
 export function writeLedger(db, sid, key, findings, { keepCodes = [] } = {}) {
   const a = { findings };
   const now = new Date().toISOString();
@@ -32,7 +34,7 @@ export function writeLedger(db, sid, key, findings, { keepCodes = [] } = {}) {
     db.prepare('UPDATE integrity_findings SET last_seen=?, seen_count=seen_count+1 WHERE seller_id=? AND shipment_key=? AND code=? AND field=?').run(now, sid, key, f.code, f.evidence.field); hist(f, 'RECHECKED_SAME');
     if (row.status === 'OPEN') blocking.push(f);
   }
-  for (const row of rows.values()) if (row.status !== 'RESOLVED' && !keepCodes.includes(row.code)) { db.prepare("UPDATE integrity_findings SET status='RESOLVED', resolved_at=? WHERE seller_id=? AND shipment_key=? AND code=? AND field=?").run(now, sid, key, row.code, row.field); db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sid, key, row.code, row.field, 'RESOLVED', row.fingerprint, now); }
+  for (const row of rows.values()) if (row.status !== 'RESOLVED' && !keepCodes.includes(row.code) && !GATE_OWNED.includes(row.code)) { db.prepare("UPDATE integrity_findings SET status='RESOLVED', resolved_at=? WHERE seller_id=? AND shipment_key=? AND code=? AND field=?").run(now, sid, key, row.code, row.field); db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sid, key, row.code, row.field, 'RESOLVED', row.fingerprint, now); }
   if (changed) logEvent(db, sid, 'integrity', { key, codes: blocking.map(f => f.code), severities: blocking.map(f => f.severity) });
   return blocking.length ? { reason: gateReason(blocking), findings: blocking } : null;
 }
