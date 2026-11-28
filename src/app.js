@@ -437,7 +437,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/settings') { if (!SETTINGS.includes(body.invoiceLang)) return json(res, 400, { error: 'Unknown invoice language setting' }); db.prepare('UPDATE sellers SET invoice_lang=? WHERE id=?').run(body.invoiceLang, seller.id); return json(res, 200, { ok: true }); }
       if (p === '/api/audit/verify') { const r = verifyAudit(db, seller.id); return json(res, 200, { ...r, entries: db.prepare('SELECT COUNT(*) n FROM audit WHERE seller_id=?').get(seller.id).n }); }
       if (p === '/api/export.csv') {
-        const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const q = v => { v = String(v ?? ''); if (/^[=+@\t\r]/.test(v)) v = "'" + v; return `"${v.replace(/"/g, '""')}"`; }; // swarm-security: no formula-leading text cells (a leading '-' is kept: credit-note amounts are negative numbers)
         const rows = db.prepare('SELECT number, kind, rectifies, issued_at, total, vat, shipment_key, upload_status FROM invoices WHERE seller_id=? ORDER BY number').all(seller.id);
         const csv = ['number,type,rectifies,issued_at,total_eur,vat_eur,shipment,amazon_upload', ...rows.map(r => [r.number, r.kind, r.rectifies, r.issued_at, r.total, r.vat, r.shipment_key, r.upload_status].map(q).join(','))].join('\n');
         res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="invoices.csv"' }); return res.end(csv);

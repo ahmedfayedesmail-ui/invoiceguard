@@ -97,6 +97,8 @@ export function buyerCountryCheck(doc, sellerCountry = 'ES', packs = PACKS) {
 
 // ---------- 4. Export ----------
 const csvq = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+// swarm-security: text cells that come from outside (buyer name, VAT id) must not open as spreadsheet formulas. Numeric columns keep csvq so negative credit-note amounts stay numbers.
+const csvt = (v) => csvq(/^[=+\-@\t\r]/.test(String(v ?? '')) ? "'" + String(v) : v);
 const dosTime = (d) => ({ t: (d.getUTCHours() << 11) | (d.getUTCMinutes() << 5) | (d.getUTCSeconds() >> 1), d: ((d.getUTCFullYear() - 1980) << 9) | ((d.getUTCMonth() + 1) << 5) | d.getUTCDate() });
 /** Minimal ZIP writer (deflate). files: [{name, data: Buffer}] */
 export function zip(files, date = new Date()) {
@@ -121,7 +123,7 @@ export async function buildExport(db, seller, from, to, now = new Date()) {
   const files = [], list = ['number,type,rectifies,issue_date,buyer_name,buyer_vat,buyer_country,net,vat,total,currency,amazon_upload'], tot = new Map();
   for (const r of rows) {
     const d = JSON.parse(r.json); files.push({ name: `invoices/${safe(r.number)}.pdf`, data: await renderPdf(d) });
-    list.push([r.number, r.kind, r.rectifies, d.issueDate ?? r.issued_at.slice(0, 10), d.buyer?.name, d.buyer?.vat, d.buyerCountry, d.totals?.excl, d.totals?.vat, d.totals?.incl, d.currency, r.upload_status].map(csvq).join(','));
+    list.push([r.number, r.kind, r.rectifies, d.issueDate ?? r.issued_at.slice(0, 10), d.buyer?.name, d.buyer?.vat, d.buyerCountry, d.totals?.excl, d.totals?.vat, d.totals?.incl, d.currency, r.upload_status].map((v, i) => (i === 4 || i === 5) ? csvt(v) : csvq(v)).join(','));
     for (const l of d.lines ?? []) { const k = `${d.buyerCountry ?? ''}|${d.currency}|${l.rate}`, t = tot.get(k) ?? { n: 0, v: 0 }; t.n += l.excl; t.v += l.vat; tot.set(k, t); }
   }
   const sum = ['buyer_country,currency,vat_rate,net,vat', ...[...tot].sort().map(([k, v]) => { const [c, cur, rate] = k.split('|'); return [c, cur, rate, (Math.round(v.n * 100) / 100).toFixed(2), (Math.round(v.v * 100) / 100).toFixed(2)].map(csvq).join(','); })];
