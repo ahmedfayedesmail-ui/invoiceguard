@@ -1,0 +1,5 @@
+# Campaign part 3 fixture correction (Nov 28 2026)
+What happened: commit 90f3aea (follow-up B, refund-amount gate) made the local campaign show 352 failures in part 3 (the correction-pair scenario, 1005 cases total). I pushed before reading that line.
+Cause: the P3 scenario built its CorrectionReversal row from only the FIRST row of a shipment that has 1 to 3 rows, so the row stated a smaller amount than the invoice it reverses (example: -76.56 against 425.97). That was unrealistic: a real reversal covers the whole shipment. The new gate holds such a row, as designed.
+Change: the scenario now reverses every row of the shipment (same transaction id). Nothing else changed: no assertion, count, denominator, tolerance or ground truth. This is a corrected fixture, not a moved metric. Main approved this at 08:27 on condition of a separate commit and this note.
+Result (local): 1005 cases, 10358 assertions, 0 failures (same case and assertion counts as before the fix). CI run ID: see the report to Main.

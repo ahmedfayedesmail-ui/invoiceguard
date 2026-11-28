@@ -196,11 +196,12 @@ async function part3(n) {
       const orig = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice'").get(SELLER.id);
       if (!orig) { fail(scn, 'no original'); continue; }
       const base = text.trim().split('\n')[1].split('\t'); const ix = (k) => COLS.indexOf(k);
-      const rev = [...base]; rev[ix('transaction-type')] = 'REFUND'; rev[ix('transaction-id')] = 'CorrectionReversal:X:' + i;
-      for (const k of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount']) rev[ix(k)] = '-' + rev[ix(k)];
-      rev[ix('invoice-status')] = 'CreditNotePending';
+      // CASE CHANGED (Nov 28 2026, follow-up B, corrected fixture - not a moved metric): the reversal used to be built from only the FIRST row of a shipment that has 1 to 3 rows, so it stated a smaller amount than the invoice it reverses. That was unrealistic (a real CorrectionReversal reverses the whole shipment) and the new refund-amount gate rightly holds it. It now reverses every row of the shipment. See audit/phase-b/campaign-p3-fixture-correction.md.
+      const revRows = text.trim().split('\n').slice(1).map((ln) => { const rv = ln.split('\t'); rv[ix('transaction-type')] = 'REFUND'; rv[ix('transaction-id')] = 'CorrectionReversal:X:' + i;
+        for (const k of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount', 'shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount']) rv[ix(k)] = '-' + rv[ix(k)];
+        rv[ix('invoice-status')] = 'CreditNotePending'; return rv.join('\t'); });
       const fixed = [...base]; fixed[ix('transaction-id')] = 'Correction::X:' + i; fixed[ix('billing-name')] = 'Nombre Corregido S.L.'; fixed[ix('buyer-company-name')] = 'Nombre Corregido S.L.';
-      const rep = [HEAD, rev.join('\t'), fixed.join('\t')].join('\n') + '\n';
+      const rep = [HEAD, ...revRows, fixed.join('\t')].join('\n') + '\n';
       const r = await processCorrections(db, SELLER, rep, { api: mkApi(calls), validate: mkValidate() });
       check(scn, r.creditNotes === 1 && r.invoices === 0 && r.errors.length === 0, `correction pair staged (replacement waits): ${JSON.stringify({ c: r.creditNotes, i: r.invoices, e: r.errors })}`);
       const cn = calls[calls.length - 1];
