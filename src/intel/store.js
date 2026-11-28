@@ -105,6 +105,22 @@ function makeRecord(kind, table, key, documentKey, payload) {
   return {kind,sourceTable:table,sourceKey,sourceRef:table+':'+sourceKey+':'+payloadHash,
     documentKey:document,payload};
 }
+// Deterministic ordering with no ICU or locale dependence: code point order, and runs of digits compare as numbers (row 2 before row 10).
+function compareCodePoints(a,b) {
+  const x=Array.from(String(a)), y=Array.from(String(b));
+  for(let i=0;i<Math.min(x.length,y.length);i++){ const d=x[i].codePointAt(0)-y[i].codePointAt(0); if(d!==0) return d<0?-1:1; }
+  return x.length===y.length?0:(x.length<y.length?-1:1);
+}
+function compareNaturalKeys(a,b) {
+  const x=String(a).split(/(\d+)/), y=String(b).split(/(\d+)/);
+  for(let i=0;i<Math.min(x.length,y.length);i++){
+    let c;
+    if(i%2===1){ const p=x[i].replace(/^0+(?=\d)/,''), q=y[i].replace(/^0+(?=\d)/,''); c=p.length-q.length||compareCodePoints(p,q)||x[i].length-y[i].length; c=c<0?-1:c>0?1:0; }
+    else c=compareCodePoints(x[i],y[i]);
+    if(c!==0) return c;
+  }
+  return x.length===y.length?0:(x.length<y.length?-1:1);
+}
 function snapshotSources(reader, sellerId) {
   const out=[];
   const read=(table,sql,map)=>{
@@ -162,9 +178,9 @@ function snapshotSources(reader, sellerId) {
   // All rows in this read transaction are one observed snapshot. Keep their
   // append order deterministic without using source timestamps to reorder evidence.
   return out.sort((a,b)=>
-    a.sourceTable.localeCompare(b.sourceTable)||
-    a.sourceKey.localeCompare(b.sourceKey)||
-    a.sourceRef.localeCompare(b.sourceRef)
+    compareCodePoints(a.sourceTable,b.sourceTable)||
+    compareNaturalKeys(a.sourceKey,b.sourceKey)||
+    compareCodePoints(a.sourceRef,b.sourceRef)
   );
 }
  
