@@ -69,7 +69,7 @@ Screenshot caveat: `happy-2/3`, `restart-3/4/5` frames do not show the button ar
 - Branch SHA tested: 500a9702534ed323d9870bf2da06ece38907905c (`git status` clean apart from `proof/`).
 - Full suite, run in 4 chunks of test files (91 files): 241 + 301 + 229 + 206 = **977 tests, 976 pass, 0 fail, 0 cancelled, 0 skipped, 1 TODO** (the TODO is `the business flag must not affect DATA_RECONCILIATION...`, "engine change not made yet", pre-existing). The earlier contention flake did not reproduce in this run. Per-chunk counts in `proof/results/r0*.txt`.
 - New `test/manual-jobs.test.js` (3 tests) is included and passes.
-- CI: see the message that carried this report for whether a GitHub run could be triggered. `ci.yml` runs on push to main and on pull_request only; a push of a feature branch does not start it. Local suite evidence above stands in for it. The CI-only steps (lxml XSD tests, `tools/campaign.mjs --no-live`) were not run here.
+- CI: no GitHub Actions run exists for either branch (API returns 0 runs for both). `ci.yml` triggers only on push to main and on pull_request, so a branch push does not start it, and opening a PR or dispatching is outside this task (token 403 limit, no PR opened). Local suite evidence above stands in for it.
 
 ## 7. Caveats the owner should weigh
 1. Loop still blocks 0.35 to 0.5 s twice per 10k job (planUpload parse at start, finishManualVidr at end). Max probe 485 ms; the earlier "112 ms" claim was for 3,000 rows. Chunking those two steps is the open backlog item.
