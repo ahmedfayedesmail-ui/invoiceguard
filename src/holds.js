@@ -28,8 +28,16 @@ export function explainFinding(f) {
   };
 }
 export function listHolds(db, sellerId, { includeClosed = false } = {}) {
-  const rows = db.prepare(`SELECT * FROM integrity_findings WHERE seller_id=? ${includeClosed ? '' : "AND status='OPEN'"} AND severity IN ('HOLD','BLOCK') ORDER BY last_seen DESC LIMIT 200`).all(sellerId);
-  return rows.map(explainFinding);
+  const LIMIT = 200;
+  const rows = db.prepare(`SELECT * FROM integrity_findings WHERE seller_id=? ${includeClosed ? '' : "AND status='OPEN'"} AND severity IN ('HOLD','BLOCK') ORDER BY last_seen DESC LIMIT ${LIMIT + 1}`).all(sellerId);
+  const items = rows.slice(0, LIMIT).map(f => {
+    const x = explainFinding(f);
+    // Decision history of this exact item (append-only table) and its ledger events, newest first. Plain stored fields.
+    x.decisions = db.prepare('SELECT fingerprint, decided_by AS decidedBy, reason, decided_at AS decidedAt FROM integrity_decisions WHERE seller_id=? AND shipment_key=? AND code=? ORDER BY decided_at DESC LIMIT 20').all(sellerId, f.shipment_key, f.code).map(r => ({ ...r }));
+    x.history = db.prepare('SELECT event, fingerprint, at FROM integrity_history WHERE seller_id=? AND shipment_key=? AND code=? ORDER BY at DESC LIMIT 20').all(sellerId, f.shipment_key, f.code).map(r => ({ ...r }));
+    return x;
+  });
+  items.truncated = rows.length > LIMIT; return items;
 }
 export function decideHold(db, sellerId, { key, code, fingerprint, reason }, user) {
   if (typeof key !== 'string' || typeof code !== 'string' || typeof fingerprint !== 'string') throw new Error('Choose the item and send its fingerprint.');
