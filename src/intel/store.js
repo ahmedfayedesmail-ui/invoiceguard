@@ -66,10 +66,10 @@ function snapshotSources(reader, sellerId) {
     return {kind:'seller_or_system_event',key:r.k,documentKey:refs.invoiceNumber??refs.number??refs.originalNumber??refs.shipmentKey??null,
       payload:{occurredAt:safeText(r.ts,64),eventType:safeText(r.type,100),detailDigest:digest(r.detail),references:refs}};
   });
-  read('integrity_history','SELECT rowid AS k, shipment_key, code, field, event, fingerprint, at, evidence FROM integrity_history WHERE seller_id=? ORDER BY rowid',r=>({
+  read('integrity_history','SELECT rowid AS k, shipment_key, code, field, event, fingerprint, at FROM integrity_history WHERE seller_id=? ORDER BY rowid',r=>({
     kind:'integrity_transition',key:r.k,documentKey:r.shipment_key,
     payload:{shipmentKey:safeText(r.shipment_key),code:safeText(r.code,120),field:safeText(r.field,120),transition:safeText(r.event,80),
-      fingerprint:safeText(r.fingerprint,128),occurredAt:safeText(r.at,64),evidenceDigest:digest(r.evidence)}
+      fingerprint:safeText(r.fingerprint,128),occurredAt:safeText(r.at,64)}
   }));
   read('integrity_decisions','SELECT rowid AS k, shipment_key, code, field, fingerprint, decided_by, reason, decided_at FROM integrity_decisions WHERE seller_id=? ORDER BY rowid',r=>({
     kind:'recorded_integrity_decision',key:r.k,documentKey:r.shipment_key,
