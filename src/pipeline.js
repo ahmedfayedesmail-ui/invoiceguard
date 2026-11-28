@@ -658,8 +658,8 @@ function correctionReview(db, seller, rev, orig, list, claim = false) {
   const credited = Math.round([...other.map(c => Math.abs(c.total ?? 0)), ...claims.map(c => Math.abs(c.amount ?? 0))].reduce((a, c) => a + c, 0) * 100) / 100, balance = Math.round((origIncl - credited) * 100) / 100;
   const rowsOf = (x) => x.src.map(r => { const { 'invoice-status': _st, ...attrs } = r.attrs ?? {}; return { itemId: r.itemId, qty: r.qty, parts: r.parts, attrs }; });
   const reps = list.filter(x => x.isCorrectedTx && x.shippingId === rev.shippingId).sort((a, b) => (a.key < b.key ? -1 : 1));
-  const evidence = { field: 'correction', original: { number: orig.number, totalIncl: origIncl, sha256: createHash('sha256').update(orig.json).digest('hex') }, reversalKey: rev.key, reversalRows: rowsOf(rev),
-    replacementRows: reps.map(x => ({ key: x.key, buyer: { name: x.billing?.name, company: x.buyerCompany, vat: x.buyerVat, address: x.billing?.lines, city: x.billing?.city, postal: x.billing?.postal, country: x.billing?.country }, rows: rowsOf(x) })),
+  const evidence = { field: 'correction', original: { number: orig.number, totalIncl: origIncl, sha256: createHash('sha256').update(orig.json).digest('hex') }, reversalKey: rev.key, reversalRows: rowsOf(rev), reversalReason: rev.correctionDetails ?? null,
+    replacementRows: reps.map(x => ({ key: x.key, reason: x.correctionDetails ?? null, buyer: { name: x.billing?.name, company: x.buyerCompany, vat: x.buyerVat, address: x.billing?.lines, city: x.billing?.city, postal: x.billing?.postal, country: x.billing?.country }, rows: rowsOf(x) })),
     amounts: { original: origIncl, reversal: Math.round(amount * 100) / 100, cumulativeCredited: credited, creditableBalance: balance, differenceToOriginal: Math.round((amount - origIncl) * 100) / 100 }, otherCreditNotes: [...other.map(c => c.number), ...claims.map(c => 'claim:' + c.reversal_key)] };
   const fp = (code) => createHash('sha256').update(JSON.stringify([code, evidence])).digest('hex');
   let f;
