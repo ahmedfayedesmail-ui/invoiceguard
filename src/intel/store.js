@@ -23,7 +23,7 @@ function triggerProtected(db,name,table,operation) {
   normalized=normalized.replace('create trigger if not exists ','create trigger ');
   const prefix='create trigger '+name.toLowerCase()+' before '+operation.toLowerCase()+' on '+table.toLowerCase()+' begin select raise(abort,';
   if(!normalized.startsWith(prefix)) return false;
-  const tail=normalized.slice(prefix.length);
+  const tail=normalized.slice(prefix.length).trimStart();
   const quote=tail[0];
   if(quote!=="'"&&quote!=='"') return false;
   const closing=tail.indexOf(quote,1);
