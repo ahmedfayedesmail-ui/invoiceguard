@@ -178,6 +178,18 @@ window.PROTO_DATA={
    },
    "reason": "The buyer VAT number on the correction differs from the first import.",
    "warn": true,
+   "vies": {
+    "vat": "ESB76543210",
+    "previous": {
+     "result": "Valid",
+     "checkedAt": "15 Nov 2026, 14:02"
+    },
+    "current": {
+     "result": "Not available (the VIES service did not answer)",
+     "checkedAt": "28 Nov 2026, 09:41"
+    },
+    "note": "Demo values (synthetic). In the product both results and both times come from the saved check records."
+   },
    "warnText": "The VAT number check (VIES) answered differently from when this card was first shown. Look at the VAT number again before you decide."
   }
  ],
@@ -187,7 +199,22 @@ window.PROTO_DATA={
    "invNo": "A-2026-000123",
    "amt": "54.45",
    "since": "2 days ago",
-   "owned": false
+   "owned": false,
+   "issuance": {
+    "state": "gone",
+    "proven": true
+   }
+  },
+  {
+   "id": "p3",
+   "invNo": "A-2026-000151",
+   "amt": "121.00",
+   "since": "2 days ago",
+   "owned": false,
+   "issuance": {
+    "state": "unproven",
+    "proven": false
+   }
   },
   {
    "id": "p2",
