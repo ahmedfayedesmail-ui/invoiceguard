@@ -208,9 +208,10 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   const tok_claim = newClaimToken();
     const claim = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status='rejected'").run(new Date().toISOString(), tok_claim, nextAttemptSeq(db, seller.id), seller.id, number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
   if (!claim.changes) throw new Error(`Document ${number} is already being retried by another run. Nothing was re-uploaded.`);
-  db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
   try {
+    // Swarm claims-recovery: inside the try so a failing local write after the committed claim restores 'rejected' (nothing was sent) instead of stranding the document in 'sending'.
+    db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
     feedId = await guardedUpload(db, tok_claim, (signal, fence) => api.uploadInvoice({ signal, fence, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) }), { sellerId: seller.id, number: number });
   } catch (e) {
     if (e.claimLost) throw e;

@@ -153,8 +153,9 @@ export async function processReport(db, seller, reportText, { api, validate = va
     const tok_claim = newClaimToken();
     const claim = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), tok_claim, nextAttemptSeq(db, seller.id), seller.id, inv.number)); // round-12: the stale verdict dies at the ATOMIC CLAIM, before the call - never after; round-14: the claim takes the next attempt sequence
     if (!claim.changes) { out.skipped++; continue; }
-    upsertShipment(db, seller.id, s, 'sending');
     try {
+      // Swarm claims-recovery: this local write sits INSIDE the try. If it throws (e.g. SQLITE_BUSY) after the claim committed, nothing was sent, the catch below restores 'pending' under this claim token, and the next pass retries. Outside the try the claim stayed 'sending' with a token that never entered the live set, and only a restart recovered it.
+      upsertShipment(db, seller.id, s, 'sending');
       const feedId = await guardedUpload(db, tok_claim, (signal, fence) => api.uploadInvoice({ signal, fence, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat }), { sellerId: seller.id, number: inv.number });
       // Round-12 (critic round-10): the stamp was already cleared at the claim. If a sync stamped a
       // FRESH VIDR verdict (or moved the state) while this call was in flight, that newer evidence
