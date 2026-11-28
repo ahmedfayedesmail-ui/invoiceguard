@@ -30,7 +30,7 @@ Data lifecycle: file chosen in the browser, read as text in memory, declared by 
 
 In scope (the design defends):
 - T1. Someone reads the browser profile on disk, a copied profile, a stolen device with the browser closed, or a disk image: sees only ciphertext and the vault metadata.
-- T2. Someone with write access to the stored data changes, swaps, truncates or replays records or backups: detected (authenticated encryption, record binding, manifest MAC), never returned as data.
+- T2. Someone with write access to the stored data changes, swaps, truncates or replays records or backups: edits and swaps are detected (authenticated encryption, record binding, manifest MAC) and never returned as data. Truncation and replay are not covered the same way: the checks detect edits, not tail removal, unless an off-box anchor exists.
 - T3. Someone guesses the password offline against a copied profile: slowed by PBKDF2-HMAC-SHA256 at 600000 iterations. Strength still depends on the password.
 - T4. A forgotten tab left open: auto-lock (default 15 minutes, 0-240, configurable) drops the key references.
 - T5. Accidental network use by our own code: none in the engine; CSP `connect-src 'none'`; tested at unit and browser level.

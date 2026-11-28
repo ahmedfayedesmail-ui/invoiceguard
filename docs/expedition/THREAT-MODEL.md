@@ -9,6 +9,6 @@ Actors: a stale or replayed Amazon report; a wrong-seller or malformed report; t
 | Accepted document re-sent or revived | terminal-state trigger (new) | none known in code; paths unproven in production |
 | Old human decision reused | evidence-snapshot fingerprint | none known |
 | Crash between claim and send | sending claim + boot recovery to unknown + human hold | no real reboot test |
-| Backup missing or stale | watcher alerts at 8 h and 13 h; keeper prototype (separate branch) | restore not proven by the watcher |
+| Backup missing or stale | no backup-age watcher exists in the code (not deployed), so staleness is checked by hand; keeper prototype (separate branch) | restore not proven by the watcher |
 | UI states more than the system knows | not reviewed in this wave | see W2 plan |
 Out of scope here: auth/session security of the web app (see docs/LOCAL-DATA-SECURITY-THREAT-MODEL.md), Stage 2, Document Seal.
