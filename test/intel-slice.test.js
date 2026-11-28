@@ -119,6 +119,8 @@ test('deletion of a previously sealed append-only source row is marked INCOMPLET
   const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
   db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)')
     .run('seller-A','SHIP-1','AMOUNT_MISMATCH','total','opened','fingerprint-1','2026-11-28T10:02:00.000Z');
+  db.prepare('INSERT INTO events (ts,seller_id,type,detail) VALUES (?,?,?,?)')
+    .run('2026-11-28T10:02:30.000Z','seller-A','held',JSON.stringify({key:'SHIP-1',reason:'private hold reason'}));
   db.prepare('INSERT INTO shipments (seller_id,key,order_id,shipping_id,total,vat,shipment_date,due_at,status,reason,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
     .run('seller-A','SHIP-1','ORDER-1','SHIP-1',59.90,9.90,'2026-11-28','2026-12-28','open','test','2026-11-28T10:01:00.000Z');
   sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
@@ -219,8 +221,10 @@ test('invoice timeline includes related shipment integrity history without mixin
   const timeline=buildDocumentTimeline(db,'seller-A','A-2026-000001');
   assert.deepEqual(timeline.relatedShipmentKeys,['SHIP-1']);
   assert.ok(timeline.events.some(event=>event.kind==='integrity_transition'));
+  assert.ok(timeline.events.some(event=>event.kind==='seller_or_system_event'&&event.documentKey==='SHIP-1'&&event.payload.eventType==='held'));
   assert.equal(timeline.events.some(event=>event.kind==='invoice_snapshot'&&event.documentKey==='SIBLING-2'),false);
-  assert.equal(timeline.relatedEvidenceCount,2);
+  assert.equal(timeline.relatedEvidenceCount,3);
+  assert.equal(timeline.events.some(event=>JSON.stringify(event.payload).includes('private hold reason')),false);
 });
 
 test('verified evidence bundle comparison localizes the first document difference and stays advisory', t => {
