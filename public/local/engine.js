@@ -50476,46 +50476,6 @@ var readFileSync = (u) => JSON.stringify(FILES[String(u).split("/").pop()]);
 // web/shim-crypto.js
 init_buffer_shim();
 
-// src/rules.js
-function loadPacks(dir = new URL("../rules/", import.meta.url)) {
-  const packs = {};
-  for (const f of readdirSync(dir).filter((x) => x.endsWith(".json"))) {
-    const p = JSON.parse(readFileSync(new URL(f, dir), "utf8"));
-    packs[p.country] = p;
-  }
-  return packs;
-}
-var PACKS = loadPacks();
-function readiness(country, scope = "issue", packs = PACKS) {
-  const pack = packs[country];
-  if (!pack) return { ok: false, reason: `No rule pack exists for ${country}. Nothing is issued until one is written and sourced.` };
-  if (scope === "issue") {
-    const r3 = pack.rules.find((x) => x.topic === "content" && x.machine?.required && x.status === "verified");
-    return r3 ? { ok: true, rule: r3.id } : { ok: false, reason: `The ${country} pack has no verified invoice-content rule yet, so invoices are held instead of guessed.` };
-  }
-  const r = pack.rules.find((x) => x.topic === "correction" && x.machine?.methods && x.status === "verified");
-  return r ? { ok: true, rule: r.id, methods: r.machine.methods, amountChanges: r.machine.amountChanges !== false } : { ok: false, reason: `The ${country} pack has no verified correction rule yet, so corrections are held instead of guessed.` };
-}
-var get = (o, path) => path.split(".").reduce((a, k) => a?.[k], o);
-function missingFields(doc, sellerCountry = "ES", packs = PACKS) {
-  const rule = packs[sellerCountry]?.rules.find((r) => r.id.endsWith("-INV-CONTENT") && r.machine);
-  if (!rule) return [];
-  const m = rule.machine, out = [];
-  for (const k of m.required) {
-    const v = get(doc, k);
-    if (v == null || v === "" || Array.isArray(v) && !v.length || typeof v === "string" && !v.trim()) out.push(k);
-  }
-  for (const [i2, l] of (doc.lines ?? []).entries()) for (const k of m.lineRequired ?? []) if (l[k] == null || l[k] === "") out.push(`lines[${i2}].${k}`);
-  const exemptIntra = m.buyerVatRequiredWhenExemptIntraEU && doc.totals?.vat === 0 && !(doc.buyer?.vat ?? "").startsWith(sellerCountry) && !doc.buyer?.vat;
-  if (exemptIntra) out.push("buyer.vat (required for exempt intra-EU supplies)");
-  for (const k of m.requiredWhenBuyerCountry?.[doc.buyerCountry] ?? []) {
-    const v = get(doc, k);
-    if (v == null || String(v).trim() === "") out.push(k);
-  }
-  if (m.exemptNoteRequired && doc.totals?.vat === 0 && doc.totals?.excl > 0 && !doc.vatNote?.text && !doc.vatNote) out.push("vatNote (reference to the exemption)");
-  return out;
-}
-
 // src/invoice.js
 init_buffer_shim();
 
@@ -50572,13 +50532,44 @@ var totalsOf = (lines) => {
   const excl = sum(lines.map((l) => l.excl)), vat = sum(lines.map((l) => l.vat));
   return { excl, vat, incl: r22(excl + vat) };
 };
-var INTRA_EU_NOTE = { DE: "Innergemeinschaftliche steuerfreie Lieferung (Reverse Charge).", FR: "Livraison intracommunautaire exon\xE9r\xE9e de TVA (autoliquidation).", IT: "Cessione intracomunitaria esente IVA (inversione contabile).", NL: "Intracommunautaire levering, vrijgesteld van btw (verlegd).", PL: "Wewn\u0105trzwsp\xF3lnotowa dostawa towar\xF3w zwolniona z VAT (odwrotne obci\u0105\u017Cenie).", SE: "Gemenskapsintern f\xF6rs\xE4ljning, momsfri (omv\xE4nd skattskyldighet).", IE: "Intra-Community supply, zero-rated (reverse charge).", BE: "Intracommunautaire levering, vrijgesteld van btw (verlegd).", PT: "Entrega intracomunit\xE1ria isenta de IVA (autoliquida\xE7\xE3o)." };
+var INTRA_EU_NOTE = {
+  DE: "Innergemeinschaftliche steuerfreie Lieferung (Art. 138 MwStSystRL).",
+  FR: "Livraison intracommunautaire exon\xE9r\xE9e de TVA (art. 138 de la directive 2006/112/CE).",
+  IT: "Cessione intracomunitaria non imponibile IVA (art. 138 Direttiva 2006/112/CE).",
+  NL: "Intracommunautaire levering, vrijgesteld van btw (art. 138 Richtlijn 2006/112/EG).",
+  PL: "Wewn\u0105trzwsp\xF3lnotowa dostawa towar\xF3w zwolniona z VAT (art. 138 dyrektywy 2006/112/WE).",
+  SE: "Gemenskapsintern f\xF6rs\xE4ljning av varor, momsfri (art. 138 direktiv 2006/112/EG).",
+  IE: "Intra-Community supply of goods, exempt from VAT (art. 138 Directive 2006/112/EC).",
+  BE: "Intracommunautaire levering, vrijgesteld van btw (art. 138 Richtlijn 2006/112/EG).",
+  PT: "Entrega intracomunit\xE1ria isenta de IVA (art. 138 da Diretiva 2006/112/CE)."
+};
+var ES_INTRA_EU_FALLBACK = "Entrega intracomunitaria exenta de IVA, art. 25 LIVA (art. 138 Directiva 2006/112/CE).";
+var EU27 = /* @__PURE__ */ new Set(["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"]);
+var VAT_PREFIX = { GR: "EL" };
+var SPECIAL_TERRITORY = [["ES", /^(35|38|51|52)\d{3}$/], ["DE", /^(78266|27498)$/], ["IT", /^(23030|22060)$/], ["FI", /^22\d{3}$/], ["FR", /^(97|98)\d{3}$/], ["GR", /^63086$/]];
+var inSpecialTerritory = (country, postal) => {
+  const p = String(postal ?? "").replace(/\s/g, "");
+  return SPECIAL_TERRITORY.some(([c, re]) => c === country && re.test(p));
+};
+function intraEUShape(s) {
+  if (!(s && s.vat === 0 && s.excl > 0)) return false;
+  const to = s.shipCountry, from = s.shipFromCountry;
+  if (!EU27.has(to) || !EU27.has(from) || to === from) return false;
+  if (inSpecialTerritory(to, s.billing?.country === to ? s.billing?.postal : null)) return false;
+  return true;
+}
+function isIntraEUExempt(s) {
+  if (!intraEUShape(s) || !s.buyerVat) return false;
+  const vat = String(s.buyerVat).replace(/\s/g, "").toUpperCase();
+  if (!vat.startsWith(VAT_PREFIX[s.shipCountry] ?? s.shipCountry)) return false;
+  if (s.__vies && s.__vies.status !== "valid") return false;
+  return true;
+}
 function vatNote(s, country = "ES") {
-  const intraEU = s.vat === 0 && s.excl > 0 && s.buyerVat && s.shipCountry && s.shipFromCountry && s.shipCountry !== s.shipFromCountry;
+  const intraEU = isIntraEUExempt(s);
   const local = intraEU ? INTRA_EU_NOTE[s.shipCountry] : null;
   if (s.citation) return { text: local && !s.citation.includes(local.slice(0, 12)) ? s.citation + " " + local : s.citation, source: "amazon" };
-  if (country === "ES" && intraEU)
-    return { text: "Entrega intracomunitaria exenta de IVA. Inversi\xF3n del sujeto pasivo." + (local ? " " + local : ""), source: "fallback_verify_with_accountant" };
+  if (country === "ES" && intraEU) return { text: ES_INTRA_EU_FALLBACK + (local ? " " + local : ""), source: "fallback_verify_with_accountant" };
   if (local) return { text: local, source: "fallback_verify_with_accountant" };
   return null;
 }
@@ -50624,6 +50615,47 @@ function buildInvoice(db, seller, s, { date = /* @__PURE__ */ new Date(), number
     totals,
     vatNote: vatNote(s, seller.country ?? "ES")
   };
+}
+
+// src/rules.js
+function loadPacks(dir = new URL("../rules/", import.meta.url)) {
+  const packs = {};
+  for (const f of readdirSync(dir).filter((x) => x.endsWith(".json"))) {
+    const p = JSON.parse(readFileSync(new URL(f, dir), "utf8"));
+    packs[p.country] = p;
+  }
+  return packs;
+}
+var PACKS = loadPacks();
+function readiness(country, scope = "issue", packs = PACKS) {
+  const pack = packs[country];
+  if (!pack) return { ok: false, reason: `No rule pack exists for ${country}. Nothing is issued until one is written and sourced.` };
+  if (scope === "issue") {
+    const r3 = pack.rules.find((x) => x.topic === "content" && x.machine?.required && x.status === "verified");
+    return r3 ? { ok: true, rule: r3.id } : { ok: false, reason: `The ${country} pack has no verified invoice-content rule yet, so invoices are held instead of guessed.` };
+  }
+  const r = pack.rules.find((x) => x.topic === "correction" && x.machine?.methods && x.status === "verified");
+  return r ? { ok: true, rule: r.id, methods: r.machine.methods, amountChanges: r.machine.amountChanges !== false } : { ok: false, reason: `The ${country} pack has no verified correction rule yet, so corrections are held instead of guessed.` };
+}
+var get = (o, path) => path.split(".").reduce((a, k) => a?.[k], o);
+function missingFields(doc, sellerCountry = "ES", packs = PACKS, { shipment = null } = {}) {
+  const rule = packs[sellerCountry]?.rules.find((r) => r.id.endsWith("-INV-CONTENT") && r.machine);
+  if (!rule) return [];
+  const m = rule.machine, out = [];
+  for (const k of m.required) {
+    const v = get(doc, k);
+    if (v == null || v === "" || Array.isArray(v) && !v.length || typeof v === "string" && !v.trim()) out.push(k);
+  }
+  for (const [i2, l] of (doc.lines ?? []).entries()) for (const k of m.lineRequired ?? []) if (l[k] == null || l[k] === "") out.push(`lines[${i2}].${k}`);
+  const intraShape = shipment ? intraEUShape(shipment) : doc.totals?.vat === 0 && doc.totals?.excl > 0 && EU27.has(doc.buyerCountry) && EU27.has(sellerCountry) && doc.buyerCountry !== sellerCountry;
+  const exemptIntra = m.buyerVatRequiredWhenExemptIntraEU && intraShape && !doc.buyer?.vat;
+  if (exemptIntra) out.push("buyer.vat (required for exempt intra-EU supplies)");
+  for (const k of m.requiredWhenBuyerCountry?.[doc.buyerCountry] ?? []) {
+    const v = get(doc, k);
+    if (v == null || String(v).trim() === "") out.push(k);
+  }
+  if (m.exemptNoteRequired && doc.totals?.vat === 0 && doc.totals?.excl > 0 && !doc.vatNote?.text && !doc.vatNote) out.push("vatNote (reference to the exemption)");
+  return out;
 }
 
 // src/pdf.js

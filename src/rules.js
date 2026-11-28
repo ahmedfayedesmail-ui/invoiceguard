@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { EU27, intraEUShape } from './invoice.js';
 
 /**
  * Country rule packs are living data (rules/*.json). Every rule carries its official source, a verified_on date and a review interval.
@@ -86,12 +87,14 @@ export const gateReason = (g) => `Rule pack on hold: ${g.holds.map(h => `${h.id}
 
 const get = (o, path) => path.split('.').reduce((a, k) => a?.[k], o);
 /** Check an invoice document against the issuer country's content rule. Returns a list of missing items. */
-export function missingFields(doc, sellerCountry = 'ES', packs = PACKS) {
+export function missingFields(doc, sellerCountry = 'ES', packs = PACKS, { shipment = null } = {}) {
   const rule = packs[sellerCountry]?.rules.find(r => r.id.endsWith('-INV-CONTENT') && r.machine); if (!rule) return [];
   const m = rule.machine, out = [];
   for (const k of m.required) { const v = get(doc, k); if (v == null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'string' && !v.trim())) out.push(k); }
   for (const [i, l] of (doc.lines ?? []).entries()) for (const k of m.lineRequired ?? []) if (l[k] == null || l[k] === '') out.push(`lines[${i}].${k}`);
-  const exemptIntra = m.buyerVatRequiredWhenExemptIntraEU && doc.totals?.vat === 0 && !(doc.buyer?.vat ?? '').startsWith(sellerCountry) && !doc.buyer?.vat;
+  // Only a document that has the shape of an intra-EU exempt supply of goods needs a buyer VAT number. With the shipment at hand its ship-from/ship-to countries decide; otherwise the document's own buyer country. Exports, zero-value documents and free replacements never match.
+  const intraShape = shipment ? intraEUShape(shipment) : (doc.totals?.vat === 0 && doc.totals?.excl > 0 && EU27.has(doc.buyerCountry) && EU27.has(sellerCountry) && doc.buyerCountry !== sellerCountry);
+  const exemptIntra = m.buyerVatRequiredWhenExemptIntraEU && intraShape && !doc.buyer?.vat;
   if (exemptIntra) out.push('buyer.vat (required for exempt intra-EU supplies)');
   for (const k of m.requiredWhenBuyerCountry?.[doc.buyerCountry] ?? []) { const v = get(doc, k); if (v == null || String(v).trim() === '') out.push(k); }
   if (m.exemptNoteRequired && doc.totals?.vat === 0 && doc.totals?.excl > 0 && !doc.vatNote?.text && !doc.vatNote) out.push('vatNote (reference to the exemption)');

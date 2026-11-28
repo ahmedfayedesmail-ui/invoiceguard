@@ -88,7 +88,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
       const country = seller.country ?? 'ES', rd = readiness(country, 'issue'), g = rd.ok ? gate(db, country, 'issue', now) : { ok: false, holds: [] };
       if (!rd.ok) { upsertShipment(db, seller.id, s, 'held', rd.reason); logEvent(db, seller.id, 'held', { key: s.key, reason: rd.reason }); out.held.push({ key: s.key, orderId: s.orderId, reason: rd.reason }); continue; }
       if (!g.ok) { const reason = gateReason(g); upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason, rules: g.holds.map(h => h.id) }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
-      const miss = missingFields(buildInvoice(db, seller, s, { date: now, number: 'PREVIEW' }), country);
+      const miss = missingFields(buildInvoice(db, seller, s, { date: now, number: 'PREVIEW' }), country, undefined, { shipment: s });
       if (miss.length) { const reason = `Invoice would miss required fields: ${miss.join(', ')}`; upsertShipment(db, seller.id, s, 'held', reason); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); continue; }
     }
     // The upload target is the store the order was placed on (the report's marketplace column).

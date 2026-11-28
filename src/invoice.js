@@ -27,15 +27,51 @@ export const totalsOf = (lines) => {
 };
 
 /** Legal wording for 0% VAT. Prefer Amazon's own citation text from the report. */
-// Intra-EU 0% supply note, in the buyer's language, so a buyer-side reviewer reads the legal basis in their own words.
-const INTRA_EU_NOTE = { DE: 'Innergemeinschaftliche steuerfreie Lieferung (Reverse Charge).', FR: 'Livraison intracommunautaire exonérée de TVA (autoliquidation).', IT: 'Cessione intracomunitaria esente IVA (inversione contabile).', NL: 'Intracommunautaire levering, vrijgesteld van btw (verlegd).', PL: 'Wewn\u0105trzwsp\u00f3lnotowa dostawa towar\u00f3w zwolniona z VAT (odwrotne obci\u0105\u017cenie).', SE: 'Gemenskapsintern f\u00f6rs\u00e4ljning, momsfri (omv\u00e4nd skattskyldighet).', IE: 'Intra-Community supply, zero-rated (reverse charge).', BE: 'Intracommunautaire levering, vrijgesteld van btw (verlegd).', PT: 'Entrega intracomunit\u00e1ria isenta de IVA (autoliquida\u00e7\u00e3o).' };
+// Intra-EU supply of GOODS: the supplier's sale is EXEMPT (art. 138 Directive 2006/112/EC, art. 25 LIVA in Spain). The buyer accounts for the VAT in their own state,
+// but that is not "reverse charge" in the sense of a recipient-liable supply (art. 194), so the wording must not say so. Same legal basis in the buyer's language.
+const INTRA_EU_NOTE = {
+  DE: 'Innergemeinschaftliche steuerfreie Lieferung (Art. 138 MwStSystRL).',
+  FR: 'Livraison intracommunautaire exon\u00e9r\u00e9e de TVA (art. 138 de la directive 2006/112/CE).',
+  IT: 'Cessione intracomunitaria non imponibile IVA (art. 138 Direttiva 2006/112/CE).',
+  NL: 'Intracommunautaire levering, vrijgesteld van btw (art. 138 Richtlijn 2006/112/EG).',
+  PL: 'Wewn\u0105trzwsp\u00f3lnotowa dostawa towar\u00f3w zwolniona z VAT (art. 138 dyrektywy 2006/112/WE).',
+  SE: 'Gemenskapsintern f\u00f6rs\u00e4ljning av varor, momsfri (art. 138 direktiv 2006/112/EG).',
+  IE: 'Intra-Community supply of goods, exempt from VAT (art. 138 Directive 2006/112/EC).',
+  BE: 'Intracommunautaire levering, vrijgesteld van btw (art. 138 Richtlijn 2006/112/EG).',
+  PT: 'Entrega intracomunit\u00e1ria isenta de IVA (art. 138 da Diretiva 2006/112/CE).',
+};
+export const ES_INTRA_EU_FALLBACK = 'Entrega intracomunitaria exenta de IVA, art. 25 LIVA (art. 138 Directiva 2006/112/CE).';
+
+// EU27 member states (ISO 3166 alpha-2). GB, CH, NO, XI etc. are NOT in it.
+export const EU27 = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE']);
+// Prefix a VAT number carries when it differs from the ISO country code.
+const VAT_PREFIX = { GR: 'EL' };
+// Territories that sit outside the EU VAT area although the country code is an EU one. Only the billing postal code is on the shipment, so this is a best-effort exclusion: [country, postal regex].
+const SPECIAL_TERRITORY = [['ES', /^(35|38|51|52)\d{3}$/], ['DE', /^(78266|27498)$/], ['IT', /^(23030|22060)$/], ['FI', /^22\d{3}$/], ['FR', /^(97|98)\d{3}$/], ['GR', /^63086$/]];
+const inSpecialTerritory = (country, postal) => { const p = String(postal ?? '').replace(/\s/g, ''); return SPECIAL_TERRITORY.some(([c, re]) => c === country && re.test(p)); };
+
+/** The SHAPE of an intra-EU exempt supply of goods, without looking at the buyer: zero VAT on a positive amount, shipped between two different EU27 states, destination not a special territory. */
+export function intraEUShape(s) {
+  if (!(s && s.vat === 0 && s.excl > 0)) return false;
+  const to = s.shipCountry, from = s.shipFromCountry;
+  if (!EU27.has(to) || !EU27.has(from) || to === from) return false;
+  if (inSpecialTerritory(to, s.billing?.country === to ? s.billing?.postal : null)) return false;
+  return true;
+}
+/** Intra-EU exempt supply to a buyer who can be treated as such: the shape, a buyer VAT number whose prefix is the destination state, and a VIES result that is not negative (valid is preferred; invalid or unavailable is not enough). */
+export function isIntraEUExempt(s) {
+  if (!intraEUShape(s) || !s.buyerVat) return false;
+  const vat = String(s.buyerVat).replace(/\s/g, '').toUpperCase();
+  if (!vat.startsWith(VAT_PREFIX[s.shipCountry] ?? s.shipCountry)) return false;
+  if (s.__vies && s.__vies.status !== 'valid') return false;
+  return true;
+}
 
 export function vatNote(s, country = 'ES') {
-  const intraEU = s.vat === 0 && s.excl > 0 && s.buyerVat && s.shipCountry && s.shipFromCountry && s.shipCountry !== s.shipFromCountry;
+  const intraEU = isIntraEUExempt(s);
   const local = intraEU ? INTRA_EU_NOTE[s.shipCountry] : null;
   if (s.citation) return { text: local && !s.citation.includes(local.slice(0, 12)) ? s.citation + ' ' + local : s.citation, source: 'amazon' };
-  if (country === 'ES' && intraEU)
-    return { text: 'Entrega intracomunitaria exenta de IVA. Inversi\u00f3n del sujeto pasivo.' + (local ? ' ' + local : ''), source: 'fallback_verify_with_accountant' };
+  if (country === 'ES' && intraEU) return { text: ES_INTRA_EU_FALLBACK + (local ? ' ' + local : ''), source: 'fallback_verify_with_accountant' };
   if (local) return { text: local, source: 'fallback_verify_with_accountant' };
   return null;
 }
