@@ -38,9 +38,15 @@ jobs:
           rc=0
           grep -E '^# (tests|suites|pass|fail|cancelled|skipped|todo)' test-output.log > counts.txt || rc=1
           for f in test/*.test.js; do
-            if out=$(node --test --test-force-exit --no-warnings "$f" 2>&1); then st=ok; else st=FAILED; rc=1; fi
+            if out=$(node --test --no-warnings "$f" 2>&1); then st=ok; else st=FAILED; rc=1; fi
             echo "$f [$st]: $(echo "$out" | grep -E '^# (tests|pass|fail)' | tr '\n' ' ')" >> counts.txt
           done
+          expected=$(tr -d '[:space:]' < .github/expected-test-count)
+          actual=$(sed -n 's/^# tests //p' test-output.log | tail -1)
+          cancelled=$(sed -n 's/^# cancelled //p' test-output.log | tail -1)
+          echo "expected tests: $expected, actual tests: ${actual:-none}, cancelled: ${cancelled:-none}" >> counts.txt
+          if [ "$actual" != "$expected" ]; then echo "TEST COUNT MISMATCH: expected $expected, got ${actual:-none}. Tests were lost or added without updating .github/expected-test-count" >> counts.txt; rc=1; fi
+          if [ "${cancelled:-x}" != "0" ]; then echo "CANCELLED TESTS: ${cancelled:-none}" >> counts.txt; rc=1; fi
           cat counts.txt | tee -a "$GITHUB_STEP_SUMMARY"
           exit $rc
       - name: 1005-case campaign

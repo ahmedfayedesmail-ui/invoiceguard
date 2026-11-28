@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node --test --test-force-exit --no-warnings test/*.test.js",
+    "test": "node --test --no-warnings test/*.test.js",
     "demo": "node --no-warnings tools/demo-e2e.mjs",
     "backup": "node tools/backup.mjs",
     "audit-anchor": "node tools/audit-anchor.mjs",
