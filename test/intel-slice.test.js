@@ -280,3 +280,24 @@ test('bundle checkpoint and summary coverage are anchored by the sealed chain', 
   assert.equal(empty.comparable,false);
   assert.equal(empty.unchanged,false,'two empty trajectories must not be presented as an unchanged document');
 });
+
+
+test('reader and writer must reference the same persistent database file', t => {
+  const {db,path}=fixture(t);
+  const otherPath=join(tmpdir(),'invoiceguard-intel-other-'+process.pid+'-'+Date.now()+'.db');
+  const otherDb=openDb(otherPath);
+  const wrongReader=openIntelReader(otherPath);
+  t.after(()=>{try{wrongReader.close()}catch{};try{otherDb.close()}catch{};rmSync(otherPath,{force:true});});
+  assert.throws(
+    ()=>sealSellerEvidence({writerDb:db,readerDb:wrongReader,sellerId:'seller-A'}),
+    /same persistent SQLite database file/
+  );
+  const memoryWriter=openDb();
+  t.after(()=>{try{memoryWriter.close()}catch{}});
+  const correctReader=openIntelReader(path);
+  t.after(()=>{try{correctReader.close()}catch{}});
+  assert.throws(
+    ()=>sealSellerEvidence({writerDb:memoryWriter,readerDb:correctReader,sellerId:'seller-A'}),
+    /same persistent SQLite database file/
+  );
+});
