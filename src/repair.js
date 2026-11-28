@@ -211,8 +211,9 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   db.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   let feedId;
   try {
-    feedId = await guardedUpload(db, tok_claim, (signal) => api.uploadInvoice({ signal, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) }), { sellerId: seller.id, number: number });
+    feedId = await guardedUpload(db, tok_claim, (signal, fence) => api.uploadInvoice({ signal, fence, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: doc.number, total: Math.abs(doc.totals.incl), vat: Math.abs(doc.totals.vat) }), { sellerId: seller.id, number: number });
   } catch (e) {
+    if (e.claimLost) throw e;
     // Same discipline as the first upload: an unknown outcome is never resent blindly. The document
     // goes to 'unknown' with a human-visible hold; the next Amazon report settles it.
     if (e.unknownOutcome) {
@@ -265,9 +266,9 @@ export function recoverUncertainUploads(db, { minAgeMs = 0 } = {}) {
       // attemptedAt = when the attempt STARTED (written before the Amazon call); the settle window
       // anchors on it (unknownSettleCheck), not on this recovery event's time, so a long downtime
       // cannot push the original feed outside the cross-check window.
-      logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'the app stopped between Amazon accepting the upload and saving the result' });
+      logEvent(db, inv.seller_id, 'upload_unknown_outcome', { number: inv.number, attemptedAt: inv.sending_at || null, error: 'no result was saved for this upload (the app stopped or was suspended); Amazon may or may not have received it' });
       proposeRejectedRetry(db, { id: inv.seller_id }, { eventKey: `UNKNOWN:${inv.shipment_key}`, kind: 'unknown_outcome', number: inv.number, originalNumber: inv.rectifies ?? inv.number, shipmentKey: inv.shipment_key, rectNumber: inv.kind === 'rectificativa' ? inv.number : null, action: 'hold',
-        reason: `The app stopped while uploading ${inv.number}; Amazon may already have received the document. It was NOT resent automatically, to avoid a double submission. The next Amazon report settles it: still due there means the next sync resubmits the same document safely, a verdict closes it. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
+        reason: `No result was saved for the upload of ${inv.number} (the app stopped or was suspended); Amazon may already hold the document, and the original upload may still complete later. It was NOT resent automatically. The next Amazon report and Amazon's feed list are checked before any resend, but a late upload from the old attempt cannot be excluded: if it happens a LATE_FEED hold opens and one of the two feeds must be cancelled at Amazon. If you have checked in Seller Central that Amazon does not hold the document, dismiss this hold and the next sync resends it.` });
     });
   }
   return stuck.length;
@@ -485,7 +486,12 @@ export function decideRepair(db, sellerId, eventKey, decision) {
   const prev = db.prepare('SELECT kind, suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(sellerId, eventKey);
   const r = db.prepare("UPDATE repairs SET state=? WHERE seller_id=? AND event_key=? AND state='proposed'").run(decision, sellerId, eventKey);
   if (!r.changes) throw new Error(`No proposed repair ${eventKey}`);
-  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && !String(eventKey).startsWith('LATE_FEED:')) { // a LATE_FEED dismissal acknowledges a feed Amazon already holds: it must never unlock the resend block of the document (re-review 1 P2)
+  if (decision === 'dismissed' && prev?.kind === 'unknown_outcome' && String(eventKey).startsWith('LATE_FEED:')) {
+    // Keyed lift (re-review 1 round 4 D1): a person who checked Seller Central confirms THIS feed only. The event carries the feed id; unknownSettleCheck lifts the block only for a document whose blocked feed is exactly this one.
+    let number = null; try { number = JSON.parse(prev.suggestion).number ?? null; } catch { /* keep null */ }
+    const feedId = String(eventKey).slice(String(eventKey).lastIndexOf(':') + 1);
+    logEvent(db, sellerId, 'late_feed_acknowledged', { key: eventKey, number, feedId });
+  } else if (decision === 'dismissed' && prev?.kind === 'unknown_outcome') { // a LATE_FEED dismissal acknowledges a feed Amazon already holds: it must never unlock the resend block of the document (re-review 1 P2)
     // Human resolution of the feed-list orphan hold: the human checked Amazon, and unknownSettleCheck
     // treats a dismissal newer than the attempt time as clearing the cross-check, so the next sync
     // resends the same document if a fresh report still lists it as due.

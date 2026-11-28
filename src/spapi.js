@@ -85,7 +85,7 @@ export class SpApi {
   }
 
   // ---- feeds: upload a PDF invoice (or credit note) against a shipment ----
-  async uploadInvoice({ marketplaceId, pdf, orderId, shippingId, number, total, vat, documentType = 'Invoice', transactionId, signal }) {
+  async uploadInvoice({ marketplaceId, pdf, orderId, shippingId, number, total, vat, documentType = 'Invoice', transactionId, signal, fence }) {
     const wait = this.lastUpload + 3000 - Date.now(); if (wait > 0) await this.sleep(wait); // Amazon throttle: 1 invoice per 3 s
     const doc = await this.call('POST', '/feeds/2021-06-30/documents', { contentType: 'application/pdf' }, 0, signal);
     const put = await this.f(doc.url, { method: 'PUT', headers: { 'content-type': 'application/pdf' }, body: pdf, signal });
@@ -95,6 +95,7 @@ export class SpApi {
     if (transactionId && (documentType === 'CreditNote' || String(transactionId).startsWith('Correction'))) opts['metadata:TransactionId'] = transactionId;
     for (const [k, v] of Object.entries(opts)) if (/[^A-Za-z0-9,\/\\ _;:#\-.]/.test(String(v).replace(/\./g, ''))) throw new Error(`Invalid character in feed option ${k}`);
     let feed;
+    if (fence) await fence(); // fencing: a resumed process re-checks, right before the feed-creating request, that it still owns the claim
     this.lastUpload = Date.now(); // the throttle counts ATTEMPTS too: a failing retry loop must not hammer Amazon
     try {
       feed = await this.call('POST', '/feeds/2021-06-30/feeds', { feedType: 'UPLOAD_VAT_INVOICE', marketplaceIds: [marketplaceId], inputFeedDocumentId: doc.feedDocumentId, feedOptions: opts }, 0, signal);

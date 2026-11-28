@@ -154,7 +154,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
     if (!claim.changes) { out.skipped++; continue; }
     upsertShipment(db, seller.id, s, 'sending');
     try {
-      const feedId = await guardedUpload(db, tok_claim, (signal) => api.uploadInvoice({ signal, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat }), { sellerId: seller.id, number: inv.number });
+      const feedId = await guardedUpload(db, tok_claim, (signal, fence) => api.uploadInvoice({ signal, fence, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: inv.number, total: inv.totals.incl, vat: inv.totals.vat }), { sellerId: seller.id, number: inv.number });
       // Round-12 (critic round-10): the stamp was already cleared at the claim. If a sync stamped a
       // FRESH VIDR verdict (or moved the state) while this call was in flight, that newer evidence
       // wins: the document lands in 'processing' (or keeps the verdict's state), never regresses.
@@ -164,6 +164,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
         ELSE 'submitted' END WHERE seller_id=? AND number=? AND claim_token=?`).run(feedId, feedId, seller.id, inv.number, tok_claim); if (!lateRes.changes) lateUploadResult(db, seller.id, inv.number, feedId);
       if (lateRes.changes) { upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++; } else { out.held.push({ key: s.key, orderId: s.orderId, reason: `The upload of ${inv.number} finished after its claim was lost; the late feed ${feedId} is held for a person.` }); }
     } catch (e) {
+      if (e.claimLost) { out.errors.push({ key: s.key, error: e.message }); continue; } // fenced: a newer owner holds the row, nothing was sent, nothing to restore
       if (e.unknownOutcome) {
         // The feed may or may not have reached Amazon (network drop / 5xx after submission).
         // Blindly resending could double-submit the document, so it is NOT resent here: the next
@@ -523,8 +524,9 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       if (!claim0.changes) throw new Error(`Correction document ${prev.number} is already being uploaded by another run. Nothing was re-uploaded.`);
       let feedId0;
       try {
-        feedId0 = await guardedUpload(db, tok_claim0, (signal) => api.uploadInvoice({ signal, marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId }), { sellerId: seller.id, number: prev.number });
+        feedId0 = await guardedUpload(db, tok_claim0, (signal, fence) => api.uploadInvoice({ signal, fence, marketplaceId: mp0, pdf: pdf0, orderId: s0.orderId, shippingId: s0.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType: documentType0, transactionId: prev.tx_id ?? s0.transactionId }), { sellerId: seller.id, number: prev.number });
       } catch (e) {
+        if (e.claimLost) throw e;
         if (e.unknownOutcome) {
           tx(db, () => {
             db.prepare("UPDATE invoices SET upload_status='unknown' WHERE seller_id=? AND number=? AND upload_status<>'uploaded' AND claim_token=?").run(seller.id, prev.number, tok_claim0);
@@ -618,13 +620,14 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     const claimR = txImm(db, () => db.prepare("UPDATE invoices SET upload_status='sending', sending_at=?, claim_token=?, vidr_processing_at=NULL, attempt_seq=? WHERE seller_id=? AND number=? AND upload_status IN ('pending','unknown')").run(new Date().toISOString(), tok_claimR, nextAttemptSeq(db, seller.id), seller.id, rect.number)); // round-12: stale verdict dies at the claim, before the call; round-14: next attempt sequence
     if (!claimR.changes) throw new Error(`Correction document ${rect.number} is already being uploaded by another run. Nothing was re-uploaded.`);
     try {
-      feedId = await guardedUpload(db, tok_claimR, (signal) => api.uploadInvoice({ signal, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId }), { sellerId: seller.id, number: rect.number });
+      feedId = await guardedUpload(db, tok_claimR, (signal, fence) => api.uploadInvoice({ signal, fence, marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId }), { sellerId: seller.id, number: rect.number });
       // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
       const lateRes = db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
         ELSE 'submitted' END WHERE seller_id=? AND number=? AND claim_token=?`).run(feedId, feedId, seller.id, rect.number, tok_claimR); if (!lateRes.changes) lateUploadResult(db, seller.id, rect.number, feedId);
     } catch (e) {
+      if (e.claimLost) throw e;
       // Unknown outcome: Amazon may hold the document. Mark it honestly AND put a visible hold in the
       // Repairs queue - no blind resend; a fresh report that still asks for the document is the only
       // retry trigger (processCorrections / settleUnknownDocuments with allowUnknownRetry).
@@ -676,14 +679,16 @@ export async function unknownSettleCheck(db, seller, api, number) {
     const bf = doc.blocked_feed_id;
     let st = null;
     try { st = await api.feedStatus(bf); } catch { st = null; }
-    if (st?.status === 'CANCELLED') logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'feed CANCELLED - Amazon provably never processed it' });
+    const acked = db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='late_feed_acknowledged' AND detail LIKE ? AND detail LIKE ? LIMIT 1").get(seller.id, `%"number":"${number}"%`, `%"feedId":${JSON.stringify(bf)}%`);
+    if (acked) logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'a person confirmed this exact feed in its LATE_FEED hold' });
+    else if (st?.status === 'CANCELLED') logEvent(db, seller.id, 'unknown_block_lifted', { number, feedId: bf, evidence: 'feed CANCELLED - Amazon provably never processed it' });
     // Round-10c (reviewer decision): NO automatic lift from processing-report text. The real
     // report format is unproven against a live seller account, and keyword matching kept losing
     // to realistic layouts ("Errors: 0", reversed negations, TSV columns). The downloaded report
     // stays logged as evidence for the human - it is never a resend trigger. The block lifts
     // exactly two ways: CANCELLED above (Amazon provably never processed the feed), or a human
     // who checked Seller Central dismissing the hold (handled before this branch).
-    else return `Feed ${bf} (${st?.status ?? 'outcome unconfirmed'}) was never resolved at document level, so ${number} is NOT resent - no automatic resend happens on report text alone. The block lifts exactly two ways: the feed proves Amazon never processed it (CANCELLED), or you check the document in Seller Central and dismiss the hold in Repairs - the next sync then resends the same document.`;
+    else return `Feed ${bf} (${st?.status ?? 'outcome unconfirmed'}) was never resolved at document level, so ${number} is NOT resent - no automatic resend happens on report text alone. The block lifts exactly two ways: the feed proves Amazon never processed it (CANCELLED), or you check Seller Central and, for this feed, confirm it in the LATE_FEED hold in Repairs (that lifts only this feed's block; a different feed stays blocked). Dismissing an UNKNOWN hold also lets the next sync resend the same document.`;
   }
   const since = new Date(attemptTs - 15 * 60e3).toISOString(), until = attemptTs + 15 * 60e3;
   if (typeof api.listFeeds !== 'function') return `Amazon's feed list is not available to cross-check the interrupted upload of ${number}, so it is NOT resent automatically. Check it in Seller Central.`;

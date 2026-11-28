@@ -23,13 +23,15 @@ export const HEARTBEAT_MS = 5 * 1000;
 function beat(db, token) { try { db.prepare('UPDATE invoices SET claim_heartbeat=? WHERE claim_token=?').run(new Date().toISOString(), token); } catch { /* a heartbeat must never break an upload */ } }
 export async function guardedUpload(db, token, call, { sellerId = null, number = null } = {}) {
   const ac = new AbortController();
+  // Fence (re-review 1 round 4, B1): called by the api right before the request that creates the feed. A zombie that resumed after its claim was swept or re-claimed must not create a feed.
+  const fence = () => { const r = db.prepare('SELECT upload_status s, claim_token t FROM invoices WHERE seller_id=? AND number=?').get(sellerId, number); if (!r || r.t !== token || !['sending', 'processing'].includes(r.s)) throw Object.assign(new Error('this upload no longer owns its claim, so nothing was sent to Amazon'), { claimLost: true }); };
   live.add(token);
   let timer, p;
   beat(db, token); // ownership proof for OTHER processes: the sweep treats a claim as live while this keeps ticking
   const hb = setInterval(() => beat(db, token), HEARTBEAT_MS); hb.unref?.();
   try {
     return await Promise.race([
-      (p = call(ac.signal)),
+      (p = call(ac.signal, fence)),
       new Promise((_, rej) => { timer = setTimeout(() => { ac.abort(); try { logEvent(db, sellerId, 'upload_timeout_abandoned', { number }); } catch { /* the hold below still applies */ } if (p) Promise.resolve(p).then(f => { if (f) lateUploadResult(db, sellerId, number, f, { fromTimeout: true }); }).catch(() => {}); rej(Object.assign(new Error('the upload call did not answer in time; Amazon may or may not have received it'), { unknownOutcome: true, uploadTimeout: true })); }, uploadTimeoutMs()); }),
     ]);
   } finally { clearTimeout(timer); clearInterval(hb); live.delete(token); }
@@ -43,7 +45,7 @@ export function lateUploadResult(db, sellerId, number, feedId, { fromTimeout = f
   if (!row) return;
   tx(db, () => {
     logEvent(db, sellerId, 'late_upload_result', { number, lateFeedId: feedId, currentFeedId: row.feed_id ?? null, status: row.upload_status });
-    if (fromTimeout) db.prepare("UPDATE invoices SET blocked_feed_id=COALESCE(blocked_feed_id, ?) WHERE seller_id=? AND number=? AND upload_status='unknown'").run(feedId, sellerId, number); // the abandoned request landed after all: that feed blocks any resend
+    if (fromTimeout) db.prepare("UPDATE invoices SET blocked_feed_id=COALESCE(blocked_feed_id, ?) WHERE seller_id=? AND number=? AND upload_status IN ('unknown','submitted','processing')").run(feedId, sellerId, number); // the abandoned request landed after all: that feed blocks any resend
     if (row.upload_status === 'uploaded') return; // Amazon already accepted a document under this number
     proposeRejectedRetry(db, { id: sellerId }, { eventKey: `LATE_FEED:${row.shipment_key}:${feedId}`, kind: 'unknown_outcome', number, originalNumber: row.rectifies ?? number, shipmentKey: row.shipment_key, rectNumber: row.kind === 'rectificativa' ? number : null, action: 'hold',
       reason: `An upload of ${number} finished after the app had already treated that attempt as lost (feed ${feedId}). Amazon may now hold more than one submission for this document. Nothing was changed or resent automatically. Check Seller Central, then decide.` });

@@ -20,3 +20,5 @@ No P0 known. P1 findings F-UX-1 and F-SM-1 fixed.
 | R16 | processCorrections gives one sync error entry per sync for a pending correction with an open hold (noisy, not wedged) | Open, minor |
 | R17 | Trigger hardening gaps: INSERT OR REPLACE, DELETE and kind swap on invoices are not covered by the terminal-state trigger (no live code path) | Open, minor |
 | R18 | Repo comments labelled "Owner ruling" were not all matched against forwarded rulings | Open, listed for the owner |
+| R19 | Duplicate feed if a process is suspended while its POST /feeds is in flight, or an abandoned request lands after the quiet period: Amazon holds two feeds for one number. Detected (LATE_FEED hold). Resolved only by a person cancelling one feed at Amazon. No idempotency key exists | Accepted physical limit, owner awareness |
+| R20 | N2 future sending_at and N3 NULL sending_at inside the grace (legacy rows only) | Deferred, low likelihood |
