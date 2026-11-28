@@ -465,7 +465,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/watch') return json(res, 200, F.watchReport(db, seller));
       if (p === '/api/watch/add') { try { return json(res, 200, F.watchAdd(db, seller, body.vat, body.label)); } catch (e) { return json(res, 400, { error: e.message }); } }
       if (p === '/api/watch/remove') { F.watchRemove(db, seller, body.vat); return json(res, 200, { ok: true }); }
-      if (p === '/api/watch/run') return json(res, 200, { changes: await F.watchRun(db, seller, validate.fresh ?? validate, { force: true }) });
+      if (p === '/api/watch/run') { const vk = 'vat|' + user.id, wait = throttled(vk, VAT_CHECK_MAX); if (wait) return json(res, 429, { error: 'Too many VAT checks. Try again in a few minutes.' }, { 'retry-after': String(wait) }); noteFail(vk); return json(res, 200, { changes: await F.watchRun(db, seller, validate.fresh ?? validate, { force: true }) }); } // N1: same per-user budget as /api/vat/check (shared key), so force:true cannot drain VIES
       if (p === '/api/explainer') return json(res, 200, F.explainerState(db, seller));
       if (p === '/api/explainer/review') return json(res, 200, F.explainerReview(db, seller, seller.email ?? seller.name));
       if (p === '/api/explainer/unpublish') { F.explainerUnpublish(db, seller); return json(res, 200, { ok: true }); }
