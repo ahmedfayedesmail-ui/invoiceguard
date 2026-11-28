@@ -7,7 +7,7 @@ import { openDb, verifyAudit } from '../src/db.js';
 
 const dbFile = process.argv[3] ?? process.env.DB_FILE ?? 'invoiceguard.db';
 const dir = process.argv[2] ?? join(dirname(dbFile), 'backups');
-const files = readdirSync(dir).filter(f => f.endsWith('.db')).sort();
+const files = readdirSync(dir).filter(f => /^invoiceguard-.*\.db$/.test(f)).sort();
 if (!files.length) { console.error('no backups found in ' + dir); process.exit(1); }
 const scratch = join(dir, '.restore-check-scratch.db');
 copyFileSync(join(dir, files.at(-1)), scratch);

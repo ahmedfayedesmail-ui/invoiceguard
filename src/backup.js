@@ -3,7 +3,7 @@
 // rotate to the newest 14. anchorLog(): append every seller's audit-chain head to an anchors log
 // OUTSIDE the database, so a rewritten chain is detectable without trusting the database itself.
 // The copies and the log contain personal data: never commit or publish them.
-import { copyFileSync, mkdirSync, readdirSync, unlinkSync, statSync, appendFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, unlinkSync, statSync, appendFileSync, renameSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -17,12 +17,21 @@ export function backupNow(dbFile = process.env.DB_FILE ?? 'invoiceguard.db', dir
   // the WAL, so not every frame reached the main file; copying then would silently snapshot a stale
   // database. Report it honestly and copy nothing.
   const cp = side.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get();
-  side.close();
-  if (cp.busy) return { ok: false, reason: 'the database was busy, so the checkpoint did not finish and no snapshot was copied - the previous backup is still the newest good one', checkpoint: cp };
+  if (cp.busy) { side.close(); return { ok: false, reason: 'the database was busy, so the checkpoint did not finish and no snapshot was copied - the previous backup is still the newest good one', checkpoint: cp }; }
   const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
-  const dest = join(dir, `invoiceguard-${stamp}.db`);
-  copyFileSync(dbFile, dest);
-  const files = readdirSync(dir).filter(f => f.endsWith('.db')).sort();
+  const dest = join(dir, `invoiceguard-${stamp}.db`), tmp = join(dir, `.inprogress-${process.pid}-${Date.now()}`);
+  // swarm-backend B1: a plain file copy can tear when a writer's auto-checkpoint rewrites pages of the main file during the copy
+  // (reproduced: one of 491 attempts under a synthetic writer failed integrity_check yet was reported ok). VACUUM INTO reads one
+  // consistent snapshot; the snapshot is integrity-checked in a temp file and only then renamed into place, so a bad copy is never kept.
+  try {
+    side.exec(`VACUUM INTO '${tmp.replace(/'/g, "''")}'`);
+    side.close();
+    const chk = new DatabaseSync(tmp); let ic; try { ic = chk.prepare('PRAGMA integrity_check').get().integrity_check; } finally { chk.close(); }
+    if (ic !== 'ok') { rmSync(tmp, { force: true }); return { ok: false, reason: 'the snapshot failed its integrity check and was discarded: ' + String(ic).slice(0, 120) }; }
+    renameSync(tmp, dest);
+  } catch (e) { try { side.close(); } catch { /* closed */ } rmSync(tmp, { force: true }); return { ok: false, reason: 'the snapshot could not be written: ' + String(e.message).slice(0, 120) }; }
+  // swarm-backend B2: rotate ONLY this module's own files; pre-restore-*.db safety copies must not use up (or outlive) the retention slots.
+  const files = readdirSync(dir).filter(f => /^invoiceguard-.*\.db$/.test(f)).sort();
   for (const f of files.slice(0, Math.max(0, files.length - keep))) unlinkSync(join(dir, f));
   return { ok: true, dest, bytes: statSync(dest).size, kept: Math.min(files.length, keep) };
 }
