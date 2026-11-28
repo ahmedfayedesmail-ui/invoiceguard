@@ -15,8 +15,9 @@ tiers change without notice.
   - `APP_SECRET` (session cookies; rotate only if you accept logging
     everyone out)
   - `ADMIN_TOKEN` (the /admin routes)
-  - `OPERATOR_NAME` and `OPERATOR_EMAILS` (public pages stay 404-hidden
-    until OPERATOR_NAME is set)
+  - `OPERATOR_NAME` (public pages stay 404-hidden until it is set),
+    `CONTACT_EMAIL` and `OPERATOR_COUNTRY` (contact details on those pages),
+    and `OPERATOR_EMAILS` (comma-separated operator account emails)
   - `DB_FILE` (path to the SQLite file on the new host's disk)
   - `PORT` if the host requires a specific one
   - `COOKIE_SECURE=1` behind HTTPS

@@ -53,7 +53,7 @@ Origin checks on all writes, HttpOnly + SameSite + Secure cookies, security head
 
 ## Known limits
 - Live Amazon connection is untested against a real seller account.
-- Poland and Netherlands rule packs are held until primary legal texts are read. France's 2027 rules are held as a safety measure.
+- Poland and Netherlands rule packs are held until primary legal texts are read.
 - Defect-rate figures in the UI are our own estimate.
 
 ## Connect with Amazon (public app)
@@ -61,9 +61,9 @@ Off by default. After Amazon approves the app, set `SPAPI_APP_ID`, `SPAPI_CLIENT
 
 ## Upload route (the product today)
 
-InvoiceGuard is not connected to Amazon. The seller downloads an order report from Seller Central, uploads it here, and downloads a pack of invoices to upload to Amazon themselves.
+InvoiceGuard is not connected to Amazon. The seller downloads the VAT Invoice Data Report from Seller Central, uploads it here, and downloads a pack of invoices to upload to Amazon themselves. Invoices are created only from the VAT Invoice Data Report.
 
-- **Accepted files** (tab-delimited text, detected by their header): the Order Report with the buyer tax columns switched on, and the VAT Invoice Data Report.
+- **Accepted files** (tab-delimited text, detected by their header): the VAT Invoice Data Report, which is the only source of invoices, and the Order Report with the buyer tax columns switched on, which is preview only. The Order Report shows what we can read but never allows an invoice to be issued: every order in it is held with the reason that issuing needs a VAT Invoice Data Report.
 - **Refused:** the All Orders report. It has no buyer name, address or VAT number.
 - **Verified vs not.** Column names come from Amazon's developer documentation (report type pages). They have NOT been checked against a real downloaded file yet. Every column we cannot verify is optional, and a missing required value holds the order with a reason. See `docs/PILOT-SELLER-STEPS.md` for how a pilot seller sends us only the header line.
 - **Holds (never guessed):** missing billing address (unless the seller ticks "use the delivery address"), promotion discounts, a VAT rate that does not read cleanly from price and tax, rows of one order that disagree, a buyer VAT number without a country, a failed VIES or name check.
@@ -71,4 +71,4 @@ InvoiceGuard is not connected to Amazon. The seller downloads an order report fr
 - **Pack** (`GET /api/pack`): PDFs, `manifest.csv`, `HOW-TO-UPLOAD.txt`. The upload steps are worded generically because Seller Central menu names differ and we could not verify the current one from Amazon's own pages.
 - **Statuses:** invoices are `ready` until the seller presses "I uploaded these" (`POST /api/invoices/mark`). The app cannot know whether Amazon accepted them.
 - The SP-API/OAuth code is dormant: it needs SPAPI_* variables and has no visible UI unless they are set.
-- Public pages (`/`, `/privacy`, `/contact`) are served only when OPERATOR_NAME and CONTACT_EMAIL are set. Until then `/` redirects to `/app`.
+- Public pages (`/`, `/privacy`, `/contact`) are served only when `OPERATOR_NAME` is set (`CONTACT_EMAIL` and `OPERATOR_COUNTRY` fill in the contact details shown on them). Until then `/` redirects to `/app`.
