@@ -1,0 +1,14 @@
+# Example only. Do not deploy from this prototype.
+name = "invoiceguard-backup-keeper"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+[triggers]
+crons = ["*/15 * * * *"]
+[[d1_databases]]
+binding = "DB"
+database_name = "keeper"
+database_id = "REPLACE_ME"
+[vars]
+DRY_RUN = "true"
+GITHUB_REPO = "OWNER/REPO"
+# Secrets (wrangler secret put): GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_INSTALLATION_ID, NTFY_TOPIC (long random), HEALTHCHECKS_URL
