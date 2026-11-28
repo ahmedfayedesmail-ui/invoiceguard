@@ -5,13 +5,18 @@ import { verifyBuyer } from '../src/verify.js';
 import { readiness, missingFields } from '../src/rules.js';
 import { buildInvoice } from '../src/invoice.js';
 import { renderPdf } from '../src/pdf.js';
+import { localizeDeep } from '../public/i18n/core.js';
 
 const stmt = { get: () => undefined, all: () => [], run: () => ({}) };
 const stubDb = { prepare: () => stmt, exec: () => {} };
 const sellerFor = (s, country) => ({ id: 'local', name: 'SAMPLE SELLER (not a real invoice)', nif: s.sellerVat || '', address: 'Sample address', country, invoice_lang: 'auto', profile: '{}' });
 
 /** @returns plain, JSON-safe summary: what would be invoiced, what is held (with the reason) and what is skipped. */
-export async function analyze(text, { country = 'ES', useDeliveryAddress = false } = {}) {
+export async function analyze(text, { country = 'ES', useDeliveryAddress = false, lang = 'en' } = {}) {
+  const r = await analyzeEn(text, { country, useDeliveryAddress });
+  return lang === 'en' ? r : localizeDeep(r, lang); // i18n: English at source, Spanish rendered from the shared catalog
+}
+async function analyzeEn(text, { country, useDeliveryAddress }) {
   const plan = planUpload(String(text ?? ''), { useDeliveryAddress });
   if (!plan.ok) return { ok: false, error: plan.error, format: plan.format ?? null };
   const rd = readiness(country, 'issue');

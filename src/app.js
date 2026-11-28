@@ -1,3 +1,4 @@
+import { requestLang, localizeDeep, localizeLines } from './i18n.js';
 import { logSec, migrateSecLog, purgeSecLog, rotateKeys, passwordProblem, migrateSecurity, newRecoveryCodes, recoveryLeft, recoveryValid, recoveryConsume, totpMatch, newTotpSecret, otpauthUrl, purgeBuyerData, PW_HISTORY, PW_MAX_AGE_DAYS } from './security.js';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -32,6 +33,7 @@ import { listHolds, decideHold, addHoldNote } from './holds.js';
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
 const SAMPLE_JS = readFileSync(new URL('../public/sample.js', import.meta.url));
+const I18N_FILES = Object.fromEntries(['core.js', 'en.js', 'es.js'].map(f => ['/i18n/' + f, readFileSync(new URL('../public/i18n/' + f, import.meta.url))])); // served so the browser app and the local page use the same catalog as the server
 const LOCAL_HTML = readFileSync(new URL('../public/local/index.html', import.meta.url)), LOCAL_PAGE = readFileSync(new URL('../public/local/page.js', import.meta.url)), LOCAL_ENGINE = readFileSync(new URL('../public/local/engine.js', import.meta.url));
 // Problem loop page: built in the repository, OFF unless ENABLE_LOOP_PAGE=1 (no public deployment of it without a decision).
 const LOOP_FILES = { '/local/loop': ['loop.html', 'text/html; charset=utf-8'], '/local/loop.js': ['loop.js', 'text/javascript; charset=utf-8'], '/local/loop-engine.js': ['loop-engine.js', 'text/javascript; charset=utf-8'] };
@@ -60,7 +62,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const throttled = (k, max = FAIL_MAX) => { const f = fails.get(k); if (!f) return 0; if (f.until < Date.now()) { fails.delete(k); return 0; } return f.n >= max ? Math.ceil((f.until - Date.now()) / 1000) : 0; };
   const noteFail = (k) => { const f = fails.get(k); if (!f || f.until < Date.now()) fails.set(k, { n: 1, until: Date.now() + FAIL_WINDOW }); else f.n++; if (fails.size > 50000) fails.delete(fails.keys().next().value); };
   const secureFlag = (req) => (process.env.COOKIE_SECURE === '1' || req.headers['x-forwarded-proto'] === 'https') ? '; Secure' : '';
-  const json = (res, code, body, headers = {}) => { if (res.headersSent || res.writableEnded) { try { res.end(); } catch { /* socket already gone */ } return; } /* a late error after the reply started must not throw out of the handler */ res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
+  const json = (res, code, body, headers = {}) => { if (res.headersSent || res.writableEnded) { try { res.end(); } catch { /* socket already gone */ } return; } /* a late error after the reply started must not throw out of the handler */ if (res.igLang && res.igLang !== 'en') body = localizeDeep(body, res.igLang); /* i18n: English is stored and produced by the code; Spanish is rendered here from the catalog */ res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
   const readBody = (req, limit = 64e3) => new Promise((ok, no) => { let d = '', big = false; const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
     req.on('data', c => { if (big) return; d += c; if (d.length > limit) { big = true; d = ''; } });
     req.on('end', () => { if (big) return no(fail('That request is too large. Uploaded PDFs can be up to 5 MB.', 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
@@ -155,6 +157,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
     if (inflight >= MAX_INFLIGHT) { res.writeHead(503, { 'content-type': 'application/json', 'retry-after': '2' }); return res.end('{"error":"The server is busy. Please try again in a few seconds."}'); }
     inflight++; res.on('close', () => { inflight--; });
     res.setHeader('x-content-type-options', 'nosniff'); res.setHeader('referrer-policy', 'no-referrer'); res.setHeader('x-frame-options', 'DENY');
+    try { res.igLang = requestLang(req, new URL(req.url, 'http://x')); } catch { res.igLang = 'en'; }
     try {
       // CSRF root fix: a state-changing request must come from this site. Browsers always send Origin on cross-site POSTs.
       if (req.method !== 'GET' && req.method !== 'HEAD') { const o = req.headers.origin; if (o) { let same = false; try { same = new URL(o).host === req.headers.host; } catch {} if (!same) return json(res, 403, { error: 'Request blocked: it did not come from this site.' }); } }
@@ -166,6 +169,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         res.writeHead(200, { 'content-type': p.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8', 'content-security-policy': LOCAL_CSP, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return res.end(f);
       }
       if (req.method === 'GET' && LOOP_FILES[p] && process.env.ENABLE_LOOP_PAGE === '1') { const [f, ct] = LOOP_FILES[p]; res.writeHead(200, { 'content-type': ct, 'content-security-policy': LOCAL_CSP, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return res.end(loopFile(f)); }
+      if (req.method === 'GET' && I18N_FILES[p]) { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return res.end(I18N_FILES[p]); }
       if (req.method === 'GET' && p === '/sample.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=300' }); return res.end(SAMPLE_JS); }
       // Public no-signup sample: the real pipeline on made-up orders, in a throwaway in-memory DB. Nothing is stored, nothing is sent anywhere.
       const bump = (k) => { try { db.prepare('INSERT INTO site_counters (key,n) VALUES (?,1) ON CONFLICT(key) DO UPDATE SET n=n+1').run(k); } catch { /* counting must never break a page */ } };
@@ -305,7 +309,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         return json(res, 200, { windowDays: 7, newAccounts: acc, eventsByType: Object.fromEntries(ev.map(r => [r.type, r.c])), invoicesByStatus: Object.fromEntries(inv.map(r => [r.st ?? 'unknown', r.c])), counters });
       }
       if (await oauth.handle(req, res, url, p)) return;
-      if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
+      if (req.method === 'GET' && (p === '/app' || p === '/index.html')) { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(INDEX); }
       const em = p.match(/^\/e\/([a-f0-9]{24})$/);
       if (req.method === 'GET' && em) { const html = F.explainerPage(db, em[1]); if (!html) return json(res, 404, { error: 'not found' }); res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" }); return res.end(html); }
       if (!p.startsWith('/api/')) {
@@ -457,7 +461,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       const mc = p.match(/^\/api\/invoices\/([A-Z]-\d{4}-\d{6})\/checks$/);
       if (mc) { const r = db.prepare('SELECT json FROM invoices WHERE seller_id=? AND number=?').get(seller.id, mc[1]); return r ? json(res, 200, { warnings: F.buyerCountryCheck(JSON.parse(r.json), seller.country ?? 'ES') }) : json(res, 404, { error: 'not found' }); }
-      if (p === '/api/export.zip') { try { const x = await F.buildExport(db, seller, body.from, body.to); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoices-${body.from}-to-${body.to}.zip"`, 'x-count': String(x.count) }); return res.end(x.zip); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p === '/api/export.zip') { try { const x = await F.buildExport(db, seller, body.from, body.to, new Date(), res.igLang); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoices-${body.from}-to-${body.to}.zip"`, 'x-count': String(x.count) }); return res.end(x.zip); } catch (e) { return json(res, 400, { error: e.message }); } }
       if (p === '/api/export/external') { try { return json(res, 200, F.addExternalDoc(db, seller, body)); } catch (e) { return json(res, 400, { error: e.message }); } }
       if (p === '/api/buyer/message') return json(res, 200, F.buyerMessage(String(body.orderId ?? ''), body.country));
       if (p === '/api/b2c') { try { return json(res, 200, F.convertToConsumerInvoice(db, seller, String(body.key), seller.email ?? seller.name)); } catch (e) { return json(res, 400, { error: e.message }); } }
@@ -557,7 +561,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const safe = (x) => String(x ?? '').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 60), cell = (v) => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
         const files = [], man = ['invoice_number,order_id,buyer,buyer_vat,issue_date,currency,total_incl_vat,vat,file'];
         for (const r of rows) { const inv = JSON.parse(r.json), name = `${safe(inv.orderId)}_${safe(r.number)}.pdf`; files.push({ name, data: await renderPdf(inv) }); man.push([r.number, inv.orderId, inv.buyer?.name, inv.buyer?.vat, String(inv.issueDate ?? '').slice(0, 10), inv.currency, r.total, r.vat, name].map(cell).join(',')); }
-        files.push({ name: 'manifest.csv', data: Buffer.from('\uFEFF' + man.join('\r\n') + '\r\n') }, { name: 'HOW-TO-UPLOAD.txt', data: Buffer.from(PACK_HOWTO) });
+        files.push({ name: 'manifest.csv', data: Buffer.from('\uFEFF' + man.join('\r\n') + '\r\n') }, { name: 'HOW-TO-UPLOAD.txt', data: Buffer.from(localizeLines(PACK_HOWTO, res.igLang)) });
         const zip = makeZip(files); res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="invoiceguard-pack-${new Date().toISOString().slice(0, 10)}.zip"`, 'cache-control': 'no-store', 'content-length': zip.length }); return res.end(zip);
       }
       if (p === '/api/sync') return json(res, 200, await sync(seller));

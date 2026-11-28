@@ -1,0 +1,15 @@
+# Text files inside the download pack and the accountant export, translated line by line (localizeLines).
+HOW TO SEND THESE INVOICES TO AMAZON ||| CÓMO ENVIAR ESTAS FACTURAS A AMAZON
+InvoiceGuard does not connect to Amazon on this route. You upload the files yourself. ||| InvoiceGuard no se conecta con Amazon por esta vía. Los archivos los sube usted mismo.
+1. Open Seller Central and go to Orders, then Manage Orders. ||| 1. Abra Seller Central y vaya a Pedidos y después a Gestionar pedidos.
+2. Find the order (the order number is the first part of each PDF file name and is listed in manifest.csv). ||| 2. Localice el pedido (el número de pedido es la primera parte del nombre de cada archivo PDF y figura en manifest.csv).
+3. Open the order and choose "Upload invoice". Pick the PDF and type the invoice number from manifest.csv. ||| 3. Abra el pedido y elija «Subir factura». Seleccione el PDF y escriba el número de factura de manifest.csv.
+Menu names can differ by account. If you cannot find the option, look under the Orders menu for an invoice upload page, or ask Seller Support. Tell us what you see and we will update this guide. ||| Los nombres de los menús pueden variar según la cuenta. Si no encuentra la opción, busque en el menú Pedidos una página de subida de facturas o consulte al Servicio de Atención al Vendedor. Cuéntenos qué ve y actualizaremos esta guía.
+4. When you have uploaded them, go back to InvoiceGuard and press "I uploaded these". ||| 4. Cuando las haya subido, vuelva a InvoiceGuard y pulse «Ya las he subido».
+Check each total against the order in Seller Central before you upload. InvoiceGuard does not give tax or legal advice. ||| Compruebe cada total con el pedido en Seller Central antes de subir. InvoiceGuard no ofrece asesoramiento fiscal ni jurídico.
+InvoiceGuard export for {1} ||| Exportación de InvoiceGuard de {1}
+Issue dates {1} to {2}. Generated {3}. ||| Fechas de emisión del {1} al {2}. Generado el {3}.
+{1} documents issued by this tool; {2} Amazon-issued files you uploaded yourself (not checked or edited by this tool). ||| {1} documentos emitidos por esta herramienta; {2} archivos emitidos por Amazon que usted subió (esta herramienta no los comprueba ni los edita).
+Credit notes and corrections appear with their own numbers and negative amounts. ||| Las notas de crédito y las rectificaciones aparecen con su propia numeración e importes negativos.
+Totals are plain sums of the invoice lines. ||| Los totales son simples sumas de las líneas de factura.
+This is a record export, not a VAT return and not tax advice. ||| Es una exportación de registros, no una declaración de IVA ni asesoramiento fiscal.

@@ -1,4 +1,5 @@
 import { deflateRawSync, crc32 } from 'node:zlib';
+import { localizeLines } from './i18n.js';
 import { randomBytes } from 'node:crypto';
 import { PACKS, ruleState } from './rules.js';
 import { addOverride, hasOverride } from './verify.js';
@@ -114,7 +115,7 @@ export function zip(files, date = new Date()) {
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const safe = (s) => String(s).replace(/[^A-Za-z0-9._-]/g, '_');
 /** Bundle for the accountant: PDFs, an invoice list, and totals by buyer country and VAT rate. from/to are inclusive issue dates (YYYY-MM-DD). */
-export async function buildExport(db, seller, from, to, now = new Date()) {
+export async function buildExport(db, seller, from, to, now = new Date(), lang = 'en') {
   ensureFeatureTables(db);
   if (!DATE.test(from ?? '') || !DATE.test(to ?? '') || from > to || isNaN(new Date(from)) || isNaN(new Date(to))) throw new Error('Enter a valid date range (from and to as YYYY-MM-DD, from not after to).');
   const rows = db.prepare("SELECT number, kind, rectifies, issued_at, total, vat, shipment_key, upload_status, json FROM invoices WHERE seller_id=? AND substr(issued_at,1,10) BETWEEN ? AND ? ORDER BY number").all(seller.id, from, to);
@@ -128,7 +129,7 @@ export async function buildExport(db, seller, from, to, now = new Date()) {
   const ext = db.prepare('SELECT id, name, doc_date, pdf FROM ext_docs WHERE seller_id=? AND doc_date BETWEEN ? AND ? ORDER BY doc_date, id').all(seller.id, from, to);
   for (const e of ext) files.push({ name: `amazon-issued/${safe(e.id)}-${safe(e.name)}`, data: Buffer.from(e.pdf) });
   files.push({ name: 'invoices.csv', data: list.join('\n') }, { name: 'totals-by-country-and-rate.csv', data: sum.join('\n') },
-    { name: 'README.txt', data: `InvoiceGuard export for ${seller.name}\nIssue dates ${from} to ${to}. Generated ${now.toISOString()}.\n${rows.length} documents issued by this tool; ${ext.length} Amazon-issued files you uploaded yourself (not checked or edited by this tool).\nCredit notes and corrections appear with their own numbers and negative amounts. Totals are plain sums of the invoice lines. This is a record export, not a VAT return and not tax advice.\n` });
+    { name: 'README.txt', data: localizeLines(`InvoiceGuard export for ${seller.name}\nIssue dates ${from} to ${to}. Generated ${now.toISOString()}.\n${rows.length} documents issued by this tool; ${ext.length} Amazon-issued files you uploaded yourself (not checked or edited by this tool).\nCredit notes and corrections appear with their own numbers and negative amounts. Totals are plain sums of the invoice lines. This is a record export, not a VAT return and not tax advice.\n`, lang) });
   return { zip: zip(files, now), count: rows.length, external: ext.length };
 }
 export function addExternalDoc(db, seller, { name, date, pdfBase64 }) {

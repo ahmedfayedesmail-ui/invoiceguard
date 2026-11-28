@@ -1,0 +1,10 @@
+# Whole-string templates for strings built by concatenation, and short labels not found by the sentence scan.
+Not a shipment (transaction type: {1}) ||| No es un envío (tipo de transacción: {1})
+Amazon is not waiting for an invoice for this order (status: {1}) ||| Amazon no espera una factura de este pedido (estado: {1})
+Password needs at least one symbol, such as ! or - ||| La contraseña necesita al menos un símbolo, como ! o -
+Not issued: ||| No emitida:
+Nothing was guessed. ||| No se ha supuesto nada.
+buyer VAT invalid ({1}) ||| IVA del comprador no válido ({1})
+Not a shipment (transaction type: {1}) ||| No es un envío (tipo de transacción: {1})
+Amazon is not waiting for an invoice for this order (status: {1}) ||| Amazon no espera una factura para este pedido (estado: {1})
+Not a business order: the report says is-business-order FALSE ||| No es un pedido de empresa: el informe indica is-business-order FALSE
