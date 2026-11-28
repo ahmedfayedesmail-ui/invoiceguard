@@ -76,6 +76,13 @@ const vidrSkipReason = (s) => s.unknownTxFormat ? 'The transaction id looks like
   : !needsInvoice(s) ? 'Amazon is not waiting for an invoice for this order (status: ' + (s.invoiceStatus || 'none') + ')'
   : null;
 
+/** Pair state per original shipment, from the rows of ONE upload. Informational: the pipeline decides what is issued. A pair split across two uploads shows as reversal-only / correction-only here; the pipeline completes it when the other half arrives. */
+export function correctionPairs(list) {
+  const by = new Map();
+  for (const s of list) { const e = by.get(s.shippingId) ?? { shippingId: s.shippingId, reversals: [], replacements: [] }; (s.isCorrectionReversal ? e.reversals : e.replacements).push(s.transactionId); by.set(s.shippingId, e); }
+  return [...by.values()].map(e => ({ shippingId: e.shippingId, reversals: e.reversals, replacements: e.replacements, state: e.reversals.length > 1 || e.replacements.length > 1 ? 'multiple' : e.reversals.length && e.replacements.length ? 'complete' : e.reversals.length ? 'reversal-only' : 'correction-only' }));
+}
+
 /** Full file -> plan. Pure: nothing is stored. */
 export function planUpload(text, opts = {}) {
   const t = parseTable(text);
@@ -87,11 +94,13 @@ export function planUpload(text, opts = {}) {
   if (format === 'vidr') {
     // Same honesty as the Order Report: rows that cannot produce an invoice are counted as skipped up front,
     // so the preview's "Ready to invoice" matches what issue will actually attempt.
-    const kept = [], skipped = [], held = [], notes = [], unsupported = [];
+    const kept = [], skipped = [], held = [], notes = [], unsupported = [], corrections = [];
     const parsed = parseVidr(text);
-    for (const s of parsed) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) { skipped.push({ orderId: s.orderId, why }); if (s.transactionType !== 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection && !s.unknownTxFormat) unsupported.push({ orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing will be issued for it.` }); continue; } const a = assessShipment(s); const hf = a.findings.filter(f => f.severity !== 'INFO'); if (hf.length && !(opts.isReleased && hf.every(f => f.severity === 'HOLD' && f.resolution === 'HUMAN_DECISION' && opts.isReleased(s, f)))) { held.push({ orderId: s.orderId, reason: 'Not issued: ' + hf.map(f => f.explanation).join(' ') }); continue; } for (const f of a.findings.filter(f => f.severity === 'INFO')) notes.push({ orderId: s.orderId, code: f.code, text: f.explanation }); kept.push(s); }
+    for (const s of parsed) {
+      // CORRECTIONS_MANUAL (opts.corrections): a well-formed CorrectionReversal / Correction:: row is a correction event, not a skipped row. It is handed to processCorrections, which holds it for a person's pair review. Everything else below is unchanged; flag off = this branch never runs.
+      if (opts.corrections && (s.isCorrectionReversal || s.isCorrectedTx) && !s.unknownTxFormat && s.isAmazonInvoiced !== true && s.isBusiness !== false) { corrections.push(s); continue; } if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) { skipped.push({ orderId: s.orderId, why }); if (s.transactionType !== 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection && !s.unknownTxFormat) unsupported.push({ orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing will be issued for it.` }); continue; } const a = assessShipment(s); const hf = a.findings.filter(f => f.severity !== 'INFO'); if (hf.length && !(opts.isReleased && hf.every(f => f.severity === 'HOLD' && f.resolution === 'HUMAN_DECISION' && opts.isReleased(s, f)))) { held.push({ orderId: s.orderId, reason: 'Not issued: ' + hf.map(f => f.explanation).join(' ') }); continue; } for (const f of a.findings.filter(f => f.severity === 'INFO')) notes.push({ orderId: s.orderId, code: f.code, text: f.explanation }); kept.push(s); }
     kept.invalidRows = parsed.invalidRows ?? []; // the list is handed to processReport as `shipments`: the invalid rows must travel with it
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, notes, unsupported, invalidRows: kept.invalidRows, truncated: !!t.truncated };
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, notes, unsupported, invalidRows: kept.invalidRows, truncated: !!t.truncated, ...(opts.corrections ? { corrections, correctionPairs: correctionPairs(corrections) } : {}) };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };

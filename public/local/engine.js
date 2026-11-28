@@ -49307,6 +49307,15 @@ function parseOrderReport(rows) {
   return out;
 }
 var vidrSkipReason = (s) => s.unknownTxFormat ? "The transaction id looks like a correction but has an unknown format, so we did not guess" : s.isAmazonInvoiced === true ? "Amazon creates this invoice" : s.isBusiness === false ? "Not a business order: the report says is-business-order FALSE" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
+function correctionPairs(list) {
+  const by = /* @__PURE__ */ new Map();
+  for (const s of list) {
+    const e = by.get(s.shippingId) ?? { shippingId: s.shippingId, reversals: [], replacements: [] };
+    (s.isCorrectionReversal ? e.reversals : e.replacements).push(s.transactionId);
+    by.set(s.shippingId, e);
+  }
+  return [...by.values()].map((e) => ({ shippingId: e.shippingId, reversals: e.reversals, replacements: e.replacements, state: e.reversals.length > 1 || e.replacements.length > 1 ? "multiple" : e.reversals.length && e.replacements.length ? "complete" : e.reversals.length ? "reversal-only" : "correction-only" }));
+}
 function planUpload(text, opts = {}) {
   const t = parseTable(text);
   if (t.unsupported) return { ok: false, error: t.unsupported };
@@ -49315,9 +49324,13 @@ function planUpload(text, opts = {}) {
   if (!format) return { ok: false, error: "We do not recognise this file. Use the Order Report (with the buyer tax columns switched on) or the VAT Invoice Data Report, both as tab-delimited text." };
   if (format === "allorders") return { ok: false, format, error: "The All Orders Report has no buyer name, address or VAT number, so it cannot make an invoice. Use the Order Report with the buyer columns switched on." };
   if (format === "vidr") {
-    const kept = [], skipped = [], held = [], notes = [], unsupported = [];
+    const kept = [], skipped = [], held = [], notes = [], unsupported = [], corrections = [];
     const parsed = parseVidr(text);
     for (const s of parsed) {
+      if (opts.corrections && (s.isCorrectionReversal || s.isCorrectedTx) && !s.unknownTxFormat && s.isAmazonInvoiced !== true && s.isBusiness !== false) {
+        corrections.push(s);
+        continue;
+      }
       if (heldForUnknownFlags(s)) {
         held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) });
         continue;
@@ -49338,7 +49351,7 @@ function planUpload(text, opts = {}) {
       kept.push(s);
     }
     kept.invalidRows = parsed.invalidRows ?? [];
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, notes, unsupported, invalidRows: kept.invalidRows, truncated: !!t.truncated };
+    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, notes, unsupported, invalidRows: kept.invalidRows, truncated: !!t.truncated, ...opts.corrections ? { corrections, correctionPairs: correctionPairs(corrections) } : {} };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };
