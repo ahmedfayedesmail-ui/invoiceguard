@@ -1,4 +1,5 @@
 import { classifyTransactionId } from './txid.js';
+import { normalizeReport, unreadableCells, absentColumns } from './vidr-input.js';
 // Parser for Amazon's VAT Invoice Data Report (GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT), tab-separated.
 // Locale-safe amounts: the rightmost of '.'/',' is the decimal separator, the other is grouping -
 // "1.234,56" (ES), "1,234.56" (US) and "1234,56" all parse to 1234.56. A single separator is taken
@@ -52,7 +53,9 @@ export const BOUND_COLUMNS = ['fulfilled-by', 'order-date', 'recipient-name', 'b
 export const CONFLICT_FIELDS = ['currency', 'buyer-vat-number', 'billing-name', 'bill-address-1', 'bill-city', 'bill-postal-code', 'bill-country', 'ship-country', 'ship-from-country', 'shipment-date', 'seller-vat-number', 'marketplace-id', 'order-id', 'buyer-company-name', 'buyer-tax-registration-type', 'invoice-status'];
 
 /** Group item rows into shipments (an invoice is due per shipment, not per order). */
-export function parseVidr(text) {
+export function parseVidr(rawText) {
+  // Input layer: comma-separated and XML variants of the report are turned into the canonical tab-separated form first. Unreadable text (wrong encoding, line breaks in a cell) is carried per shipment and held, never repaired.
+  const nrm = normalizeReport(rawText); const text = nrm.text;
   const checked = checkTsv(text); let { rows, invalid } = checked;
   // A file whose header does not identify shipments (no order-id, or neither shipping-id nor transaction-id) is not a VAT Invoice Data Report: every row of it is invalid, because a row count can only be checked against a header that means something.
   if (checked.head.length && (!checked.head.includes('order-id') || !(checked.head.includes('shipping-id') || checked.head.includes('transaction-id')))) {
@@ -80,6 +83,7 @@ export function parseVidr(text) {
     }
     // Provenance for the integrity gate: the physical line and the raw tokens of every row that fed this shipment. Nothing is interpreted here.
     (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r['quantity-purchased'] ?? '', itemId: r['order-item-id'] ?? '', sig: Object.values(r).join('\t'), orderDate: r['order-date'] ?? '', attrs: Object.fromEntries(CONFLICT_FIELDS.map(f => [f, r[f] ?? ''])), bound: Object.fromEntries(BOUND_COLUMNS.map(f => [f, r[f] ?? ''])), parts: Object.fromEntries(PARTS.map(p => [p, { incl: r[`${p}-vat-incl-amount`] ?? '', vat: r[`${p}-vat-amount`] ?? '', excl: r[`${p}-vat-excl-amount`] ?? '', rate: r[`${p}-vat-rate`] ?? '' }])) });
+    for (const col of unreadableCells(r)) (s.unreadable ??= new Set()).add(col);
     (s.rowMeta ??= []).push({ status: r['invoice-status'] ?? '', invoiceNumber: r['invoice-number'] ?? '', orderId: r['order-id'] ?? '', shippingId: r['shipping-id'] ?? '', currency: r.currency ?? '', marketplace: r['marketplace-id'] ?? '', type: r['transaction-type'] ?? '', transactionId: r['transaction-id'] || r['shipping-id'] || '', originalInvoiceNumber: r['original-vat-invoice-number'] ?? '', incl: PARTS.reduce((q, p) => q + num(r[`${p}-vat-incl-amount`]), 0), vat: PARTS.reduce((q, p) => q + num(r[`${p}-vat-amount`]), 0) }); s.invoiceNumberColumn = checked.head.includes('invoice-number'); // per-row evidence for the credit-note acceptance gate (src/cn-gate.js); nothing here changes a financial figure
     s.flagValues.push(r['is-amazon-invoiced']); s.businessValues.push(r['is-business-order']);
     const inclSum = PARTS.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
@@ -94,6 +98,8 @@ export function parseVidr(text) {
   }
   const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
   const perOrder = new Map(); for (const s of list) { const k = s.marketplace + '|' + s.orderId; perOrder.set(k, (perOrder.get(k) ?? 0) + 1); } for (const s of list) s.orderShipments = perOrder.get(s.marketplace + '|' + s.orderId);
+  list.inputSource = nrm.source; list.inputNotes = nrm.notes; list.inputError = nrm.error ?? null; list.inputHead = checked.head; list.absent = absentColumns(checked.head);
+  for (const s of list) if (s.unreadable) s.unreadable = [...s.unreadable].sort();
   list.invalidRows = invalid; // rows rejected by the integrity check: never shipments
   return list;
 }

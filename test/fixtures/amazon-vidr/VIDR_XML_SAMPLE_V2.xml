@@ -1,0 +1,1036 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+
+<AmazonEnvelope>
+  <Header>
+    <DocumentVersion>1.0</DocumentVersion>
+  </Header>
+  <MessageType>ShipmentReport</MessageType>
+  <Message>
+    <MessageID>1</MessageID>
+    <ShipmentReport>
+      <AmazonOrderID>XXX-XXXXXXX-XXXXXXX</AmazonOrderID>
+      <OrderDate>2019-02-20 14:11:49</OrderDate>
+      <BuyerData>
+        <BuyerName>Harry Potter</BuyerName>
+      </BuyerData>
+      <BillingAddress>
+        <Name>Privet Drive</Name>
+        <AddressFieldOne>4</AddressFieldOne>
+        <AddressFieldTwo>
+        </AddressFieldTwo>
+        <AddressFieldThree>Little Whinging</AddressFieldThree>
+        <City>Surrey</City>
+        <PostalCode>AAA 333</PostalCode>
+        <CountryCode>GB</CountryCode>
+      </BillingAddress>
+      <MarketplaceId>GB</MarketplaceId>
+      <Item>
+        <AmazonOrderItemCode>9060338888888</AmazonOrderItemCode>
+        <LegacyCustomerOrderItemId>13143135999999</LegacyCustomerOrderItemId>
+        <ShippingId>D1cjkekMD</ShippingId>
+        <ShipmentDate>2019-02-26 20:14:09</ShipmentDate>
+        <TransactionId>amzn1:crow:7/C3di34jfQDWtqxpbXQBADg</TransactionId>
+        <TransactionType>RETURN</TransactionType>
+        <ASIN>B0774XXXXX</ASIN>
+        <SKU>12-rrrr-AAAA</SKU>
+        <Title>Soundbar Bracket braket</Title>
+        <Quantity>1</Quantity>
+        <ItemPriceData>
+          <Component>
+            <Type>ItemVatInclAmount</Type>
+            <Amount currency="GBP">-19.17</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatAmount</Type>
+            <Amount currency="GBP">-3.06</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatExclAmount</Type>
+            <Amount currency="GBP">-16.11</Amount>
+          </Component>
+          <ItemVatRate>0.19</ItemVatRate>
+        </ItemPriceData>
+        <ItemPromotion>
+          <Component>
+            <Type>ItemPromoVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <ItemPromoVatRate>0.0</ItemPromoVatRate>
+          <ItemPromotionId>
+          </ItemPromotionId>
+        </ItemPromotion>
+        <Gift>
+          <Component>
+            <Type>GiftWrapVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <GiftVatRate>0.0</GiftVatRate>
+        </Gift>
+        <GiftPromotion>
+          <Component>
+            <Type>GiftPromoVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <GiftPromoVatRate>0.0</GiftPromoVatRate>
+          <GiftPromotionId>
+          </GiftPromotionId>
+        </GiftPromotion>
+        <Shipping>
+          <Component>
+            <Type>ShippingVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <ShipVatRate>0.0</ShipVatRate>
+        </Shipping>
+        <ShippingPromotion>
+          <Component>
+            <Type>ShippingPromoVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <ShipPromoVatRate>0.0</ShipPromoVatRate>
+          <ShippingPromotionId>
+          </ShippingPromotionId>
+        </ShippingPromotion>
+        <ShippingDetails>
+          <Address>
+            <Name>Harry Potter</Name>
+			<AddressFieldOne>4</AddressFieldOne>
+			<AddressFieldTwo>
+			</AddressFieldTwo>
+			<AddressFieldThree>Little Whinging</AddressFieldThree>
+			<City>Surrey</City>
+			<PostalCode>AAA 333</PostalCode>
+			<CountryCode>GB</CountryCode>			
+          </Address>
+        </ShippingDetails>
+        <ShipFromAddress>
+          <Name>
+          </Name>
+          <AddressFieldOne>
+          </AddressFieldOne>
+          <AddressFieldTwo>
+          </AddressFieldTwo>
+          <AddressFieldThree>
+          </AddressFieldThree>
+          <City>Winsen****</City>
+          <StateOrRegion>Lower Saxony</StateOrRegion>
+          <PostalCode>23132</PostalCode>
+          <CountryCode>DE</CountryCode>
+        </ShipFromAddress>
+        <IsAmazonInvoiced>false</IsAmazonInvoiced>
+        <InvoiceStatus>CreditNotePending</InvoiceStatus>
+        <InvoiceStatusDescription>Credit Note is due. Return has been accepted.</InvoiceStatusDescription>
+        <SellerVatNumber>DEXXXXXXXX</SellerVatNumber>
+        <BuyerVatNumber>
+        </BuyerVatNumber>
+        <IsBuyerPhysicallyPresent>
+        </IsBuyerPhysicallyPresent>
+        <IsSellerPhysicallyPresent>
+        </IsSellerPhysicallyPresent>
+        <RecommendedInvoiceFormat>PDF</RecommendedInvoiceFormat>
+        <BuyerEInvoiceAccountId>
+        </BuyerEInvoiceAccountId>
+      </Item>
+      <FulfillmentServiceLevel>Expedited</FulfillmentServiceLevel>
+      <IsBusinessOrder>false</IsBusinessOrder>
+      <FulfillmentMethod>FBA</FulfillmentMethod>
+    </ShipmentReport>
+  </Message>  
+  <Message>
+    <MessageID>2</MessageID>
+    <ShipmentReport>
+      <AmazonOrderID>XXX-XXXXXXX-XXXXXXX</AmazonOrderID>
+      <OrderDate>2019-02-20 14:11:49</OrderDate>
+      <BuyerData>
+        <BuyerName>Harry Potter</BuyerName>
+      </BuyerData>
+      <BillingAddress>
+        <Name>Privet Drive</Name>
+        <AddressFieldOne>4</AddressFieldOne>
+        <AddressFieldTwo>
+        </AddressFieldTwo>
+        <AddressFieldThree>Little Whinging</AddressFieldThree>
+        <City>Surrey</City>
+        <PostalCode>AAA 333</PostalCode>
+        <CountryCode>GB</CountryCode>
+      </BillingAddress>
+      <MarketplaceId>DE</MarketplaceId>
+      <Item>
+        <AmazonOrderItemCode>9060337777777</AmazonOrderItemCode>
+        <LegacyCustomerOrderItemId>13143135555555</LegacyCustomerOrderItemId>
+        <ShippingId>D1cjkekMD</ShippingId>
+        <ShipmentDate>2019-02-27 20:57:00</ShipmentDate>
+        <TransactionId>D1cjkekMD</TransactionId>
+        <TransactionType>SHIPMENT</TransactionType>
+        <ASIN>B07BRSSSSS</ASIN>
+        <SKU>11-1222-1XDS</SKU>
+        <Title>XXXXXX für Bosch Siemens Samsung Rowenta Grundig Dirt Devil</Title>
+        <Quantity>10</Quantity>
+        <ItemPriceData>
+          <Component>
+            <Type>ItemVatInclAmount</Type>
+            <Amount currency="EUR">149.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatAmount</Type>
+            <Amount currency="EUR">23.80</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatExclAmount</Type>
+            <Amount currency="EUR">125.20</Amount>
+          </Component>
+          <ItemVatRate>0.19</ItemVatRate>
+        </ItemPriceData>
+        <ItemPromotion>
+          <Component>
+            <Type>ItemPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ItemPromoVatRate>0.0</ItemPromoVatRate>
+          <ItemPromotionId>
+          </ItemPromotionId>
+        </ItemPromotion>
+        <Gift>
+          <Component>
+            <Type>GiftWrapVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftVatRate>0.0</GiftVatRate>
+        </Gift>
+        <GiftPromotion>
+          <Component>
+            <Type>GiftPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftPromoVatRate>0.0</GiftPromoVatRate>
+          <GiftPromotionId>
+          </GiftPromotionId>
+        </GiftPromotion>
+        <Shipping>
+          <Component>
+            <Type>ShippingVatInclAmount</Type>
+            <Amount currency="EUR">3.99</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatAmount</Type>
+            <Amount currency="EUR">0.64</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatExclAmount</Type>
+            <Amount currency="EUR">3.35</Amount>
+          </Component>
+          <ShipVatRate>0.19</ShipVatRate>
+        </Shipping>
+        <ShippingPromotion>
+          <Component>
+            <Type>ShippingPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ShipPromoVatRate>0.0</ShipPromoVatRate>
+          <ShippingPromotionId>
+          </ShippingPromotionId>
+        </ShippingPromotion>
+        <ShippingDetails>
+          <Address>
+            <Name>Harry Potter</Name>
+			<AddressFieldOne>4</AddressFieldOne>
+			<AddressFieldTwo>
+			</AddressFieldTwo>
+			<AddressFieldThree>Little Whinging</AddressFieldThree>
+			<City>Surrey</City>
+			<PostalCode>AAA 333</PostalCode>
+			<CountryCode>GB</CountryCode>			
+          </Address>
+        </ShippingDetails>
+        <ShipFromAddress>
+          <Name>
+          </Name>
+          <AddressFieldOne>
+          </AddressFieldOne>
+          <AddressFieldTwo>
+          </AddressFieldTwo>
+          <AddressFieldThree>
+          </AddressFieldThree>
+          <City>Winsen****</City>
+          <StateOrRegion>Lower Saxony</StateOrRegion>
+          <PostalCode>23132</PostalCode>
+          <CountryCode>DE</CountryCode>
+        </ShipFromAddress>
+        <IsAmazonInvoiced>false</IsAmazonInvoiced>
+        <InvoiceStatus>InvoicePending</InvoiceStatus>
+        <InvoiceStatusDescription>Invoice is due. Shipment has been dispatched.</InvoiceStatusDescription>
+        <SellerVatNumber>DEXXXXXXXX</SellerVatNumber>
+        <BuyerVatNumber>
+        </BuyerVatNumber>
+        <IsBuyerPhysicallyPresent>
+        </IsBuyerPhysicallyPresent>
+        <IsSellerPhysicallyPresent>true</IsSellerPhysicallyPresent>
+        <RecommendedInvoiceFormat>PDF</RecommendedInvoiceFormat>
+        <BuyerEInvoiceAccountId>
+        </BuyerEInvoiceAccountId>
+      </Item>
+      <FulfillmentServiceLevel>Standard</FulfillmentServiceLevel>
+      <IsBusinessOrder>false</IsBusinessOrder>
+      <FulfillmentMethod>FBA</FulfillmentMethod>
+    </ShipmentReport>
+  </Message>  
+  <Message>
+    <MessageID>3</MessageID>
+    <ShipmentReport>
+      <AmazonOrderID>XXX-XXXXXXX-XXXXXXX</AmazonOrderID>
+      <OrderDate>2019-02-20 14:11:49</OrderDate>
+      <BuyerData>
+        <BuyerName>Harry Potter</BuyerName>
+      </BuyerData>
+      <BillingAddress>
+        <Name>Privet Drive</Name>
+        <AddressFieldOne>4</AddressFieldOne>
+        <AddressFieldTwo>
+        </AddressFieldTwo>
+        <AddressFieldThree>Little Whinging</AddressFieldThree>
+        <City>Surrey</City>
+        <PostalCode>AAA 333</PostalCode>
+        <CountryCode>GB</CountryCode>
+      </BillingAddress>
+      <MarketplaceId>DE</MarketplaceId>
+      <Item>
+        <AmazonOrderItemCode>9060337777777</AmazonOrderItemCode>
+        <LegacyCustomerOrderItemId>13143135555555</LegacyCustomerOrderItemId>
+        <ShippingId>D1cjkekMD</ShippingId>
+        <ShipmentDate>2019-03-04 20:57:00</ShipmentDate>
+        <TransactionId>amzn1:crow:8/U73fex3QDWtqxpbXQBADg</TransactionId>
+        <TransactionType>RETURN</TransactionType>
+        <ASIN>B07BRSSSSS</ASIN>
+        <SKU>11-1222-1XDS</SKU>
+        <Title>XXXXXX für Bosch Siemens Samsung Rowenta Grundig Dirt Devil</Title>
+        <Quantity>1</Quantity>
+        <ItemPriceData>
+          <Component>
+            <Type>ItemVatInclAmount</Type>
+            <Amount currency="EUR">-14.90</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatAmount</Type>
+            <Amount currency="EUR">-2.38</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatExclAmount</Type>
+            <Amount currency="EUR">-12.52</Amount>
+          </Component>
+          <ItemVatRate>0.19</ItemVatRate>
+        </ItemPriceData>
+        <ItemPromotion>
+          <Component>
+            <Type>ItemPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ItemPromoVatRate>0.0</ItemPromoVatRate>
+          <ItemPromotionId>
+          </ItemPromotionId>
+        </ItemPromotion>
+        <Gift>
+          <Component>
+            <Type>GiftWrapVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftVatRate>0.0</GiftVatRate>
+        </Gift>
+        <GiftPromotion>
+          <Component>
+            <Type>GiftPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftPromoVatRate>0.0</GiftPromoVatRate>
+          <GiftPromotionId>
+          </GiftPromotionId>
+        </GiftPromotion>
+        <Shipping>
+          <Component>
+            <Type>ShippingVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ShipVatRate>0.0</ShipVatRate>
+        </Shipping>
+        <ShippingPromotion>
+          <Component>
+            <Type>ShippingPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ShipPromoVatRate>0.0</ShipPromoVatRate>
+          <ShippingPromotionId>
+          </ShippingPromotionId>
+        </ShippingPromotion>
+        <ShippingDetails>
+          <Address>
+            <Name>Harry Potter</Name>
+			<AddressFieldOne>4</AddressFieldOne>
+			<AddressFieldTwo>
+			</AddressFieldTwo>
+			<AddressFieldThree>Little Whinging</AddressFieldThree>
+			<City>Surrey</City>
+			<PostalCode>AAA 333</PostalCode>
+			<CountryCode>GB</CountryCode>			
+          </Address>
+        </ShippingDetails>
+        <ShipFromAddress>
+          <Name>
+          </Name>
+          <AddressFieldOne>
+          </AddressFieldOne>
+          <AddressFieldTwo>
+          </AddressFieldTwo>
+          <AddressFieldThree>
+          </AddressFieldThree>
+          <City>Winsen****</City>
+          <StateOrRegion>Lower Saxony</StateOrRegion>
+          <PostalCode>23132</PostalCode>
+          <CountryCode>DE</CountryCode>
+        </ShipFromAddress>
+        <IsAmazonInvoiced>false</IsAmazonInvoiced>
+        <InvoiceStatus>CreditNotePending</InvoiceStatus>
+        <InvoiceStatusDescription>Credit Note is due. Return has been accepted.</InvoiceStatusDescription>
+        <SellerVatNumber>DEXXXXXXXX</SellerVatNumber>
+        <BuyerVatNumber>
+        </BuyerVatNumber>
+        <IsBuyerPhysicallyPresent>
+        </IsBuyerPhysicallyPresent>
+        <IsSellerPhysicallyPresent>true</IsSellerPhysicallyPresent>
+        <RecommendedInvoiceFormat>PDF</RecommendedInvoiceFormat>
+        <BuyerEInvoiceAccountId>
+        </BuyerEInvoiceAccountId>
+      </Item>
+      <FulfillmentServiceLevel>Standard</FulfillmentServiceLevel>
+      <IsBusinessOrder>false</IsBusinessOrder>
+      <FulfillmentMethod>FBA</FulfillmentMethod>
+    </ShipmentReport>
+  </Message>  
+  <Message>
+    <MessageID>4</MessageID>
+    <ShipmentReport>
+      <AmazonOrderID>XXX-XXXXXXX-XXXXXXX</AmazonOrderID>
+      <OrderDate>2019-02-20 14:11:49</OrderDate>
+      <BuyerData>
+        <BuyerName>Harry Potter</BuyerName>
+      </BuyerData>
+      <BillingAddress>
+        <Name>Privet Drive</Name>
+        <AddressFieldOne>4</AddressFieldOne>
+        <AddressFieldTwo>
+        </AddressFieldTwo>
+        <AddressFieldThree>Little Whinging</AddressFieldThree>
+        <City>Surrey</City>
+        <PostalCode>AAA 333</PostalCode>
+        <CountryCode>GB</CountryCode>
+      </BillingAddress>
+      <MarketplaceId>DE</MarketplaceId>
+      <Item>
+        <AmazonOrderItemCode>9060337777777</AmazonOrderItemCode>
+        <LegacyCustomerOrderItemId>13143135555555</LegacyCustomerOrderItemId>
+        <ShippingId>D1cjkekMD</ShippingId>
+        <ShipmentDate>2019-03-07 20:57:00</ShipmentDate>
+        <TransactionId>amzn1:crow:8/Tjef173sqCNhfe348BADg</TransactionId>
+        <TransactionType>RETURN</TransactionType>
+        <ASIN>B07BRSSSSS</ASIN>
+        <SKU>11-1222-1XDS</SKU>
+        <Title>XXXXXX für Bosch Siemens Samsung Rowenta Grundig Dirt Devil</Title>
+        <Quantity>1</Quantity>
+        <ItemPriceData>
+          <Component>
+            <Type>ItemVatInclAmount</Type>
+            <Amount currency="EUR">-14.90</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatAmount</Type>
+            <Amount currency="EUR">-2.38</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatExclAmount</Type>
+            <Amount currency="EUR">-12.52</Amount>
+          </Component>
+          <ItemVatRate>0.19</ItemVatRate>
+        </ItemPriceData>
+        <ItemPromotion>
+          <Component>
+            <Type>ItemPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ItemPromoVatRate>0.0</ItemPromoVatRate>
+          <ItemPromotionId>
+          </ItemPromotionId>
+        </ItemPromotion>
+        <Gift>
+          <Component>
+            <Type>GiftWrapVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftVatRate>0.0</GiftVatRate>
+        </Gift>
+        <GiftPromotion>
+          <Component>
+            <Type>GiftPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftPromoVatRate>0.0</GiftPromoVatRate>
+          <GiftPromotionId>
+          </GiftPromotionId>
+        </GiftPromotion>
+        <Shipping>
+          <Component>
+            <Type>ShippingVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ShipVatRate>0.19</ShipVatRate>
+        </Shipping>
+        <ShippingPromotion>
+          <Component>
+            <Type>ShippingPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ShipPromoVatRate>0.0</ShipPromoVatRate>
+          <ShippingPromotionId>
+          </ShippingPromotionId>
+        </ShippingPromotion>
+        <ShippingDetails>
+          <Address>
+            <Name>Harry Potter</Name>
+			<AddressFieldOne>4</AddressFieldOne>
+			<AddressFieldTwo>
+			</AddressFieldTwo>
+			<AddressFieldThree>Little Whinging</AddressFieldThree>
+			<City>Surrey</City>
+			<PostalCode>AAA 333</PostalCode>
+			<CountryCode>GB</CountryCode>			
+          </Address>
+        </ShippingDetails>
+        <ShipFromAddress>
+          <Name>
+          </Name>
+          <AddressFieldOne>
+          </AddressFieldOne>
+          <AddressFieldTwo>
+          </AddressFieldTwo>
+          <AddressFieldThree>
+          </AddressFieldThree>
+          <City>Winsen****</City>
+          <StateOrRegion>Lower Saxony</StateOrRegion>
+          <PostalCode>23132</PostalCode>
+          <CountryCode>DE</CountryCode>
+        </ShipFromAddress>
+        <IsAmazonInvoiced>false</IsAmazonInvoiced>
+        <InvoiceStatus>CreditNotePending</InvoiceStatus>
+        <InvoiceStatusDescription>Credit Note is due. Return has been accepted.</InvoiceStatusDescription>
+        <SellerVatNumber>DEXXXXXXXX</SellerVatNumber>
+        <BuyerVatNumber>
+        </BuyerVatNumber>
+        <IsBuyerPhysicallyPresent>
+        </IsBuyerPhysicallyPresent>
+        <IsSellerPhysicallyPresent>true</IsSellerPhysicallyPresent>
+        <RecommendedInvoiceFormat>PDF</RecommendedInvoiceFormat>
+        <BuyerEInvoiceAccountId>
+        </BuyerEInvoiceAccountId>
+      </Item>
+      <FulfillmentServiceLevel>Standard</FulfillmentServiceLevel>
+      <IsBusinessOrder>false</IsBusinessOrder>
+      <FulfillmentMethod>FBA</FulfillmentMethod>
+    </ShipmentReport>
+  </Message> 
+  <Message>
+    <MessageID>5</MessageID>
+    <ShipmentReport>
+      <AmazonOrderID>XXX-XXXXXXX-XXXXXXX</AmazonOrderID>
+      <OrderDate>2019-02-20 14:11:49</OrderDate>
+      <BuyerData>
+        <BuyerName>Harry Potter</BuyerName>
+      </BuyerData>
+      <BillingAddress>
+        <Name>Privet Drive</Name>
+        <AddressFieldOne>4</AddressFieldOne>
+        <AddressFieldTwo>
+        </AddressFieldTwo>
+        <AddressFieldThree>Little Whinging</AddressFieldThree>
+        <City>Surrey</City>
+        <PostalCode>AAA 333</PostalCode>
+        <CountryCode>GB</CountryCode>
+      </BillingAddress>
+      <MarketplaceId>DE</MarketplaceId>
+      <Item>
+        <AmazonOrderItemCode>9060338888888</AmazonOrderItemCode>
+        <LegacyCustomerOrderItemId>13143135999999</LegacyCustomerOrderItemId>
+        <ShippingId>D1cjkekMD</ShippingId>        
+        <ShipmentDate>2019-02-23 22:04:37</ShipmentDate>
+        <TransactionId>D1cjkekMD</TransactionId>
+        <TransactionType>SHIPMENT</TransactionType>
+        <ASIN>B0774XXXXX</ASIN>
+        <SKU>12-rrrr-AAAA</SKU>
+        <Title>Soundbar Bracket braket</Title>
+        <Quantity>1</Quantity>
+        <ItemPriceData>
+          <Component>
+            <Type>ItemVatInclAmount</Type>
+            <Amount currency="GBP">19.17</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatAmount</Type>
+            <Amount currency="GBP">3.06</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatExclAmount</Type>
+            <Amount currency="GBP">16.11</Amount>
+          </Component>
+          <ItemVatRate>0.19</ItemVatRate>
+        </ItemPriceData>
+        <ItemPromotion>
+          <Component>
+            <Type>ItemPromoVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <ItemPromoVatRate>0.0</ItemPromoVatRate>
+          <ItemPromotionId>
+          </ItemPromotionId>
+        </ItemPromotion>
+        <Gift>
+          <Component>
+            <Type>GiftWrapVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <GiftVatRate>0.0</GiftVatRate>
+        </Gift>
+        <GiftPromotion>
+          <Component>
+            <Type>GiftPromoVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <GiftPromoVatRate>0.0</GiftPromoVatRate>
+          <GiftPromotionId>
+          </GiftPromotionId>
+        </GiftPromotion>
+        <Shipping>
+          <Component>
+            <Type>ShippingVatInclAmount</Type>
+            <Amount currency="EUR">3.99</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatAmount</Type>
+            <Amount currency="EUR">0.64</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatExclAmount</Type>
+            <Amount currency="EUR">3.35</Amount>
+          </Component>
+          <ShipVatRate>0.19</ShipVatRate>
+        </Shipping>
+        <ShippingPromotion>
+          <Component>
+            <Type>ShippingPromoVatInclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatExclAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatAmount</Type>
+            <Amount currency="GBP">0.00</Amount>
+          </Component>
+          <ShipPromoVatRate>0.0</ShipPromoVatRate>
+          <ShippingPromotionId>
+          </ShippingPromotionId>
+        </ShippingPromotion>
+        <ShippingDetails>
+          <Address>
+            <Name>Harry Potter</Name>
+			<AddressFieldOne>4</AddressFieldOne>
+			<AddressFieldTwo>
+			</AddressFieldTwo>
+			<AddressFieldThree>Little Whinging</AddressFieldThree>
+			<City>Surrey</City>
+			<PostalCode>AAA 333</PostalCode>
+			<CountryCode>GB</CountryCode>			
+          </Address>
+        </ShippingDetails>
+        <ShipFromAddress>
+          <Name>
+          </Name>
+          <AddressFieldOne>
+          </AddressFieldOne>
+          <AddressFieldTwo>
+          </AddressFieldTwo>
+          <AddressFieldThree>
+          </AddressFieldThree>
+          <City>Winsen****</City>
+          <StateOrRegion>Lower Saxony</StateOrRegion>
+          <PostalCode>23132</PostalCode>
+          <CountryCode>DE</CountryCode>
+        </ShipFromAddress>
+        <IsAmazonInvoiced>false</IsAmazonInvoiced>
+        <InvoiceStatus>InvoicePending</InvoiceStatus>
+        <InvoiceStatusDescription>Invoice is due. Shipment has been dispatched.</InvoiceStatusDescription>
+        <SellerVatNumber>DEXXXXXXXX</SellerVatNumber>
+        <BuyerVatNumber>
+        </BuyerVatNumber>
+        <IsBuyerPhysicallyPresent>
+        </IsBuyerPhysicallyPresent>
+        <IsSellerPhysicallyPresent>true</IsSellerPhysicallyPresent>
+        <RecommendedInvoiceFormat>PDF</RecommendedInvoiceFormat>
+        <BuyerEInvoiceAccountId>
+        </BuyerEInvoiceAccountId>
+      </Item>
+      <FulfillmentServiceLevel>Standard</FulfillmentServiceLevel>
+      <IsBusinessOrder>false</IsBusinessOrder>
+      <FulfillmentMethod>FBA</FulfillmentMethod>
+    </ShipmentReport>
+  </Message>  
+  <Message>
+    <MessageID>6</MessageID>
+    <ShipmentReport>
+      <AmazonOrderID>YYY-YYYYYYY-YYYYYYY</AmazonOrderID>
+      <OrderDate>2019-02-17 15:10:55</OrderDate>
+      <BuyerData>
+        <BuyerName>Granger Herm</BuyerName>
+      </BuyerData>
+      <BillingAddress>
+        <Name>Granger Herm</Name>
+        <AddressFieldOne>Via Rabinua 4/z</AddressFieldOne>
+        <AddressFieldTwo>
+        </AddressFieldTwo>
+        <AddressFieldThree>Località Montata Questo</AddressFieldThree>
+        <City>Mantova</City>
+        <StateOrRegion>MN</StateOrRegion>
+        <PostalCode>10001</PostalCode>
+        <CountryCode>IT</CountryCode>
+      </BillingAddress>
+      <MarketplaceId>IT</MarketplaceId>
+      <Item>
+        <AmazonOrderItemCode>90122472222222</AmazonOrderItemCode>
+        <LegacyCustomerOrderItemId>66265841111111</LegacyCustomerOrderItemId>
+        <ShippingId>DJXMNT3XD</ShippingId>
+        <ShipmentDate>2019-02-26 00:06:31</ShipmentDate>
+        <TransactionId>DJXMNT3XD</TransactionId>
+        <TransactionType>SHIPMENT</TransactionType>
+        <ASIN>B006DDDDDD</ASIN>
+        <SKU>DJ-PQ69-MM00122</SKU>
+        <Title>Konig Colore Rosso</Title>
+        <Quantity>1</Quantity>
+        <ItemPriceData>
+          <Component>
+            <Type>ItemVatInclAmount</Type>
+            <Amount currency="EUR">20.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemVatExclAmount</Type>
+            <Amount currency="EUR">20.00</Amount>
+          </Component>
+          <ItemVatRate>0.0</ItemVatRate>
+        </ItemPriceData>
+        <ItemPromotion>
+          <Component>
+            <Type>ItemPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ItemPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ItemPromoVatRate>0.0</ItemPromoVatRate>
+          <ItemPromotionId>
+          </ItemPromotionId>
+        </ItemPromotion>
+        <Gift>
+          <Component>
+            <Type>GiftWrapVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftWrapVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftVatRate>0.0</GiftVatRate>
+        </Gift>
+        <GiftPromotion>
+          <Component>
+            <Type>GiftPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>GiftPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <GiftPromoVatRate>0.0</GiftPromoVatRate>
+          <GiftPromotionId>
+          </GiftPromotionId>
+        </GiftPromotion>
+        <Shipping>
+          <Component>
+            <Type>ShippingVatInclAmount</Type>
+            <Amount currency="EUR">2.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatAmount</Type>
+            <Amount currency="EUR">0.32</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingVatExclAmount</Type>
+            <Amount currency="EUR">1.68</Amount>
+          </Component>
+          <ShipVatRate>0.19</ShipVatRate>
+        </Shipping>
+        <ShippingPromotion>
+          <Component>
+            <Type>ShippingPromoVatInclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatExclAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <Component>
+            <Type>ShippingPromoVatAmount</Type>
+            <Amount currency="EUR">0.00</Amount>
+          </Component>
+          <ShipPromoVatRate>0.0</ShipPromoVatRate>
+          <ShippingPromotionId>
+          </ShippingPromotionId>
+        </ShippingPromotion>
+        <ShippingDetails>
+          <Address>
+            <Name>Granger Herm</Name>
+			<AddressFieldOne>Via Rabinua 4/z</AddressFieldOne>
+			<AddressFieldTwo>
+			</AddressFieldTwo>
+			<AddressFieldThree>Località Montata Questo</AddressFieldThree>
+			<City>Mantova</City>
+			<StateOrRegion>MN</StateOrRegion>
+			<PostalCode>10001</PostalCode>
+			<CountryCode>IT</CountryCode>
+          </Address>
+        </ShippingDetails>
+        <ShipFromAddress>
+          <Name>
+          </Name>
+          <AddressFieldOne>
+          </AddressFieldOne>
+          <AddressFieldTwo>
+          </AddressFieldTwo>
+          <AddressFieldThree>
+          </AddressFieldThree>
+          <City>Graben</City>
+          <PostalCode>86666</PostalCode>
+          <CountryCode>DE</CountryCode>
+        </ShipFromAddress>
+        <IsAmazonInvoiced>false</IsAmazonInvoiced>
+        <InvoiceStatus>InvoicePending</InvoiceStatus>
+        <InvoiceStatusDescription>Invoice is due. Shipment has been dispatched.</InvoiceStatusDescription>
+        <SellerVatNumber>DEXXXXXXXX</SellerVatNumber>
+        <BuyerVatNumber>ITXXXXXXX
+        </BuyerVatNumber>
+        <IsBuyerPhysicallyPresent>
+        </IsBuyerPhysicallyPresent>
+        <IsSellerPhysicallyPresent>
+        </IsSellerPhysicallyPresent>
+        <RecommendedInvoiceFormat>PDF</RecommendedInvoiceFormat>
+        <BuyerEInvoiceAccountId>
+        </BuyerEInvoiceAccountId>
+        <CitationEs>Entregas intracomunitarias exentas - Articulo 138 Directiva 2006/112/EC</CitationEs>
+        <CitationFr>TVA exonéré - Livraison intracommunautaire - Article 138 Directive 2006/112/EC</CitationFr>
+        <CitationIt>Cessione Intracomunitaria di beni esenti - Articolo 138 Direttiva 2006/112/EC</CitationIt>
+        <CitationDe>Steuerfrei - Innergemeinschaftliche Lieferung - Artikel 138 Richtlinie 2006/112/EC</CitationDe>
+        <CitationEn>VAT exempt intra-EU supply of goods - Article 138 Directive 2006/112/EC</CitationEn>
+      </Item>
+      <FulfillmentServiceLevel>Expedited</FulfillmentServiceLevel>
+      <IsBusinessOrder>false</IsBusinessOrder>
+      <FulfillmentMethod>FBA</FulfillmentMethod>
+    </ShipmentReport>
+  </Message>  
+</AmazonEnvelope>

@@ -1886,6 +1886,273 @@ function sha256(str) {
 // src/integrity-core.js
 var SUPPORTED_CURRENCIES = Object.freeze(["EUR", "GBP", "PLN", "SEK"]);
 
+// src/vidr-input.js
+init_buffer_shim();
+var firstLine = (t) => {
+  const i = t.search(/\r?\n/);
+  return i < 0 ? t : t.slice(0, i);
+};
+var countOutsideQuotes = (line, ch) => {
+  let q = false, n = 0;
+  for (const c2 of line) {
+    if (c2 === '"') q = !q;
+    else if (c2 === ch && !q) n++;
+  }
+  return n;
+};
+function detectDelimiter(text) {
+  const h = firstLine(String(text ?? "").replace(/^\uFEFF/, ""));
+  const tab = countOutsideQuotes(h, "	"), com = countOutsideQuotes(h, ","), semi = countOutsideQuotes(h, ";");
+  if (tab >= 2 && tab >= com) return "	";
+  if (com >= 2 && com > tab) return ",";
+  if (semi >= 2) return "semicolon";
+  return null;
+}
+function readCsv(text) {
+  const records = [];
+  let cells = [], cur = "", q = false, i = 0, started = false, unterminated = false;
+  const endCell = () => {
+    cells.push(cur);
+    cur = "";
+  };
+  const endRec = () => {
+    endCell();
+    records.push(cells);
+    cells = [];
+    started = false;
+  };
+  while (i < text.length) {
+    const c2 = text[i];
+    if (q) {
+      if (c2 === '"') {
+        if (text[i + 1] === '"') {
+          cur += '"';
+          i += 2;
+          continue;
+        }
+        q = false;
+        i++;
+        continue;
+      }
+      cur += c2 === "\n" || c2 === "\r" || c2 === "	" ? "\uFFFD" : c2;
+      i++;
+      continue;
+    }
+    if (c2 === '"' && cur === "") {
+      q = true;
+      started = true;
+      i++;
+      continue;
+    }
+    if (c2 === ",") {
+      endCell();
+      started = true;
+      i++;
+      continue;
+    }
+    if (c2 === "\r" || c2 === "\n") {
+      if (c2 === "\r" && text[i + 1] === "\n") i++;
+      if (started || cur !== "" || cells.length) endRec();
+      else records.push([]);
+      i++;
+      continue;
+    }
+    cur += c2;
+    started = true;
+    i++;
+  }
+  if (q) {
+    unterminated = true;
+    cells.push("\uFFFD");
+    records.push(cells);
+  } else if (started || cur !== "" || cells.length) endRec();
+  return { records, unterminated };
+}
+var kebab = (s) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+var unescapeXml = (s) => s.replace(/&(#x[0-9a-fA-F]+|#\d+|lt|gt|amp|quot|apos);/g, (m, e) => e === "lt" ? "<" : e === "gt" ? ">" : e === "amp" ? "&" : e === "quot" ? '"' : e === "apos" ? "'" : String.fromCodePoint(e[1] === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)));
+var XML_ADDR = { Name: "name", AddressFieldOne: "address-1", AddressFieldTwo: "address-2", AddressFieldThree: "address-3", City: "city", StateOrRegion: "state", PostalCode: "postal-code", CountryCode: "country", PhoneNumber: "phone-number" };
+var XML_SCALAR = {
+  AmazonOrderID: "order-id",
+  OrderDate: "order-date",
+  MarketplaceId: "marketplace-id",
+  FulfillmentServiceLevel: "ship-service-level",
+  IsBusinessOrder: "is-business-order",
+  FulfillmentMethod: "fulfilled-by",
+  BuyerName: "buyer-name",
+  BuyerCompanyName: "buyer-company-name",
+  AmazonOrderItemCode: "order-item-id",
+  LegacyCustomerOrderItemId: "legacy-customer-order-item-id",
+  ShippingId: "shipping-id",
+  ShipmentDate: "shipment-date",
+  TransactionId: "transaction-id",
+  TransactionType: "transaction-type",
+  ASIN: "asin",
+  SKU: "sku",
+  Title: "product-name",
+  Quantity: "quantity-purchased",
+  ItemVatRate: "item-vat-rate",
+  ItemPromoVatRate: "item-promo-vat-rate",
+  ItemPromotionId: "item-promotion-id",
+  GiftVatRate: "gift-wrap-vat-rate",
+  GiftPromoVatRate: "gift-promo-vat-rate",
+  GiftPromotionId: "gift-promotion-id",
+  ShipVatRate: "shipping-vat-rate",
+  ShipPromoVatRate: "shipping-promo-vat-rate",
+  ShippingPromotionId: "ship-promotion-id",
+  IsAmazonInvoiced: "is-amazon-invoiced",
+  InvoiceStatus: "invoice-status",
+  InvoiceStatusDescription: "invoice-status-description",
+  InvoiceNumber: "invoice-number",
+  SellerVatNumber: "seller-vat-number",
+  BuyerVatNumber: "buyer-vat-number",
+  BuyerTaxRegistrationType: "buyer-tax-registration-type",
+  IsBuyerPhysicallyPresent: "is-buyer-physically-present",
+  IsSellerPhysicallyPresent: "is-seller-physically-present",
+  RecommendedInvoiceFormat: "recommended-invoice-format",
+  BuyerEInvoiceAccountId: "buyer-e-invoice-account-id",
+  PurchaseOrderNumber: "purchase-order-number",
+  PriceDesignation: "price-designation",
+  CitationEs: "citation-es",
+  CitationIt: "citation-it",
+  CitationFr: "citation-fr",
+  CitationDe: "citation-de",
+  CitationEn: "citation-en",
+  IsInvoiceCorrected: "is-invoice-corrected",
+  OriginalVatInvoiceNumber: "original-vat-invoice-number",
+  InvoiceCorrectionDetails: "invoice-correction-details"
+};
+var ADDR_PREFIX = { BillingAddress: "bill-", Address: "ship-", ShipFromAddress: "ship-from-" };
+var ADDR_NAME = { BillingAddress: "billing-name", Address: "recipient-name", ShipFromAddress: "ship-from-name" };
+var ADDR_COL = (parent, el) => {
+  const f = XML_ADDR[el];
+  if (!f) return null;
+  if (f === "name") return ADDR_NAME[parent];
+  const p = ADDR_PREFIX[parent];
+  return f === "country" ? parent === "ShipFromAddress" ? "ship-from-country" : p + "country" : f === "phone-number" ? parent === "BillingAddress" ? "billing-phone-number" : parent === "Address" ? "ship-phone-number" : "ship-from-phone-number" : p + f;
+};
+function xmlToRows(xml) {
+  const text = String(xml).replace(/^\uFEFF/, "");
+  if (/<!DOCTYPE|<!ENTITY/i.test(text)) return { error: "The XML file declares a DOCTYPE or entities, which are not read." };
+  const tok = /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<(\/?)([A-Za-z_][\w.\-:]*)([^>]*?)(\/?)>|([^<]+)/g;
+  const rows = [], unknown = /* @__PURE__ */ new Map();
+  const stack = [];
+  let report = null, items = [], item = null, comp = null, sawEnvelope = false, depthErr = null, m;
+  const add = (o, k, v) => {
+    if (k) o[k] = v;
+  };
+  while (m = tok.exec(text)) {
+    if (m[5] !== void 0) {
+      const t = unescapeXml(m[5]);
+      if (stack.length) stack[stack.length - 1].text += t;
+      continue;
+    }
+    if (m[2] === void 0) continue;
+    const [, closing, name, attrs, selfClose] = m;
+    if (!closing) {
+      const node = { name, text: "", attrs, parent: stack[stack.length - 1]?.name };
+      if (name === "AmazonEnvelope") sawEnvelope = true;
+      if (name === "ShipmentReport") {
+        report = {};
+        items = [];
+      }
+      if (name === "Item" && report) {
+        item = {};
+      }
+      if (name === "Component") comp = { type: "", amount: "", currency: "" };
+      if (!selfClose) stack.push(node);
+      else {
+        node.closed = true;
+        stack.push(node);
+        closeNode();
+      }
+    } else {
+      if (!stack.length || stack[stack.length - 1].name !== name) {
+        depthErr = `unexpected closing tag ${name}`;
+        break;
+      }
+      closeNode();
+    }
+  }
+  function closeNode() {
+    const n = stack.pop(), v = n.text.trim(), par = n.parent, grand = stack[stack.length - 2]?.name;
+    if (n.name === "Item" && item) {
+      items.push(item);
+      item = null;
+      return;
+    }
+    if (n.name === "ShipmentReport" && report) {
+      for (const it of items) rows.push({ ...report, ...it });
+      report = null;
+      items = [];
+      return;
+    }
+    if (n.name === "Component" && comp) {
+      if (comp.type && item) {
+        item[kebab(comp.type)] = comp.amount;
+        if (comp.currency && !item.currency) item.currency = comp.currency;
+        else if (comp.currency && item.currency !== comp.currency) item.currency = "\uFFFD";
+      }
+      comp = null;
+      return;
+    }
+    if (comp && par === "Component") {
+      if (n.name === "Type") comp.type = v;
+      else if (n.name === "Amount") {
+        comp.amount = v;
+        comp.currency = (/currency\s*=\s*"([^"]*)"/.exec(n.attrs ?? "") ?? [])[1] ?? "";
+      }
+      return;
+    }
+    const target = item ?? report;
+    if (!target) return;
+    if (ADDR_PREFIX[par] && XML_ADDR[n.name]) {
+      add(target, ADDR_COL(par, n.name), v);
+      return;
+    }
+    if (par === "BuyerData" && n.name === "BuyerName") {
+      add(target, "buyer-name", v);
+      return;
+    }
+    if (XML_SCALAR[n.name]) {
+      add(target, XML_SCALAR[n.name], v);
+      return;
+    }
+    const container = ["Item", "ShipmentReport", "Message", "AmazonEnvelope", "Header", "BuyerData", "BillingAddress", "ShippingDetails", "Address", "ShipFromAddress", "ItemPriceData", "ItemPromotion", "Gift", "GiftPromotion", "Shipping", "ShippingPromotion", "Component", "Type", "Amount", "DocumentVersion", "MessageType", "MessageID"];
+    if (!container.includes(n.name)) unknown.set(n.name, (unknown.get(n.name) ?? 0) + 1);
+  }
+  if (depthErr) return { error: `The XML file is not well formed (${depthErr}).` };
+  if (stack.length) return { error: "The XML file is cut off: an element is never closed." };
+  if (!sawEnvelope) return { error: "The XML file has no AmazonEnvelope element." };
+  return { rows, unknownElements: [...unknown.keys()].sort() };
+}
+var CANON = ["marketplace-id", "order-id", "order-item-id", "shipping-id", "transaction-id", "transaction-type", "invoice-number", "invoice-status", "invoice-status-description", "is-amazon-invoiced", "order-date", "shipment-date", "buyer-vat-number", "seller-vat-number", "asin", "sku", "product-name", "quantity-purchased", "currency"];
+var tsvLine = (cells) => cells.map((c2) => String(c2 ?? "").replace(/[\t\r\n]+/g, "\uFFFD")).join("	");
+function normalizeReport(raw) {
+  const text = String(raw ?? "").replace(/^\uFEFF/, "");
+  const notes = [];
+  if (/^\s*(<\?xml|<AmazonEnvelope)/i.test(text)) {
+    const x = xmlToRows(text);
+    if (x.error) return { text: "", source: "xml", notes, error: x.error };
+    if (!x.rows.length) return { text: "", source: "xml", notes, error: "The XML file holds no shipment items." };
+    const cols = /* @__PURE__ */ new Set();
+    x.rows.forEach((r) => Object.keys(r).forEach((k) => cols.add(k)));
+    const head = [...CANON.filter((c2) => cols.has(c2)), ...[...cols].filter((c2) => !CANON.includes(c2)).sort()];
+    if (x.unknownElements.length) notes.push(`${x.unknownElements.length} XML element name(s) are not mapped to a column and were ignored: ${x.unknownElements.slice(0, 12).join(", ")}`);
+    const conflict = x.rows.filter((r) => r.currency === "\uFFFD").length;
+    if (conflict) notes.push(`${conflict} XML item(s) carry amounts in more than one currency; the currency is not known, so they are held`);
+    return { text: [tsvLine(head), ...x.rows.map((r) => tsvLine(head.map((h) => r[h] ?? "")))].join("\n"), source: "xml", notes, rowsInSource: x.rows.length, head };
+  }
+  const d = detectDelimiter(text);
+  if (d === ",") {
+    const { records, unterminated } = readCsv(text);
+    if (unterminated) notes.push("A quoted cell is never closed: the rest of the file could not be split into rows and was not used.");
+    notes.push("Comma-separated file (the documented format is tab-separated).");
+    return { text: records.map(tsvLine).join("\n"), source: "csv", notes, unterminatedQuote: unterminated };
+  }
+  if (d === "semicolon") return { text, source: "unknown", notes, delimiter: "semicolon" };
+  return { text, source: d === "	" ? "tsv" : "unknown", notes };
+}
+
 // src/vidr.js
 init_buffer_shim();
 
@@ -1909,8 +2176,10 @@ var readFlag = (values) => {
 
 // src/manual.js
 var MAX_ROWS = 2e4;
-function parseTable(text) {
-  text = String(text ?? "").replace(/^\uFEFF/, "");
+function parseTable(text, { tolerant = false } = {}) {
+  const nrm = tolerant ? normalizeReport(text) : { text: String(text ?? ""), source: "tsv", notes: [] };
+  if (nrm.error) return { head: [], rows: [], blankLines: 0, raggedRows: 0, unsupported: nrm.error };
+  text = String(nrm.text ?? "").replace(/^\uFEFF/, "");
   const all = text.split(/\r?\n/), isBlank = (l) => !l.trim();
   let lo = 0, hi = all.length;
   while (lo < hi && isBlank(all[lo])) lo++;
@@ -1928,7 +2197,7 @@ function parseTable(text) {
     if (c2.length !== head.length) raggedRows++;
     return Object.fromEntries(head.map((h, i) => [h, (c2[i] ?? "").trim().replace(/^"|"$/g, "")]));
   });
-  return { head, rows, truncated: body.length > MAX_ROWS, blankLines, raggedRows };
+  return { head, rows, truncated: body.length > MAX_ROWS, blankLines, raggedRows, source: nrm.source, notes: nrm.notes };
 }
 
 // src/reconcile.js

@@ -2,6 +2,7 @@
 // Verified against Amazon's API documentation only (developer-docs.amazon.com, report type pages); NOT against real downloaded files yet.
 // Every column that is not documented is optional. Anything we cannot read exactly is held with a reason, never guessed.
 import { assessShipment } from './integrity-core.js';
+import { normalizeReport, decodeReportBytes } from './vidr-input.js';
 import { parseVidr, needsInvoice, readFlag, unknownFlags, heldForUnknownFlags, unknownFlagsReason } from './vidr.js';
 
 export const FORMATS = {
@@ -15,8 +16,10 @@ const MAX_ROWS = 20000;
 /** Reads a tab-separated Amazon flat file. DECISION on blank lines: leading and trailing blank lines are file terminators and are ignored.
  *  A blank line BETWEEN records is a corrupt record, never a separator: it is counted in `blankLines` (and any row with the wrong number of cells in
  *  `raggedRows`), nothing is dropped silently, and the reconciliation treats the import as incomplete. */
-export function parseTable(text) {
-  text = String(text ?? '').replace(/^\uFEFF/, '');
+export function parseTable(text, { tolerant = false } = {}) {
+  // tolerant (upload path only): comma-separated and XML VAT Invoice Data Reports are converted first. Default stays tab-only: the pilot preflight and the reconciliation loop rely on it refusing everything else.
+  const nrm = tolerant ? normalizeReport(text) : { text: String(text ?? ''), source: 'tsv', notes: [] }; if (nrm.error) return { head: [], rows: [], blankLines: 0, raggedRows: 0, unsupported: nrm.error };
+  text = String(nrm.text ?? '').replace(/^\uFEFF/, '');
   const all = text.split(/\r?\n/), isBlank = (l) => !l.trim();
   let lo = 0, hi = all.length; while (lo < hi && isBlank(all[lo])) lo++; while (hi > lo && isBlank(all[hi - 1])) hi--;
   const lines = all.slice(lo, hi);
@@ -27,7 +30,7 @@ export function parseTable(text) {
   const body = lines.slice(1), kept = body.slice(0, MAX_ROWS), blankLines = kept.filter(isBlank).length;
   const records = kept.filter(l => !isBlank(l)); let raggedRows = 0;
   const rows = records.map(l => { const c = l.split('\t'); if (c.length !== head.length) raggedRows++; return Object.fromEntries(head.map((h, i) => [h, (c[i] ?? '').trim().replace(/^"|"$/g, '')])); });
-  return { head, rows, truncated: body.length > MAX_ROWS, blankLines, raggedRows };
+  return { head, rows, truncated: body.length > MAX_ROWS, blankLines, raggedRows, source: nrm.source, notes: nrm.notes };
 }
 
 export function detectFormat(head) {
@@ -78,7 +81,7 @@ const vidrSkipReason = (s) => s.unknownTxFormat ? 'The transaction id looks like
 
 /** Full file -> plan. Pure: nothing is stored. */
 export function planUpload(text, opts = {}) {
-  const t = parseTable(text);
+  const t = parseTable(text, { tolerant: true });
   if (t.unsupported) return { ok: false, error: t.unsupported };
   if (!t.rows.length) return { ok: false, error: 'The file is empty or has no header line.' };
   const format = detectFormat(t.head);
@@ -89,9 +92,11 @@ export function planUpload(text, opts = {}) {
     // so the preview's "Ready to invoice" matches what issue will actually attempt.
     const kept = [], skipped = [], held = [], notes = [], unsupported = [];
     const parsed = parseVidr(text);
-    for (const s of parsed) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (why) { skipped.push({ orderId: s.orderId, why }); if (s.transactionType !== 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection && !s.unknownTxFormat) unsupported.push({ orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing will be issued for it.` }); continue; } const a = assessShipment(s); const hf = a.findings.filter(f => f.severity !== 'INFO'); if (hf.length && !(opts.isReleased && hf.every(f => f.severity === 'HOLD' && f.resolution === 'HUMAN_DECISION' && opts.isReleased(s, f)))) { held.push({ orderId: s.orderId, reason: 'Not issued: ' + hf.map(f => f.explanation).join(' ') }); continue; } for (const f of a.findings.filter(f => f.severity === 'INFO')) notes.push({ orderId: s.orderId, code: f.code, text: f.explanation }); kept.push(s); }
-    kept.invalidRows = parsed.invalidRows ?? []; // the list is handed to processReport as `shipments`: the invalid rows must travel with it
-    return { ok: true, format, formatName: FORMATS.vidr, rows: t.rows.length, shipments: kept, held, skipped, notes, unsupported, invalidRows: kept.invalidRows, truncated: !!t.truncated };
+    for (const s of parsed) { if (heldForUnknownFlags(s)) { held.push({ orderId: s.orderId, reason: unknownFlagsReason(unknownFlags(s)) }); continue; } const why = vidrSkipReason(s); if (!why && s.unreadable?.length) { held.push({ orderId: s.orderId, reason: `Not issued: the text in ${s.unreadable.length === 1 ? 'column' : 'columns'} ${s.unreadable.join(', ')} cannot be read exactly (the file is not valid UTF-8, or a cell holds a line break, a tab or mixed currencies). We did not guess the characters, and nothing was issued for this order. To resolve it, download the report again as UTF-8 or XML, or correct those cells.` }); continue; } if (why) { skipped.push({ orderId: s.orderId, why }); if (s.transactionType !== 'SHIPMENT' && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection && !s.unknownTxFormat) unsupported.push({ orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing will be issued for it.` }); continue; } const a = assessShipment(s); const hf = a.findings.filter(f => f.severity !== 'INFO'); if (hf.length && !(opts.isReleased && hf.every(f => f.severity === 'HOLD' && f.resolution === 'HUMAN_DECISION' && opts.isReleased(s, f)))) { held.push({ orderId: s.orderId, reason: 'Not issued: ' + hf.map(f => f.explanation).join(' ') }); continue; } for (const f of a.findings.filter(f => f.severity === 'INFO')) notes.push({ orderId: s.orderId, code: f.code, text: f.explanation }); kept.push(s); }
+    kept.invalidRows = parsed.invalidRows ?? [];
+    const warnings = [...(t.notes ?? [])]; if (parsed.absent?.correction.length) warnings.push(`This report has no correction columns (${parsed.absent.correction.join(', ')}), so corrections and credit notes cannot be matched to an earlier invoice from this file. Absent is not read as "not corrected": only rows Amazon marks as needing an invoice are used.`);
+    if (parsed.inputSource === 'csv' || parsed.inputSource === 'xml') warnings.push(`File read as ${parsed.inputSource.toUpperCase()}.`); // the list is handed to processReport as `shipments`: the invalid rows must travel with it
+    return { ok: true, format, formatName: FORMATS.vidr, source: t.source, warnings, absentColumns: parsed.absent, rows: t.rows.length, shipments: kept, held, skipped, notes, unsupported, invalidRows: kept.invalidRows, truncated: !!t.truncated };
   }
   const p = parseOrderReport(t.rows);
   return { ok: true, format, formatName: FORMATS.order, rows: t.rows.length, truncated: !!t.truncated, ...p };
