@@ -6,6 +6,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25   # a hung handle would otherwise run for the 6 h default
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,10 +39,12 @@ jobs:
           rc=0
           grep -E '^# (tests|suites|pass|fail|cancelled|skipped|todo)' test-output.log > counts.txt || rc=1
           for f in test/*.test.js; do
-            if out=$(node --test --test-force-exit --no-warnings "$f" 2>&1); then st=ok; else st=FAILED; rc=1; fi
+            if out=$(node --test --no-warnings "$f" 2>&1); then st=ok; else st=FAILED; rc=1; fi
             echo "$f [$st]: $(echo "$out" | grep -E '^# (tests|pass|fail)' | tr '\n' ' ')" >> counts.txt
           done
           cat counts.txt | tee -a "$GITHUB_STEP_SUMMARY"
           exit $rc
+      - name: Full suite count is pinned (a smaller or varying count means files were cut short)
+        run: node tools/check-test-count.mjs test-output.log ci/expected-test-count.txt
       - name: 1005-case campaign
         run: node tools/campaign.mjs --no-live
