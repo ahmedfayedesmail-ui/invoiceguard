@@ -16,6 +16,7 @@ const FIXFILE = (what) => ({ type: 'NEW_EVIDENCE', who: 'you', text: `Correct ${
 const DECIDE = (what) => ({ type: 'MANUAL', who: 'you', onlyFor: 'HUMAN_DECISION', text: `If you checked ${what} and it is right, record your decision below with a reason. The decision covers exactly the evidence on this card.` });
 const NOTES = { type: 'NONE', who: 'you', text: 'You can write an investigation note at any time. A note never changes anything.' };
 export const HOLD_GUIDE = {
+  CORRECTION_PAIR_REVIEW: { title: 'A return and its replacement need your review', resolutions: [{ type: 'MANUAL', who: 'you', onlyFor: 'HUMAN_DECISION', text: 'Review the original invoice, every reversal row and the replacement. If they describe one correction and it is right, record your decision below with a reason. The decision covers exactly the evidence on this card.' }, { type: 'NEW_EVIDENCE', who: 'you', text: 'Or upload a corrected report that settles the pair. Nothing is issued until a person decides or the evidence changes.' }] },
   TRANSACTION_TYPE_UNSUPPORTED: { title: 'This row is not a sale that can be invoiced here', resolutions: [{ type: 'NEW_EVIDENCE', who: 'you', text: 'Export the report again so that sales are listed as shipments. Refunds and returns follow their own steps.' }] },
   UNKNOWN_TRANSACTION_TYPE: { title: 'Amazon sent a transaction type we do not know', resolutions: [{ type: 'NEW_EVIDENCE', who: 'you', text: 'Upload a report that uses the documented transaction types (shipment, refund, return). Nothing is guessed for an unknown type.' }] },
   CURRENCY_UNSUPPORTED: { title: 'The currency of this order is not supported yet', resolutions: [{ type: 'NEW_EVIDENCE', who: 'you', text: 'Invoice this order outside InvoiceGuard. Uploading the same file again will not change this.' }] },
@@ -63,9 +64,8 @@ export function explainFinding(f, db = null, sellerId = null) {
   const known = [], unknown = [];
   if (cn) {
     known.push('Our stored credit note exists' + (ev.number ? ` (${cap(ev.number, 60)})` : ''), 'The report was ingested and nothing was applied from it');
-    if (snap) { if (snap.documentNumbers?.length) known.push(`The report names document number(s): ${snap.documentNumbers.map(x => x === '' ? '(blank)' : x).join(', ')}`); if (snap.statuses?.length) known.push(`The report status set: ${snap.statuses.join(', ')}`); if (snap.reportRequestedAt) known.push(`Report requested at ${snap.reportRequestedAt}`); }
+    if (snap) { if (snap.documentNumbers?.length) known.push(`The report names document number(s): ${snap.documentNumbers.map(x => x === '' ? '(blank)' : x).join(', ')}`); if (snap.statuses?.length) known.push(`The report status set: ${snap.statuses.join(', ')}`); }
     unknown.push('Whether Amazon actually holds our document under another number', 'Which of two conflicting reports is the right one', 'Amazon refund sign convention is not proven by a real report');
-    if (ev.failed?.length) known.push(`Checks that failed: ${ev.failed.join(', ')}`);
   } else { known.push('The ledger recorded this finding from the data we hold' + (ev.field ? ` (field: ${ev.field})` : '')); unknown.push('Whether the finding is a real discrepancy or a data problem on the other side'); }
   const releasable = f.status === 'OPEN' && f.resolution === 'HUMAN_DECISION' && f.severity !== 'BLOCK';
   return {

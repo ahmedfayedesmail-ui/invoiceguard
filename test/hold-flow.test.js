@@ -27,7 +27,8 @@ test('HF1 every HOLD/BLOCK code emitted anywhere in src/ has a plain title and a
     for (const m of s.matchAll(/openCreditNoteHold\([^)]*?'([A-Z_]+)'/g)) codes.add(m[1]);
     for (const m of s.matchAll(/ok: false, code: '(CREDIT_NOTE_[A-Z_]+)'/g)) codes.add(m[1]);
     for (const m of s.matchAll(/(?:ORIG_HOLD|RETURN_HOLD) = '([A-Z_]+)'/g)) codes.add(m[1]);
-    for (const m of s.matchAll(/code: '(CORRECTION_[A-Z_]+)'/g)) codes.add(m[1]); }
+    for (const m of s.matchAll(/code: '(CORRECTION_[A-Z_]+)'/g)) codes.add(m[1]);
+    for (const m of s.matchAll(/export const [A-Z_]+ = '([A-Z][A-Z_]+)';/g)) if (/^(CORRECTION_|CREDIT_NOTE_|ORIGINAL_|RETURN_|REFUND_)/.test(m[1])) codes.add(m[1]); }  // review P1-1: codes emitted through exported constants
   assert.ok(codes.size >= 20, 'the scan found the codes: ' + codes.size);
   for (const c of codes) { const g = HOLD_GUIDE[c]; assert.ok(g, `${c} has guidance`); assert.ok(g.title && !BAD.test(g.title), `${c} title is plain: ${g.title}`); assert.ok(g.resolutions?.length >= 1, `${c} has a resolution`); }
   for (const [c, g] of Object.entries(HOLD_GUIDE)) for (const r of g.resolutions) { assert.ok(['NEW_EVIDENCE', 'MANUAL', 'NONE'].includes(r.type), c + ' type'); assert.ok(['you', 'amazon', 'nobody'].includes(r.who), c + ' who'); assert.ok(r.text.length > 15 && !BAD.test(r.text), `${c} resolution text is plain: ${r.text}`); }
@@ -113,4 +114,13 @@ test('HF6 the summary counts items by who must act', async () => {
   const d = await unknownDoc(); openOriginalHold(d.db, SID, 'SHIPMENT:S1', [{ c: 'amounts', why: 'x' }], { number: d.inv.number, status: 'InvoiceUploaded', reportSeq: 1 });
   writeLedger(d.db, SID, 'REFUND:T2', [{ code: 'REFUND_ROW_INVOICE_STATUS', severity: 'HOLD', resolution: 'NEW_EVIDENCE', evidence: { field: 'refund-row-invoice-status' }, fingerprint: 'a'.repeat(64), explanation: 'e', action: 'x' }], { partial: true });
   const s = holdSummary(listHolds(d.db, SID)); assert.deepEqual(s, { waitingOnYou: 1, waitingOnEvidence: 1, noRelease: 1, total: 3 });
+});
+
+test('HF3e review P1-2: a credit-note hold whose snapshot carries a request time and failed checks shows no UTC time and no raw check ids', () => {
+  const db = ledgerDb(); openCreditNoteHold(db, SID, 'REFUND:CorrectionReversal:Y:1', 'CREDIT_NOTE_IDENTITY_UNPROVEN', [{ c: 'invoice-number', why: 'The report names another document.' }], { snapshot: { documentNumbers: ['R-1'], statuses: ['CreditNoteUploaded'], reportRequestedAt: '2026-11-28T10:00:00.000Z' }, number: 'R-2026-000001' });
+  const [x] = listHolds(db, SID); assert.ok(!BAD.test(visible(x)), visible(x).match(BAD)?.[0]); assert.ok(!/invoice-number/.test(visible(x).replace(/The report names another document\./g, '')), 'no raw check id');
+});
+test('HF3f review P1-1: CORRECTION_PAIR_REVIEW has its own title, and its decision form matches the guidance', () => {
+  const g = HOLD_GUIDE.CORRECTION_PAIR_REVIEW; assert.ok(g, 'guidance exists'); assert.match(g.title, /return and its replacement/i);
+  assert.ok(g.resolutions.some(r => r.type === 'MANUAL' && r.who === 'you' && r.onlyFor === 'HUMAN_DECISION')); assert.ok(g.resolutions.some(r => r.type === 'NEW_EVIDENCE'));
 });
