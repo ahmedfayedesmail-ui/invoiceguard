@@ -2,15 +2,15 @@ TAP version 13
 # Subtest: control: an unchanged report issues the approved credit note
 ok 1 - control: an unchanged report issues the approved credit note
   ---
-  duration_ms: 120.801148
+  duration_ms: 121.234198
   type: 'test'
   ...
 # Subtest: changing fulfilled-by on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 2 - changing fulfilled-by on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 69.36223
+  duration_ms: 69.663488
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -23,7 +23,7 @@ not ok 2 - changing fulfilled-by on the reversal row after approval voids it (no
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -31,9 +31,9 @@ not ok 2 - changing fulfilled-by on the reversal row after approval voids it (no
 # Subtest: changing fulfilled-by on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 3 - changing fulfilled-by on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 69.709997
+  duration_ms: 70.310124
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -46,7 +46,7 @@ not ok 3 - changing fulfilled-by on the replacement row after approval voids it 
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -54,9 +54,9 @@ not ok 3 - changing fulfilled-by on the replacement row after approval voids it 
 # Subtest: changing order-date on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 4 - changing order-date on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 52.97254
+  duration_ms: 52.089638
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -69,7 +69,7 @@ not ok 4 - changing order-date on the reversal row after approval voids it (noth
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -77,9 +77,9 @@ not ok 4 - changing order-date on the reversal row after approval voids it (noth
 # Subtest: changing order-date on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 5 - changing order-date on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 38.704633
+  duration_ms: 41.833511
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -92,7 +92,7 @@ not ok 5 - changing order-date on the replacement row after approval voids it (n
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -100,9 +100,9 @@ not ok 5 - changing order-date on the replacement row after approval voids it (n
 # Subtest: changing recipient-name on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 6 - changing recipient-name on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 42.357473
+  duration_ms: 38.95189
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -115,7 +115,7 @@ not ok 6 - changing recipient-name on the reversal row after approval voids it (
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -123,9 +123,9 @@ not ok 6 - changing recipient-name on the reversal row after approval voids it (
 # Subtest: changing recipient-name on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 7 - changing recipient-name on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 55.931443
+  duration_ms: 62.648167
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -138,7 +138,7 @@ not ok 7 - changing recipient-name on the replacement row after approval voids i
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -146,9 +146,9 @@ not ok 7 - changing recipient-name on the replacement row after approval voids i
 # Subtest: changing buyer-name on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 8 - changing buyer-name on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 65.929228
+  duration_ms: 59.198503
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -161,7 +161,7 @@ not ok 8 - changing buyer-name on the reversal row after approval voids it (noth
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -169,9 +169,9 @@ not ok 8 - changing buyer-name on the reversal row after approval voids it (noth
 # Subtest: changing buyer-name on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 9 - changing buyer-name on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 62.989644
+  duration_ms: 57.704845
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -184,7 +184,7 @@ not ok 9 - changing buyer-name on the replacement row after approval voids it (n
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -192,9 +192,9 @@ not ok 9 - changing buyer-name on the replacement row after approval voids it (n
 # Subtest: changing sku on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 10 - changing sku on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 49.713101
+  duration_ms: 50.900282
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -207,7 +207,7 @@ not ok 10 - changing sku on the reversal row after approval voids it (nothing is
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -215,9 +215,9 @@ not ok 10 - changing sku on the reversal row after approval voids it (nothing is
 # Subtest: changing sku on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 11 - changing sku on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 52.299185
+  duration_ms: 54.725439
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -230,7 +230,7 @@ not ok 11 - changing sku on the replacement row after approval voids it (nothing
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -238,9 +238,9 @@ not ok 11 - changing sku on the replacement row after approval voids it (nothing
 # Subtest: changing product-name on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 12 - changing product-name on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 44.968242
+  duration_ms: 46.190146
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -253,7 +253,7 @@ not ok 12 - changing product-name on the reversal row after approval voids it (n
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -261,9 +261,9 @@ not ok 12 - changing product-name on the reversal row after approval voids it (n
 # Subtest: changing product-name on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 13 - changing product-name on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 39.508398
+  duration_ms: 37.614831
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -276,7 +276,7 @@ not ok 13 - changing product-name on the replacement row after approval voids it
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -284,9 +284,9 @@ not ok 13 - changing product-name on the replacement row after approval voids it
 # Subtest: changing is-amazon-invoiced on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 14 - changing is-amazon-invoiced on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 69.411731
+  duration_ms: 42.520268
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -299,7 +299,7 @@ not ok 14 - changing is-amazon-invoiced on the reversal row after approval voids
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -307,9 +307,9 @@ not ok 14 - changing is-amazon-invoiced on the reversal row after approval voids
 # Subtest: changing is-amazon-invoiced on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 15 - changing is-amazon-invoiced on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 41.322564
+  duration_ms: 38.708995
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -322,7 +322,7 @@ not ok 15 - changing is-amazon-invoiced on the replacement row after approval vo
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -330,9 +330,9 @@ not ok 15 - changing is-amazon-invoiced on the replacement row after approval vo
 # Subtest: changing is-business-order on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 16 - changing is-business-order on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 50.423224
+  duration_ms: 44.876236
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -345,7 +345,7 @@ not ok 16 - changing is-business-order on the reversal row after approval voids 
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -353,9 +353,9 @@ not ok 16 - changing is-business-order on the reversal row after approval voids 
 # Subtest: changing is-business-order on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 17 - changing is-business-order on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 36.700794
+  duration_ms: 64.876954
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -368,7 +368,7 @@ not ok 17 - changing is-business-order on the replacement row after approval voi
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -376,9 +376,9 @@ not ok 17 - changing is-business-order on the replacement row after approval voi
 # Subtest: changing citation-es on the reversal row after approval voids it (nothing issued, held for a new review)
 not ok 18 - changing citation-es on the reversal row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 47.613563
+  duration_ms: 46.75946
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -391,7 +391,7 @@ not ok 18 - changing citation-es on the reversal row after approval voids it (no
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -399,9 +399,9 @@ not ok 18 - changing citation-es on the reversal row after approval voids it (no
 # Subtest: changing citation-es on the replacement row after approval voids it (nothing issued, held for a new review)
 not ok 19 - changing citation-es on the replacement row after approval voids it (nothing issued, held for a new review)
   ---
-  duration_ms: 61.019878
+  duration_ms: 63.336691
   type: 'test'
-  location: '/home/sandbox/invoiceguard/test/correction-bound-columns.test.js:24:3'
+  location: '/home/sandbox/pre-wt4/test/correction-bound-columns.test.js:24:3'
   failureType: 'testCodeFailure'
   error: |-
     no credit note
@@ -414,7 +414,7 @@ not ok 19 - changing citation-es on the replacement row after approval voids it 
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (file:///home/sandbox/invoiceguard/test/correction-bound-columns.test.js:27:12)
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-bound-columns.test.js:27:12)
     process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
@@ -422,13 +422,13 @@ not ok 19 - changing citation-es on the replacement row after approval voids it 
 # Subtest: invoice-status alone (both rows, any value) does not void the approval
 ok 20 - invoice-status alone (both rows, any value) does not void the approval
   ---
-  duration_ms: 38.263233
+  duration_ms: 37.968889
   type: 'test'
   ...
 # Subtest: invoice-status never opens the Amazon-acceptance gate: a report saying CreditNoteUploaded does not release the replacement before our credit note is confirmed uploaded
 ok 21 - invoice-status never opens the Amazon-acceptance gate: a report saying CreditNoteUploaded does not release the replacement before our credit note is confirmed uploaded
   ---
-  duration_ms: 35.995054
+  duration_ms: 38.151432
   type: 'test'
   ...
 1..21
@@ -439,4 +439,4 @@ ok 21 - invoice-status never opens the Amazon-acceptance gate: a report saying C
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1435.55605
+# duration_ms 1417.560792

@@ -49138,6 +49138,7 @@ function checkTsv(text) {
   return { rows: items.filter((i2) => !i2.drop).map((i2) => i2.row), rowLines: items.filter((i2) => !i2.drop).map((i2) => i2.line), invalid: invalid.sort((x, y) => x.line - y.line), head };
 }
 var PARTS2 = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
+var BOUND_COLUMNS = ["fulfilled-by", "order-date", "recipient-name", "buyer-name", "sku", "product-name", "is-amazon-invoiced", "is-business-order", "citation-es"];
 var CONFLICT_FIELDS = ["currency", "buyer-vat-number", "billing-name", "bill-address-1", "bill-city", "bill-postal-code", "bill-country", "ship-country", "ship-from-country", "shipment-date", "seller-vat-number", "marketplace-id", "order-id", "buyer-company-name", "buyer-tax-registration-type", "invoice-status"];
 function parseVidr(text) {
   const checked = checkTsv(text);
@@ -49192,7 +49193,7 @@ function parseVidr(text) {
         excl: 0
       }).get(key);
     }
-    (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r["quantity-purchased"] ?? "", itemId: r["order-item-id"] ?? "", sig: Object.values(r).join("	"), orderDate: r["order-date"] ?? "", attrs: Object.fromEntries(CONFLICT_FIELDS.map((f) => [f, r[f] ?? ""])), parts: Object.fromEntries(PARTS2.map((p) => [p, { incl: r[`${p}-vat-incl-amount`] ?? "", vat: r[`${p}-vat-amount`] ?? "", excl: r[`${p}-vat-excl-amount`] ?? "", rate: r[`${p}-vat-rate`] ?? "" }])) });
+    (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r["quantity-purchased"] ?? "", itemId: r["order-item-id"] ?? "", sig: Object.values(r).join("	"), orderDate: r["order-date"] ?? "", attrs: Object.fromEntries(CONFLICT_FIELDS.map((f) => [f, r[f] ?? ""])), bound: Object.fromEntries(BOUND_COLUMNS.map((f) => [f, r[f] ?? ""])), parts: Object.fromEntries(PARTS2.map((p) => [p, { incl: r[`${p}-vat-incl-amount`] ?? "", vat: r[`${p}-vat-amount`] ?? "", excl: r[`${p}-vat-excl-amount`] ?? "", rate: r[`${p}-vat-rate`] ?? "" }])) });
     s.flagValues.push(r["is-amazon-invoiced"]);
     s.businessValues.push(r["is-business-order"]);
     const inclSum = PARTS2.reduce((a, p) => a + num(r[`${p}-vat-incl-amount`]), 0);
