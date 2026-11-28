@@ -233,10 +233,10 @@ async function retryRejectedUpload(db, seller, number, { api }) {
   // Round-12 (critic round-10): the stamp was already cleared at the claim. A VIDR verdict that
   // landed while this upload was in flight is FRESH evidence and wins: the document lands in
   // 'processing' (or keeps the state the verdict set), never regressed to 'submitted'.
-  db.prepare(`UPDATE invoices SET feed_id=?, upload_status = CASE
+  db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE blocked_feed_id END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, seller.id, number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, feedId, seller.id, number);
   db.prepare("UPDATE shipments SET status='submitted' WHERE seller_id=? AND key=?").run(seller.id, row.shipment_key);
   logEvent(db, seller.id, 'rejected_upload_retried', { number });
   return feedId;
@@ -256,7 +256,7 @@ export function recoverUncertainUploads(db, { minAgeMs = 0 } = {}) {
     // leave the document 'unknown' with no visible hold (settle checks still prevented a resend,
     // but the hold was lost). Synchronous writes only; no awaits inside.
     tx(db, () => {
-      db.prepare("UPDATE invoices SET upload_status='unknown', blocked_feed_id=? WHERE seller_id=? AND number=?").run(inv.feed_id ?? null, inv.seller_id, inv.number);
+      db.prepare("UPDATE invoices SET upload_status='unknown', blocked_feed_id=? WHERE seller_id=? AND number=? AND upload_status='sending'").run(inv.feed_id ?? null, inv.seller_id, inv.number);
       db.prepare("UPDATE shipments SET status='unknown', reason='the upload outcome is unknown - Amazon may have received the document' WHERE seller_id=? AND key=? AND status='sending'").run(inv.seller_id, inv.shipment_key);
       // attemptedAt = when the attempt STARTED (written before the Amazon call); the settle window
       // anchors on it (unknownSettleCheck), not on this recovery event's time, so a long downtime

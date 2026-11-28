@@ -8,7 +8,9 @@ const CN = {
   CREDIT_NOTE_VERDICT_CONTRADICTION: { happened: 'Amazon reported this credit note as uploaded earlier and now reports it as rejected.', blocked: ['No replacement invoice (if none was issued yet)', 'No retry or re-upload of any correction document of this pair', 'Nothing is cancelled automatically'] },
 };
 export function explainFinding(f) {
-  const ev = parse(f.evidence); const snap = ev.snapshot ?? null; const cn = CN[f.code];
+  const ev = parse(f.evidence); const snap = ev.snapshot ?? null; let cn = CN[f.code];
+  if (cn && ev.documentKind === 'replacement invoice') cn = { ...cn, happened: 'Amazon sent a report row that says our replacement invoice was uploaded, but the row could not be proven to be our document (number, amounts or context do not match exactly).' };
+  if (f.code === 'REFUND_ROW_INVOICE_STATUS') cn = { happened: 'A refund row in the Amazon report carries an invoice status. We do not know what Amazon means by that.', blocked: ['The original invoice and the credit note are not changed by this row', 'The row is not read as an acceptance or a rejection of anything'] };
   const known = [], unknown = [];
   if (cn) {
     known.push('Our stored credit note exists' + (ev.number ? ` (${ev.number})` : ''), 'The report was ingested and nothing was applied from it');

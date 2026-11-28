@@ -155,10 +155,10 @@ export async function processReport(db, seller, reportText, { api, validate = va
       // Round-12 (critic round-10): the stamp was already cleared at the claim. If a sync stamped a
       // FRESH VIDR verdict (or moved the state) while this call was in flight, that newer evidence
       // wins: the document lands in 'processing' (or keeps the verdict's state), never regresses.
-      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=NULL, upload_status = CASE
+      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, seller.id, inv.number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, feedId, seller.id, inv.number);
       upsertShipment(db, seller.id, s, 'submitted'); logEvent(db, seller.id, 'submitted', { number: inv.number, feedId }); out.uploaded++;
     } catch (e) {
       if (e.unknownOutcome) {
@@ -206,11 +206,22 @@ const logStaleRow = (db, seller, s, doc, reportSeq) =>
 
 /** Reconcile Amazon's verdict on an uploaded invoice (from the VIDR invoice-status column). */
 export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = null) {
+  // Owner decision 2 (Ahmed, WhatsApp 2026-11-28 13:51, forwarded by Main): a REFUND row that carries an Invoice* status is a HOLD until Amazon's meaning is proven from a trusted Amazon source or real documented reports.
+  // It must not touch the original invoice or the credit note, and it is never read as an acceptance or a rejection of either. Only a corrected file or new evidence resolves it (no human decision releases it).
+  if (s.transactionType === 'REFUND' && !s.isCorrectedTx) {
+    const evidence = { field: 'refund-row-invoice-status', reportStatus: s.invoiceStatus, transactionType: 'REFUND', transactionIds: [...new Set((s.rowMeta ?? []).map(r => r.transactionId ?? ''))].sort(), orderIds: [...new Set((s.rowMeta ?? []).map(r => r.orderId ?? ''))].sort() };
+    writeLedger(db, seller.id, s.key, [{ code: 'REFUND_ROW_INVOICE_STATUS', severity: 'HOLD', resolution: 'NEW_EVIDENCE', evidence,
+      fingerprint: createHash('sha256').update(JSON.stringify(['REFUND_ROW_INVOICE_STATUS', s.key, evidence])).digest('hex'),
+      explanation: `A REFUND row carries the status ${s.invoiceStatus}. What Amazon means by that is not proven, so it was not read as an acceptance or a rejection of the original invoice or of the credit note.`,
+      action: 'Nothing was changed. Only documented Amazon evidence of what this combination means, or a corrected report, resolves it.' }]);
+    logEvent(db, seller.id, 'refund_row_invoice_status_hold', { key: s.key, status: s.invoiceStatus });
+    return;
+  }
   const key = `SHIPMENT:${s.shippingId}`;
   // A Correction:: transaction's verdict belongs to the REPLACEMENT document (a rectificativa keyed
   // by the correction event), not to the original invoice. Billing-correction documents are under
   // the same reject/retry umbrella as every other document.
-  const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
+  const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq, json, shipment_key FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
   const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
   if (!inv) return;
   // Round-14 (critic round-12): ordering comes from the monotonic attempt sequence, never the
@@ -241,6 +252,16 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
   if (rect && ['InvoiceUploaded', 'InvoiceRejected'].includes(s.invoiceStatus) && pairHoldOpen(db, seller.id, inv.rectifies, s.key)) {
     logEvent(db, seller.id, 'invoice_verdict_held_by_open_hold', { number: inv.number, status: s.invoiceStatus });
     return;
+  }
+  // Owner decision 1 (same source): a replacement invoice is accepted only when the report PROVES it is OUR document: exact number and exact amounts (sign as it is, no Math.abs), plus seller-side context
+  // that is already checked for credit notes (marketplace, order, shipping, currency, original reference, transaction, report sequence). Any gap or difference is a HOLD, never ACCEPTED.
+  if (rect && s.invoiceStatus === 'InvoiceUploaded' && inv.upload_status !== 'uploaded') {
+    const idv = evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq, expect: 'InvoiceUploaded' });
+    if (!idv.ok) {
+      openCreditNoteHold(db, seller.id, s.key, idv.code, idv.failed, { number: rect.number, documentKind: 'replacement invoice', snapshot: evidenceSnapshot(s, rect, { reportSeq, reportReqTs }) });
+      logEvent(db, seller.id, 'replacement_acceptance_held', { number: rect.number, failed: idv.failed.map(f => f.c) });
+      return;
+    }
   }
   if (s.invoiceStatus === 'InvoiceUploaded' && inv.upload_status !== 'uploaded') {
     tx(db, () => {
@@ -502,10 +523,10 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
         throw e;
       }
       // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
-      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=NULL, upload_status = CASE
+      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId0, seller.id, prev.number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId0, feedId0, seller.id, prev.number);
       logEvent(db, seller.id, 'rectificativa_upload_retried', { number: prev.number });
       return { rect, feedId: feedId0, documentType: documentType0, pdf: pdf0, retried: true };
     }
@@ -581,10 +602,10 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
     try {
       feedId = await api.uploadInvoice({ marketplaceId: mp, pdf, orderId: s.orderId, shippingId: s.shippingId, number: rect.number, total: Math.abs(rect.totals.incl), vat: Math.abs(rect.totals.vat), documentType, transactionId: opts.transactionId ?? s.transactionId });
       // Round-12: stamp cleared at the claim only; a verdict that landed mid-flight is respected.
-      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=NULL, upload_status = CASE
+      db.prepare(`UPDATE invoices SET feed_id=?, blocked_feed_id=CASE WHEN upload_status='unknown' THEN ? ELSE NULL END, upload_status = CASE
         WHEN upload_status <> 'sending' THEN upload_status
         WHEN vidr_processing_at IS NOT NULL THEN 'processing'
-        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, seller.id, rect.number);
+        ELSE 'submitted' END WHERE seller_id=? AND number=?`).run(feedId, feedId, seller.id, rect.number);
     } catch (e) {
       // Unknown outcome: Amazon may hold the document. Mark it honestly AND put a visible hold in the
       // Repairs queue - no blind resend; a fresh report that still asks for the document is the only
