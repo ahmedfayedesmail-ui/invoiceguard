@@ -115,41 +115,100 @@ function snapshotSources(reader, sellerId) {
   read('invoices','SELECT number, shipment_key, kind, rectifies, issued_at, total, vat, feed_id, upload_status, uploaded_at, error FROM invoices WHERE seller_id=? ORDER BY number',r=>({
     kind:'invoice_snapshot',key:r.number,documentKey:r.number,
     payload:{invoiceNumber:safeText(r.number),shipmentKey:safeText(r.shipment_key),kind:safeText(r.kind,40),rectifies:safeText(r.rectifies),
-      issuedAt:safeText(r.issued_at,64),totalCents:cents(r.total,'invoices.total'),vatCents:cents(r.vat,'invoices.vat'),feedId:safeText(r.feed_id),
+      issuedAt:safeText(r.issued_at,64),occurredAt:safeText(r.uploaded_at||r.issued_at,64),totalCents:cents(r.total,'invoices.total'),vatCents:cents(r.vat,'invoices.vat'),feedId:safeText(r.feed_id),
       uploadStatus:safeText(r.upload_status,50),uploadedAt:safeText(r.uploaded_at,64),errorDigest:digest(r.error)}
   }));
   read('shipments','SELECT key, order_id, shipping_id, total, vat, shipment_date, due_at, status, reason, updated_at FROM shipments WHERE seller_id=? ORDER BY key',r=>({
     kind:'shipment_snapshot',key:r.key,documentKey:r.key,
     payload:{shipmentKey:safeText(r.key),orderId:safeText(r.order_id),shippingId:safeText(r.shipping_id),totalCents:cents(r.total,'shipments.total'),
-      vatCents:cents(r.vat,'shipments.vat'),shipmentDate:safeText(r.shipment_date,64),dueAt:safeText(r.due_at,64),
+      vatCents:cents(r.vat,'shipments.vat'),shipmentDate:safeText(r.shipment_date,64),occurredAt:safeText(r.updated_at||r.shipment_date,64),dueAt:safeText(r.due_at,64),
       status:safeText(r.status,50),reasonDigest:digest(r.reason),updatedAt:safeText(r.updated_at,64)}
   }));
   read('integrity_findings','SELECT rowid AS k, shipment_key, code, field, severity, resolution, status, fingerprint, evidence, explanation, first_seen, last_seen, seen_count, reopened_count, resolved_at FROM integrity_findings WHERE seller_id=? ORDER BY rowid',r=>({
     kind:'integrity_finding_snapshot',key:r.k,documentKey:r.shipment_key,
     payload:{shipmentKey:safeText(r.shipment_key),code:safeText(r.code,120),field:safeText(r.field,120),severity:safeText(r.severity,40),
       resolution:safeText(r.resolution,80),status:safeText(r.status,40),fingerprint:safeText(r.fingerprint,128),
-      evidenceDigest:digest(r.evidence),explanationDigest:digest(r.explanation),firstSeen:safeText(r.first_seen,64),lastSeen:safeText(r.last_seen,64),
+      evidenceDigest:digest(r.evidence),explanationDigest:digest(r.explanation),firstSeen:safeText(r.first_seen,64),lastSeen:safeText(r.last_seen,64),occurredAt:safeText(r.last_seen||r.first_seen,64),
       seenCount:Number.isSafeInteger(r.seen_count)?r.seen_count:null,reopenedCount:Number.isSafeInteger(r.reopened_count)?r.reopened_count:null,
       resolvedAt:safeText(r.resolved_at,64)}
   }));
-  return out.sort((a,b)=>a.sourceTable.localeCompare(b.sourceTable)||a.sourceKey.localeCompare(b.sourceKey)||a.sourceRef.localeCompare(b.sourceRef));
+  const eventTime = item => {
+    const raw = item.payload?.occurredAt;
+    const time = typeof raw === 'string' ? Date.parse(raw) : NaN;
+    return Number.isFinite(time) ? time : null;
+  };
+  return out.sort((a,b)=>{
+    const at=eventTime(a), bt=eventTime(b);
+    if(at!==null&&bt!==null&&at!==bt)return at-bt;
+    if(at!==null&&bt===null)return -1;
+    if(at===null&&bt!==null)return 1;
+    return a.sourceTable.localeCompare(b.sourceTable)||a.sourceKey.localeCompare(b.sourceKey)||a.sourceRef.localeCompare(b.sourceRef);
+  });
 }
-function sourceCoverage(reader, sourceCount, {missingPreviouslySealed=[], sourceChangedDuringSeal=false, previousCoverage=null}={}) {
+ 
+function versionMutableSnapshots(source, priorRows) {
+  const latest = new Map();
+  for (const row of priorRows) {
+    const body = JSON.parse(row.canonical_json);
+    if (!MUTABLE_SOURCES.includes(body.sourceTable)) continue;
+    const key = JSON.stringify([body.sourceTable, body.sourceKey]);
+    latest.set(key, {
+      sourceRef: body.sourceRef,
+      payloadHash: sha256Hex(canonicalize(body.payload))
+    });
+  }
+
+  return source.map(item => {
+    if (!MUTABLE_SOURCES.includes(item.sourceTable)) return item;
+    const key = JSON.stringify([item.sourceTable, item.sourceKey]);
+    const payloadHash = sha256Hex(canonicalize(item.payload));
+    const previous = latest.get(key) ?? null;
+    if (previous && previous.payloadHash === payloadHash) {
+      return { ...item, sourceRef: previous.sourceRef, previousSourceRef: null };
+    }
+
+    const sourceRef = previous
+      ? `${item.sourceTable}:${item.sourceKey}:${payloadHash}:after:${sha256Hex(previous.sourceRef)}`
+      : item.sourceRef;
+    latest.set(key, { sourceRef, payloadHash });
+    return { ...item, sourceRef, previousSourceRef: previous?.sourceRef ?? null };
+  });
+}
+function findMissingMutableSnapshots(priorRows, currentSource) {
+  const latest = new Map();
+  for (const row of priorRows) {
+    const body = JSON.parse(row.canonical_json);
+    if (!MUTABLE_SOURCES.includes(body.sourceTable)) continue;
+    latest.set(JSON.stringify([body.sourceTable, body.sourceKey]), row.source_ref);
+  }
+  const currentKeys = new Set(currentSource
+    .filter(item => MUTABLE_SOURCES.includes(item.sourceTable))
+    .map(item => JSON.stringify([item.sourceTable, item.sourceKey])));
+  return [...latest.entries()]
+    .filter(([key]) => !currentKeys.has(key))
+    .map(([, sourceRef]) => sourceRef)
+    .sort();
+}
+
+function sourceCoverage(reader, sourceCount, {missingPreviouslySealed=[], missingMutableSnapshots=[], sourceChangedDuringSeal=false, previousCoverage=null}={}) {
   const protectedLogs = APPEND_ONLY.map(table=>({
     table, updateBlocked:triggerExists(reader,table+'_no_update'), deleteBlocked:triggerExists(reader,table+'_no_delete')
   }));
   const missingProtection = protectedLogs.filter(x=>!x.updateBlocked||!x.deleteBlocked).map(x=>x.table);
   const inheritedMissing = Array.isArray(previousCoverage?.missingPreviouslySealed) ? previousCoverage.missingPreviouslySealed : [];
   const missing = [...new Set([...inheritedMissing,...missingPreviouslySealed])].sort();
+  const inheritedMutableMissing = Array.isArray(previousCoverage?.missingMutableSnapshots) ? previousCoverage.missingMutableSnapshots : [];
+  const missingMutable = [...new Set([...inheritedMutableMissing,...missingMutableSnapshots])].sort();
   const changed = sourceChangedDuringSeal || previousCoverage?.sourceChangedDuringSeal === true;
   const inheritedIncomplete = previousCoverage?.status === 'INCOMPLETE';
   const reasons = [];
   if (missing.length) reasons.push('A previously sealed append-only source record is no longer present.');
+  if (missingMutable.length) reasons.push('A previously sealed mutable source row is no longer present in the current snapshot.');
   if (changed) reasons.push('A source snapshot changed during sealing; the run cannot claim a stable observation.');
   if (inheritedIncomplete && !reasons.length) reasons.push('A previous seal recorded an unresolved completeness gap; it is not cleared automatically.');
-  return {schema:'invoiceguard.intel-coverage.v1',status:missing.length||changed||inheritedIncomplete?'INCOMPLETE':'UNKNOWN',
+  return {schema:'invoiceguard.intel-coverage.v1',status:missing.length||missingMutable.length||changed||inheritedIncomplete?'INCOMPLETE':'UNKNOWN',
     observedRecords:sourceCount,appendOnlyLogProtection:protectedLogs,unprotectedAppendLogs:missingProtection,
-    missingPreviouslySealed:missing,sourceChangedDuringSeal:changed,reasons,mutableSources:MUTABLE_SOURCES,
+    missingPreviouslySealed:missing,missingMutableSnapshots:missingMutable,sourceChangedDuringSeal:changed,reasons,mutableSources:MUTABLE_SOURCES,
     note:'Coverage begins with rows visible to this sealing process. Mutable events and current invoice, shipment and finding snapshots cannot prove pre-seal history.'};
 }
 function latestCoverageFromRows(rows) {
@@ -173,7 +232,7 @@ function verifyRows(rows,sellerId,head=null) {
     catch { return {valid:false,brokenAt:seq,reason:'canonical-json-invalid'}; }
     if(body.schema!=='invoiceguard.sealed-financial-evidence.v1'||body.sellerId!==sellerId||
       body.sequence!==seq||body.previousHash!==prev||body.kind!==row.kind||
-      typeof body.sourceTable!=='string'||typeof body.sourceKey!=='string'||typeof body.sourceRef!=='string'||
+      typeof body.sourceTable!=='string'||typeof body.sourceKey!=='string'||typeof body.sourceRef!=='string'||(body.previousSourceRef!==null&&body.previousSourceRef!==undefined&&typeof body.previousSourceRef!=='string')||(body.previousSourceRef!==null&&body.previousSourceRef!==undefined&&typeof body.previousSourceRef!=='string')||
       !body.payload||typeof body.payload!=='object'||Array.isArray(body.payload)||
       body.sourceRef!==row.source_ref||body.documentKey!==row.document_key) {
       return {valid:false,brokenAt:seq,reason:'entry-header-mismatch'};
@@ -205,45 +264,60 @@ export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date(
   if(typeof sellerId!=='string'||!sellerId.trim()||sellerId.length>200) throw new TypeError('A valid seller id is required.');
 
   ensureIntelTables(writerDb);
-  const precheck=verifyEvidenceChain(writerDb,sellerId);
-  if(!precheck.valid) throw new Error('Refusing to append to a broken evidence chain: '+precheck.reason);
-
-  const priorRows=rowsFor(writerDb,sellerId);
-  const previousCoverage=latestCoverageFromRows(priorRows);
+  const initialCheck=verifyEvidenceChain(writerDb,sellerId);
+  if(!initialCheck.valid) throw new Error('Refusing to append to a broken evidence chain: '+initialCheck.reason);
 
   readerDb.exec('BEGIN');
-  let source;
+  let rawSource;
   try {
-    source=snapshotSources(readerDb,sellerId);
+    rawSource=snapshotSources(readerDb,sellerId);
     readerDb.exec('COMMIT');
   } catch(e) {
     try { readerDb.exec('ROLLBACK'); } catch {}
     throw e;
   }
 
-  const sourceRefs=new Set(source.map(item=>item.sourceRef));
-  const missingPreviouslySealed=priorRows.filter(row=>{
-    const body=JSON.parse(row.canonical_json);
-    return APPEND_ONLY.includes(body.sourceTable)&&!sourceRefs.has(row.source_ref);
-  }).map(row=>row.source_ref);
-
-  let coverage=sourceCoverage(readerDb,source.length,{missingPreviouslySealed,previousCoverage});
-  source.push(makeRecord('coverage_statement','intel_coverage',digest(canonicalize(coverage)),null,coverage));
-
+  let source=[];
+  let coverage;
   let added=0;
-  let current;
   writerDb.exec('BEGIN IMMEDIATE');
   try {
-    const existing=new Set(rowsFor(writerDb,sellerId).map(row=>row.source_ref));
-    current=writerDb.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get(sellerId)??{seq:0,hash:ZERO};
-    const insert=writerDb.prepare('INSERT INTO intel_evidence_chain(seller_id,seq,prev_hash,entry_hash,kind,source_ref,document_key,canonical_json,sealed_at) VALUES(?,?,?,?,?,?,?,?,?)');
+    // Re-read and verify under the write lock. Concurrent sealers must version
+    // mutable snapshots against the chain that actually committed before them.
+    const lockedCheck=verifyEvidenceChain(writerDb,sellerId);
+    if(!lockedCheck.valid) throw new Error('Refusing to append to a broken evidence chain: '+lockedCheck.reason);
+    const priorRows=rowsFor(writerDb,sellerId);
+    const previousCoverage=latestCoverageFromRows(priorRows);
+    source=versionMutableSnapshots(rawSource,priorRows);
 
+    const sourceRefs=new Set(source.map(item=>item.sourceRef));
+    const missingPreviouslySealed=priorRows.filter(row=>{
+      const body=JSON.parse(row.canonical_json);
+      return APPEND_ONLY.includes(body.sourceTable)&&!sourceRefs.has(row.source_ref);
+    }).map(row=>row.source_ref);
+    const missingMutable= findMissingMutableSnapshots(priorRows,rawSource);
+    coverage=sourceCoverage(readerDb,source.length,{missingPreviouslySealed,missingMutableSnapshots:missingMutable,previousCoverage});
+    source.push(makeRecord('coverage_statement','intel_coverage',digest(canonicalize(coverage)),null,coverage));
+
+    const existing=new Set(priorRows.map(row=>row.source_ref));
+    let current=writerDb.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get(sellerId)??{seq:0,hash:ZERO};
+    const insert=writerDb.prepare('INSERT INTO intel_evidence_chain(seller_id,seq,prev_hash,entry_hash,kind,source_ref,document_key,canonical_json,sealed_at) VALUES(?,?,?,?,?,?,?,?,?)');
     for(const item of source) {
       if(existing.has(item.sourceRef)) continue;
       const sequence=current.seq+1;
-      const body={schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:current.hash,
-        kind:item.kind,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceRef:item.sourceRef,
-        documentKey:item.documentKey,payload:item.payload};
+      const body={
+        schema:'invoiceguard.sealed-financial-evidence.v1',
+        sellerId,
+        sequence,
+        previousHash:current.hash,
+        kind:item.kind,
+        sourceTable:item.sourceTable,
+        sourceKey:item.sourceKey,
+        sourceRef:item.sourceRef,
+        previousSourceRef:item.previousSourceRef??null,
+        documentKey:item.documentKey,
+        payload:item.payload
+      };
       const json=canonicalize(body);
       const hash=sha256Hex(json);
       insert.run(sellerId,sequence,current.hash,hash,item.kind,item.sourceRef,item.documentKey,json,now());
@@ -259,28 +333,32 @@ export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date(
     throw e;
   }
 
-  // A second snapshot detects changes during the seal; it can only downgrade coverage.
+  // Compare a second source snapshot against the now-committed snapshot versions.
+  // Any source change during the seal only downgrades coverage.
   readerDb.exec('BEGIN');
-  let afterSource;
+  let afterRawSource;
   try {
-    afterSource=snapshotSources(readerDb,sellerId);
+    afterRawSource=snapshotSources(readerDb,sellerId);
     readerDb.exec('COMMIT');
   } catch(e) {
     try { readerDb.exec('ROLLBACK'); } catch {}
     throw e;
   }
 
+  const allSealedRows=rowsFor(writerDb,sellerId);
+  const afterSource=versionMutableSnapshots(afterRawSource,allSealedRows);
   const beforeRefs=source.filter(item=>item.sourceTable!=='intel_coverage').map(item=>item.sourceRef).sort();
   const afterRefs=afterSource.map(item=>item.sourceRef).sort();
   const sourceChangedDuringSeal=canonicalize(beforeRefs)!==canonicalize(afterRefs);
-  const afterRefSet=new Set(afterRefs);
-  const allSealedRows=rowsFor(writerDb,sellerId);
+  const afterRefSet=new Set(afterSource.map(item=>item.sourceRef));
   const missingAfter=allSealedRows.filter(row=>{
     const body=JSON.parse(row.canonical_json);
     return APPEND_ONLY.includes(body.sourceTable)&&!afterRefSet.has(row.source_ref);
   }).map(row=>row.source_ref);
-  const finalCoverage=sourceCoverage(readerDb,afterSource.length,{
-    missingPreviouslySealed:missingAfter,sourceChangedDuringSeal,previousCoverage:coverage
+  const missingMutableAfter=findMissingMutableSnapshots(allSealedRows,afterRawSource);
+  const finalCoverage=sourceCoverage(readerDb,afterRawSource.length,{
+    missingPreviouslySealed:missingAfter,missingMutableSnapshots:missingMutableAfter,
+    sourceChangedDuringSeal,previousCoverage:coverage
   });
 
   let coverageAdded=0;
@@ -292,9 +370,11 @@ export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date(
       if(!already) {
         const head=writerDb.prepare('SELECT seq,hash FROM intel_evidence_head WHERE seller_id=?').get(sellerId)??{seq:0,hash:ZERO};
         const sequence=head.seq+1;
-        const body={schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:head.hash,
+        const body={
+          schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,sequence,previousHash:head.hash,
           kind:item.kind,sourceTable:item.sourceTable,sourceKey:item.sourceKey,sourceRef:item.sourceRef,
-          documentKey:item.documentKey,payload:item.payload};
+          previousSourceRef:null,documentKey:item.documentKey,payload:item.payload
+        };
         const json=canonicalize(body);
         const hash=sha256Hex(json);
         writerDb.prepare('INSERT INTO intel_evidence_chain(seller_id,seq,prev_hash,entry_hash,kind,source_ref,document_key,canonical_json,sealed_at) VALUES(?,?,?,?,?,?,?,?,?)')
@@ -318,7 +398,7 @@ export function sealSellerEvidence({writerDb,readerDb,sellerId,now=()=>new Date(
     head:{sellerId,sequence:verification.sequence,hash:verification.hash},
     verification,
     coverage,
-    sourceCount:afterSource.length
+    sourceCount:afterRawSource.length
   };
 }
 export function getEvidenceCoverage(db,sellerId) {

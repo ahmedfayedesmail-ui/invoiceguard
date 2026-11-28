@@ -119,6 +119,16 @@ test('deletion of a previously sealed append-only source row is marked INCOMPLET
   assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
 });
 
+test('deletion of a previously sealed mutable snapshot is marked INCOMPLETE', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  db.prepare('DELETE FROM invoices WHERE seller_id=? AND number=?').run('seller-A','A-2026-000001');
+  const result=sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  assert.equal(result.coverage.status,'INCOMPLETE');
+  assert.ok(result.coverage.missingMutableSnapshots.length>=1);
+  assert.equal(getEvidenceCoverage(db,'seller-A').status,'INCOMPLETE');
+});
+
 test('a corrupted prior chain is refused rather than silently extended', t => {
   const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
   sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
@@ -141,6 +151,30 @@ test('a missing head checkpoint is detected and cannot be exported as valid', t 
   assert.equal(verification.valid,false);
   assert.equal(verification.reason,'head-missing');
   assert.throws(()=>exportEvidenceBundle(db,'seller-A'),/broken evidence chain/);
+});
+
+test('mutable snapshot transitions preserve an A-to-B-to-A return', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  db.prepare('INSERT INTO shipments (seller_id,key,total,vat,status,updated_at) VALUES (?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1',59.90,9.90,'open','2026-11-28T10:00:00.000Z');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+
+  db.prepare('UPDATE shipments SET total=?,updated_at=? WHERE seller_id=? AND key=?')
+    .run(60.00,'2026-11-28T10:02:00.000Z','seller-A','SHIP-1');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+
+  // Return the full observed payload to its original value. A global unique
+  // payload reference must not erase this later state transition.
+  db.prepare('UPDATE shipments SET total=?,updated_at=? WHERE seller_id=? AND key=?')
+    .run(59.90,'2026-11-28T10:00:00.000Z','seller-A','SHIP-1');
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+
+  const rows=db.prepare("SELECT source_ref,canonical_json FROM intel_evidence_chain WHERE seller_id=? AND kind='shipment_snapshot' ORDER BY seq").all('seller-A');
+  assert.equal(rows.length,3);
+  assert.equal(new Set(rows.map(row=>row.source_ref)).size,3);
+  const bodies=rows.map(row=>JSON.parse(row.canonical_json));
+  assert.deepEqual(bodies.map(body=>body.payload.totalCents),[5990,6000,5990]);
+  assert.equal(bodies[2].previousSourceRef,bodies[1].sourceRef);
 });
 
 test('two independent processes sealing one seller produce one ordered chain', async t => {

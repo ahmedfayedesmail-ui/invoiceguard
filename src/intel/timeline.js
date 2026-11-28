@@ -20,7 +20,9 @@ export function normalizeEvidenceTimeline(entries = []) {
   return ordered.map(({ body }, index) => ({
     sequence: index + 1,
     kind: String(body.kind ?? 'unknown'),
+    sourceTable: String(body.sourceTable ?? 'unknown'),
     documentKey: body.documentKey == null ? null : String(body.documentKey),
+    previousSourceRef: body.previousSourceRef ?? null,
     occurredAt: body.payload?.occurredAt ?? body.payload?.at ?? body.payload?.issuedAt ?? null,
     payload: body.payload ?? {}
   }));
