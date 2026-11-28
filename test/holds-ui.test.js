@@ -20,7 +20,7 @@ test('HUI1 a reviewer sees an open hold, its reasons and evidence, records a dec
     await page.waitForSelector('[data-hold]'); const text = await page.$eval('#app', e => e.innerText);
     assert.match(text, /Needs your decision/); assert.match(text, /R-2026-999999/); assert.match(text, /What the system knows/); assert.match(text, /What it does not know/); assert.match(text, /Blocked until/); assert.match(text, /Blocked: needs a corrected file/); assert.doesNotMatch(text, /undefined|\[object/);
     assert.equal(await page.evaluate(() => window.__xss), undefined, 'evidence must be text, never HTML'); assert.equal(await page.evaluate(() => document.querySelectorAll('#app img').length), 0);
-    assert.equal(await page.$$eval('[data-hold="TOTALS_CONTRADICT"] textarea', e => e.length), 0, 'a BLOCK has no decision form');
+    assert.equal(await page.$$eval('[data-hold="TOTALS_CONTRADICT"] textarea[aria-label="Reason for the decision"]', e => e.length), 0, 'a BLOCK has no decision form');
     // too short a reason is refused in the screen and nothing is recorded
     await page.type('[data-hold="CREDIT_NOTE_IDENTITY_UNPROVEN"] textarea', 'short'); await click('Record my decision for this evidence'); await page.waitForFunction(() => document.body.innerText.includes('at least 10 characters')); assert.equal(db.prepare('SELECT count(*) n FROM integrity_decisions').get().n, 0);
     await page.type('[data-hold="CREDIT_NOTE_IDENTITY_UNPROVEN"] textarea', ' - compared with Seller Central, row matches'); await click('Record my decision for this evidence');

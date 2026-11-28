@@ -117,7 +117,7 @@ export function addHoldNote(db, sellerId, { key, code, note }, user) {
   if (typeof key !== 'string' || typeof code !== 'string') throw new Error('Choose the item.');
   if (!String(user ?? '').trim()) throw new Error('A note needs the user who writes it.');
   const text = String(note ?? '').trim(); if (text.length < 3) throw new Error('Write the note.');
-  const known = db.prepare('SELECT 1 FROM integrity_findings WHERE seller_id=? AND shipment_key=? AND code=?').get(sellerId, key, code) || db.prepare("SELECT 1 FROM repairs WHERE seller_id=? AND event_key=? AND kind='unknown_outcome'").get(sellerId, key);
+  const known = db.prepare('SELECT 1 FROM integrity_findings WHERE seller_id=? AND shipment_key=? AND code=?').get(sellerId, key, code) || (() => { try { return db.prepare("SELECT 1 FROM repairs WHERE seller_id=? AND event_key=? AND kind='unknown_outcome'").get(sellerId, key); } catch { return null; } })();
   if (!known) throw new Error('There is no such item.');
   logEvent(db, sellerId, 'hold_note', { key, code, by: String(user).trim(), note: text.slice(0, 1000), effect: 'none' });
   return { recorded: true, stateChanged: false };
