@@ -1,5 +1,5 @@
 import { acceptReport } from './correction-helpers.js';
-import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
+import test from 'node:test'; import { proved, seqOpt, authorizeRetry } from './helpers/prove-verdict.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
@@ -473,13 +473,17 @@ test('an interrupted upload is never blindly resent: unknown state, a hold for a
   // cross-check finds no orphan feed from the interruption window - so the resend is cleared
   fail = false;
   await processReport(db, seller, singleRow(null), { api: api3, validate: vies });
-  assert.equal(calls, 2, 'exactly one resend happened');
+  // ruling 5: nothing automatic resends an unknown outcome; only a recorded one-shot human authorization does
+  assert.equal(calls, 1, 'no automatic resend');
+  await authorizeRetry(db, seller.id, hold.event_key);
+  await processReport(db, seller, singleRow(null), { api: api3, validate: vies });
+  assert.equal(calls, 2, 'exactly one resend happened, after the authorization');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'no second invoice was burned');
   // Amazon's verdict then closes the hold
   await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceUploaded')), { ...seqOpt(db, seller.id), api: api3, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'uploaded');
-  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'uploaded');
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'dismissed', 'ruling 5: the authorization closed the hold (state dismissed), it is not an Amazon fact');
 });
 
 test('a content rejection is held for a real fix, never blindly re-uploaded', async () => {
@@ -518,10 +522,13 @@ test('a retry upload interrupted mid-flight goes to unknown with a hold and refu
   // the fresh report still lists the shipment pending and the feed list shows no orphan -> cleared resend
   fail = false;
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
-  assert.equal(calls, 3, 'exactly one settling resend');
+  assert.equal(calls, 2, 'ruling 5: no automatic settling resend');
+  await authorizeRetry(db, seller.id, hold.event_key);
+  await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
+  assert.equal(calls, 3, 'exactly one resend, after the one-shot authorization');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
   await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceUploaded')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
-  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'uploaded');
+  assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'dismissed', 'ruling 5: the authorization closed the hold (state dismissed), it is not an Amazon fact');
 });
 
 test('content rejections of credit notes and replacement invoices are HELD, and an empty reason holds too', async () => {
@@ -594,7 +601,9 @@ test('the crash window between Amazon acceptance and the local write is recovere
   // block). The human checks Seller Central and dismisses the hold -> the next sync resends.
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown', 'no automatic resend on an unresolved feed');
-  decideRepair(db, seller.id, hold.event_key, 'dismissed');
+  // ruling 5: the generic dismissal is gone; a recorded one-shot authorization (feed id + status named, who/when/result/reason) is the manual exit
+  assert.throws(() => decideRepair(db, seller.id, hold.event_key, 'dismissed'), /cannot be dismissed/);
+  await authorizeRetry(db, seller.id, hold.event_key);
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'no second invoice was burned');
@@ -613,15 +622,19 @@ test('an unknown-outcome credit note refuses re-approval and is settled by the f
   await assert.rejects(() => approveRepair(db, seller, p.event_key, { api: api2, validate: vies }), /connection reset/);
   const rect = db.prepare("SELECT number, upload_status FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id);
   assert.equal(rect.upload_status, 'unknown');
-  assert.ok(listRepairs(db, seller.id).some(r => r.kind === 'unknown_outcome'), 'a visible hold was created for the correction document');
+  const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
+  assert.ok(hold, 'a visible hold was created for the correction document');
   // the interrupted approval HELD the original repair: no doomed re-approval remains in the queue
   assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, p.event_key).state, 'held');
   await assert.rejects(() => approveRepair(db, seller, p.event_key, { api: api2, validate: vies }), /No open repair/);
   // the fresh report still lists the refund as CreditNotePending and the feed list shows no orphan
   // from the interruption window -> the resend of the SAME document is cleared
   fail = false;
+  const s0 = await settleUnknownDocuments(db, seller, refundReport(), { api: api2, validate: vies });
+  assert.deepEqual(s0.resubmitted, [], 'ruling 5: no automatic resend of an unknown outcome');
+  await authorizeRetry(db, seller.id, hold.event_key);
   const settled = await settleUnknownDocuments(db, seller, refundReport(), { api: api2, validate: vies });
-  assert.deepEqual(settled.resubmitted, [rect.number], 'the SAME credit note was resubmitted');
+  assert.deepEqual(settled.resubmitted, [rect.number], 'the SAME credit note was resubmitted after the one-shot authorization');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1, 'no second credit note exists');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, rect.number).upload_status, 'submitted');
 });
@@ -640,8 +653,11 @@ test('an unknown-outcome correction credit note is not treated as done: processC
   assert.ok(listRepairs(db, seller.id).some(r => r.kind === 'unknown_outcome'), 'visible hold for the unknown correction document');
   // the next sync sees the SAME report still listing the event -> settles the same document
   fail = false;
+  const r1b = await processCorrections(db, seller, corr, { api: api2, validate: vies });
+  assert.equal(r1b.creditNotes, 0, 'ruling 5: no automatic re-drive of an unknown outcome');
+  await authorizeRetry(db, seller.id, listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome').event_key);
   const r2 = await processCorrections(db, seller, corr, { api: api2, validate: vies });
-  assert.equal(r2.creditNotes, 1, 'the fresh report re-drove the correction');
+  assert.equal(r2.creditNotes, 1, 'the one-shot authorization re-drove the correction');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, cn.number).upload_status, 'submitted');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='rectificativa'").get(seller.id).c, 1, 'the replacement still waits for Amazon to confirm the credit note');
   // Amazon confirms the credit note -> only then does the pair complete
@@ -779,7 +795,7 @@ test('a fresh pending report alone does not clear a resend: an orphan feed from 
   // Amazon keeps feeds for up to 90 days, so the orphan does NOT age out of the list: the resolution
   // is a human checking the feed in Seller Central and dismissing the hold -> the resend proceeds
   const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
-  decideRepair(db, seller.id, hold.event_key, 'dismissed');
+  await authorizeRetry(db, seller.id, hold.event_key);
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
   assert.equal(calls, 2, 'exactly one cleared resend after the human dismissal');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
@@ -838,7 +854,7 @@ test('a FATAL feed is never treated as never-processed: unknown + hold, no retry
   await processReport(db, seller, singleRow(null), { api: api0, validate: vies });
   assert.equal(calls, 1, 'no automatic resend on report text alone');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'unknown');
-  decideRepair(db, seller.id, holds[0].event_key, 'dismissed');
+  await authorizeRetry(db, seller.id, holds[0].event_key);
   await processReport(db, seller, singleRow(null), { api: api0, validate: vies });
   assert.equal(calls, 2, 'exactly one resend, after the human decision');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
@@ -867,8 +883,8 @@ test('a long downtime cannot hide the original feed: the settle window anchors o
   assert.ok(out.held.some(h => /feed-old-orphan/.test(h.reason)), 'the hold names the orphan feed');
   // the human checked the feed in Seller Central: Amazon does not hold the document -> dismiss -> resend
   const hold = listRepairs(db, seller.id).find(r => r.kind === 'unknown_outcome');
-  decideRepair(db, seller.id, hold.event_key, 'dismissed');
-  assert.ok(db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='unknown_hold_dismissed'").get(seller.id), 'the dismissal is on record');
+  await authorizeRetry(db, seller.id, hold.event_key);
+  assert.ok(db.prepare("SELECT 1 FROM events WHERE seller_id=? AND type='unknown_retry_authorized'").get(seller.id), 'the dismissal is on record');
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
   assert.equal(calls, 1, 'the dismissal cleared the resend even with the orphan still listed');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
@@ -884,7 +900,8 @@ test('the orphan cross-check blocks on a FATAL feed but not on a CANCELLED one (
   const mk = (status) => ({ listFeeds: async () => [{ feedId: 'fx-' + status, status, createdTime: nowIso }] });
   const fatalBlock = await unknownSettleCheck(db, seller, mk('FATAL'), inv.number);
   assert.ok(fatalBlock && /fx-FATAL/.test(fatalBlock), 'a FATAL orphan may have been processed - it blocks the resend');
-  assert.ok(/dismiss the hold/.test(fatalBlock), 'the block names the human resolution path');
+  assert.ok(/one-time authorization/.test(fatalBlock), 'the block names the human resolution path');
   const cancelBlock = await unknownSettleCheck(db, seller, mk('CANCELLED'), inv.number);
-  assert.equal(cancelBlock, null, 'a CANCELLED orphan never started processing - it does not block');
+  // ruling 5: a CANCELLED orphan does not name itself as a blocker, but it proves nothing about the UNKNOWN attempt either: still no automatic resend
+  assert.ok(cancelBlock && !/fx-CANCELLED/.test(cancelBlock) && /authorize ONE retry/.test(cancelBlock), 'a CANCELLED orphan is not a blocker by itself, but nothing proves the unknown attempt failed');
 });

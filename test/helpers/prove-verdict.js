@@ -10,3 +10,11 @@ export function proved(db, sellerId, text) {
   return out.join('\n');
 }
 export const seqOpt = (db, sellerId) => ({ reportAttemptSeq: currentAttemptSeq(db, sellerId) });
+
+/** Ruling 5: the one-shot human authorization of a retry after an unknown outcome. Valid by default; override fields to test refusals. */
+export async function authorizeRetry(db, sellerId, eventKey, over = {}) {
+  const { authorizeUnknownRetry } = await import('../../src/repair.js');
+  const num = JSON.parse(db.prepare('SELECT suggestion FROM repairs WHERE seller_id=? AND event_key=?').get(sellerId, eventKey).suggestion).number;
+  const bf = db.prepare('SELECT blocked_feed_id b FROM invoices WHERE seller_id=? AND number=?').get(sellerId, num)?.b ?? null;
+  return authorizeUnknownRetry(db, sellerId, eventKey, { checkedBy: 'Reviewer A', checkedAt: new Date().toISOString(), result: 'document_not_found', reason: 'Checked Seller Central, no such document', feedId: bf ?? undefined, feedStatus: bf ? 'FATAL' : undefined, acknowledgeRisk: true, ...over }, 'owner-test');
+}

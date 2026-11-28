@@ -526,6 +526,19 @@ export function decideRepair(db, sellerId, eventKey, decision) {
     logEvent(db, sellerId, 'late_feed_acknowledged', { key: eventKey, number, feedId });
   }
 }
+
+/** Round-22 (critic round-19 P1): the protection must exist the moment a manual VIDR is
+ * ACCEPTED, before the first await of processing. begin: mark in-flight + store-pending, then
+ * store the report EARLY (approvals bind to the freshest data); in_flight stays up through
+ * processing. A failed store throws and leaves store_pending=1 (loud AND blocking). The caller
+ * lifts in_flight with clearReportInFlight when processing ends (success or failure: the new
+ * report is already stored, so approval revalidates against it). VIDR ONLY - an Order Report
+ * carries no refund evidence and must never touch the stored VIDR snapshot or release a block. */
+export function beginManualVidr(db, seller, text, { gen, seq, requestedAt, store = storeDownloadedReport }) {
+  markReportInFlight(db, seller.id, requestedAt);
+  markReportStorePending(db, seller.id);
+  store(db, seller.id, { gen, seq, requestedAt, text });
+}
 /** Proposal detection after processing. Only an empty result is quiet; any database/execution
  * error is loud (critic round-19 note). */
 export function finishManualVidr(db, seller, text, { gen, seq, requestedAt }) {

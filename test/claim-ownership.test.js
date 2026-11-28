@@ -162,7 +162,7 @@ test('C13 UNKNOWN-hold dismissal never lifts a recorded blocked feed (abandoned 
   assert.ok(db.prepare("SELECT blocked_feed_id b FROM invoices WHERE number=?").get(first).b, 'a late feed is recorded');
   const unk = db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'UNKNOWN:%'").all();
   assert.ok(unk.length >= 1, 'the UNKNOWN hold exists next to the LATE_FEED hold');
-  for (const u of unk) decideRepair(db, seller.id, u.k, 'dismissed');
+  for (const u of unk) assert.throws(() => decideRepair(db, seller.id, u.k, 'dismissed'), /cannot be dismissed/); // ruling 5: the generic UNKNOWN dismissal is gone
   await settle('invoice', db, api); await settle('invoice', db, api);
   assert.equal(api.calls.filter(n => n === first).length, 1, 'no second feed for one number'); assert.equal(ev(db, 'unknown_block_lifted').length, 0);
 });
@@ -173,7 +173,7 @@ async function compoundDoc() {
 }
 test('C14 compound state: a late feed that is NOT the recorded blocked feed still makes UNKNOWN dismissal a non-key (no second submission)', async () => {
   const { db, api, first } = await compoundDoc();
-  for (const u of db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'UNKNOWN:%'").all()) decideRepair(db, seller.id, u.k, 'dismissed');
+  for (const u of db.prepare("SELECT event_key k FROM repairs WHERE event_key LIKE 'UNKNOWN:%'").all()) assert.throws(() => decideRepair(db, seller.id, u.k, 'dismissed'), /cannot be dismissed/); // ruling 5
   await settle('invoice', db, api); await settle('invoice', db, api);
   assert.equal(api.calls.filter(n => n === first).length, 1, 'no resend'); assert.equal(ev(db, 'unknown_block_lifted').length, 0);
 });
