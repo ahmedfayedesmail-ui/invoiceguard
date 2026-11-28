@@ -255,3 +255,28 @@ test('two independent processes sealing one seller produce one ordered chain', a
   assert.equal(results.reduce((n,x)=>n+x.added,0),rows.length);
   assert.equal(verifyEvidenceChain(check,'seller-A').valid,true);
 });
+
+
+test('bundle checkpoint and summary coverage are anchored by the sealed chain', t => {
+  const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
+  sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
+  const bundle=exportEvidenceBundle(db,'seller-A');
+
+  const missingCheckpoint={...bundle};
+  delete missingCheckpoint.checkpoint;
+  assert.equal(verifyEvidenceBundle(missingCheckpoint).valid,false);
+  assert.equal(verifyEvidenceBundle(missingCheckpoint).reason,'checkpoint-missing');
+
+  const alteredCoverage={...bundle,coverage:{...bundle.coverage,status:'COMPLETE'}};
+  assert.equal(verifyEvidenceBundle(alteredCoverage).valid,false);
+  assert.equal(verifyEvidenceBundle(alteredCoverage).reason,'coverage-mismatch');
+
+  const externalOnly={...bundle};
+  delete externalOnly.checkpoint;
+  assert.equal(verifyEvidenceBundle(externalOnly,{checkpoint:bundle.checkpoint}).valid,true);
+
+  const empty=compareDocumentEvidenceBundles(bundle,bundle,'DOCUMENT-NOT-IN-BUNDLE');
+  assert.equal(empty.valid,true);
+  assert.equal(empty.comparable,false);
+  assert.equal(empty.unchanged,false,'two empty trajectories must not be presented as an unchanged document');
+});
