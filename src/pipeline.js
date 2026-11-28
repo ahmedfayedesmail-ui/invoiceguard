@@ -518,6 +518,8 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
         const orig$ = Math.abs(original.totals?.incl ?? 0);
         if (Math.round((prior + pend + Math.abs(rect.totals.incl)) * 100) > Math.round(orig$ * 100) + 0) throw new Error(`Not issued: this credit note of ${Math.abs(rect.totals.incl).toFixed(2)} plus ${(prior + pend).toFixed(2)} already credited or reserved on invoice ${originalNumber} is more than the invoice itself (${orig$.toFixed(2)}). The total credited can never exceed the original.`);
       }
+      // Stuck-claim recovery: a correction credit note may only be written while its claim is still held. If a person released the claim meanwhile, this issuance refuses (the release and the insert are serialised by BEGIN IMMEDIATE, so exactly one of them wins).
+      if (opts.recordKey?.startsWith('REFUND:CorrectionReversal') && rect.totals.incl < -0.005 && !db.prepare('SELECT 1 FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, opts.recordKey)) throw new Error('The credit claim for this event was released or is not held any more: it needs a new review. Nothing was issued.');
       // Local record FIRST, upload second: Amazon must never hold a document we have no record of,
       // and the R series stays gapless even when the upload fails (waits as 'pending').
       db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id,dedupe_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
@@ -667,7 +669,7 @@ function correctionReview(db, seller, rev, orig, list, claim = false, snap = {})
   const reps = list.filter(x => x.isCorrectedTx && x.shippingId === rev.shippingId).sort((a, b) => (a.key < b.key ? -1 : 1));
   const evidence = { field: 'correction', original: { number: orig.number, totalIncl: origIncl, sha256: createHash('sha256').update(orig.json).digest('hex') }, reversalKey: rev.key, reversalRows: rowsOf(rev), reversalReason: rev.correctionDetails ?? null,
     replacementRows: reps.map(x => ({ key: x.key, reason: x.correctionDetails ?? null, buyer: { name: x.billing?.name, company: x.buyerCompany, vat: x.buyerVat, address: x.billing?.lines, city: x.billing?.city, postal: x.billing?.postal, country: x.billing?.country }, rows: rowsOf(x) })),
-    amounts: { original: origIncl, reversal: Math.round(amount * 100) / 100, cumulativeCredited: credited, creditableBalance: balance, differenceToOriginal: Math.round((amount - origIncl) * 100) / 100 }, otherCreditNotes: [...other.map(c => c.number), ...claims.map(c => 'claim:' + c.reversal_key)], sellerSnapshot: sellerSnapshot(seller, orig), vies: snap.vies ?? [] };
+    amounts: { original: origIncl, reversal: Math.round(amount * 100) / 100, cumulativeCredited: credited, creditableBalance: balance, differenceToOriginal: Math.round((amount - origIncl) * 100) / 100 }, otherCreditNotes: [...other.map(c => c.number), ...claims.map(c => 'claim:' + c.reversal_key)], sellerSnapshot: sellerSnapshot(seller, orig), vies: snap.vies ?? [], releasedClaims: db.prepare("SELECT count(*) c FROM credit_claim_history WHERE seller_id=? AND reversal_key=? AND event='RELEASED'").get(seller.id, rev.key).c };
   const fp = (code) => createHash('sha256').update(JSON.stringify([code, evidence])).digest('hex');
   let f;
   if (Math.abs(amount - origIncl) >= 0.005) f = { code: 'CORRECTION_PARTIAL_REVERSAL', resolution: 'NEW_EVIDENCE', explanation: `The reversal row states ${rev.incl.toFixed(2)} but the invoice it reverses is ${origIncl.toFixed(2)}: the amounts differ. A partial reversal is never turned into a full credit note, and no partial credit-note path exists yet.`, action: 'Only a corrected report can resolve this.' };
@@ -676,6 +678,7 @@ function correctionReview(db, seller, rev, orig, list, claim = false, snap = {})
   const g = correctionLedger(db, seller.id, 'CORRECTION:' + rev.key, [{ ...f, severity: 'HOLD', fingerprint: fp(f.code), evidence }]);
   if (g) return { reason: g.reason.replace(/^Not issued: /, 'Held for review: ').replace(/ Nothing was guessed\.$/, '') };
   // approved for exactly this evidence: reserve the amount on the original NOW, in the same transaction as the check above (no await in between)
+  if (claim && amount >= 0.005 && !db.prepare('SELECT 1 FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, rev.key)) db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,actor,at) VALUES (?,?,?,?,?,?,?)').run(seller.id, rev.key, orig.number, amount, 'CLAIMED', 'system', new Date().toISOString());
   if (claim && amount >= 0.005) db.prepare('INSERT OR REPLACE INTO credit_claims (seller_id, original_number, reversal_key, amount, claimed_at) VALUES (?,?,?,?,?)').run(seller.id, orig.number, rev.key, amount, new Date().toISOString());
   return null;
 }
@@ -722,7 +725,7 @@ export async function processCorrections(db, seller, reportText, { api, validate
     try {
       const o = JSON.parse(orig.json), zero = o.lines.map(l => ({ ...l, excl: 0, vat: 0 }));
       await issueRectificativa(db, seller, orig.number, { mode: 'differences', reason: reasonOf(s), changes: { lines: zero }, documentType: 'CreditNote', transactionId: s.transactionId, recordKey: s.key, allowUnknownRetry: true }, { api, validate }); out.creditNotes++;
-    } catch (e) { if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=?').run(seller.id, s.key); /* no document exists: the reservation is released */ out.errors.push({ key: s.key, error: explain(e.message) }); }
+    } catch (e) { if (!db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa'").get(seller.id, s.key)) { const had = db.prepare('SELECT original_number, amount FROM credit_claims WHERE seller_id=? AND reversal_key=?').get(seller.id, s.key); db.prepare('DELETE FROM credit_claims WHERE seller_id=? AND reversal_key=?').run(seller.id, s.key); if (had) db.prepare('INSERT INTO credit_claim_history (seller_id,reversal_key,original_number,amount,event,actor,reason,at) VALUES (?,?,?,?,?,?,?,?)').run(seller.id, s.key, had.original_number, had.amount, 'WITHDRAWN', 'system', 'the same issuance failed before any document row existed (nothing was uploaded)', new Date().toISOString()); } /* no document exists: the issuance that owned the reservation gives it back */ out.errors.push({ key: s.key, error: explain(e.message) }); }
   }
   for (const s of list.filter(s => s.isCorrectedTx)) {
     if (done(s.key)) continue;
