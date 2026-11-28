@@ -1,10 +1,19 @@
 import { classifyTransactionId } from './txid.js';
+import { parseAmount } from './integrity-core.js';
+import { r2 } from './money.js';
 // Parser for Amazon's VAT Invoice Data Report (GET_FLAT_FILE_VAT_INVOICE_DATA_REPORT), tab-separated.
 // Locale-safe amounts: the rightmost of '.'/',' is the decimal separator, the other is grouping -
 // "1.234,56" (ES), "1,234.56" (US) and "1234,56" all parse to 1234.56. A single separator is taken
 // as-is (the documented report format uses '.'), so "1,56" becomes 1.56 and "1,234" stays 1234.
 const num = (x) => {
   let s = String(x ?? '').trim(); if (!s) return 0;
+  // The integrity gate reads every amount with parseAmount (exact integer cents, BigInt). This
+  // builder must read the same token the same way, or a token the gate accepts could be issued as a
+  // different number: "1.234.567" is 1234567.00 to the gate (dot-grouped) and used to parse as 1.23
+  // here. When the exact reader accepts the token, its cents are authoritative; the locale heuristic
+  // below only runs for tokens the gate will hold anyway.
+  const exact = parseAmount(s);
+  if (exact.state === 'VALID') return Number(exact.cents) / 100;
   const dot = s.lastIndexOf('.'), com = s.lastIndexOf(',');
   if (dot >= 0 && com >= 0) s = com > dot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   else if (com >= 0) s = /,\d{1,2}$/.test(s) && s.indexOf(',') === com ? s.replace(',', '.') : s.replace(/,/g, '');
@@ -14,7 +23,6 @@ const num = (x) => {
 const bool = (x) => String(x).toUpperCase() === 'TRUE';
 /** A flag that must be read exactly as written. TRUE or FALSE (case and spaces ignored) when every value agrees; null (UNKNOWN) for a blank, an unreadable value or values that disagree. A blank is never FALSE and is never inferred from any other column. */
 export const readFlag = (values) => { const v = new Set([].concat(values).map(x => String(x ?? '').trim().toUpperCase())); return v.size === 1 && v.has('TRUE') ? true : v.size === 1 && v.has('FALSE') ? false : null; };
-const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 // Row integrity. A raw newline inside a text cell splits one report row into physical lines, and each piece looks like a row. A piece is accepted only when it is complete by the file's OWN header:
 // exactly as many cells as the header, or fewer where every missing cell is a trailing OPTIONAL column (an editor may drop a trailing empty tab). Anything else (a missing required cell, an extra cell)

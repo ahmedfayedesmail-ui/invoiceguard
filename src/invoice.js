@@ -1,6 +1,6 @@
 import { resolveLangs } from './lang.js';
 import { nextNumber } from './db.js';
-const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+import { r2, isWholeCents } from './money.js';
 const sum = (a) => r2(a.reduce((x, y) => x + y, 0));
 
 export const EXTRA_LABEL = { shipping: 'Gastos de envío', 'gift-wrap': 'Envoltorio de regalo', 'item-promo': 'Promoción', 'shipping-promo': 'Promoción de envío', 'gift-promo': 'Promoción de regalo' };
@@ -115,20 +115,26 @@ export function applyEdits(original, edits = {}) {
   if (sf && sf !== original.seller.nif) { seller.nif = sf; changed = true; }
   if (sa && sa !== original.seller.address) { seller.address = sa; changed = true; }
   const num = (v, what) => { const n = Number(v); if (!Number.isFinite(n) || n < 0) throw new Error(`${what} must be a number of zero or more`); return n; };
+  // Money on a document is a whole number of cents, and a VAT rate is a whole number of hundredths of
+  // a percent. A value with more decimals (3.3333 a unit, 0.075 a rate) cannot be printed: the line
+  // would show a rounded unit price that no longer multiplies out, or a rate other than the one the
+  // VAT was computed with. Refused here, before anything is issued, instead of issuing a document
+  // whose printed line does not add up.
+  const money = (v, what) => { const n = num(v, what); if (!isWholeCents(n)) throw new Error(`${what} must be an amount in whole cents (at most two decimals)`); return n; };
+  const rateOf = (v) => { const n = num(v, 'VAT rate'); if (n > 0.3) throw new Error('VAT rate is given as a fraction, for example 0.21'); if (!isWholeCents(n)) throw new Error('VAT rate must have at most two decimals of a percent, for example 0.21'); return n; };
   let lines = original.lines.map(l => ({ ...l }));
   const keep = lines.map(() => true);
   for (const e of edits.lines ?? []) {
     const l = lines[e.index]; if (!l) throw new Error('Unknown line ' + e.index);
     if (e.remove) { keep[e.index] = false; changed = true; continue; }
     const has = v => v !== undefined && v !== null && v !== '';
-    const qty = has(e.qty) ? num(e.qty, 'Quantity') : l.qty, unit = has(e.unitExcl) ? num(e.unitExcl, 'Unit price') : l.unitExcl, rate = has(e.rate) ? num(e.rate, 'VAT rate') : l.rate;
-    if (rate > 0.3) throw new Error('VAT rate is given as a fraction, for example 0.21');
+    const qty = has(e.qty) ? num(e.qty, 'Quantity') : l.qty, unit = has(e.unitExcl) ? money(e.unitExcl, 'Unit price') : l.unitExcl, rate = has(e.rate) ? rateOf(e.rate) : l.rate;
     if (qty !== l.qty || unit !== l.unitExcl || rate !== l.rate) { const excl = r2(qty * unit); lines[e.index] = { ...l, qty, unitExcl: unit, rate, excl, vat: r2(excl * rate) }; changed = true; }
   }
   lines = lines.filter((_, i) => keep[i]);
   for (const n of edits.newLines ?? []) {
     const d = String(n.description ?? '').trim(); if (!d) throw new Error('A new line needs a description');
-    const qty = num(n.qty, 'Quantity'), unit = num(n.unitExcl, 'Unit price'), rate = num(n.rate, 'VAT rate'); if (rate > 0.3) throw new Error('VAT rate is given as a fraction, for example 0.21');
+    const qty = num(n.qty, 'Quantity'), unit = money(n.unitExcl, 'Unit price'), rate = rateOf(n.rate);
     const excl = r2(qty * unit); lines.push({ description: d, qty, unitExcl: unit, rate, excl, vat: r2(excl * rate) }); changed = true;
   }
   if (!lines.length) throw new Error('A corrected invoice needs at least one line. To cancel the whole invoice, correct every amount to zero or ask your gestor.');

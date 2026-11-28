@@ -3027,7 +3027,7 @@ var require_pdfkit_standalone = __commonJS({
               }
             }
             class PDFRadialGradient extends PDFGradient {
-              constructor(doc, x1, y1, r1, x2, y2, r23) {
+              constructor(doc, x1, y1, r1, x2, y2, r22) {
                 super(doc);
                 this.doc = doc;
                 this.x1 = x1;
@@ -3035,7 +3035,7 @@ var require_pdfkit_standalone = __commonJS({
                 this.r1 = r1;
                 this.x2 = x2;
                 this.y2 = y2;
-                this.r2 = r23;
+                this.r2 = r22;
               }
               shader(fn) {
                 return this.doc.ref({
@@ -3252,8 +3252,8 @@ var require_pdfkit_standalone = __commonJS({
               linearGradient(x1, y1, x2, y2) {
                 return new PDFLinearGradient$1(this, x1, y1, x2, y2);
               },
-              radialGradient(x1, y1, r1, x2, y2, r23) {
-                return new PDFRadialGradient$1(this, x1, y1, r1, x2, y2, r23);
+              radialGradient(x1, y1, r1, x2, y2, r22) {
+                return new PDFRadialGradient$1(this, x1, y1, r1, x2, y2, r22);
               },
               pattern(bbox, xStep, yStep, stream2) {
                 return new PDFTilingPattern$1(this, bbox, xStep, yStep, stream2);
@@ -3837,18 +3837,18 @@ var require_pdfkit_standalone = __commonJS({
                 this.bezierCurveTo(x, y + c, x + c, y, x + r, y);
                 return this.closePath();
               },
-              ellipse(x, y, r1, r23) {
-                if (r23 == null) {
-                  r23 = r1;
+              ellipse(x, y, r1, r22) {
+                if (r22 == null) {
+                  r22 = r1;
                 }
                 x -= r1;
-                y -= r23;
+                y -= r22;
                 const ox = r1 * KAPPA;
-                const oy = r23 * KAPPA;
+                const oy = r22 * KAPPA;
                 const xe = x + r1 * 2;
-                const ye = y + r23 * 2;
+                const ye = y + r22 * 2;
                 const xm = x + r1;
-                const ym = y + r23;
+                const ym = y + r22;
                 this.moveTo(x, ym);
                 this.bezierCurveTo(x, ym - oy, xm - ox, y, xm, y);
                 this.bezierCurveTo(xm + ox, y, xe, ym - oy, xe, ym);
@@ -48898,11 +48898,11 @@ function parseAmount(token) {
   const neg = m[1] === "-", body = m[2];
   if (/[.,]$/.test(body) || /[.,]{2}/.test(body)) return { state: "INVALID", why: "misplaced separator" };
   const seps = [...body].filter((c) => c === "." || c === ",");
-  const toCents = (int, frac) => {
+  const toCents2 = (int, frac) => {
     const v = BigInt(int) * 100n + BigInt((frac || "").padEnd(2, "0"));
     return { state: "VALID", cents: neg ? -v : v };
   };
-  if (!seps.length) return toCents(body, "");
+  if (!seps.length) return toCents2(body, "");
   const kinds = new Set(seps), last = Math.max(body.lastIndexOf("."), body.lastIndexOf(","));
   const grouped = (s, g) => {
     const p = s.split(g);
@@ -48911,14 +48911,14 @@ function parseAmount(token) {
   if (kinds.size === 2) {
     const dec = body[last], grp = dec === "." ? "," : ".", ip2 = body.slice(0, last), fp2 = body.slice(last + 1);
     if (ip2.includes(dec) || !/^\d{1,2}$/.test(fp2) || !grouped(ip2, grp)) return { state: "INVALID", why: "inconsistent separators" };
-    return toCents(ip2.split(grp).join(""), fp2);
+    return toCents2(ip2.split(grp).join(""), fp2);
   }
   const sep = [...kinds][0];
-  if (seps.length > 1) return grouped(body, sep) ? toCents(body.split(sep).join(""), "") : { state: "INVALID", why: "inconsistent separators" };
+  if (seps.length > 1) return grouped(body, sep) ? toCents2(body.split(sep).join(""), "") : { state: "INVALID", why: "inconsistent separators" };
   const [ip, fp] = body.split(sep);
   if (fp.length === 3) return { state: "INVALID", why: "ambiguous: thousands or decimals" };
   if (fp.length > 3 || fp.length === 0) return { state: "INVALID", why: "more than two decimals" };
-  return fp.length > 2 ? { state: "INVALID", why: "more than two decimals" } : toCents(ip, fp);
+  return fp.length > 2 ? { state: "INVALID", why: "more than two decimals" } : toCents2(ip, fp);
 }
 var fmt = (c) => `${c < 0n ? "-" : ""}${(c < 0n ? -c : c) / 100n}.${String((c < 0n ? -c : c) % 100n).padStart(2, "0")}`;
 var parseRate = (token) => {
@@ -49088,10 +49088,30 @@ function classifyTransactionId(id, type) {
   return { role: null, format: null, unknown: true, why: 'the id starts with "Correction" but matches none of the known shapes' };
 }
 
+// src/money.js
+init_buffer_shim();
+function toCents(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return x;
+  const s = Math.abs(x).toString();
+  if (s.includes("e") || s.includes("E")) return Math.round(x * 100);
+  const [i2, f = ""] = s.split(".");
+  const frac = (f + "000").slice(0, 3);
+  let c = Number(i2) * 100 + Number(frac.slice(0, 2));
+  if (Number(frac[2]) >= 5) c += 1;
+  return x < 0 ? -c : c;
+}
+var r2 = (n) => {
+  const c = toCents(n);
+  return Number.isFinite(c) ? c / 100 : c;
+};
+
 // src/vidr.js
 var num = (x) => {
   let s = String(x ?? "").trim();
   if (!s) return 0;
+  const exact = parseAmount(s);
+  if (exact.state === "VALID") return Number(exact.cents) / 100;
   const dot = s.lastIndexOf("."), com = s.lastIndexOf(",");
   if (dot >= 0 && com >= 0) s = com > dot ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
   else if (com >= 0) s = /,\d{1,2}$/.test(s) && s.indexOf(",") === com ? s.replace(",", ".") : s.replace(/,/g, "");
@@ -49103,7 +49123,6 @@ var readFlag = (values) => {
   const v = new Set([].concat(values).map((x) => String(x ?? "").trim().toUpperCase()));
   return v.size === 1 && v.has("TRUE") ? true : v.size === 1 && v.has("FALSE") ? false : null;
 };
-var r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 var OPTIONAL_TRAILING = /* @__PURE__ */ new Set(["citation-en", "citation-es"]);
 function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l, i2) => [l, i2 + 1]).filter(([l]) => l.trim());
@@ -50555,8 +50574,7 @@ var nextNumber = () => {
 };
 
 // src/invoice.js
-var r22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-var sum = (a) => r22(a.reduce((x, y) => x + y, 0));
+var sum = (a) => r2(a.reduce((x, y) => x + y, 0));
 var EXTRA_LABEL = { shipping: "Gastos de env\xEDo", "gift-wrap": "Envoltorio de regalo", "item-promo": "Promoci\xF3n", "shipping-promo": "Promoci\xF3n de env\xEDo", "gift-promo": "Promoci\xF3n de regalo" };
 var COUNTRY_AUTONYM = { ES: "Espa\xF1a", DE: "Deutschland", FR: "France", IT: "Italia", NL: "Nederland", BE: "Belgique / Belgi\xEB", PL: "Polska", SE: "Sverige", IE: "Ireland", AT: "\xD6sterreich", PT: "Portugal", GB: "United Kingdom" };
 var countryLine = (code) => COUNTRY_AUTONYM[code] ?? code;
@@ -50570,7 +50588,7 @@ function linesFromShipment(s) {
 }
 var totalsOf = (lines) => {
   const excl = sum(lines.map((l) => l.excl)), vat = sum(lines.map((l) => l.vat));
-  return { excl, vat, incl: r22(excl + vat) };
+  return { excl, vat, incl: r2(excl + vat) };
 };
 var INTRA_EU_NOTE = { DE: "Innergemeinschaftliche steuerfreie Lieferung (Reverse Charge).", FR: "Livraison intracommunautaire exon\xE9r\xE9e de TVA (autoliquidation).", IT: "Cessione intracomunitaria esente IVA (inversione contabile).", NL: "Intracommunautaire levering, vrijgesteld van btw (verlegd).", PL: "Wewn\u0105trzwsp\xF3lnotowa dostawa towar\xF3w zwolniona z VAT (odwrotne obci\u0105\u017Cenie).", SE: "Gemenskapsintern f\xF6rs\xE4ljning, momsfri (omv\xE4nd skattskyldighet).", IE: "Intra-Community supply, zero-rated (reverse charge).", BE: "Intracommunautaire levering, vrijgesteld van btw (verlegd).", PT: "Entrega intracomunit\xE1ria isenta de IVA (autoliquida\xE7\xE3o)." };
 function vatNote(s, country = "ES") {
@@ -50631,6 +50649,10 @@ init_buffer_shim();
 var import_pdfkit = __toESM(require_pdfkit_standalone(), 1);
 var dmy = (d) => d ? String(d).slice(0, 10).split("-").reverse().join("/") : "";
 var eur = (n, c = "EUR") => `${n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === "EUR" ? "\u20AC" : c}`;
+var pct = (r) => {
+  const p = Number(r) * 100;
+  return Math.abs(p - Math.round(p)) < 1e-9 ? String(Math.round(p)) : String(Math.round(p * 100) / 100);
+};
 function renderPdf(inv) {
   const langs = legacyLangs(inv), both = langs.length > 1;
   const tr = (l, k) => LABELS[l]?.[k] ?? k;
@@ -50672,7 +50694,7 @@ function renderPdf(inv) {
     for (const l of inv.lines) {
       doc.text(l.description ?? "", cols[0], y, { width: 200 });
       const h = doc.heightOfString(l.description ?? "", { width: 200 });
-      [String(l.qty), eur(l.unitExcl, inv.currency), `${Math.round(l.rate * 100)}%`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i2) => doc.text(v, cols[i2 + 1], y, { width: i2 === 4 ? 65 : 50, align: "right" }));
+      [String(l.qty), eur(l.unitExcl, inv.currency), `${pct(l.rate)}%`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i2) => doc.text(v, cols[i2 + 1], y, { width: i2 === 4 ? 65 : 50, align: "right" }));
       y += Math.max(h, 12) + 6;
       if (y > 700) {
         doc.addPage();

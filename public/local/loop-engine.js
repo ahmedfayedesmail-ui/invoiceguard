@@ -1901,6 +1901,9 @@ function classifyTransactionId(id, type) {
   return { role: null, format: null, unknown: true, why: 'the id starts with "Correction" but matches none of the known shapes' };
 }
 
+// src/money.js
+init_buffer_shim();
+
 // src/vidr.js
 var readFlag = (values) => {
   const v = new Set([].concat(values).map((x) => String(x ?? "").trim().toUpperCase()));

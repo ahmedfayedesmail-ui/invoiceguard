@@ -2,6 +2,10 @@ import PDFDocument from 'pdfkit';
 import { LABELS, legacyLangs, refLine } from './lang.js';
 const dmy = (d) => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 const eur = (n, c = 'EUR') => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c === 'EUR' ? '€' : c}`;
+// The rate printed next to a line is the rate its VAT was computed with. A whole percent prints as a
+// whole number (21%), anything finer prints with its decimals (7.5%) instead of being rounded to a
+// rate the document does not use.
+const pct = (r) => { const p = Number(r) * 100; return Math.abs(p - Math.round(p)) < 1e-9 ? String(Math.round(p)) : String(Math.round(p * 100) / 100); };
 
 export function renderPdf(inv) {
   const langs = legacyLangs(inv), both = langs.length > 1;
@@ -38,7 +42,7 @@ export function renderPdf(inv) {
     y += both ? 28 : 16; doc.moveTo(50, y - 3).lineTo(545, y - 3).stroke('#999'); doc.font('Helvetica').fontSize(9);
     for (const l of inv.lines) {
       doc.text(l.description ?? '', cols[0], y, { width: 200 }); const h = doc.heightOfString(l.description ?? '', { width: 200 });
-      [String(l.qty), eur(l.unitExcl, inv.currency), `${Math.round(l.rate * 100)}%`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i) => doc.text(v, cols[i + 1], y, { width: i === 4 ? 65 : 50, align: 'right' }));
+      [String(l.qty), eur(l.unitExcl, inv.currency), `${pct(l.rate)}%`, eur(l.excl, inv.currency), eur(l.vat, inv.currency)].forEach((v, i) => doc.text(v, cols[i + 1], y, { width: i === 4 ? 65 : 50, align: 'right' }));
       y += Math.max(h, 12) + 6; if (y > 700) { doc.addPage(); y = 50; }
     }
     y += 6; doc.moveTo(300, y).lineTo(545, y).stroke('#999'); y += 8;
