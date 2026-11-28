@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "start": "node src/app.js",
     "test": "node --test --test-force-exit --no-warnings test/*.test.js",
     "demo": "node --no-warnings tools/demo-e2e.mjs",
     "backup": "node tools/backup.mjs",
