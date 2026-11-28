@@ -17,10 +17,18 @@ function exists(db, table) { return Boolean(db.prepare("SELECT 1 FROM sqlite_mas
 function triggerProtected(db,name,table,operation) {
   const row=db.prepare("SELECT tbl_name,sql FROM sqlite_master WHERE type='trigger' AND name=?").get(name);
   if(!row||row.tbl_name!==table||typeof row.sql!=='string') return false;
-  const normalized=row.sql.replace(/[\"`]/g,'').replace(/\\s+/g,' ').trim().toLowerCase();
+  const normalized=row.sql.toLowerCase().replaceAll('"','').replaceAll('`','')
+    .replaceAll('\\n',' ').replaceAll('\\r',' ').replaceAll('\\t',' ')
+    .split(' ').filter(Boolean).join(' ');
   const prefix='create trigger '+name.toLowerCase()+' before '+operation.toLowerCase()+' on '+table.toLowerCase()+' begin select raise(abort,';
   if(!normalized.startsWith(prefix)) return false;
-  return /^(['\"]).+\\1\\); end;?$/.test(normalized.slice(prefix.length));
+  const tail=normalized.slice(prefix.length);
+  const quote=tail[0];
+  if(quote!=="'"&&quote!=='"') return false;
+  const closing=tail.indexOf(quote,1);
+  if(closing<=1) return false;
+  const rest=tail.slice(closing+1);
+  return rest==='); end'||rest==='); end;';
 }
 export function ensureIntelTables(db) {
   db.exec(`
