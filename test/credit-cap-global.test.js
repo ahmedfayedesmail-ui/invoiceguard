@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
 import { processReport, processCorrections, issueRectificativa } from '../src/pipeline.js';
 import { approveAll } from './correction-helpers.js';
-const text = readFileSync('/home/sandbox/invoiceguard/fixtures/vidr.tsv', 'utf8');
+const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
 const vies = async (v) => ({ status: 'valid', vat: v });
 const mkApi = () => { const calls = []; return { calls, uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) }; };

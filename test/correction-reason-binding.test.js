@@ -1,6 +1,6 @@
 // Stage 1 final review Q3: the correction reason printed on the credit note / replacement (invoice-correction-details) must be part of the evidence the human approved. Changing it after approval voids the approval.
 import test from 'node:test'; import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs'; import { openDb } from '../src/db.js'; import { processReport, processCorrections } from '../src/pipeline.js'; import { approveAll } from './correction-helpers.js';
-const text = readFileSync('fixtures/vidr.tsv', 'utf8'); const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
+const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); const seller = { id: 'sel1', name: 'Tienda Demo S.L.', nif: 'B11111111', address: 'Calle Falsa 1, Madrid' };
 const [head0, ...body] = text.trim().split('\n'); const head = head0 + '\tinvoice-correction-details'; const cols = head0.split('\t'); const ix = n => cols.indexOf(n); const base = body[0].split('\t');
 const AMT = ['item-vat-incl-amount','item-vat-amount','item-vat-excl-amount','shipping-vat-incl-amount','shipping-vat-amount','shipping-vat-excl-amount'];
 const mk = (details) => { const r = [...base]; r[ix('transaction-type')] = 'REFUND'; r[ix('transaction-id')] = 'CorrectionReversal:X:1'; AMT.forEach(n => { r[ix(n)] = r[ix(n)] ? '-' + r[ix(n)] : ''; }); r[ix('invoice-status')] = 'CreditNotePending'; return [head, r.join('\t') + '\t' + details].join('\n'); };
