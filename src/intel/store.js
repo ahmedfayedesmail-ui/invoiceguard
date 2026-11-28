@@ -478,21 +478,28 @@ export function compareDocumentEvidenceBundles(
   const divergence=findFirstDivergence(baseline.entries,comparison.entries);
   const baselineDigest=trajectoryDigest(baseline.entries);
   const comparisonDigest=trajectoryDigest(comparison.entries);
+  const baselineEvidencePresent=baseline.entries.length>0;
+  const comparisonEvidencePresent=comparison.entries.length>0;
   return {
     valid:true,
     sellerId:baselineBundle.sellerId,
     documentKey:String(documentKey),
-    unchanged:divergence===null,
+    comparable:baselineEvidencePresent&&comparisonEvidencePresent,
+    baselineEvidencePresent,
+    comparisonEvidencePresent,
+    baselineEvidenceCount:baseline.entries.length,
+    comparisonEvidenceCount:comparison.entries.length,
+    unchanged:baselineEvidencePresent&&comparisonEvidencePresent&&divergence===null,
     divergence,
     baselineDigest,
     comparisonDigest,
-    baselineCompleteness:baselineBundle.coverage?.status??'UNKNOWN',
-    comparisonCompleteness:comparisonBundle.coverage?.status??'UNKNOWN',
+    baselineCompleteness:baselineBundle.coverage.status,
+    comparisonCompleteness:comparisonBundle.coverage.status,
     relatedShipmentKeys:[...new Set([...baseline.shipmentKeys,...comparison.shipmentKeys])].sort(),
     relatedDocumentNumbers:[...new Set([...baseline.relatedDocumentNumbers,...comparison.relatedDocumentNumbers])].sort(),
     authority:'ADVISORY_ONLY',
     changesFinancialState:false,
-    limitation:'The first observed timeline difference is not, by itself, proof of cause, Amazon acceptance, or a financial authorization.'
+    limitation:'The first observed timeline difference is not, by itself, proof of cause, Amazon acceptance, or a financial authorization. An empty trajectory is not evidence that two documents are unchanged.'
   };
 }
 export function exportEvidenceBundle(db,sellerId) {
@@ -522,8 +529,26 @@ export function verifyEvidenceBundle(bundle,{checkpoint=null}={}) {
       return {valid:false,reason:'entry-hash-mismatch',brokenAt:seq};
     prev=row.hash;
   }
-  const cp=checkpoint??bundle.checkpoint;
-  if(cp&&(cp.sellerId!==bundle.sellerId||cp.sequence!==bundle.chain.length||cp.hash!==prev))
-    return {valid:false,reason:'external-checkpoint-mismatch',brokenAt:bundle.chain.length||1};
-  return {valid:true,sequence:bundle.chain.length,hash:prev,coverageStatus:bundle.coverage?.status??'UNKNOWN'};
+  const checkpoints=[bundle.checkpoint,checkpoint].filter(Boolean);
+  if(checkpoints.length===0) return {valid:false,reason:'checkpoint-missing',brokenAt:bundle.chain.length||1};
+  for(const cp of checkpoints) {
+    if(!cp||cp.sellerId!==bundle.sellerId||!Number.isSafeInteger(cp.sequence)||cp.sequence<0||
+      !/^[a-f0-9]{64}$/.test(cp.hash??'')||cp.sequence!==bundle.chain.length||cp.hash!==prev)
+      return {valid:false,reason:'external-checkpoint-mismatch',brokenAt:bundle.chain.length||1};
+  }
+  let sealedCoverage=null;
+  for(let i=bundle.chain.length-1;i>=0;i--) {
+    if(bundle.chain[i].kind!=='coverage_statement') continue;
+    try { sealedCoverage=JSON.parse(bundle.chain[i].canonicalJson).payload; }
+    catch { return {valid:false,reason:'coverage-statement-invalid',brokenAt:i+1}; }
+    break;
+  }
+  if(!sealedCoverage) return {valid:false,reason:'coverage-statement-missing',brokenAt:bundle.chain.length||1};
+  try {
+    if(!bundle.coverage||canonicalize(bundle.coverage)!==canonicalize(sealedCoverage))
+      return {valid:false,reason:'coverage-mismatch',brokenAt:bundle.chain.length||1};
+  } catch {
+    return {valid:false,reason:'coverage-mismatch',brokenAt:bundle.chain.length||1};
+  }
+  return {valid:true,sequence:bundle.chain.length,hash:prev,coverageStatus:sealedCoverage.status??'UNKNOWN'};
 }
