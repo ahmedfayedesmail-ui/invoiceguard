@@ -17,9 +17,10 @@ function exists(db, table) { return Boolean(db.prepare("SELECT 1 FROM sqlite_mas
 function triggerProtected(db,name,table,operation) {
   const row=db.prepare("SELECT tbl_name,sql FROM sqlite_master WHERE type='trigger' AND name=?").get(name);
   if(!row||row.tbl_name!==table||typeof row.sql!=='string') return false;
-  const normalized=row.sql.toLowerCase().replaceAll('"','').replaceAll('`','')
-    .replaceAll('\\n',' ').replaceAll('\\r',' ').replaceAll('\\t',' ')
-    .split(' ').filter(Boolean).join(' ');
+  let normalized=row.sql.toLowerCase().replaceAll('"','').replaceAll('`','')
+    .split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ')
+    .split(String.fromCharCode(9)).join(' ').split(' ').filter(Boolean).join(' ');
+  normalized=normalized.replace('create trigger if not exists ','create trigger ');
   const prefix='create trigger '+name.toLowerCase()+' before '+operation.toLowerCase()+' on '+table.toLowerCase()+' begin select raise(abort,';
   if(!normalized.startsWith(prefix)) return false;
   const tail=normalized.slice(prefix.length);
