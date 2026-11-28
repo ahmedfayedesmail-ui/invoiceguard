@@ -121,10 +121,40 @@ test('fidelity property: every amount at or under the limit is issued with exact
   }
 });
 
-// Known gap, documented not fixed (needs Ahmed's decision on a new rule): a SHIPMENT whose item part is negative but whose total is positive is arithmetically consistent and is issued today.
-test('proposal R11: a negative item, shipping or gift-wrap amount on a shipment should be held (todo, not part of the approved rules)', { todo: 'new rule needs approval' }, async () => {
-  const { out } = await run(file(rowOf(0, { 'item-vat-incl-amount': '-40.00', 'item-vat-amount': '-6.94', 'item-vat-excl-amount': '-33.06', 'shipping-vat-incl-amount': '100.00', 'shipping-vat-amount': '17.36', 'shipping-vat-excl-amount': '82.64' })));
-  assert.equal(out.uploaded, 0);
+// R11 (owner decision, Nov 28): a negative amount in a CORE component (item, shipping, gift-wrap) of a SHIPMENT is held until a documented human decision, even when the total is positive. Promo components (item-promo, shipping-promo, gift-promo) are legitimate discounts and may be negative.
+const NEGCORE = {
+  item: { 'item-vat-incl-amount': '-40.00', 'item-vat-amount': '-6.94', 'item-vat-excl-amount': '-33.06', 'shipping-vat-incl-amount': '100.00', 'shipping-vat-amount': '17.36', 'shipping-vat-excl-amount': '82.64' },
+  shipping: { 'shipping-vat-incl-amount': '-5.00', 'shipping-vat-amount': '-0.87', 'shipping-vat-excl-amount': '-4.13' },
+  'gift-wrap': { 'gift-wrap-vat-incl-amount': '-2.00', 'gift-wrap-vat-amount': '-0.35', 'gift-wrap-vat-excl-amount': '-1.65' },
+};
+// the fixture header has no gift-wrap columns, so the extra columns are appended to the header and the row (never silently dropped)
+const withCols = (over) => { const extra = Object.keys(over).filter(k => ix(k) < 0); const base = rowOf(0, Object.fromEntries(Object.entries(over).filter(([k]) => ix(k) >= 0))); return [[...H, ...extra].join('\t'), [base, ...extra.map(k => over[k])].join('\t')].join('\n') + '\n'; };
+for (const [part, over] of Object.entries(NEGCORE)) {
+  test(`R11: a negative ${part} amount with a positive shipment total is held for a human decision, never issued`, async () => {
+    const { db, out, api } = await run(withCols(over));
+    assert.equal(out.uploaded, 0); assert.equal(api.calls.length, 0);
+    const f = db.prepare("SELECT code, field, severity, resolution, status FROM integrity_findings WHERE code='NEGATIVE_CORE_AMOUNT'").all();
+    assert.equal(f.length, 1); assert.equal(f[0].field, part); assert.equal(f[0].severity, 'HOLD'); assert.equal(f[0].resolution, 'HUMAN_DECISION'); assert.equal(f[0].status, 'OPEN');
+    assert.equal(db.prepare('SELECT count(*) c FROM invoices').get().c, 0);
+  });
+}
+test('R11: a single negative VAT cell in a core part is enough to hold', () => {
+  const a = assessShipment(one(file(rowOf(0, { 'shipping-vat-incl-amount': '5.00', 'shipping-vat-amount': '-0.87', 'shipping-vat-excl-amount': '5.87' }))));
+  assert.ok(a.findings.some(f => f.code === 'NEGATIVE_CORE_AMOUNT' && f.evidence.field === 'shipping'));
+});
+test('R11: negative amounts in the promo parts are discounts: not held (guard)', async () => {
+  const over = { 'item-promo-vat-incl-amount': '-10.00', 'item-promo-vat-amount': '-1.74', 'item-promo-vat-excl-amount': '-8.26', 'shipping-promo-vat-incl-amount': '-1.00', 'shipping-promo-vat-amount': '-0.17', 'shipping-promo-vat-excl-amount': '-0.83' };
+  const a = assessShipment(one(file(rowOf(0, over)))); assert.ok(!a.findings.some(f => f.code === 'NEGATIVE_CORE_AMOUNT'), JSON.stringify(a.findings.map(f => f.code)));
+  const { out } = await run(file(rowOf(0, over))); assert.equal(out.uploaded, 1);
+});
+test('R11: every line keeps its own evidence entry, and the shipment stays held until a documented decision, which then releases it once', async () => {
+  const two = file(rowOf(0, { ...NEGCORE.item, 'order-item-id': '1' }), rowOf(0, { ...NEGCORE.item, 'order-item-id': '2', sku: 'B' }));
+  const db = openDb(), api = mkApi(); await run(two, db, api); assert.equal(api.calls.length, 0);
+  const f = db.prepare("SELECT code, field, fingerprint, evidence FROM integrity_findings WHERE code='NEGATIVE_CORE_AMOUNT'").get();
+  const ev = JSON.parse(f.evidence); assert.equal(ev.rows.length, 2); assert.deepEqual(ev.rows.map(r => r.lines.length), [1, 1]);
+  await run(two, db, api); assert.equal(api.calls.length, 0, 'reprocessing alone never releases');
+  releaseIntegrity(db, SELLER.id, one(two).key, f.code, f.fingerprint, { user: 'owner', reason: 'checked in Seller Central: a real adjustment line' });
+  await run(two, db, api); assert.equal(api.calls.length, 1, 'documented decision releases once'); await run(two, db, api); assert.equal(api.calls.length, 1, 'and never twice');
 });
 
 // ---- found by the lab: a header that repeats a column name made the LAST column win silently (buyer name, currency, date). That is a guess about a contradiction. ----

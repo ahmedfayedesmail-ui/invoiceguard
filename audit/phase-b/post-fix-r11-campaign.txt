@@ -1,0 +1,21 @@
+(node:1637) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+part1 done 500 cases, 0 failures 4932 ms
+part2 done 800 cases, 0 failures 9264 ms
+part3 done 950 cases, 0 failures 12192 ms
+part4 done 964 cases, 0 failures 12800 ms
+part5 done 1005 cases, 0 failures 15653 ms
+{
+  "cases": 1005,
+  "assertions": 10358,
+  "failures": 0,
+  "failureList": [],
+  "perf": {
+    "bigReportMs": 549,
+    "bigReportRows": 3000,
+    "dashboard200xMs": 259,
+    "issue40xMs": 704,
+    "totalMs": 15653,
+    "peakRssMb": 232
+  }
+}

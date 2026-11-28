@@ -48940,6 +48940,7 @@ var isoMs = (v) => {
   return Number.isNaN(p) ? null : p;
 };
 var MAX_CENTS = 99999999999n;
+var CORE_PARTS = ["item", "shipping", "gift-wrap"];
 var QTY = /^[1-9]\d{0,8}$/;
 var PLAIN = /* @__PURE__ */ new Set(["currency", "shipment-date", "ship-country", "ship-from-country", "bill-country", "marketplace-id", "invoice-status", "buyer-tax-registration-type", "order-id"]);
 var clean = (v) => String(v).replace(/[^\w:.+\- ]/g, "").slice(0, 40);
@@ -49008,6 +49009,7 @@ function assessShipment(s) {
         totalKnown = false;
         continue;
       }
+      if (CORE_PARTS.includes(p) && [A.incl.cents, A.vat.cents, A.excl.cents].some((c) => c < 0n)) add("NEGATIVE_CORE_AMOUNT", "HOLD", "HUMAN_DECISION", p, [ln(r)], {}, `On line ${ln(r)} the ${p} part has a negative amount. A shipment invoice does not normally carry a negative ${p}, so nothing was issued until someone decides and records why (user, time, reason). Discount parts (promo) may be negative and are not affected.`, "Check the line in Seller Central. If the negative amount is real, record a decision with the reason; otherwise correct the file.", [t.incl, t.vat, t.excl], (l) => ({ part: p, negative: ["incl", "vat", "excl"].filter((k) => A[k].cents < 0n) }));
       const incl = A.incl.cents, vat = A.vat.cents, excl = A.excl.cents;
       totalCents += incl;
       rowTot.set(ln(r), (rowTot.get(ln(r)) ?? 0n) + incl);

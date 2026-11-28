@@ -1,0 +1,219 @@
+TAP version 13
+# Subtest: parseAmount property: random tokens never become a number by guessing
+ok 1 - parseAmount property: random tokens never become a number by guessing
+  ---
+  duration_ms: 16.058691
+  type: 'test'
+  ...
+# Subtest: parseAmount property: every formatted amount reads back to exactly the same cents (separators, grouping, sign, huge values)
+ok 2 - parseAmount property: every formatted amount reads back to exactly the same cents (separators, grouping, sign, huge values)
+  ---
+  duration_ms: 26.005833
+  type: 'test'
+  ...
+# Subtest: parseAmount: named hostile tokens are INVALID, a blank is MISSING, a real 0.00 is VALID zero (unknown never becomes zero)
+ok 3 - parseAmount: named hostile tokens are INVALID, a blank is MISSING, a real 0.00 is VALID zero (unknown never becomes zero)
+  ---
+  duration_ms: 1.272033
+  type: 'test'
+  ...
+# Subtest: property: one hostile amount in a random cell of a random row never issues (HOLD or INFO only), never changes the number, and is recorded in the ledger
+ok 4 - property: one hostile amount in a random cell of a random row never issues (HOLD or INFO only), never changes the number, and is recorded in the ledger
+  ---
+  duration_ms: 321.222436
+  type: 'test'
+  ...
+# Subtest: property: combinations of several independent defects: any blocking defect means no invoice; the ledger holds one record per (code, field) and every evidence entry names one line
+ok 5 - property: combinations of several independent defects: any blocking defect means no invoice; the ledger holds one record per (code, field) and every evidence entry names one line
+  ---
+  duration_ms: 221.98584
+  type: 'test'
+  ...
+# Subtest: hostile text in personal fields never reaches the ledger, history or events and never crashes processing
+ok 6 - hostile text in personal fields never reaches the ledger, history or events and never crashes processing
+  ---
+  duration_ms: 16.974149
+  type: 'test'
+  ...
+# Subtest: reprocessing the same hostile or good report is idempotent: same ledger records, same invoices, no new uploads
+ok 7 - reprocessing the same hostile or good report is idempotent: same ledger records, same invoices, no new uploads
+  ---
+  duration_ms: 45.850258
+  type: 'test'
+  ...
+# Subtest: a corrected file resolves the finding and issues once; the bad file coming back reopens it and holds again (evidence never disappears)
+ok 8 - a corrected file resolves the finding and issues once; the bad file coming back reopens it and holds again (evidence never disappears)
+  ---
+  duration_ms: 20.920175
+  type: 'test'
+  ...
+# Subtest: a human decision on one version of the evidence does not release a changed version
+ok 9 - a human decision on one version of the evidence does not release a changed version
+  ---
+  duration_ms: 3.82397
+  type: 'test'
+  ...
+# Subtest: one shipment never gets two ordinary invoices across repeated, reordered and split-up reports
+ok 10 - one shipment never gets two ordinary invoices across repeated, reordered and split-up reports
+  ---
+  duration_ms: 21.469574
+  type: 'test'
+  ...
+# Subtest: an amount beyond the exact-arithmetic limit is held (AMOUNT_OUT_OF_RANGE), never issued with a different number
+ok 11 - an amount beyond the exact-arithmetic limit is held (AMOUNT_OUT_OF_RANGE), never issued with a different number
+  ---
+  duration_ms: 3.937824
+  type: 'test'
+  ...
+# Subtest: fidelity property: every amount at or under the limit is issued with exactly the file gross, to the cent
+ok 12 - fidelity property: every amount at or under the limit is issued with exactly the file gross, to the cent
+  ---
+  duration_ms: 679.831645
+  type: 'test'
+  ...
+# Subtest: R11: a negative item amount with a positive shipment total is held for a human decision, never issued
+not ok 13 - R11: a negative item amount with a positive shipment total is held for a human decision, never issued
+  ---
+  duration_ms: 8.887632
+  type: 'test'
+  location: '/home/sandbox/pre-wt/test/financial-adversarial.test.js:133:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt/test/financial-adversarial.test.js:135:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R11: a negative shipping amount with a positive shipment total is held for a human decision, never issued
+not ok 14 - R11: a negative shipping amount with a positive shipment total is held for a human decision, never issued
+  ---
+  duration_ms: 9.748901
+  type: 'test'
+  location: '/home/sandbox/pre-wt/test/financial-adversarial.test.js:133:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt/test/financial-adversarial.test.js:135:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R11: a negative gift-wrap amount with a positive shipment total is held for a human decision, never issued
+not ok 15 - R11: a negative gift-wrap amount with a positive shipment total is held for a human decision, never issued
+  ---
+  duration_ms: 9.382571
+  type: 'test'
+  location: '/home/sandbox/pre-wt/test/financial-adversarial.test.js:133:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt/test/financial-adversarial.test.js:135:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R11: a single negative VAT cell in a core part is enough to hold
+not ok 16 - R11: a single negative VAT cell in a core part is enough to hold
+  ---
+  duration_ms: 3.701601
+  type: 'test'
+  location: '/home/sandbox/pre-wt/test/financial-adversarial.test.js:141:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(a.findings.some(f => f.code === 'NEGATIVE_CORE_AMOUNT' && f.evidence.field === 'shipping'))
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt/test/financial-adversarial.test.js:143:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: R11: negative amounts in the promo parts are discounts: not held (guard)
+ok 17 - R11: negative amounts in the promo parts are discounts: not held (guard)
+  ---
+  duration_ms: 8.361596
+  type: 'test'
+  ...
+# Subtest: R11: every line keeps its own evidence entry, and the shipment stays held until a documented decision, which then releases it once
+not ok 18 - R11: every line keeps its own evidence entry, and the shipment stays held until a documented decision, which then releases it once
+  ---
+  duration_ms: 10.258448
+  type: 'test'
+  location: '/home/sandbox/pre-wt/test/financial-adversarial.test.js:150:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt/test/financial-adversarial.test.js:152:71)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a repeated column name with different values is an invalid row, never "the last one wins" (billing-name, currency, shipment-date, buyer-vat-number)
+ok 19 - a repeated column name with different values is an invalid row, never "the last one wins" (billing-name, currency, shipment-date, buyer-vat-number)
+  ---
+  duration_ms: 9.90984
+  type: 'test'
+  ...
+# Subtest: guard: a repeated column name whose values AGREE is still read normally
+ok 20 - guard: a repeated column name whose values AGREE is still read normally
+  ---
+  duration_ms: 8.855976
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 15
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1681.266016
