@@ -20,3 +20,9 @@ test('R5-3 a database created with the OLD uploaded-is-terminal trigger is upgra
   const a = openDb(file), b = openDb(file); a.prepare("UPDATE invoices SET upload_status='rejected' WHERE number='N1'").run();
   assert.throws(() => b.prepare("UPDATE invoices SET upload_status='submitted' WHERE number='N1'").run && b.prepare("UPDATE invoices SET upload_status='uploaded' WHERE number='N1'").run() && b.prepare("UPDATE invoices SET upload_status='submitted' WHERE number='N1'").run(), /state machine/);
 });
+test('R5-4 a credit-note hold opening on a key never resolves a BLOCK finding on it (writeLedger-level, partial writes)', () => {
+  const db = openDb(); writeLedger(db, 's', 'K1', [{ code: 'TOTALS_CONTRADICT', severity: 'BLOCK', resolution: 'NEW_EVIDENCE', evidence: { field: 'totals' }, fingerprint: 'fpb', explanation: 'x', action: 'y' }]);
+  openCreditNoteHold(db, 's', 'K1', 'CREDIT_NOTE_ROWS_CONFLICT', [{ c: 'rows-agree-on-status', why: 'w' }]);
+  assert.equal(open(db, 'TOTALS_CONTRADICT'), 'OPEN'); assert.equal(open(db, 'CREDIT_NOTE_ROWS_CONFLICT'), 'OPEN');
+  writeLedger(db, 's', 'K1', []); assert.equal(open(db, 'TOTALS_CONTRADICT'), 'RESOLVED', 'a full evaluator that stops reporting its own finding still resolves it (guard)');
+});

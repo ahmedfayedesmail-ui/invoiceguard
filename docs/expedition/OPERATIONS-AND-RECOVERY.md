@@ -4,3 +4,6 @@ Diagnose a stuck correction: GET /api/holds (what is held and why), GET /api/rep
 A hold: read the explanation, compare the report row with our stored credit note, then POST /api/holds/decide with the item's key, code, fingerprint and a reason of 10+ characters. The decision lifts the block only. The next matching report is evaluated again from scratch; changed evidence changes the fingerprint and needs a new decision.
 Backup and restore: tools/backup.mjs, tools/restore-check.mjs, tools/restore-drill.mjs (existing). The production backup workflow is untouched. A watcher alerts at 8 h (warn) and 13 h (critical) of backup age. A restore proof is a separate human-run drill: HTTP 200 or a present artifact is not a restore proof.
 Not verified here: a real reboot recovery, a second PID namespace, live Amazon.
+
+## Trigger migration note (re-review 2, P3)
+openDb upgrades the invoice_uploaded_is_terminal trigger when an older definition is stored. If the upgrade hits a locked database it is skipped silently and retried at the next open (next boot or next process start). Until then an older database keeps the older rule: a seller-declared rejection of an uploaded invoice is refused there. Check with: SELECT sql FROM sqlite_master WHERE name='invoice_uploaded_is_terminal' (it must contain NOT IN ('uploaded','rejected')).

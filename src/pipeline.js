@@ -11,7 +11,7 @@ import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
 import { newClaimToken, guardedUpload, lateUploadResult } from './claims.js';
 import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
-import { integrityGate, integrityNotes, correctionLedger, writeLedger } from './integrity.js';
+import { integrityGate, integrityNotes, correctionLedger, writeLedger, resolveGateFinding } from './integrity.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
 // https://developer-docs.amazon.com/sp-api/docs/create-and-upload-invoices - while Seller Central's
@@ -52,6 +52,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
   for (const s of list) {
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
+    if (s.transactionType === 'REFUND' && !s.isCorrectedTx && !['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) resolveGateFinding(db, seller.id, s.key, 'REFUND_ROW_INVOICE_STATUS', 'a later report shows this refund row without an Invoice status'); // re-review 2 P2-2: a corrected report is the evidence that releases the hold
     if (['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) { reconcileInvoice(db, seller, s, reportReqTs, reportSeq); if (heldForUnknownFlags(s)) { const reason = unknownFlagsReason(unknownFlags(s)); logEvent(db, seller.id, 'held', { key: s.key, reason }); out.held.push({ key: s.key, orderId: s.orderId, reason }); } else out.skipped++; continue; }
     if ((s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus || '']).some(x => /^CreditNote(Uploaded|Rejected|Processing)$/.test(x))) { reconcileCreditNote(db, seller, s, reportReqTs, reportSeq); out.skipped++; continue; }
     // Round-15 (critic round-13 P1-B): a STALE report row must never drive an upload decision.
@@ -216,7 +217,7 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     writeLedger(db, seller.id, s.key, [{ code: 'REFUND_ROW_INVOICE_STATUS', severity: 'HOLD', resolution: 'NEW_EVIDENCE', evidence,
       fingerprint: createHash('sha256').update(JSON.stringify(['REFUND_ROW_INVOICE_STATUS', s.key, evidence])).digest('hex'),
       explanation: `A REFUND row carries the status ${s.invoiceStatus}. What Amazon means by that is not proven, so it was not read as an acceptance or a rejection of the original invoice or of the credit note.`,
-      action: 'Nothing was changed. Only documented Amazon evidence of what this combination means, or a corrected report, resolves it.' }], { keepCodes: keepOtherFindings(db, seller.id, s.key) });
+      action: 'Nothing was changed. Only documented Amazon evidence of what this combination means, or a corrected report, resolves it.' }], { partial: true });
     logEvent(db, seller.id, 'refund_row_invoice_status_hold', { key: s.key, status: s.invoiceStatus });
     return;
   }
@@ -252,7 +253,7 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     writeLedger(db, seller.id, docKey, [{ code: 'UPLOADED_THEN_REJECTED', severity: 'HOLD', resolution: 'HUMAN_DECISION', evidence,
       fingerprint: createHash('sha256').update(JSON.stringify(['UPLOADED_THEN_REJECTED', docKey, inv.number, evidence.amazonReason])).digest('hex'),
       explanation: `We hold ${inv.number} as uploaded, but a later Amazon report lists it as rejected. The two disagree.`,
-      action: 'A person checks the document in Amazon Seller Central. Nothing was changed automatically.' }], { keepCodes: keepOtherFindings(db, seller.id, docKey) });
+      action: 'A person checks the document in Amazon Seller Central. Nothing was changed automatically.' }], { partial: true });
     logEvent(db, seller.id, 'rejection_after_upload_hold', { number: inv.number });
     return;
   }

@@ -86,3 +86,11 @@ test('D12 a REFUND row with an Invoice status on the credit note key leaves an o
   const row = rv('InvoiceUploaded'); row[ix('invoice-number')] = 'Z'; await ing(db, api, doc(row), { reportAttemptSeq: seq, reportRequestedAt: T1 });
   assert.ok(cnHolds(db).includes('CREDIT_NOTE_IDENTITY_UNPROVEN')); assert.equal(db.prepare("SELECT count(*) n FROM integrity_findings WHERE code='REFUND_ROW_INVOICE_STATUS' AND status='OPEN'").get().n, 1);
 });
+// Re-review 2 P2-2: the REFUND hold's release condition. A later report that shows the same refund row WITHOUT an Invoice status is the corrected evidence and resolves the hold; a human decision still cannot (D8, owner ruling 4 asks for proof from Amazon, not a declaration).
+test('D13 a later report with the refund row without an Invoice status resolves the REFUND hold; a same-status report keeps it open', async () => {
+  const { api, db, seq } = await setup(); const row = rv('InvoiceUploaded'); row[ix('invoice-number')] = 'X';
+  await ing(db, api, doc(row), { reportAttemptSeq: seq, reportRequestedAt: T1 }); const st = () => db.prepare("SELECT status FROM integrity_findings WHERE code='REFUND_ROW_INVOICE_STATUS'").get()?.status;
+  assert.equal(st(), 'OPEN'); await ing(db, api, doc(row), { reportAttemptSeq: seq, reportRequestedAt: T2 }); assert.equal(st(), 'OPEN', 'same evidence keeps it open');
+  await ing(db, api, doc(rv('CreditNotePending')), { reportAttemptSeq: seq, reportRequestedAt: new Date('2026-11-25T13:00:00Z') }); assert.equal(st(), 'RESOLVED');
+  assert.equal(db.prepare("SELECT count(*) c FROM events WHERE type='gate_finding_resolved'").get().c, 1);
+});

@@ -60,7 +60,7 @@ export function openCreditNoteHold(db, sellerId, key, code, failed, extra = {}) 
   const evidence = { field: 'credit-note-acceptance', reversalKey: key, failed: failed.map(f => f.c), snapshot, ...rest };
   const f = { code, severity: 'HOLD', resolution: 'HUMAN_DECISION', fingerprint: createHash('sha256').update(JSON.stringify([code, key, evidence, failed.map(x => x.why)])).digest('hex'), evidence,
     explanation: failed.map(x => x.why).join(' '), action: 'A person compares the Amazon report row with our credit note before anything else is done. Nothing was changed automatically and no replacement invoice is issued from this.' };
-  writeLedger(db, sellerId, key, [f], { keepCodes: CN_HOLD_CODES.filter(c => c !== code) }); logEvent(db, sellerId, 'credit_note_hold', { key, code, failed: evidence.failed });
+  writeLedger(db, sellerId, key, [f], { partial: true }); logEvent(db, sellerId, 'credit_note_hold', { key, code, failed: evidence.failed });
 }
 /** Is a credit-note hold open on this original's pair (any of its credit notes, or the given key)? Friendly pre-check; the database trigger is the enforcement. */
 export function pairHoldOpen(db, sellerId, originalNumber, key = null) {
