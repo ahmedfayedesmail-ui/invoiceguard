@@ -1,0 +1,14 @@
+{
+  "note": "Real records only. Orchestrator: the single operator agent (chat-01M89X8RHBMGGAEZQMEP3TMSG4). No worker agents were launched by it. Model identity of the runtime is unverified and NOT claimed. Independent reviewers, when Main spawns them, are added here with their real agent IDs.",
+  "branch": "expedition/invoiceguard-product-grade", "base": "8d9e6d9",
+  "agents_launched": 0, "agents_completed": 0,
+  "tasks": [
+    {"id": "W1-T1", "owner": "operator", "domain": "Architecture & Data", "output": "docs/expedition/STATE-MACHINE.md", "evidence": "full-suite transition trace on 8d9e6d9", "status": "done"},
+    {"id": "W1-T2", "owner": "operator", "domain": "Financial Integrity", "output": "docs/expedition/INVARIANTS.md", "status": "done"},
+    {"id": "W1-T3", "owner": "operator", "domain": "Security Intelligence", "output": "docs/expedition/THREAT-MODEL.md", "status": "done"},
+    {"id": "W2-1", "owner": "operator", "domain": "Distributed Systems", "output": "src/db.js trigger invoice_uploaded_is_terminal; test/state-machine.test.js", "status": "implemented, CI pending"}
+  ],
+  "decisions": [
+    {"id": "D1", "decision": "Enforce only the terminal 'uploaded' rule in the database; document the odd observed transitions instead of forbidding them", "why": "no Amazon evidence read to prove them impossible; forbidding a real path would strand a document", "needs_owner": false}
+  ]
+}

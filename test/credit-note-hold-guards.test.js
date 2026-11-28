@@ -49,7 +49,7 @@ test('H3 a hold from an EARLIER sync still blocks the next sync: later duplicate
 });
 test('H4 the retry / re-upload path refuses while a hold is open for the pair (issueRectificativa on the credit note key, upload status pending)', async () => {
   const { api, db, seq } = await setup(); const n = cn(db).number; await ing(db, api, doc(good(n)), { reportAttemptSeq: seq, reportRequestedAt: T1 }); await ing(db, api, doc(rejRow(n)), { reportAttemptSeq: seq, reportRequestedAt: T2 });
-  db.prepare("UPDATE invoices SET upload_status='pending' WHERE number=?").run(n); const calls = api.calls.length;
+  db.exec('DROP TRIGGER invoice_uploaded_is_terminal'); /* test setup only: forces the accepted credit note back to pending to exercise the retry path */ db.prepare("UPDATE invoices SET upload_status='pending' WHERE number=?").run(n); const calls = api.calls.length;
   await assert.rejects(() => issueRectificativa(db, seller, JSON.parse(cn(db).json).rectifies.number, { recordKey: KEY, allowUnknownRetry: true }, { api, validate: vies }), /hold|review/i); assert.equal(api.calls.length, calls, 'no re-upload');
 });
 test('H5 the replacement path itself refuses while a hold is open for the pair it belongs to (direct call, CN status forced to uploaded)', async () => {
@@ -122,6 +122,7 @@ test('A4b REAL cross-process order: process 1 opens the hold and EXITS, then pro
 // Added AFTER the fix commit (guard, passes on the fixed code only by design of the trigger): every claim to send a correction document of the pair (the repair retry, the settle retry, the correction retry) is a write of upload_status='sending', which the database refuses while a hold is open.
 test('H7 (guard, added after the fix) the database itself refuses to claim ANY correction document of the pair for sending while a hold is open, and allows it after the hold is released', async () => {
   const { api, db, seq } = await setup(); const n = cn(db).number; await ing(db, api, doc(good(n)), { reportAttemptSeq: seq, reportRequestedAt: T1 }); await ing(db, api, doc(rejRow(n)), { reportAttemptSeq: seq, reportRequestedAt: T2 });
+  db.exec('DROP TRIGGER invoice_uploaded_is_terminal'); /* test setup only: isolates the hold trigger from the terminal-state trigger */
   assert.throws(() => db.prepare("UPDATE invoices SET upload_status='sending' WHERE number=?").run(n), /credit-note hold/);
   const h = hold(db, 'CREDIT_NOTE_VERDICT_CONTRADICTION')[0]; releaseIntegrity(db, seller.id, h.shipment_key, h.code, h.fingerprint, { user: 'reviewer-1', reason: 'compared both reports with the stored credit note' });
   db.prepare("UPDATE invoices SET upload_status='sending' WHERE number=?").run(n);
