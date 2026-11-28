@@ -120,7 +120,7 @@ function snapshotSources(reader, sellerId) {
       const v=d[k];
       if((typeof v==='string' && v.length<=180)||(typeof v==='number'&&Number.isSafeInteger(v))) refs[k]=v;
     }
-    return {kind:'seller_or_system_event',key:r.k,documentKey:refs.invoiceNumber??refs.number??refs.originalNumber??refs.shipmentKey??null,
+    return {kind:'seller_or_system_event',key:r.k,documentKey:refs.invoiceNumber??refs.number??refs.originalNumber??refs.shipmentKey??refs.key??null,
       payload:{occurredAt:safeText(r.ts,64),eventType:safeText(r.type,100),detailDigest:digest(r.detail),references:refs}};
   });
   read('integrity_history','SELECT rowid AS k, shipment_key, code, field, event, fingerprint, at FROM integrity_history WHERE seller_id=? ORDER BY rowid',r=>({
