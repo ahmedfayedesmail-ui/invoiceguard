@@ -14,7 +14,7 @@ const dir = mkdtempSync(join(tmpdir(), 'ig-drill-')), live = join(dir, 'invoiceg
 let ok = false;
 try {
   copyFileSync(src, live);
-  const v = validateSnapshot(live); if (!v.ok) { console.error('DRILL FAILED: ' + v.reason); process.exit(1); }
+  const v = validateSnapshot(live, { anchorsFile: process.env.ANCHORS_LOG ?? null, allowBehindAnchor: process.env.ALLOW_BEHIND_ANCHOR === '1' }); if (!v.ok) { console.error('DRILL FAILED: ' + v.reason); process.exit(1); }
   const { server, db } = createApp({ db: openDb(live), secret: 'drill' }); await new Promise(r => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const wrong = await fetch(base + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'nobody@example.invalid', password: 'x' }) });
