@@ -2,11 +2,11 @@
 
 What is in place
 - Passwords: scrypt with per-user salt, async on a bounded queue. Same work for unknown emails (no account enumeration by timing).
-- Login throttle: 8 wrong tries per IP+email and 30 per account per 15 minutes, then 429.
+- Login throttle: 8 wrong tries per IP+email and 10 per account (across all IPs) per 15 minutes, then 429 (FAIL_MAX, FAIL_WINDOW and the per-account limit in src/app.js).
 - Sessions: random token, HttpOnly, SameSite=Strict, Secure over HTTPS (or COOKIE_SECURE=1), 14-day expiry, purged on a timer, deleted on logout.
 - CSRF: cross-site Origin on any non-GET request is refused (403), on top of SameSite=Strict.
 - Headers: nosniff, no-referrer, X-Frame-Options DENY, CSP (default-src self, frame-ancestors none, base-uri none, form-action self, object-src none).
-- Inputs: body caps (64 KB, 8 MB for PDF upload, PDFs up to 5 MB), non-object JSON refused (400), internal errors never leak their text (500 generic, detail in the server log), rule-pack refusals are 422.
+- Inputs: body caps (64 KB by default; 6 MB for /api/manual/*; 8 MB for /api/export/external; an uploaded PDF itself is limited to 5 MB in src/features.js), non-object JSON refused (400), internal errors never leak their text (500 generic, detail in the server log), rule-pack refusals are 422.
 - Fuzzed every API route with junk bodies: no 5xx.
 - Tamper-evident hash chain over issued documents (detects edits after issue; not a Verifactu record).
 - Overload guard: 503 above 400 requests in flight.
