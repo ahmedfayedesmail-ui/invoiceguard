@@ -1,0 +1,39 @@
+TAP version 13
+# Subtest: Q3: changing the correction reason after approval voids the approval
+not ok 1 - Q3: changing the correction reason after approval voids the approval
+  ---
+  duration_ms: 116.985596
+  type: 'test'
+  location: '/home/sandbox/pre-wt3/test/correction-reason-binding.test.js:7:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    nothing may be issued with a reason nobody approved
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt3/test/correction-reason-binding.test.js:13:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: Q3 guard: the same reason after approval still issues
+ok 2 - Q3 guard: the same reason after approval still issues
+  ---
+  duration_ms: 71.595754
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 1
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 462.269516
