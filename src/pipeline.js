@@ -510,6 +510,14 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
       const number = allocateNumber(db, seller.id, 'R', opts.now ?? new Date());
       rect = buildRectificativa(db, seller, original, { ...opts, number });
       if (rect.warnings.length) throw new Error(rect.warnings[0]);
+      // Stage 1 final review: ONE credit cap for every path (correction pair, repair proposal, manual rectify). Inside the same transaction that records the document: all other live credit notes on this original and the unfinished claims of other correction events count, so the sum can never exceed the original.
+      if (rect.totals.incl < -0.005) {
+        const own = opts.recordKey ?? '\u0000none'; // a manual credit shares the original's shipment key: only an event's own key is excluded
+        const prior = db.prepare("SELECT total FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND total<0 AND upload_status<>'rejected' AND shipment_key<>?").all(seller.id, originalNumber, own).reduce((a, r) => a + Math.abs(r.total), 0);
+        const pend = db.prepare("SELECT amount FROM credit_claims c WHERE seller_id=? AND original_number=? AND reversal_key<>? AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.seller_id=c.seller_id AND i.shipment_key=c.reversal_key AND i.kind='rectificativa')").all(seller.id, originalNumber, own).reduce((a, r) => a + Math.abs(r.amount), 0);
+        const orig$ = Math.abs(original.totals?.incl ?? 0);
+        if (Math.round((prior + pend + Math.abs(rect.totals.incl)) * 100) > Math.round(orig$ * 100) + 0) throw new Error(`Not issued: this credit note of ${Math.abs(rect.totals.incl).toFixed(2)} plus ${(prior + pend).toFixed(2)} already credited or reserved on invoice ${originalNumber} is more than the invoice itself (${orig$.toFixed(2)}). The total credited can never exceed the original.`);
+      }
       // Local record FIRST, upload second: Amazon must never hold a document we have no record of,
       // and the R series stays gapless even when the upload fails (waits as 'pending').
       db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,rectifies,issued_at,total,vat,json,feed_id,upload_status,tx_id,dedupe_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
