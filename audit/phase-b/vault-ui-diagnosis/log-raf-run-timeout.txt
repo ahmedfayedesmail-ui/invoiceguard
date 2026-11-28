@@ -1,0 +1,15 @@
+# LAP   5416 ms  booted
+# LAP   7040 ms  vault made
+# LAP   9613 ms  both files loaded
+# LAP   9615 ms  backup click
+# LAP  10123 ms  backup clicked+500ms
+# LAP  10160 ms  backup checked
+# LAP  10188 ms  delete click
+# LAP  10647 ms  delete done (Loaded files (1))
+# LAP  10668 ms  delete-all click
+# LAP  10887 ms  workspace deleted, gate shown
+# LAP  10957 ms  restore upload
+# LAP  11907 ms  NODE-SIDE poll sees the message
+# LAP  26136 ms  RESTORE WAIT TIMED OUT; \#g-msg="Backup restored and checked. Unlock with its password."
+# pass 0
+# fail 1

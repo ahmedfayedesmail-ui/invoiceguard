@@ -1,0 +1,21 @@
+# LAP   5546 ms  booted
+# LAP   7120 ms  vault made
+# LAP   9569 ms  both files loaded
+# LAP   9569 ms  backup click
+# LAP  10090 ms  backup clicked+500ms
+# LAP  10134 ms  backup checked
+# LAP  10158 ms  delete click
+# LAP  10589 ms  delete done (Loaded files (1))
+# LAP  10627 ms  delete-all click
+# LAP  10825 ms  workspace deleted, gate shown
+# LAP  10924 ms  restore upload
+# LAP  12008 ms  Backup restored shown
+# LAP  12008 ms  restored, typing password
+# LAP  12155 ms  NODE-SIDE poll sees the message
+# LAP  12384 ms  clicked Unlock
+# LAP  12392 ms  state after unlock {"n":"other","gate":true}
+# LAP  12828 ms  state after unlock {"n":"other","gate":false}
+# LAP  12940 ms  state after unlock {"n":"-","gate":false}
+# LAP  13069 ms  state after unlock {"n":"2","gate":false}
+# pass 1
+# fail 0
