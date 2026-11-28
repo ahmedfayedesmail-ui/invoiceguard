@@ -54,11 +54,11 @@ test('DOCUMENTED COST: a complete row followed by a stray short line that would 
 test('loop path (parseTable): the same files are flagged as ragged by its own reader, so the import is shown as incomplete', () => {
   for (const col of ['buyer-tax-registration-type', 'citation-es']) assert.ok(parseTable(text(split(mk(3), 1, col))).raggedRows >= 1, col);
 });
-test('entry paths: processReport is called with a ready-made shipments list from one place only (src/app.js manual issue), and that list carries the parser invalidRows', async () => {
+test('entry paths: processReport is called with a ready-made shipments list from one place only (src/manual-jobs.js background issue worker), and that list carries the parser invalidRows', async () => {
   const { readdirSync } = await import('node:fs');
   const hits = [];
   for (const f of readdirSync(new URL('../src/', import.meta.url))) if (f.endsWith('.js')) { const s = readFileSync(new URL('../src/' + f, import.meta.url), 'utf8'); for (const l of s.split('\n')) if (/processReport\(/.test(l) && /shipments\s*:/.test(l) && !/export async function/.test(l)) hits.push(f); }
-  assert.deepEqual(hits, ['app.js']);
+  assert.deepEqual(hits, ['manual-jobs.js']);
   const plan = planUpload(text(split(mk(3), 1, 'buyer-tax-registration-type')));
   assert.equal(plan.ok, true); assert.equal(plan.shipments.length, 2); assert.equal(plan.shipments.invalidRows.length, 2, 'invalid rows travel with the list into processReport');
   const db = openDb(); const out = await processReport(db, SELLER, '', { api, validate: vies, shipments: plan.shipments, now: new Date('2026-11-25T13:00:00Z') });

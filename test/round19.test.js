@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { createApp } from '../src/app.js';
 import { openDb, currentAttemptSeq, nextReportGen } from '../src/db.js';
 import { detectRepairs, listRepairs, recordReportSnapshot, latestReportSnapshot, ensureRepairTables } from '../src/repair.js';
+import { issueAndWait } from './helpers/issue-job.mjs';
 
 const HEAD = ['order-id', 'order-item-id', 'purchase-date', 'buyer-name', 'sku', 'product-name', 'quantity-purchased', 'currency', 'item-price', 'item-tax', 'shipping-price', 'shipping-tax', 'item-promotion-discount', 'ship-promotion-discount', 'recipient-name', 'ship-address-1', 'ship-city', 'ship-postal-code', 'ship-country', 'sales-channel', 'buyer-company-name', 'buyer-tax-registration-type', 'buyer-tax-registration-country', 'buyer-tax-registration-id'];
 const row = (o) => HEAD.map(h => o[h] ?? '').join('\t');
@@ -38,7 +39,7 @@ const rectCount = (db) => db.prepare("SELECT count(*) c FROM invoices WHERE kind
 
 async function seedProposal(env) {
   const { db, call, seller } = env;
-  assert.equal((await call('manual/issue', { text: vidrText, attest: true })).status, 200, 'baseline VIDR upload');
+  assert.equal((await issueAndWait(call, { text: vidrText, attest: true })).status, 200, 'baseline VIDR upload');
   const gen = nextReportGen(db, seller.id);
   detectRepairs(db, seller, refundReport(), { reportAttemptSeq: currentAttemptSeq(db, seller.id), reportRequestedAt: new Date().toISOString(), reportGen: gen });
   recordReportSnapshot(db, seller.id, { gen, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString(), text: refundReport() });
@@ -54,7 +55,7 @@ test('R19-1 (P1): a concurrent approval DURING a slow manual VIDR is refused; th
   let open; gate = { promise: new Promise(r => { open = r; }) };
   // A NEW shipment (new ids) so processReport must verify the buyer VAT and therefore awaits the gated validator.
   const newText = vidrText.replaceAll('S1001', 'S9999').replaceAll('405-3318842-7710365', '405-3318842-7710999').replaceAll('FALSE\tInvoicePending', 'FALSE\tInvoicePending');
-  const slow = call('manual/issue', { text: newText, attest: true });
+  const slow = issueAndWait(call, { text: newText, attest: true });
   let snap; for (let i = 0; i < 100; i++) { snap = latestReportSnapshot(db, seller.id); if (snap?.in_flight) break; await new Promise(r => setTimeout(r, 20)); }
   assert.equal(snap.in_flight, 1, 'the mark was recorded while processReport is still awaiting');
   assert.equal(snap.text, newText, 'the new VIDR was stored EARLY, before processing finished');
@@ -73,7 +74,7 @@ test('R19-2 (P2): an Order Report upload never replaces the stored VIDR snapshot
   await seedProposal(env);
   const before = latestReportSnapshot(db, seller.id);
   db.prepare('UPDATE report_snapshots SET in_flight=1, store_pending=1 WHERE seller_id=?').run(seller.id); // a standing crash block
-  const r = await call('manual/issue', { text: file({ 'order-id': 'ORD-1' }), attest: true, useDeliveryAddress: true });
+  const r = await issueAndWait(call, { text: file({ 'order-id': 'ORD-1' }), attest: true, useDeliveryAddress: true });
   assert.equal(r.status, 200);
   const after = latestReportSnapshot(db, seller.id);
   assert.equal(after.text, before.text, 'the stored VIDR is untouched');
@@ -89,7 +90,7 @@ test('R19-3: a failed VIDR store answers 500 BEFORE issuing anything, and keeps 
   ensureRepairTables(db);
   db.exec("CREATE TRIGGER fail_store BEFORE INSERT ON report_snapshots BEGIN SELECT RAISE(ABORT, 'disk I/O error'); END");
   db.exec("CREATE TRIGGER fail_store_u BEFORE UPDATE ON report_snapshots BEGIN SELECT RAISE(ABORT, 'disk I/O error'); END");
-  const r = await call('manual/issue', { text: vidrText, attest: true });
+  const r = await issueAndWait(call, { text: vidrText, attest: true });
   assert.equal(r.status, 500); assert.match(r.body.error, /nothing was issued/);
   assert.equal(db.prepare('SELECT count(*) c FROM invoices').get().c, 0, 'no invoice was issued');
   server.closeAllConnections(); server.close();
@@ -102,7 +103,7 @@ test('R20-1 (critic round-20 P2): processReport succeeds, then proposal detectio
   db.exec("CREATE TRIGGER fail_repairs BEFORE INSERT ON repairs BEGIN SELECT RAISE(ABORT, 'disk I/O error'); END");
   const [head, ...rows] = vidrText.trim().split('\n');
   const withRefund = [head, rows[0], refundReport().split('\n')[1]].join('\n'); // a shipment (issues an invoice) + a refund row (makes detectRepairs insert)
-  const r = await call('manual/issue', { text: withRefund, attest: true });
+  const r = await issueAndWait(call, { text: withRefund, attest: true });
   assert.equal(r.status, 500);
   assert.match(r.body.error, /invoices from this upload were recorded/);
   assert.match(r.body.error, /report itself is stored/);

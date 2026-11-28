@@ -28,6 +28,7 @@ import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
 import { PACKS } from './rules.js';
 import { listHolds, decideHold, addHoldNote } from './holds.js';
+import { migrateJobs, enqueueJob, getJob, startJobWorker } from './manual-jobs.js';
 
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
@@ -53,6 +54,8 @@ const apis = new Map(); // seller_id -> api instance (mock keeps state)
 
 export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'dev-secret-change-me', validate = cachedValidator(validateVat), env = process.env, oauthFetch = fetch } = {}) {
   migrateAuth(db); migrateSecurity(db); migrateSecLog(db); ensureRepairTables(db); // round-22: the pack/mark/reject routes touch the repairs table directly, so it must exist from boot, not only after the first manual upload
+  migrateJobs(db); // api-load F1: manual-issue jobs table + restart recovery of interrupted jobs
+  const jobWorker = startJobWorker(db, { validate });
   const MAX_INFLIGHT = Number(process.env.MAX_INFLIGHT ?? 400); let inflight = 0;
   const fails = new Map(); // login throttle: key -> { n, until }
   const FAIL_MAX = 8, FAIL_WINDOW = 15 * 60e3;
@@ -473,8 +476,20 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/rules') return json(res, 200, { packs: allRuleStates(db, undefined, undefined, { operator: isOperator }), notResearched: ['GB', 'CH'], disclaimer: 'Reference data with official sources. Not legal or tax advice: have a gestor or lawyer review it before you rely on it.' });
       if (p === '/api/rules/check') { const r = await checkSources(db, { only: body.rule }); return json(res, 200, { checked: r.length, unreachable: r.filter(x => x.fetch !== 'ok').length, missing: r.filter(x => x.missing.length).map(x => x.id) }); }
       if (p === '/api/rules/review') { if (!isOperator) return json(res, 403, { error: 'Only the InvoiceGuard operator can mark a rule as reviewed.' }); try { reviewRule(db, String(body.rule), seller.email ?? seller.name, body.note); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); } }
+      if (p.startsWith('/api/manual/jobs/')) {
+        const job = getJob(db, seller, p.slice('/api/manual/jobs/'.length));
+        if (!job) return json(res, 404, { error: 'That upload job is not here.' });
+        return json(res, 200, job);
+      }
       if (p === '/api/manual/preview' || p === '/api/manual/issue') {
         if (env.ALLOW_MANUAL_UPLOAD !== '1') return json(res, 403, { error: 'Uploading your own report is not open yet - the pilot runs on made-up sample data only, exactly as the homepage says.' });
+        // api-load F1: issuing runs as a background job (202 + job id; GET /api/manual/jobs/:id reports
+        // progress and the final result). The preview stays inline: it is read-only and cheap.
+        if (p === '/api/manual/issue') {
+          if (body.attest !== true) return json(res, 400, { error: 'Please confirm the two checks first.' });
+          const id = enqueueJob(db, seller, String(body.text ?? '')); jobWorker.kick();
+          return json(res, 202, { jobId: id, status: 'queued' });
+        }
         const plan = planUpload(String(body.text ?? ''));
         if (!plan.ok) return json(res, 400, { error: plan.error, format: plan.format ?? null });
         const bad = plan.invalidRows ?? []; // quarantined rows: line numbers and counts only, never cell content
@@ -482,25 +497,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const warning = bad.length ? `${bad.length} ${bad.length === 1 ? 'line' : 'lines'} of your file could not be read and ${bad.length === 1 ? 'was' : 'were'} not used (a line break inside a cell splits a row). No invoice was made from ${bad.length === 1 ? 'it' : 'them'}. Download the report again and check ${bad.length === 1 ? 'that line' : 'those lines'}: ${bad.slice(0, 10).map(x => x.line).join(', ')}${bad.length > 10 ? ' and more' : ''}.` : null;
         const view = { invalidRowsCount: bad.length, invalidRows, warning, format: plan.format, formatName: plan.formatName, rows: plan.rows, truncated: plan.truncated, willIssue: plan.shipments.length, held: plan.held.map(h => ({ orderId: h.orderId, reason: h.reason })).slice(0, 100), heldCount: plan.held.length, skippedCount: plan.skipped.length, skipped: plan.skipped.slice(0, 20),
           sample: plan.shipments.slice(0, 20).map(x => ({ orderId: x.orderId, buyer: x.buyerCompany, buyerVat: x.buyerVat, currency: x.currency, total: x.incl, vat: x.vat })) };
-        if (p === '/api/manual/preview') return json(res, 200, view);
-        if (body.attest !== true) return json(res, 400, { error: 'Please confirm the two checks first.' });
-        // Round-22 (critic round-19): for a VIDR the protection is recorded and the report stored the moment it is accepted, BEFORE the first await (processReport); in_flight stays up through processing. An Order Report carries no refund evidence: it never touches the stored VIDR snapshot or any block (P2).
-        const isVidr = plan.format === 'vidr', mText = String(body.text ?? '');
-        const stamp = { gen: isVidr ? nextReportGen(db, seller.id) : null, seq: currentAttemptSeq(db, seller.id), requestedAt: new Date().toISOString() };
-        if (isVidr) { try { beginManualVidr(db, seller, mText, stamp); } catch (e) { console.error('manual report store', e); return json(res, 500, { error: 'The report could not be stored, so nothing was issued and credit-note approvals stay blocked. Upload the report again.' }); } }
-        try {
-        const prev = (key) => db.prepare('SELECT status, reason FROM shipments WHERE seller_id=? AND key=?').get(seller.id, key);
-        for (const h of plan.held) { const st = h.s ?? { key: `ORDER:${h.orderId}`, orderId: h.orderId, shippingId: h.orderId, buyerVat: null, buyerCompany: null, shipCountry: null, incl: null, vat: null, shipmentDate: null, orderDate: null, manual: true }; const pv = prev(st.key); const alreadyHeld = pv?.status === 'held' && pv?.reason === h.reason; if (!pv) logEvent(db, seller.id, 'detected', { key: st.key, orderId: st.orderId }); if (!alreadyHeld && !['ready', 'uploaded', 'submitted'].includes(pv?.status)) { upsertShipment(db, seller.id, st, 'held', h.reason); logEvent(db, seller.id, 'held', { key: st.key, reason: h.reason }); } }
-        const out = await processReport(db, seller, '', { api: { manual: true, uploadInvoice: async () => 'manual' }, validate, shipments: plan.shipments });
-        logEvent(db, seller.id, 'report_uploaded', { format: plan.format, rows: plan.rows, issued: out.uploaded, held: out.held.length + plan.held.length });
-        let repairsProposed = 0;
-        if (isVidr) {
-          // Round-23 (critic round-20): by now the invoices are recorded and the report is stored; if proposal detection fails, say exactly that (never the generic "nothing was changed"). Approvals stay protected by the freshness check against the stored report.
-          try { repairsProposed = finishManualVidr(db, seller, mText, stamp); } // quiet only when the report has no refund rows; database errors are loud
-          catch (e) { console.error('manual repair detection', e); return json(res, 500, { error: 'The invoices from this upload were recorded and the report itself is stored, but the credit-note suggestions could not be checked this time. Nothing is lost: credit-note approvals stay protected by the freshness check. Upload the report again to refresh the suggestions.', issued: out.uploaded, reportStored: true, suggestionsFailed: true }); }
-        }
-          return json(res, 200, { ...view, heldReasons: out.held.map(h => h.reason), issued: out.uploaded, skippedAlready: out.skipped, heldNow: out.held.length + plan.held.length, deferred: out.deferred.length, errors: out.errors.length, repairsProposed });
-        } finally { if (isVidr) clearReportInFlight(db, seller.id); } // the report is already stored: success or failure, approval revalidates against it
+        return json(res, 200, view);
       }
       if (p === '/api/holds') { const holds = listHolds(db, seller.id, { includeClosed: url.searchParams.get('all') === '1' }); return json(res, 200, { holds, truncated: !!holds.truncated }); } // expedition W2-2: the review queue for HOLD and BLOCK findings
       if (p === '/api/holds/decide') {

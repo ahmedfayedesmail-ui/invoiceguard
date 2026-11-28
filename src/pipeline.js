@@ -30,7 +30,7 @@ export function upsertShipment(db, sellerId, s, status, reason = null) {
 }
 
 /** One pass over a VIDR report text. Pure with respect to Amazon: upload goes through the `api` object. */
-export async function processReport(db, seller, reportText, { api, validate = validateVat, now = new Date(), dryRun = false, census = null, shipments = null, reportRequestedAt = null, reportAttemptSeq = null } = {}) {
+export async function processReport(db, seller, reportText, { api, validate = validateVat, now = new Date(), dryRun = false, census = null, shipments = null, reportRequestedAt = null, reportAttemptSeq = null, pace = null } = {}) {
   // Round-14 (critic round-12): the seller's attempt-sequence snapshot at the instant this report
   // was REQUESTED. A verdict in it can only describe attempts claimed BEFORE that snapshot;
   // reconcilers skip any document whose current attempt_seq is newer - a stale report must never
@@ -42,6 +42,12 @@ export async function processReport(db, seller, reportText, { api, validate = va
   const reportSeq = reportAttemptSeq ?? null;
   const out = { detected: 0, uploaded: 0, held: [], deferred: [], skipped: 0, errors: [], notes: [], unsupported: [] };
   const list = shipments ?? parseVidr(reportText);
+  // api-load F1: optional pacing. Every iteration is synchronous CPU (parse already done; PDF
+  // rendering and the DB writes below do not yield), so without a yield one big report monopolises
+  // the event loop. `pace = { ms, onProgress }` yields the loop whenever more than `ms` elapsed;
+  // the loop already interleaves at awaited VIES calls, and the round-8/10 claims make overlapping
+  // executions safe, so this adds no new race. Off by default (sync scheduler path unchanged).
+  let paceN = 0, paceLast = Date.now();
   // Row integrity: rows cut off or split by a raw newline were already rejected by the parser. They are quarantined here, counted and logged by line number only (no cell content), and never processed.
   out.invalidRows = list.invalidRows ?? [];
   if (out.invalidRows.length) logEvent(db, seller.id, 'invalid_rows', { count: out.invalidRows.length, lines: out.invalidRows.slice(0, 50).map(r => ({ line: r.line, cells: r.cells, expected: r.expected })) });
@@ -51,6 +57,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
   const vats = [...new Set(list.filter(needsInvoice).map(s => s.buyerVat).filter(Boolean))];
   await Promise.allSettled(vats.map(v => validate(v)));
   for (const s of list) {
+    if (pace) { paceN++; const t = Date.now(); if (t - paceLast >= pace.ms) { paceLast = t; pace.onProgress?.(paceN - 1, list.length); await new Promise(r => setImmediate(r)); } }
     // Terminal invoice statuses in an all-status VIDR are Amazon's verdict on documents we sent:
     // reconcile them BEFORE the needsInvoice filter (InvoiceUploaded rows do not need an invoice).
     if (s.transactionType === 'REFUND' && !s.isCorrectedTx && !['InvoiceUploaded', 'InvoiceRejected', 'InvoiceProcessing'].includes(s.invoiceStatus || '')) resolveRefundHoldIfNewer(db, seller.id, s.key, reportReqTs, reportSeq); // re-review 2 P2-2: a corrected report is the evidence that releases the hold
@@ -190,6 +197,7 @@ export async function processReport(db, seller, reportText, { api, validate = va
       out.errors.push({ key: s.key, error: e.message });
     }
   }
+  pace?.onProgress?.(list.length, list.length);
   return out;
 }
 

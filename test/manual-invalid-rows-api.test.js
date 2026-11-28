@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createApp } from '../src/app.js';
+import { issueAndWait } from './helpers/issue-job.mjs';
 
 const FX = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
 const H = FX.split('\n')[0].split('\t'); const col = (k) => H.indexOf(k);
@@ -23,7 +24,7 @@ const broken = splitRow(FX.replace(/\n+$/, '\n'), 1, 'billing-name', SECRET_TEXT
 for (const route of ['manual/preview', 'manual/issue']) {
   test(`${route}: a split row is reported to the seller (count, line numbers, reasons, a warning) and shows no cell content`, async () => {
     const { server, call } = await boot(`inv-${route.replace('/', '-')}@x.es`);
-    const r = await call(route, { text: broken, attest: true });
+    const r = route === 'manual/issue' ? await issueAndWait(call, { text: broken, attest: true }) : await call(route, { text: broken, attest: true });
     server.close();
     assert.equal(r.status, 200, JSON.stringify(r.body).slice(0, 200));
     assert.equal(r.body.invalidRowsCount, 2, JSON.stringify(r.body.invalidRows));
@@ -35,15 +36,15 @@ for (const route of ['manual/preview', 'manual/issue']) {
   });
   test(`${route}: a clean file reports 0, an empty list and no warning`, async () => {
     const { server, call } = await boot(`ok-${route.replace('/', '-')}@x.es`);
-    const r = await call(route, { text: FX, attest: true });
+    const r = route === 'manual/issue' ? await issueAndWait(call, { text: FX, attest: true }) : await call(route, { text: FX, attest: true });
     server.close();
     assert.equal(r.status, 200);
     assert.equal(r.body.invalidRowsCount, 0); assert.deepEqual(r.body.invalidRows, []); assert.equal(r.body.warning ?? null, null);
   });
 }
 test('both routes agree on the numbers for the same file, and the split row is not among the invoices', async () => {
-  const a = await boot('agree1@x.es'); const p = await a.call('manual/preview', { text: broken }); const i = await a.call('manual/issue', { text: broken, attest: true }); a.server.close();
+  const a = await boot('agree1@x.es'); const p = await a.call('manual/preview', { text: broken }); const i = await issueAndWait(a.call, { text: broken, attest: true }); a.server.close();
   assert.equal(p.body.invalidRowsCount, i.body.invalidRowsCount); assert.deepEqual(p.body.invalidRows, i.body.invalidRows);
-  const clean = await boot('agree2@x.es'); const c = await clean.call('manual/issue', { text: FX, attest: true }); clean.server.close();
+  const clean = await boot('agree2@x.es'); const c = await issueAndWait(clean.call, { text: FX, attest: true }); clean.server.close();
   assert.equal(i.body.issued + i.body.heldNow + i.body.skippedAlready <= c.body.issued + c.body.heldNow + c.body.skippedAlready, true);
 });

@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { createApp } from '../src/app.js';
 import { planUpload, parseTable, detectFormat } from '../src/manual.js';
 import { makeZip } from '../src/zip.js';
+import { issueAndWait } from './helpers/issue-job.mjs';
 
 const HEAD = ['order-id', 'order-item-id', 'purchase-date', 'buyer-name', 'sku', 'product-name', 'quantity-purchased', 'currency', 'item-price', 'item-tax', 'shipping-price', 'shipping-tax', 'item-promotion-discount', 'ship-promotion-discount', 'recipient-name', 'ship-address-1', 'ship-city', 'ship-postal-code', 'ship-country', 'sales-channel', 'buyer-company-name', 'buyer-tax-registration-type', 'buyer-tax-registration-country', 'buyer-tax-registration-id'];
 const row = (o) => HEAD.map(h => o[h] ?? '').join('\t');
@@ -55,13 +56,13 @@ test('manual journey: upload, hold, issue, pack, mark as uploaded; no sync', asy
   assert.equal((await call('amazon/connect', { manual: true })).body.mode, 'manual');
   assert.equal((await call('sync', {})).status >= 400, true);
   const orderText = file({ 'order-id': 'M1' });
-  assert.equal((await call('manual/issue', { text: orderText, useDeliveryAddress: true, attest: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } })).body.issued, 0, 'the Order Report is a preview: nothing is issued from it, declaration or not');
+  assert.equal((await issueAndWait(call, { text: orderText, useDeliveryAddress: true, attest: true, sellerDeclaration: { isBusiness: true, isAmazonInvoiced: false } })).body.issued, 0, 'the Order Report is a preview: nothing is issued from it, declaration or not');
   const text = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8');
   assert.equal((await call('manual/preview', { text: 'nope' })).status, 400);
   assert.equal((await call('manual/issue', { text })).status, 400, 'needs the checks');
-  const r = (await call('manual/issue', { text, attest: true })).body;
+  const r = (await issueAndWait(call, { text, attest: true })).body;
   assert.equal(r.issued, 3); assert.equal(r.heldNow, 1);
-  assert.equal((await call('manual/issue', { text, attest: true })).body.issued, 0, 'no duplicate');
+  assert.equal((await issueAndWait(call, { text, attest: true })).body.issued, 0, 'no duplicate');
   const d = (await call('dashboard')).body; assert.equal(d.kpis.ready, 3); assert.equal(d.invoices.length, 3);
   const zip = await call('pack'); assert.equal(zip.body.subarray(0, 2).toString(), 'PK'); assert.match(zip.body.toString('latin1'), /manifest\.csv/);
   assert.equal((await call('invoices/mark', { numbers: [d.invoices[0].number] })).body.marked, 1);
