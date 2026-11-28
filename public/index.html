@@ -316,7 +316,8 @@ async function trailDlg(i){
  }
  const copy=h('button',{class:'link',on:{click:async()=>{
    const text=checkpoint.textContent;
-   if(!text.includes('sequence ')){toast('No checkpoint to copy yet.');return;}
+   let value=null;try{value=JSON.parse(text)}catch{}
+   if(!value||!Number.isSafeInteger(value.sequence)||value.sequence<0||typeof value.hash!=='string'||! /^[a-f0-9]{64}$/.test(value.hash)){toast('No checkpoint to copy yet.');return;}
    try{await navigator.clipboard.writeText(text);toast('Checkpoint copied. Keep it separately from the downloaded bundle.');}
    catch{const box=h('textarea',{style:'position:fixed;left:-9999px;top:0'});box.value=text;document.body.append(box);box.select();try{document.execCommand('copy');toast('Checkpoint copied. Keep it separately from the downloaded bundle.');}catch{toast('Select and copy the checkpoint shown above.')}box.remove();}
  }}},'Copy checkpoint');
