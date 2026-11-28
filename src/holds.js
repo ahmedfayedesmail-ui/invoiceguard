@@ -15,7 +15,7 @@ export function explainFinding(f) {
     if (snap) { if (snap.documentNumbers?.length) known.push(`The report names document number(s): ${snap.documentNumbers.map(x => x === '' ? '(blank)' : x).join(', ')}`); if (snap.statuses?.length) known.push(`The report status set: ${snap.statuses.join(', ')}`); if (snap.reportRequestedAt) known.push(`Report requested at ${snap.reportRequestedAt}`); }
     unknown.push('Whether Amazon actually holds our document under another number', 'Which of two conflicting reports is the right one', 'Amazon refund sign convention is not proven by a real report');
     if (ev.failed?.length) known.push(`Checks that failed: ${ev.failed.join(', ')}`);
-  } else { known.push('The ledger recorded this finding from the data we hold'); unknown.push('Whether the finding is a real discrepancy or a data problem on the other side'); }
+  } else { known.push('The ledger recorded this finding from the data we hold' + (ev.field ? ` (field: ${ev.field})` : '')); unknown.push('Whether the finding is a real discrepancy or a data problem on the other side'); }
   const releasable = f.status === 'OPEN' && f.resolution === 'HUMAN_DECISION' && f.severity !== 'BLOCK';
   return {
     key: f.shipment_key, code: f.code, severity: f.severity, status: f.status, fingerprint: f.fingerprint, firstSeen: f.first_seen, lastSeen: f.last_seen, seenCount: f.seen_count,
@@ -23,7 +23,7 @@ export function explainFinding(f) {
     known, unknown,
     allowed: releasable ? ['Record a documented decision (your name and a reason of 10+ characters) for exactly this evidence'] : f.severity === 'BLOCK' ? [] : f.status === 'OPEN' ? ['Provide a corrected file'] : [],
     blocked: cn?.blocked ?? (f.status === 'OPEN' ? ['Nothing automatic proceeds for this item until it is resolved'] : []),
-    next: f.status !== 'OPEN' ? 'No action: this finding is not open.' : releasable ? 'After a decision, the block lifts. Nothing is applied by the decision itself: the next matching Amazon report is evaluated again from scratch and a changed fingerprint needs a new decision.' : f.severity === 'BLOCK' ? 'Only a corrected file resolves this. A decision cannot release it.' : 'A corrected file resolves it.',
+    next: f.status !== 'OPEN' ? 'No action: this finding is not open.' : releasable ? (cn ? 'After a decision, the credit-note block lifts. Nothing is applied by the decision itself: the next matching Amazon report is evaluated again from scratch and a changed fingerprint needs a new decision.' : 'A decision is recorded for exactly this evidence. It does not by itself release anything else: whether a shipment or document continues is decided by its own checks, and a changed fingerprint needs a new decision.') : f.severity === 'BLOCK' ? 'Only a corrected file resolves this. A decision cannot release it.' : 'A corrected file resolves it.',
     releasable,
   };
 }

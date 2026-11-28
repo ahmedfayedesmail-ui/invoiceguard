@@ -3,7 +3,7 @@
   "branch": "expedition/invoiceguard-product-grade",
   "base": "8d9e6d9",
   "agents_launched": 4,
-  "agents_completed": 0,
+  "agents_completed": 4,
   "tasks": [
     {
       "id": "W1-T1",
@@ -73,7 +73,8 @@
       "question": "acceptance bypass",
       "permissions": "read-only",
       "target": "HEAD acc7c50",
-      "status": "launched, report pending (completion not yet verified)"
+      "status": "delivered: no P0/P1; 5 P2 hardening items (unreproduced)",
+      "report_received": true
     },
     {
       "id": "W3-2",
@@ -83,7 +84,8 @@
       "question": "concurrency",
       "permissions": "read-only",
       "target": "HEAD acc7c50",
-      "status": "launched, report pending (completion not yet verified)"
+      "status": "delivered: 2 P1, 2 P2, 1 P3 (repro scripts exp1-4.mjs)",
+      "report_received": true
     },
     {
       "id": "W3-3",
@@ -93,7 +95,8 @@
       "question": "holds API/UI",
       "permissions": "read-only",
       "target": "HEAD acc7c50",
-      "status": "launched, report pending (completion not yet verified)"
+      "status": "delivered: no P0/P1; 2 P2, 2 P3",
+      "report_received": true
     },
     {
       "id": "W3-4",
@@ -103,7 +106,8 @@
       "question": "state machine",
       "permissions": "read-only",
       "target": "HEAD acc7c50",
-      "status": "launched, report pending (completion not yet verified)"
+      "status": "delivered: 2 P1, 1 P2",
+      "report_received": true
     }
   ],
   "decisions": [

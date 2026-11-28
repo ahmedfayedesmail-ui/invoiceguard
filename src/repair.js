@@ -246,9 +246,11 @@ async function retryRejectedUpload(db, seller, number, { api }) {
  * feed id: such documents sit in 'sending'. Local data alone cannot prove whether Amazon holds them,
  * so they become 'unknown' with a human-visible hold - and the next Amazon report settles them
  * (still due there = safe automatic resend of the same document; a verdict = closed). */
-export function recoverUncertainUploads(db) {
+export function recoverUncertainUploads(db, { minAgeMs = 0 } = {}) {
   ensureRepairTables(db);
-  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at, feed_id FROM invoices WHERE upload_status='sending'").all();
+  // Reviewer 2 F1: another process may have an upload in flight RIGHT NOW. With minAgeMs a claim younger than that is left alone (a later sweep picks it up); a row without a readable claim time is always recovered.
+  const cutoff = Date.now() - minAgeMs;
+  const stuck = db.prepare("SELECT seller_id, number, shipment_key, kind, rectifies, sending_at, feed_id FROM invoices WHERE upload_status='sending'").all().filter(r => !(minAgeMs > 0 && Date.parse(r.sending_at ?? '') > cutoff));
   for (const inv of stuck) {
     // Round-9 (N4): status write + hold proposal in ONE transaction - a crash between them used to
     // leave the document 'unknown' with no visible hold (settle checks still prevented a resend,

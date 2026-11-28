@@ -21,6 +21,7 @@ import { addOverride } from './verify.js';
 import { SETTINGS, LANGS } from './lang.js';
 import { allRuleStates, checkSources, reviewRule, legalDeadline, cleanProfile, sellerProfile } from './rules.js';
 import { upsertShipment, processReport, pollFeeds, issueRectificativa, processCorrections, settleUnknownDocuments } from './pipeline.js';
+import { pairHoldOpen } from './cn-gate.js';
 import { detectRepairs, listRepairs, decideRepair, approveRepair, recoverStuckRepairs, recoverUncertainUploads, ensureRepairTables, recordReportSnapshot, latestReportSnapshot, markReportInFlight, clearReportInFlight, reconcileReportMarksAtBoot, markReportStorePending, storeDownloadedReport, beginManualVidr, finishManualVidr } from './repair.js';
 import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
@@ -524,7 +525,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/invoices/mark') {
         const nums = body.all === true ? db.prepare("SELECT number FROM invoices WHERE seller_id=? AND upload_status='ready'").all(seller.id).map(r => r.number) : (Array.isArray(body.numbers) ? body.numbers.map(String).slice(0, 5000) : []);
         let n = 0; const now = new Date().toISOString();
-        for (const num of nums) { const r = db.prepare("SELECT shipment_key FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, num); logEvent(db, seller.id, 'uploaded', { number: num }); n++; }
+        for (const num of nums) { const r = db.prepare("SELECT shipment_key, kind, rectifies FROM invoices WHERE seller_id=? AND number=? AND upload_status='ready'").get(seller.id, num); if (!r) continue; if (r.kind === 'rectificativa' && pairHoldOpen(db, seller.id, r.rectifies, r.shipment_key)) continue; db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(now, seller.id, num); db.prepare("UPDATE shipments SET status='uploaded' WHERE seller_id=? AND key=? AND status='ready'").run(seller.id, r.shipment_key); db.prepare("UPDATE repairs SET state='uploaded' WHERE seller_id=? AND rect_number=? AND state IN ('issued','exported')").run(seller.id, num); logEvent(db, seller.id, 'uploaded', { number: num }); n++; }
         if (n) logEvent(db, seller.id, 'marked_uploaded', { count: n }); return json(res, 200, { ok: true, marked: n });
       }
       if (p === '/api/invoices/reject') { // manual product: Amazon refused an upload; keep the error, close nothing, offer the fix path
@@ -608,7 +609,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   reconcileReportMarksAtBoot(db); // round-20: a crashed run cannot prove no newer report arrived - leftover in-flight marks become store_pending and block approvals until a successful store; a failure here fails boot loudly rather than leaving a gap
   // Documents caught in the crash window between Amazon accepting an upload and the local write of
   // its result ('sending') become 'unknown' with a human-visible hold; the next report settles them.
-  try { recoverUncertainUploads(db); } catch { /* invoices table is created on first use */ }
+  // A claim younger than 10 minutes may belong to another live process (overlapping deploy): leave it, and sweep again once it is old enough.
+  const UPLOAD_GRACE_MS = 10 * 60 * 1000;
+  try { recoverUncertainUploads(db, { minAgeMs: UPLOAD_GRACE_MS }); } catch { /* invoices table is created on first use */ }
+  const sweep = setTimeout(() => { try { recoverUncertainUploads(db, { minAgeMs: UPLOAD_GRACE_MS }); } catch { /* ignore */ } }, UPLOAD_GRACE_MS + 5000); sweep.unref?.();
   applyBootReset(db); rotateKeys(db, process.env.APP_SECRET ?? 'dev-secret-change-me', process.env.APP_SECRET_PREVIOUS); purgeSecLog(db); setInterval(() => { try { purgeSecLog(db); } catch (e) { console.error(e.message); } }, 24 * 3600e3).unref(); purge(); const piiPurge = () => { try { const n = purgeBuyerData(db); if (n) console.log(`buyer data removed from ${n} shipment record(s)`); } catch (e) { console.error('buyer-data purge failed', e.message); } }; piiPurge(); setInterval(piiPurge, 6 * 3600e3).unref(); setInterval(purge, 3600e3).unref();
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, () => console.log(`InvoiceGuard on http://localhost:${port}`));

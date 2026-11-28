@@ -235,6 +235,13 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     logEvent(db, seller.id, 'rejection_after_upload_hold', { number: inv.number });
     return;
   }
+  // Expedition (reviewer 2 F2): an OPEN credit-note hold on the pair needs a person before ANY automatic
+  // change to the pair's correction documents, including a status moved by an Invoice* row. The row is
+  // logged as evidence and applied by nothing.
+  if (rect && ['InvoiceUploaded', 'InvoiceRejected'].includes(s.invoiceStatus) && pairHoldOpen(db, seller.id, inv.rectifies, s.key)) {
+    logEvent(db, seller.id, 'invoice_verdict_held_by_open_hold', { number: inv.number, status: s.invoiceStatus });
+    return;
+  }
   if (s.invoiceStatus === 'InvoiceUploaded' && inv.upload_status !== 'uploaded') {
     tx(db, () => {
       db.prepare("UPDATE invoices SET upload_status='uploaded', uploaded_at=? WHERE seller_id=? AND number=?").run(new Date().toISOString(), seller.id, inv.number);
