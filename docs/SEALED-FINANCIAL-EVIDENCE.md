@@ -5,6 +5,7 @@ This is an advisory, read-side evidence layer. It records normalized observation
 ## Boundary
 
 - A separate SQLite connection is opened with `readOnly: true` and `PRAGMA query_only=ON` for source reads.
+- The writer and reader must resolve to the same persistent SQLite database file. Sealing refuses in-memory databases or mismatched connection targets.
 - The writer creates and writes only `intel_evidence_chain` and `intel_evidence_head`.
 - The evidence chain is protected by SQLite triggers against UPDATE and DELETE. Its head row may be updated by the sealer but cannot be deleted; verification fails closed if a non-empty chain has no matching head. Each coverage statement is itself sealed into the chain; there is no separate mutable coverage cache.
 - The sealer checks that the source append-only logs actually have both UPDATE and DELETE protection triggers. If any are missing, coverage is marked `INCOMPLETE` and the missing protection is retained in later coverage statements.
@@ -12,7 +13,7 @@ This is an advisory, read-side evidence layer. It records normalized observation
 - A document timeline includes its own invoice records plus related shipment-level evidence (shipment snapshots, integrity history/decisions/findings, and events explicitly keyed to that shipment). It does not merge sibling invoice snapshots into the selected invoice's trajectory.
 - Verified bundle comparison reports the first observed divergence between two snapshots for the same seller and document. The result is advisory and does not infer cause or authorize a financial transition.
 - Mutable source snapshots are versioned against the latest sealed state per source row. A transition A → B → A is recorded as three distinct observations; an unchanged repeat seal is not duplicated. Each changed snapshot names its predecessor reference.
-- Timeline order is the immutable seal-observation sequence. Source `occurredAt` values are retained as evidence metadata; they are not used to rewrite the append order.
+- Timeline order is the immutable seal-observation sequence. Source `occurredAt` values are retained as evidence metadata; they are not used to rewrite the append order. The sequence is deterministic capture order, not a claim that source timestamps are complete or causally ordered.
 - Only allowlisted metadata is exported. Free-form event details, decision reasons, actor identities, invoice errors, finding explanations and raw evidence are represented by SHA-256 digests rather than copied into the bundle. These digests are integrity fingerprints, not anonymization; low-entropy values may be guessable.
 - Monetary values are converted to safe integer cents with exact decimal arithmetic. Sub-cent or unsafe values fail the seal; they are never rounded into evidence.
 - Financial identifiers are rejected when they exceed the supported field length; they are never silently truncated into a potentially colliding document key.
@@ -36,9 +37,9 @@ The first seller-facing integration is deliberately manual and seller-scoped:
 - `GET /api/intel/export` downloads the authenticated seller's account-wide JSON evidence bundle. The response also exposes the checkpoint hash in an HTTP header.
 - In Documents → Invoices → Evidence, the seller can explicitly seal the account snapshot, inspect the timeline, copy the checkpoint separately, or download the bundle.
 
-The API derives the seller ID only from the authenticated session. A seller ID supplied in the request body is ignored. No automatic schedule exists. No invoice, shipment, hold, finding, claim, repair, upload, ACCEPTED, or RELEASED state is changed by these endpoints. The timeline and labels are advisory only.
+The API derives the seller ID only from the authenticated session. A seller ID supplied in the request body is ignored. A seller must have their own non-empty sealed chain before timeline or export reads are available; another seller's shared intel tables do not count as a seal. No automatic schedule exists. No invoice, shipment, hold, finding, claim, repair, upload, ACCEPTED, or RELEASED state is changed by these endpoints. The timeline and labels are advisory only.
 
-The separately retained checkpoint must be kept outside the downloaded bundle (for example, in the seller's own secure records). The JSON bundle's embedded checkpoint alone is not an independent witness against a party who can rewrite the entire database and bundle.
+Bundle verification requires an embedded checkpoint or an independently supplied checkpoint; an unanchored prefix is never accepted as valid. The verifier also checks that the bundle's top-level coverage summary exactly matches the latest coverage statement sealed inside the chain. The separately retained checkpoint must be kept outside the downloaded bundle (for example, in the seller's own secure records). The JSON bundle's embedded checkpoint alone is not an independent witness against a party who can rewrite the entire database and bundle.
 
 ## Operational qualification still required
 

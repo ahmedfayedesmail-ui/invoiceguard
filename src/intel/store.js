@@ -531,7 +531,10 @@ export function compareDocumentEvidenceBundles(
 export function exportEvidenceBundle(db,sellerId) {
   const verification=verifyEvidenceChain(db,sellerId);
   if(!verification.valid)throw new Error('Cannot export a broken evidence chain.');
-  const rows=rowsFor(db,sellerId),checkpoint={sellerId,sequence:verification.sequence,hash:verification.hash};
+  const rows=rowsFor(db,sellerId);
+  if(rows.length===0) throw new Error('Cannot export evidence before this seller has a sealed snapshot.');
+  if(!rows.some(row=>row.kind==='coverage_statement')) throw new Error('Cannot export evidence without a sealed coverage statement.');
+  const checkpoint={sellerId,sequence:verification.sequence,hash:verification.hash};
   return {schema:'invoiceguard.sealed-financial-evidence.v1',sellerId,
     description:'Tamper-evident unsigned hash chain. It does not authenticate the source or the person who created source records.',
     chain:rows.map(r=>({sequence:r.seq,previousHash:r.prev_hash,hash:r.entry_hash,kind:r.kind,sourceRef:r.source_ref,documentKey:r.document_key,canonicalJson:r.canonical_json})),

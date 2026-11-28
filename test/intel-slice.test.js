@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { openDb } from '../src/db.js';
 import {
-  openIntelReader, sealSellerEvidence, verifyEvidenceChain, getEvidenceCoverage,
+  openIntelReader, ensureIntelTables, sealSellerEvidence, verifyEvidenceChain, getEvidenceCoverage,
   exportEvidenceBundle, verifyEvidenceBundle, buildDocumentTimeline, compareDocumentEvidenceBundles
 } from '../src/intel/store.js';
 
@@ -30,6 +30,15 @@ function runWorker(path,sellerId) {
     p.on('error',reject); p.on('close',code=>code===0?resolvePromise(JSON.parse(out)):reject(new Error(err||('worker exited '+code))));
   });
 }
+
+test('an unsealed seller cannot export an empty evidence bundle', t => {
+  const {db}=fixture(t);
+  ensureIntelTables(db);
+  assert.throws(
+    () => exportEvidenceBundle(db,'seller-A'),
+    /before this seller has a sealed snapshot/
+  );
+});
 
 test('seal is deterministic and idempotent; bundle verifies; financial tables remain unchanged', t => {
   const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());

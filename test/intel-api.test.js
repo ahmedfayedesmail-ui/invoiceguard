@@ -78,6 +78,27 @@ test('authenticated seller can explicitly seal, view and export advisory evidenc
   assert.deepEqual(db.prepare('SELECT * FROM shipments WHERE seller_id=?').all(sellerId),shipmentsBefore);
 });
 
+test('a seller without their own seal cannot mistake another seller evidence tables as their timeline or export',async t=>{
+  const {db,call}=await persistentSetup(t);
+  assert.equal((await call('intel/seal',{})).status,200,'seller A establishes shared intel tables and a private chain');
+
+  await call('logout',{});
+  assert.equal((await call('signup',{email:'second-intel-seller@example.test',password:'Long-Enough-Pw-43!'})).status,200);
+  assert.equal((await call('seller',{name:'Second Evidence Seller S.L.',nif:'ESB22222228',address:'Calle Test 2',marketplaces:['ES']})).status,200);
+  const secondSellerId=db.prepare('SELECT seller_id FROM users WHERE email=?').get('second-intel-seller@example.test').seller_id;
+  db.prepare('INSERT INTO shipments (seller_id,key,order_id,shipping_id,total,vat,shipment_date,due_at,status,reason,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    .run(secondSellerId,'SHIP-INTEL-2','ORDER-INTEL-2','SHIP-INTEL-2',19.90,3.90,'2026-11-28','2026-12-28','open','test fixture','2026-11-28T10:01:00.000Z');
+  db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
+    .run(secondSellerId,'B-2026-000002','SHIP-INTEL-2','invoice','2026-11-28T10:00:00.000Z',19.90,3.90,'ready');
+
+  const timeline=await call('intel/timeline?number=B-2026-000002');
+  assert.equal(timeline.status,409);
+  assert.equal(timeline.body.code,'EVIDENCE_NOT_SEALED');
+  const bundle=await call('intel/export');
+  assert.equal(bundle.status,409);
+  assert.equal(bundle.body.code,'EVIDENCE_NOT_SEALED');
+});
+
 test('evidence endpoints remain behind seller authentication and memory databases fail closed',async t=>{
   const memory=createApp({secret:'intel-memory-test-secret'});
   await new Promise(resolve=>memory.server.listen(0,resolve));

@@ -420,7 +420,9 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
 
       // Sealed evidence is an explicitly requested, seller-scoped advisory snapshot.
       // It never feeds back into invoice, hold, claim, repair, upload or decision paths.
-      const intelTablesReady = () => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='intel_evidence_chain'").get());
+      const intelTablesReady = () => db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('intel_evidence_chain','intel_evidence_head')").get().n === 2;
+      const sellerHasSealedEvidence = () => intelTablesReady() &&
+        Boolean(db.prepare('SELECT 1 FROM intel_evidence_chain WHERE seller_id=? LIMIT 1').get(seller.id));
       if (p === '/api/intel/seal') {
         if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
         if (!mainDbPath) return json(res, 503, { code: 'PERSISTENT_DATABASE_REQUIRED', error: 'Evidence sealing is available only when InvoiceGuard is using its persistent database. No financial records were changed.' });
@@ -451,7 +453,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         const number = String(url.searchParams.get('number') ?? '').trim();
         if (!number || number.length > 200) return json(res, 400, { error: 'Choose a valid invoice number.' });
         if (!db.prepare('SELECT 1 FROM invoices WHERE seller_id=? AND number=?').get(seller.id, number)) return json(res, 404, { error: 'Invoice not found.' });
-        if (!intelTablesReady()) return json(res, 409, { code: 'EVIDENCE_NOT_SEALED', error: 'No sealed evidence snapshot exists yet.' });
+        if (!sellerHasSealedEvidence()) return json(res, 409, { code: 'EVIDENCE_NOT_SEALED', error: 'No sealed evidence snapshot exists for this seller yet.' });
         const verification = verifyEvidenceChain(db, seller.id);
         if (!verification.valid) return json(res, 409, { code: 'EVIDENCE_CHAIN_INVALID', error: 'The sealed evidence chain did not verify. Do not rely on this timeline.' });
         const timeline = buildDocumentTimeline(db, seller.id, number);
@@ -465,7 +467,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       }
       if (p === '/api/intel/export') {
         if (req.method !== 'GET') return json(res, 405, { error: 'Use GET.' });
-        if (!intelTablesReady()) return json(res, 409, { code: 'EVIDENCE_NOT_SEALED', error: 'No sealed evidence snapshot exists yet.' });
+        if (!sellerHasSealedEvidence()) return json(res, 409, { code: 'EVIDENCE_NOT_SEALED', error: 'No sealed evidence snapshot exists for this seller yet.' });
         const verification = verifyEvidenceChain(db, seller.id);
         if (!verification.valid) return json(res, 409, { code: 'EVIDENCE_CHAIN_INVALID', error: 'The sealed evidence chain did not verify. Export refused.' });
         const bundle = exportEvidenceBundle(db, seller.id);
