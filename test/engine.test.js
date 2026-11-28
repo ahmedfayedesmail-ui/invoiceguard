@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
@@ -54,7 +54,7 @@ test('pipeline: uploads valid B2B, holds bad VAT, ignores B2C and already-upload
   // A finished feed is not acceptance: DONE moves to processing, and only the report verdict uploads.
   const p = await pollFeeds(db, seller, api); assert.equal(p.processing, 3); assert.equal(p.rejected, 0);
   assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 0);
-  await processReport(db, seller, withStatus(text, { S1001: 'InvoiceUploaded', S1002: 'InvoiceUploaded' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
+  await processReport(db, seller, proved(db, seller.id, withStatus(text, { S1001: 'InvoiceUploaded', S1002: 'InvoiceUploaded' })), { ...seqOpt(db, seller.id), api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
   assert.equal(db.prepare("SELECT count(*) c FROM shipments WHERE status='uploaded'").get().c, 2);
   assert.equal(api.calls.length, 3, 'confirmation re-uploads nothing');
 });
@@ -65,7 +65,7 @@ test('acceptance: DONE alone never marks uploaded; the report verdict does, and 
   const p = await pollFeeds(db, seller, api);
   assert.equal(p.processing, 3);
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE upload_status='processing'").get().c, 3);
-  await processReport(db, seller, withStatus(text, { S1001: 'InvoiceRejected', S1002: 'InvoiceUploaded' }, { S1001: 'TotalAmount does not match' }), { api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
+  await processReport(db, seller, proved(db, seller.id, withStatus(text, { S1001: 'InvoiceRejected', S1002: 'InvoiceUploaded' }, { S1001: 'TotalAmount does not match' })), { ...seqOpt(db, seller.id), api, validate: vies, now: new Date('2026-11-24T13:00:00Z') });
   const s1 = db.prepare("SELECT status, reason FROM shipments WHERE key='SHIPMENT:S1001'").get();
   assert.equal(s1.status, 'rejected'); assert.match(s1.reason, /TotalAmount does not match/);
   assert.equal(db.prepare("SELECT upload_status FROM invoices WHERE shipment_key='SHIPMENT:S1001'").get().upload_status, 'rejected');

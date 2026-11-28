@@ -6,7 +6,7 @@
 //    and amounts against the latest stored report whenever a fresher one exists, holding with a
 //    clear reason on divergence. A stale report may mint an APPROVABLE proposal; it must never
 //    ISSUE from stale amounts.
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth, currentAttemptSeq, nextReportGen } from '../src/db.js';
@@ -61,7 +61,7 @@ test('R14-1: a STALE Correction:: row must NOT resubmit the replacement (process
   const repl = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='SHIPMENT:Correction::X:2'").get(seller.id);
   assert.ok(repl, 'the replacement document exists');
   // Amazon rejects the replacement; the reviewed retry goes out and its outcome is UNKNOWN.
-  await processReport(db, seller, withDesc(h0, cRows[1].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(h0, cRows[1].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' })), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.equal(statusOf(db, repl.number), 'rejected');
   const q = listRepairs(db, seller.id).find(x => x.kind === 'rejected_correction_invoice');
   assert.ok(q, 'a reviewed retry was proposed');

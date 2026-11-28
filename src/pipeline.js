@@ -8,6 +8,7 @@ import { renderPdf } from './pdf.js';
 import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from './db.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
+import { evaluateOriginalVerdict, openOriginalHold, resolveOriginalHold, openReturnHold } from './orig-gate.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
 import { newClaimToken, guardedUpload, lateUploadResult, ABANDON_QUIET_MS } from './claims.js';
 import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
@@ -234,12 +235,14 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     logEvent(db, seller.id, 'refund_row_invoice_status_hold', { key: s.key, status: s.invoiceStatus, reportSeq: Number.isInteger(reportSeq) ? reportSeq : null, reportRequestedAt: reportReqTs != null && !Number.isNaN(new Date(reportReqTs).getTime()) ? new Date(reportReqTs).toISOString() : null });
     return;
   }
+  // Ruling 5 (Ahmed, WhatsApp 2026-11-28 15:27, forwarded by Main): ANY RETURN row that carries an Invoice* status is a HOLD with zero effect on the original invoice, the credit note and the replacement.
+  if (s.transactionType === 'RETURN' && !s.isCorrectedTx) { openReturnHold(db, seller.id, s, { reportSeq }); return; }
   const key = `SHIPMENT:${s.shippingId}`;
   // A Correction:: transaction's verdict belongs to the REPLACEMENT document (a rectificativa keyed
   // by the correction event), not to the original invoice. Billing-correction documents are under
   // the same reject/retry umbrella as every other document.
   const rect = s.isCorrectedTx ? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq, json, shipment_key FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='rectificativa' ORDER BY issued_at DESC LIMIT 1").get(seller.id, s.key) : null;
-  const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
+  const inv = rect ?? db.prepare("SELECT number, upload_status, rectifies, sending_at, attempt_seq, json, shipment_key FROM invoices WHERE seller_id=? AND shipment_key=? AND kind='invoice' ORDER BY issued_at DESC LIMIT 1").get(seller.id, key);
   if (!inv) return;
   // Round-14 (critic round-12): ordering comes from the monotonic attempt sequence, never the
   // clock (a claim and a report request in the same millisecond are indistinguishable by
@@ -251,6 +254,12 @@ export function reconcileInvoice(db, seller, s, reportReqTs = null, reportSeq = 
     return;
   }
   const docKey = rect ? s.key : key;
+  // Ruling 5: an ORIGINAL invoice verdict is applied only when the report proves the row is our document (src/orig-gate.js). Anything unproven is a HOLD and the status is applied by nothing.
+  if (!rect) {
+    const idv = evaluateOriginalVerdict(db, seller.id, s, inv, { reportSeq, expect: s.invoiceStatus });
+    if (!idv.ok) { openOriginalHold(db, seller.id, key, idv.failed, { number: inv.number, status: s.invoiceStatus, reportSeq }); return; }
+    resolveOriginalHold(db, seller.id, key);
+  }
   // Expedition (reviewer 2 F2): an OPEN credit-note hold on the pair needs a person before ANY automatic
   // change to the pair's correction documents, including a status moved by an Invoice* row. The row is
   // logged as evidence and applied by nothing.

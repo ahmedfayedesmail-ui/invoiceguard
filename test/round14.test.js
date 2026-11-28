@@ -6,7 +6,7 @@
 //    current sequence at request time; a document whose current attempt_seq is newer than the
 //    report's snapshot cannot be described by that report - the verdict is skipped and logged.
 // 2. CREDIT-NOTE PATH COVERAGE: the guard exists in reconcileCreditNote; these tests prove it.
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
 import { acceptReport } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -56,7 +56,7 @@ async function seedRejectedInvoice(db) {
   await processReport(db, seller, text, { api, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT * FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
   const [head, ...rows] = text.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' })), { ...seqOpt(db, seller.id), api, validate: vies });
   assert.equal(statusOf(db, inv.number), 'rejected');
   const q = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   assert.ok(q, 'a reviewed retry was proposed');
@@ -95,7 +95,7 @@ test('R12-1: identical timestamps cannot express the ordering - the attempt SEQU
   // millisecond as the report request. A timestamp comparison cannot tell these events apart
   // (and >= would risk skipping a fresh verdict); the sequence orders them exactly.
   db.prepare('UPDATE invoices SET sending_at=? WHERE seller_id=? AND number=?').run(staleTs.toISOString(), seller.id, inv.number);
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies, reportRequestedAt: staleTs, reportAttemptSeq: staleSeq });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'InvoiceRejected', 'invoice-status-description': 'Internal processing error' })), { api, validate: vies, reportRequestedAt: staleTs, reportAttemptSeq: staleSeq });
   assert.equal(statusOf(db, inv.number), 'sending', 'the stale rejection is skipped even with identical timestamps');
   assert.equal(skips(db, inv.number).length, 1, 'the skip is logged as evidence');
   release(); await retry;

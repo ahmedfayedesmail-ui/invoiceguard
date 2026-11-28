@@ -1,5 +1,5 @@
 import { acceptReport } from './correction-helpers.js';
-import test from 'node:test';
+import test from 'node:test'; import { proved, seqOpt } from './helpers/prove-verdict.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb } from '../src/db.js';
@@ -306,7 +306,7 @@ test('a rejected invoice gets a reviewed retry that re-uploads the SAME document
   await processReport(db, seller, text, { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
   const invCount = db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c;
-  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'rejected');
   const q = listRepairs(db, seller.id);
   assert.equal(q.length, 1); assert.equal(q[0].kind, 'rejected_invoice'); assert.equal(q[0].suggestion.action, 'retry_upload');
@@ -369,19 +369,19 @@ test('repeat rejections re-open the retry review, and Amazon acceptance closes t
   const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
-  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   let [q] = listRepairs(db, seller.id);
   assert.equal(q.suggestion.action, 'retry_upload');
   await approveRepair(db, seller, q.event_key, { api: api2, validate: vies });
   // Amazon rejects the SAME document again: a fresh review must appear (the old fixed key swallowed it)
-  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   const q2 = listRepairs(db, seller.id);
   assert.equal(q2.length, 1, 'the repeated rejection produced a fresh proposal');
   assert.equal(q2[0].state, 'proposed');
   await approveRepair(db, seller, q2[0].event_key, { api: api2, validate: vies });
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'still one invoice number, never a second');
   // Amazon's acceptance then closes the repair for good
-  await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceUploaded')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'uploaded');
   assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, q2[0].event_key).state, 'uploaded');
 });
@@ -422,7 +422,7 @@ test('a rejected correction replacement invoice retries the SAME document, and t
   const orig = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
   assert.ok(repl, 'the replacement document exists');
   const [head, ...rows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[1].split('\t'), 'InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, withDesc(head, rows[1].split('\t'), 'InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, repl.number).upload_status, 'rejected');
   assert.notEqual(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, orig.number).upload_status, 'rejected', 'the original invoice is untouched');
   const q = listRepairs(db, seller.id).find(x => x.kind === 'rejected_correction_invoice');
@@ -438,7 +438,7 @@ test('boot recovery reads the document state instead of blindly resetting stuck 
   const api2 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }) };
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
-  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   const [p] = listRepairs(db, seller.id);
   // crash mid-approval, document never retried: the review safely comes back
   db.prepare("UPDATE repairs SET state='issuing' WHERE seller_id=? AND event_key=?").run(seller.id, p.event_key);
@@ -477,7 +477,7 @@ test('an interrupted upload is never blindly resent: unknown state, a hold for a
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'no second invoice was burned');
   // Amazon's verdict then closes the hold
-  await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api3, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceUploaded')), { ...seqOpt(db, seller.id), api: api3, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'uploaded');
   assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'uploaded');
 });
@@ -487,7 +487,7 @@ test('a content rejection is held for a real fix, never blindly re-uploaded', as
   const calls = [];
   const api2 = { uploadInvoice: async (a) => { calls.push(a); return 'f' + calls.length; }, feedStatus: async () => ({ status: 'DONE' }) };
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
-  await processReport(db, seller, singleRow('InvoiceRejected', 'TotalAmount does not match'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'TotalAmount does not match')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   const [q] = listRepairs(db, seller.id);
   assert.equal(q.suggestion.action, 'hold', 'content rejections are held, not retried');
   const upBefore = calls.length;
@@ -503,7 +503,7 @@ test('a retry upload interrupted mid-flight goes to unknown with a hold and refu
   const api2 = { uploadInvoice: async () => { calls++; if (fail) { const e = new Error('socket hang up'); e.unknownOutcome = true; throw e; } return 'f' + calls; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
-  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   const [q] = listRepairs(db, seller.id);
   fail = true;
   await assert.rejects(() => approveRepair(db, seller, q.event_key, { api: api2, validate: vies }), /socket hang up/);
@@ -520,7 +520,7 @@ test('a retry upload interrupted mid-flight goes to unknown with a hold and refu
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
   assert.equal(calls, 3, 'exactly one settling resend');
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
-  await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceUploaded')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'uploaded');
 });
 
@@ -541,12 +541,12 @@ test('content rejections of credit notes and replacement invoices are HELD, and 
   await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), 'CreditNoteUploaded'), { api: api2, validate: vies });
   await processCorrections(db, seller, corr, { api: api2, validate: vies });
   // content rejection of the replacement invoice
-  await acceptReport(db, seller, withDesc(head, rows[1].split('\t'), 'InvoiceRejected', 'TotalVATAmount mismatch'), { api: api2, validate: vies });
+  await acceptReport(db, seller, proved(db, seller.id, withDesc(head, rows[1].split('\t'), 'InvoiceRejected', 'TotalVATAmount mismatch')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   const replHold = listRepairs(db, seller.id).find(r => r.kind === 'rejected_correction_invoice');
   assert.ok(replHold, 'replacement rejection proposed');
   assert.equal(replHold.suggestion.action, 'hold', 'a content rejection of a replacement invoice is held, not retried');
   // an empty rejection reason on a plain invoice holds too (unknown class never retries)
-  await acceptReport(db, seller, singleRow('InvoiceRejected'), { api: api2, validate: vies });
+  await acceptReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   const emptyHold = listRepairs(db, seller.id).find(r => r.kind === 'rejected_invoice');
   assert.ok(emptyHold, 'plain invoice rejection proposed');
   assert.equal(emptyHold.suggestion.action, 'hold', 'an empty/unclear reason holds instead of guessing');
@@ -565,7 +565,7 @@ test('boot recovery never closes a repair on an unknown or rejected document', a
   assert.equal(db.prepare('SELECT state FROM repairs WHERE seller_id=? AND event_key=?').get(seller.id, hold.event_key).state, 'proposed', 'a hold on an unknown document stays in review');
   // a credit-note repair whose document was REJECTED before the crash also comes back
   fail = false;
-  await acceptReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
+  await acceptReport(db, seller, proved(db, seller.id, singleRow('InvoiceUploaded')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   detectRepairs(db, seller, refundReport());
   const [p] = listRepairs(db, seller.id).filter(r => r.kind === 'return');
   await approveRepair(db, seller, p.event_key, { api: api2, validate: vies });
@@ -598,7 +598,7 @@ test('the crash window between Amazon acceptance and the local write is recovere
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'submitted');
   assert.equal(db.prepare("SELECT count(*) c FROM invoices WHERE seller_id=? AND kind='invoice'").get(seller.id).c, 1, 'no second invoice was burned');
-  await processReport(db, seller, singleRow('InvoiceUploaded'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceUploaded')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'uploaded', "Amazon's verdict closes the document");
 });
 
@@ -680,7 +680,7 @@ test('a retry upload is marked sending BEFORE Amazon is called, and a crash mid-
   const api0 = { uploadInvoice: async () => 'f1', feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
   await processReport(db, seller, singleRow(null), { api: api0, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   inv = db.prepare("SELECT number, shipment_key FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
-  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api0, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api0, validate: vies });
   const [q] = listRepairs(db, seller.id);
   await assert.rejects(() => approveRepair(db, seller, q.event_key, { api: api2, validate: vies }), /socket hang up/);
   assert.equal(seen, 'sending', 'the retry marked the document sending before calling Amazon');
@@ -690,7 +690,7 @@ test('a retry upload is marked sending BEFORE Amazon is called, and a crash mid-
   const db2 = openDb();
   await processReport(db2, seller, singleRow(null), { api: api0, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv2 = db2.prepare("SELECT number, shipment_key FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
-  await processReport(db2, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api0, validate: vies });
+  await processReport(db2, seller, proved(db2, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db2, seller.id), api: api0, validate: vies });
   db2.prepare("UPDATE invoices SET upload_status='sending' WHERE seller_id=? AND number=?").run(seller.id, inv2.number); // the retry's marker, then the process died
   db2.prepare("UPDATE shipments SET status='sending' WHERE seller_id=? AND key=?").run(seller.id, inv2.shipment_key);
   assert.equal(recoverUncertainUploads(db2), 1);
@@ -704,7 +704,7 @@ test('a definitely refused retry returns the document to rejected, so the review
   const api2 = { uploadInvoice: async () => { if (fail) { const e = new Error('SP-API POST /feeds -> 400 {"errors":[{"code":"InvalidInput"}]}'); throw e; } return 'f2'; }, feedStatus: async () => ({ status: 'DONE' }), listFeeds: async () => [] };
   await processReport(db, seller, singleRow(null), { api: api2, validate: vies, now: new Date('2026-11-24T12:00:00Z') });
   const inv = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='invoice' ORDER BY number LIMIT 1").get(seller.id);
-  await processReport(db, seller, singleRow('InvoiceRejected', 'Internal processing error'), { api: api2, validate: vies });
+  await processReport(db, seller, proved(db, seller.id, singleRow('InvoiceRejected', 'Internal processing error')), { ...seqOpt(db, seller.id), api: api2, validate: vies });
   const [q] = listRepairs(db, seller.id);
   await assert.rejects(() => approveRepair(db, seller, q.event_key, { api: api2, validate: vies }), /InvalidInput/);
   assert.equal(db.prepare('SELECT upload_status FROM invoices WHERE seller_id=? AND number=?').get(seller.id, inv.number).upload_status, 'rejected', 'a definite refusal restores rejected');

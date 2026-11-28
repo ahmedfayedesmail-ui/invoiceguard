@@ -27,7 +27,7 @@ import { validateVat } from './vies.js';
 import { renderPdfCached as renderPdf } from './pdf.js';
 import * as F from './features.js';
 import { PACKS } from './rules.js';
-import { listHolds, decideHold } from './holds.js';
+import { listHolds, decideHold, addHoldNote } from './holds.js';
 
 const INDEX = readFileSync(new URL('../public/index.html', import.meta.url));
 const FAVICON = readFileSync(new URL('../public/favicon.svg', import.meta.url));
@@ -506,6 +506,10 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
       if (p === '/api/holds/decide') {
         if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
         try { const r = decideHold(db, seller.id, body, user.email ?? user.id); logEvent(db, seller.id, 'hold_decided', { key: body.key, code: body.code }); return json(res, 200, r); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
+      }
+      if (p === '/api/holds/note') { // ruling 5: investigation notes never change state
+        if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
+        try { return json(res, 200, addHoldNote(db, seller.id, body, user.email ?? user.id)); } catch (e) { if (e?.busy) throw e; return json(res, 422, { error: e.message }); }
       }
       if (p === '/api/repairs') { // review queue: proposed first, then the recent history
         const snap = latestReportSnapshot(db, seller.id); // round-16/17: the review shows each proposal's freshness, ordered by report generation

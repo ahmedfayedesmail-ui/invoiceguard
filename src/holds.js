@@ -1,6 +1,7 @@
 // Expedition W2-2: the review queue for ledger findings (HOLD / BLOCK). Until now these were written by the pipeline and read only by tests: no route listed them and none recorded the human decision.
 // Every item answers: what happened, why, which evidence, what the system knows, what it does not know, what is allowed, what is blocked, what happens next. Pure text from stored fields; nothing is inferred.
 import { releaseIntegrity } from './integrity.js';
+import { logEvent } from './db.js';
 const parse = (s) => { try { return JSON.parse(s ?? 'null') ?? {}; } catch { return {}; } };
 const CN = {
   CREDIT_NOTE_IDENTITY_UNPROVEN: { happened: 'Amazon sent a report row about a credit note, but the row could not be proven to be our document.', blocked: ['No status change on the credit note', 'No replacement invoice', 'No retry or re-upload of any correction document of this pair'] },
@@ -44,4 +45,14 @@ export function listHolds(db, sellerId, { includeClosed = false } = {}) {
 export function decideHold(db, sellerId, { key, code, fingerprint, reason }, user) {
   if (typeof key !== 'string' || typeof code !== 'string' || typeof fingerprint !== 'string') throw new Error('Choose the item and send its fingerprint.');
   return releaseIntegrity(db, sellerId, key, code, fingerprint, { user, reason });
+}
+
+/** Ruling 5 (decision 1): a person may record an investigation note on a hold. A note is an operational record only: it never changes a finding, a document, a shipment or any financial state, and it is never read as Amazon evidence. */
+export function addHoldNote(db, sellerId, { key, code, note }, user) {
+  if (typeof key !== 'string' || typeof code !== 'string') throw new Error('Choose the item.');
+  if (!String(user ?? '').trim()) throw new Error('A note needs the user who writes it.');
+  const text = String(note ?? '').trim(); if (text.length < 3) throw new Error('Write the note.');
+  if (!db.prepare('SELECT 1 FROM integrity_findings WHERE seller_id=? AND shipment_key=? AND code=?').get(sellerId, key, code)) throw new Error('There is no such item.');
+  logEvent(db, sellerId, 'hold_note', { key, code, by: String(user).trim(), note: text.slice(0, 1000), effect: 'none' });
+  return { recorded: true, stateChanged: false };
 }

@@ -4,16 +4,17 @@
 // InvoiceUploaded, and a done feed is not what marks it - the report status is.
 import { readFileSync } from 'node:fs';
 export class MockApi {
-  constructor(uploadedIds = [], creditIds = []) { this.feeds = new Map(); this.uploaded = new Set(uploadedIds); this.creditDone = new Set(creditIds); this.template = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); }
+  constructor(uploadedIds = [], creditIds = []) { this.feeds = new Map(); this.numbers = new Map(); this.uploaded = new Set(uploadedIds); this.creditDone = new Set(creditIds); this.template = readFileSync(new URL('../fixtures/vidr.tsv', import.meta.url), 'utf8'); }
   async requestVidr() { return 'mock-report'; }
   async waitReport() { return 'mock-doc'; }
   async downloadReport() {
     const today = new Date().toISOString().slice(0, 10);
     const [head, ...rows] = this.template.trim().split('\n');
     const cols = head.split('\t'), ix = (n) => cols.indexOf(n);
+    // The All view carries the document number (invoice-number): a verdict row names the document Amazon holds, which is what the original-invoice identity gate compares.
     const out = rows.map(r => { const c = r.split('\t'); c[ix('shipment-date')] = `${today}T06:00:00Z`;
       if (this.uploaded.has(c[ix('shipping-id')])) c[ix('invoice-status')] = 'InvoiceUploaded';
-      return c.join('\t'); });
+      c.push(this.numbers.get(c[ix('shipping-id')]) ?? ''); return c.join('\t'); });
     // Once something was uploaded, a return arrives for it: the demo then shows the repair flow on the next sync.
     const ups = rows.filter(r => this.uploaded.has(r.split('\t')[ix('shipping-id')]));
     if (ups[0]) { const c = ups[0].split('\t'); c[ix('transaction-type')] = 'REFUND'; c[ix('transaction-id')] = 'RF-DEMO-1'; c[ix('shipment-date')] = `${today}T09:00:00Z`;
@@ -24,9 +25,9 @@ export class MockApi {
       for (const n of ['item-vat-incl-amount', 'item-vat-amount', 'item-vat-excl-amount']) { const v = parseFloat(c[ix(n)]) / 2; c[ix(n)] = (-Math.round(v * 100) / 100).toFixed(2); }
       for (const n of ['shipping-vat-incl-amount', 'shipping-vat-amount', 'shipping-vat-excl-amount', 'gift-wrap-vat-incl-amount', 'gift-wrap-vat-amount', 'gift-wrap-vat-excl-amount']) { if (ix(n) >= 0) c[ix(n)] = '0'; }
       c[ix('invoice-status')] = this.creditDone.has('RT-DEMO-1') ? 'CreditNoteUploaded' : 'CreditNotePending'; out.push(c.join('\t')); }
-    return [head, ...out].join('\n');
+    return [head + '\tinvoice-number', ...out.map(l => l.split('\t').length === cols.length ? l + '\t' : l)].join('\n');
   }
-  async uploadInvoice({ shippingId, documentType, transactionId }) { const id = `mock-feed-${this.feeds.size + 1}`; this.feeds.set(id, { shippingId, createdTime: new Date().toISOString(), status: 'DONE' }); if (documentType === 'CreditNote' && transactionId) this.creditDone.add(transactionId); else this.uploaded.add(shippingId); return id; }
+  async uploadInvoice({ shippingId, documentType, transactionId, number }) { if (number && documentType !== 'CreditNote' && !transactionId && !String(number).startsWith('R-')) this.numbers.set(shippingId, number); const id = `mock-feed-${this.feeds.size + 1}`; this.feeds.set(id, { shippingId, createdTime: new Date().toISOString(), status: 'DONE' }); if (documentType === 'CreditNote' && transactionId) this.creditDone.add(transactionId); else this.uploaded.add(shippingId); return id; }
   async listFeeds({ createdSince } = {}) { return [...this.feeds.entries()].filter(([, f]) => !createdSince || f.createdTime >= createdSince).map(([feedId, f]) => ({ feedId, status: f.status, createdTime: f.createdTime, resultDocumentId: f.resultDocumentId ?? null })); }
   async feedStatus() { return { status: 'DONE', resultDocumentId: 'mock-result-doc' }; }
   async downloadFeedResult() { return 'record-status\tmessage\nsuccess\tsimulated processing report: no errors'; }
