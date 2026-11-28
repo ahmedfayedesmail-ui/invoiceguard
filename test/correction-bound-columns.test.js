@@ -13,7 +13,7 @@ const replacement = () => { const f = [...base]; f[ix('transaction-id')] = 'Corr
 const head = head0 + '\tinvoice-correction-details';
 const report = (rv, rp) => [head, rv.join('\t') + '\tReason A', rp.join('\t') + '\tReason A'].join('\n');
 const credits = (db) => db.prepare("SELECT count(*) c FROM invoices WHERE kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%'").get().c;
-const fresh = async () => { const api = mkApi(), db = openDb(); await processReport(db, seller, text, { api, validate: vies, now: NOW }); await processCorrections(db, seller, report(reversal(), replacement()), { api, validate: vies }); assert.equal(approveAll(db, seller.id), 1); return { api, db }; };
+const fresh = async () => { const api = mkApi(), db = openDb(); await processReport(db, seller, text, { api, validate: vies, now: NOW }); await processCorrections(db, seller, report(reversal(), replacement()), { api, validate: vies }); assert.equal(approveAll(db, seller.id), 1); api.n0 = api.calls.length; return { api, db }; };
 const mutate = (v) => /^-?\d+(\.\d+)?$/.test(v) ? String(Number(v) + 0.01) : (v === '' ? 'MUT' : v + ' MUT');
 const BOUND = ['fulfilled-by', 'order-date', 'recipient-name', 'buyer-name', 'sku', 'product-name', 'is-amazon-invoiced', 'is-business-order', 'citation-es'];
 
@@ -24,7 +24,7 @@ for (const c of BOUND) for (const which of ['reversal', 'replacement']) {
   test(`changing ${c} on the ${which} row after approval voids it (nothing issued, held for a new review)`, async () => {
     const { api, db } = await fresh(); const rv = reversal(), rp = replacement(), t = which === 'reversal' ? rv : rp; t[ix(c)] = mutate(t[ix(c)] ?? '');
     const r = await processCorrections(db, seller, report(rv, rp), { api, validate: vies });
-    assert.equal(credits(db), 0, 'no credit note'); assert.equal(api.calls.length, 0, 'nothing uploaded'); assert.equal(r.creditNotes + r.invoices, 0);
+    assert.equal(credits(db), 0, 'no credit note'); assert.equal(api.calls.length, api.n0, 'nothing uploaded after the approval'); assert.equal(r.creditNotes + r.invoices, 0);
     assert.ok(r.skipped.some(s => /review/i.test(s.reason)), 'the hold names the review: ' + JSON.stringify(r.skipped));
   });
 }
