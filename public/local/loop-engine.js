@@ -1906,6 +1906,11 @@ var readFlag = (values) => {
   const v = new Set([].concat(values).map((x) => String(x ?? "").trim().toUpperCase()));
   return v.size === 1 && v.has("TRUE") ? true : v.size === 1 && v.has("FALSE") ? false : null;
 };
+var PARTS = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
+var BOUND_COLUMNS = ["fulfilled-by", "order-date", "recipient-name", "buyer-name", "sku", "product-name", "is-amazon-invoiced", "is-business-order", "citation-es"];
+var CONFLICT_FIELDS = ["currency", "buyer-vat-number", "billing-name", "bill-address-1", "bill-city", "bill-postal-code", "bill-country", "ship-country", "ship-from-country", "shipment-date", "seller-vat-number", "marketplace-id", "order-id", "buyer-company-name", "buyer-tax-registration-type", "invoice-status"];
+var READ_SCALAR = ["order-id", "order-item-id", "shipping-id", "transaction-id", "transaction-type", "marketplace-id", "order-date", "shipment-date", "currency", "invoice-status", "invoice-status-description", "seller-vat-number", "buyer-vat-number", "buyer-tax-registration-type", "buyer-company-name", "billing-name", "buyer-name", "purchase-order-number", "bill-address-1", "bill-address-2", "bill-address-3", "bill-city", "bill-postal-code", "bill-country", "ship-country", "ship-from-country", "is-invoice-corrected", "original-vat-invoice-number", "invoice-correction-details", "quantity-purchased", "sku", "asin", "product-name", "invoice-number", "is-amazon-invoiced", "is-business-order"];
+var READ_COLUMNS = /* @__PURE__ */ new Set([...READ_SCALAR, ...BOUND_COLUMNS, ...CONFLICT_FIELDS, ...PARTS.flatMap((p) => [`${p}-vat-incl-amount`, `${p}-vat-amount`, `${p}-vat-excl-amount`, `${p}-vat-rate`])]);
 
 // src/manual.js
 var MAX_ROWS = 2e4;

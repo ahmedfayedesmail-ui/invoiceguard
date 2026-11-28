@@ -16,16 +16,31 @@ const bool = (x) => String(x).toUpperCase() === 'TRUE';
 export const readFlag = (values) => { const v = new Set([].concat(values).map(x => String(x ?? '').trim().toUpperCase())); return v.size === 1 && v.has('TRUE') ? true : v.size === 1 && v.has('FALSE') ? false : null; };
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+const PARTS = ['item', 'shipping', 'gift-wrap', 'item-promo', 'shipping-promo', 'gift-promo'];
+/** Round 3 (owner ruling Nov 28 2026): report columns a person's approval is bound to, although the document builder does not read them. invoice-status is deliberately NOT here (a lifecycle field). */
+export const BOUND_COLUMNS = ['fulfilled-by', 'order-date', 'recipient-name', 'buyer-name', 'sku', 'product-name', 'is-amazon-invoiced', 'is-business-order', 'citation-es'];
+export const CONFLICT_FIELDS = ['currency', 'buyer-vat-number', 'billing-name', 'bill-address-1', 'bill-city', 'bill-postal-code', 'bill-country', 'ship-country', 'ship-from-country', 'shipment-date', 'seller-vat-number', 'marketplace-id', 'order-id', 'buyer-company-name', 'buyer-tax-registration-type', 'invoice-status'];
+
+// Every column this parser reads, directly or through PARTS/BOUND_COLUMNS/CONFLICT_FIELDS. Anything else in a header
+// is data we do not read: it must never be dropped silently (see unsupportedColumns in parseVidr), and its absence
+// can never make a row incomplete (see missingOf in checkTsv).
+const READ_SCALAR = ['order-id', 'order-item-id', 'shipping-id', 'transaction-id', 'transaction-type', 'marketplace-id', 'order-date', 'shipment-date', 'currency', 'invoice-status', 'invoice-status-description', 'seller-vat-number', 'buyer-vat-number', 'buyer-tax-registration-type', 'buyer-company-name', 'billing-name', 'buyer-name', 'purchase-order-number', 'bill-address-1', 'bill-address-2', 'bill-address-3', 'bill-city', 'bill-postal-code', 'bill-country', 'ship-country', 'ship-from-country', 'is-invoice-corrected', 'original-vat-invoice-number', 'invoice-correction-details', 'quantity-purchased', 'sku', 'asin', 'product-name', 'invoice-number', 'is-amazon-invoiced', 'is-business-order'];
+export const READ_COLUMNS = new Set([...READ_SCALAR, ...BOUND_COLUMNS, ...CONFLICT_FIELDS, ...PARTS.flatMap(p => [`${p}-vat-incl-amount`, `${p}-vat-amount`, `${p}-vat-excl-amount`, `${p}-vat-rate`])]);
+// Citation text is read when present, but a trailing citation cell is exactly the tab an editor drops when it is empty,
+// so a row short by a trailing citation column is still complete.
+const CITATION_COLUMNS = new Set(['citation-en', 'citation-es']);
+
 // Row integrity. A raw newline inside a text cell splits one report row into physical lines, and each piece looks like a row. A piece is accepted only when it is complete by the file's OWN header:
-// exactly as many cells as the header, or fewer where every missing cell is a trailing OPTIONAL column (an editor may drop a trailing empty tab). Anything else (a missing required cell, an extra cell)
-// is an invalid row: quarantined, never read as a shipment. IDs and dates alone are not enough: the first piece of a split row keeps them.
-const OPTIONAL_TRAILING = new Set(['citation-en', 'citation-es']);
+// exactly as many cells as the header, or fewer where every missing cell is a trailing column whose loss cannot change a document: a column the parser never reads, or a citation text (an editor may drop
+// a trailing empty tab). The optional set is derived from the ACTUAL header order at parse time, not from a fixed guess at which columns Amazon puts last: in the real VIDR header citation-es sits
+// mid-header and buyer-nip/seller-nip close it, and a file like that must not see its rows quarantined. Anything else (a missing read cell, an extra cell) is an invalid row: quarantined, never read as
+// a shipment. IDs and dates alone are not enough: the first piece of a split row keeps them.
 export function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => [l, i + 1]).filter(([l]) => l.trim());
   if (!lines.length) return { rows: [], rowLines: [], invalid: [], head: [] };
   const head = lines[0][0].split('\t').map(h => h.trim().toLowerCase());
   const dupNames = [...new Set(head.filter((h, i) => h && head.indexOf(h) !== i))];
-  const missingOf = (n) => n < head.length ? head.slice(n).filter(h => !OPTIONAL_TRAILING.has(h)) : [];
+  const missingOf = (n) => n < head.length ? head.slice(n).filter(h => READ_COLUMNS.has(h) && !CITATION_COLUMNS.has(h)) : [];
   const items = [], invalid = []; let prev = null; // prev = the accepted row on the physical line directly before, if any
   for (const [l, no] of lines.slice(1)) {
     const c = l.split('\t'); const missing = missingOf(c.length);
@@ -46,11 +61,6 @@ export function checkTsv(text) {
 }
 export function parseTsv(text) { return checkTsv(text).rows; }
 
-const PARTS = ['item', 'shipping', 'gift-wrap', 'item-promo', 'shipping-promo', 'gift-promo'];
-/** Round 3 (owner ruling Nov 28 2026): report columns a person's approval is bound to, although the document builder does not read them. invoice-status is deliberately NOT here (a lifecycle field). */
-export const BOUND_COLUMNS = ['fulfilled-by', 'order-date', 'recipient-name', 'buyer-name', 'sku', 'product-name', 'is-amazon-invoiced', 'is-business-order', 'citation-es'];
-export const CONFLICT_FIELDS = ['currency', 'buyer-vat-number', 'billing-name', 'bill-address-1', 'bill-city', 'bill-postal-code', 'bill-country', 'ship-country', 'ship-from-country', 'shipment-date', 'seller-vat-number', 'marketplace-id', 'order-id', 'buyer-company-name', 'buyer-tax-registration-type', 'invoice-status'];
-
 /** Group item rows into shipments (an invoice is due per shipment, not per order). */
 export function parseVidr(text) {
   const checked = checkTsv(text); let { rows, invalid } = checked;
@@ -60,6 +70,10 @@ export function parseVidr(text) {
     invalid = Array.from({ length: Math.max(n, 0) }, (_, i) => ({ line: i + 2, cells: 0, expected: checked.head.length, missing: ['order-id', 'shipping-id or transaction-id'], reason: 'the header does not identify shipments, so this is not a VAT Invoice Data Report' })); rows = [];
   }
   const map = new Map(); let ri = -1; const rowLines = checked.rowLines ?? [];
+  // Columns in this file's header that the parser does not read (for example bottle-deposit amounts, buyer-nip,
+  // export-outside-eu). A row that carries DATA in one of them is never dropped silently: the shipment is marked so
+  // the caller holds it instead of issuing from incomplete data. An empty unsupported column stays fine.
+  const unread = checked.head.filter(h => h && !READ_COLUMNS.has(h));
   for (const r of rows) {
     ri++;
     const key = `${r['transaction-type'] || 'SHIPMENT'}:${r['transaction-id'] || r['shipping-id']}`;
@@ -78,6 +92,7 @@ export function parseVidr(text) {
         citation: r['citation-es'] || r['citation-en'] || null, items: [], incl: 0, vat: 0, excl: 0,
       }).get(key);
     }
+    if (unread.length) for (const h of unread) if (r[h]) (s.unsupportedColumns ??= new Set()).add(h);
     // Provenance for the integrity gate: the physical line and the raw tokens of every row that fed this shipment. Nothing is interpreted here.
     (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r['quantity-purchased'] ?? '', itemId: r['order-item-id'] ?? '', sig: Object.values(r).join('\t'), orderDate: r['order-date'] ?? '', attrs: Object.fromEntries(CONFLICT_FIELDS.map(f => [f, r[f] ?? ''])), bound: Object.fromEntries(BOUND_COLUMNS.map(f => [f, r[f] ?? ''])), parts: Object.fromEntries(PARTS.map(p => [p, { incl: r[`${p}-vat-incl-amount`] ?? '', vat: r[`${p}-vat-amount`] ?? '', excl: r[`${p}-vat-excl-amount`] ?? '', rate: r[`${p}-vat-rate`] ?? '' }])) });
     (s.rowMeta ??= []).push({ status: r['invoice-status'] ?? '', invoiceNumber: r['invoice-number'] ?? '', orderId: r['order-id'] ?? '', shippingId: r['shipping-id'] ?? '', currency: r.currency ?? '', marketplace: r['marketplace-id'] ?? '', type: r['transaction-type'] ?? '', transactionId: r['transaction-id'] || r['shipping-id'] || '', originalInvoiceNumber: r['original-vat-invoice-number'] ?? '', incl: PARTS.reduce((q, p) => q + num(r[`${p}-vat-incl-amount`]), 0), vat: PARTS.reduce((q, p) => q + num(r[`${p}-vat-amount`]), 0) }); s.invoiceNumberColumn = checked.head.includes('invoice-number'); // per-row evidence for the credit-note acceptance gate (src/cn-gate.js); nothing here changes a financial figure
@@ -92,7 +107,7 @@ export function parseVidr(text) {
       extras: PARTS.slice(1).map(p => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter(x => x.excl || x.vat),
     });
   }
-  const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, unsupportedColumns: s.unsupportedColumns ? [...s.unsupportedColumns].sort() : [], isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
   const perOrder = new Map(); for (const s of list) { const k = s.marketplace + '|' + s.orderId; perOrder.set(k, (perOrder.get(k) ?? 0) + 1); } for (const s of list) s.orderShipments = perOrder.get(s.marketplace + '|' + s.orderId);
   list.invalidRows = invalid; // rows rejected by the integrity check: never shipments
   return list;

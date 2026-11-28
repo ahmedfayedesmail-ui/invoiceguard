@@ -49104,13 +49104,18 @@ var readFlag = (values) => {
   return v.size === 1 && v.has("TRUE") ? true : v.size === 1 && v.has("FALSE") ? false : null;
 };
 var r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-var OPTIONAL_TRAILING = /* @__PURE__ */ new Set(["citation-en", "citation-es"]);
+var PARTS2 = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
+var BOUND_COLUMNS = ["fulfilled-by", "order-date", "recipient-name", "buyer-name", "sku", "product-name", "is-amazon-invoiced", "is-business-order", "citation-es"];
+var CONFLICT_FIELDS = ["currency", "buyer-vat-number", "billing-name", "bill-address-1", "bill-city", "bill-postal-code", "bill-country", "ship-country", "ship-from-country", "shipment-date", "seller-vat-number", "marketplace-id", "order-id", "buyer-company-name", "buyer-tax-registration-type", "invoice-status"];
+var READ_SCALAR = ["order-id", "order-item-id", "shipping-id", "transaction-id", "transaction-type", "marketplace-id", "order-date", "shipment-date", "currency", "invoice-status", "invoice-status-description", "seller-vat-number", "buyer-vat-number", "buyer-tax-registration-type", "buyer-company-name", "billing-name", "buyer-name", "purchase-order-number", "bill-address-1", "bill-address-2", "bill-address-3", "bill-city", "bill-postal-code", "bill-country", "ship-country", "ship-from-country", "is-invoice-corrected", "original-vat-invoice-number", "invoice-correction-details", "quantity-purchased", "sku", "asin", "product-name", "invoice-number", "is-amazon-invoiced", "is-business-order"];
+var READ_COLUMNS = /* @__PURE__ */ new Set([...READ_SCALAR, ...BOUND_COLUMNS, ...CONFLICT_FIELDS, ...PARTS2.flatMap((p) => [`${p}-vat-incl-amount`, `${p}-vat-amount`, `${p}-vat-excl-amount`, `${p}-vat-rate`])]);
+var CITATION_COLUMNS = /* @__PURE__ */ new Set(["citation-en", "citation-es"]);
 function checkTsv(text) {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l, i2) => [l, i2 + 1]).filter(([l]) => l.trim());
   if (!lines.length) return { rows: [], rowLines: [], invalid: [], head: [] };
   const head = lines[0][0].split("	").map((h) => h.trim().toLowerCase());
   const dupNames = [...new Set(head.filter((h, i2) => h && head.indexOf(h) !== i2))];
-  const missingOf = (n) => n < head.length ? head.slice(n).filter((h) => !OPTIONAL_TRAILING.has(h)) : [];
+  const missingOf = (n) => n < head.length ? head.slice(n).filter((h) => READ_COLUMNS.has(h) && !CITATION_COLUMNS.has(h)) : [];
   const items = [], invalid = [];
   let prev = null;
   for (const [l, no] of lines.slice(1)) {
@@ -49137,9 +49142,6 @@ function checkTsv(text) {
   }
   return { rows: items.filter((i2) => !i2.drop).map((i2) => i2.row), rowLines: items.filter((i2) => !i2.drop).map((i2) => i2.line), invalid: invalid.sort((x, y) => x.line - y.line), head };
 }
-var PARTS2 = ["item", "shipping", "gift-wrap", "item-promo", "shipping-promo", "gift-promo"];
-var BOUND_COLUMNS = ["fulfilled-by", "order-date", "recipient-name", "buyer-name", "sku", "product-name", "is-amazon-invoiced", "is-business-order", "citation-es"];
-var CONFLICT_FIELDS = ["currency", "buyer-vat-number", "billing-name", "bill-address-1", "bill-city", "bill-postal-code", "bill-country", "ship-country", "ship-from-country", "shipment-date", "seller-vat-number", "marketplace-id", "order-id", "buyer-company-name", "buyer-tax-registration-type", "invoice-status"];
 function parseVidr(text) {
   const checked = checkTsv(text);
   let { rows, invalid } = checked;
@@ -49151,6 +49153,7 @@ function parseVidr(text) {
   const map = /* @__PURE__ */ new Map();
   let ri = -1;
   const rowLines = checked.rowLines ?? [];
+  const unread = checked.head.filter((h) => h && !READ_COLUMNS.has(h));
   for (const r of rows) {
     ri++;
     const key = `${r["transaction-type"] || "SHIPMENT"}:${r["transaction-id"] || r["shipping-id"]}`;
@@ -49193,6 +49196,9 @@ function parseVidr(text) {
         excl: 0
       }).get(key);
     }
+    if (unread.length) {
+      for (const h of unread) if (r[h]) (s.unsupportedColumns ??= /* @__PURE__ */ new Set()).add(h);
+    }
     (s.src ??= []).push({ line: rowLines[ri] ?? null, qty: r["quantity-purchased"] ?? "", itemId: r["order-item-id"] ?? "", sig: Object.values(r).join("	"), orderDate: r["order-date"] ?? "", attrs: Object.fromEntries(CONFLICT_FIELDS.map((f) => [f, r[f] ?? ""])), bound: Object.fromEntries(BOUND_COLUMNS.map((f) => [f, r[f] ?? ""])), parts: Object.fromEntries(PARTS2.map((p) => [p, { incl: r[`${p}-vat-incl-amount`] ?? "", vat: r[`${p}-vat-amount`] ?? "", excl: r[`${p}-vat-excl-amount`] ?? "", rate: r[`${p}-vat-rate`] ?? "" }])) });
     (s.rowMeta ??= []).push({ status: r["invoice-status"] ?? "", invoiceNumber: r["invoice-number"] ?? "", orderId: r["order-id"] ?? "", shippingId: r["shipping-id"] ?? "", currency: r.currency ?? "", marketplace: r["marketplace-id"] ?? "", type: r["transaction-type"] ?? "", transactionId: r["transaction-id"] || r["shipping-id"] || "", originalInvoiceNumber: r["original-vat-invoice-number"] ?? "", incl: PARTS2.reduce((q, p) => q + num(r[`${p}-vat-incl-amount`]), 0), vat: PARTS2.reduce((q, p) => q + num(r[`${p}-vat-amount`]), 0) });
     s.invoiceNumberColumn = checked.head.includes("invoice-number");
@@ -49215,7 +49221,7 @@ function parseVidr(text) {
       extras: PARTS2.slice(1).map((p) => ({ part: p, excl: r2(num(r[`${p}-vat-excl-amount`])), vat: r2(num(r[`${p}-vat-amount`])), rate: num(r[`${p}-vat-rate`]) })).filter((x) => x.excl || x.vat)
     });
   }
-  const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
+  const list = [...map.values()].map(({ flagValues, businessValues, ...s }) => ({ ...s, unsupportedColumns: s.unsupportedColumns ? [...s.unsupportedColumns].sort() : [], isAmazonInvoiced: readFlag(flagValues), isBusiness: readFlag(businessValues), incl: r2(s.incl), vat: r2(s.vat), excl: r2(s.excl) }));
   const perOrder = /* @__PURE__ */ new Map();
   for (const s of list) {
     const k = s.marketplace + "|" + s.orderId;
@@ -49307,6 +49313,7 @@ function parseOrderReport(rows) {
   return out;
 }
 var vidrSkipReason = (s) => s.unknownTxFormat ? "The transaction id looks like a correction but has an unknown format, so we did not guess" : s.isAmazonInvoiced === true ? "Amazon creates this invoice" : s.isBusiness === false ? "Not a business order: the report says is-business-order FALSE" : s.transactionType !== "SHIPMENT" ? "Not a shipment (transaction type: " + (s.transactionType || "unknown") + ")" : s.isCorrection || s.isCorrectedTx ? "A correction row: it belongs with the original invoice, not a new one" : !needsInvoice(s) ? "Amazon is not waiting for an invoice for this order (status: " + (s.invoiceStatus || "none") + ")" : null;
+var unsupportedColumnsReason = (cols) => `The report has data in ${cols.length === 1 ? "a column" : "columns"} we do not read yet (${cols.join(", ")}). It could change the invoice amount or its legal content, so nothing was issued for this order and the data was not dropped silently. Tell us on the contact page and we will add support for ${cols.length === 1 ? "it" : "them"}.`;
 function planUpload(text, opts = {}) {
   const t = parseTable(text);
   if (t.unsupported) return { ok: false, error: t.unsupported };
@@ -49326,6 +49333,10 @@ function planUpload(text, opts = {}) {
       if (why) {
         skipped.push({ orderId: s.orderId, why });
         if (s.transactionType !== "SHIPMENT" && !s.isCorrectedTx && !s.isCorrectionReversal && !s.isCorrection && !s.unknownTxFormat) unsupported.push({ orderId: s.orderId, type: s.transactionType, reason: `A ${s.transactionType} row: refunds and returns are not built in this stage, so nothing will be issued for it.` });
+        continue;
+      }
+      if (s.unsupportedColumns?.length) {
+        held.push({ orderId: s.orderId, reason: unsupportedColumnsReason(s.unsupportedColumns) });
         continue;
       }
       const a = assessShipment(s);

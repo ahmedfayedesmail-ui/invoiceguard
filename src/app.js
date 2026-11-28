@@ -61,9 +61,9 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
   const noteFail = (k) => { const f = fails.get(k); if (!f || f.until < Date.now()) fails.set(k, { n: 1, until: Date.now() + FAIL_WINDOW }); else f.n++; if (fails.size > 50000) fails.delete(fails.keys().next().value); };
   const secureFlag = (req) => (process.env.COOKIE_SECURE === '1' || req.headers['x-forwarded-proto'] === 'https') ? '; Secure' : '';
   const json = (res, code, body, headers = {}) => { if (res.headersSent || res.writableEnded) { try { res.end(); } catch { /* socket already gone */ } return; } /* a late error after the reply started must not throw out of the handler */ res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
-  const readBody = (req, limit = 64e3) => new Promise((ok, no) => { let d = '', big = false; const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
+  const readBody = (req, limit = 64e3, tooLarge = 'That request is too large. Uploaded PDFs can be up to 5 MB.') => new Promise((ok, no) => { let d = '', big = false; const fail = (m, status) => { const e = new Error(m); e.status = status; return e; };
     req.on('data', c => { if (big) return; d += c; if (d.length > limit) { big = true; d = ''; } });
-    req.on('end', () => { if (big) return no(fail('That request is too large. Uploaded PDFs can be up to 5 MB.', 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
+    req.on('end', () => { if (big) return no(fail(tooLarge, 413)); let v; try { v = d ? JSON.parse(d) : {}; } catch { return no(fail('bad json', 400)); } if (v === null || typeof v !== 'object' || Array.isArray(v)) return no(fail('The request must be a JSON object.', 400)); ok(v); });
     req.on('error', () => no(fail('bad request', 400))); });
   const cookie = (req, n) => (req.headers.cookie ?? '').split(/;\s*/).map(c => c.split('=')).find(([k]) => k === n)?.[1];
   const userOf = (req) => { const t = cookie(req, 'sid'); if (!t) return null; return db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>=?').get(t, Date.now()) ?? null; };
@@ -313,7 +313,7 @@ export function createApp({ db = openDb(), secret = process.env.APP_SECRET ?? 'd
         return json(res, 404, { error: 'not found' });
       }
       if (req.method !== 'GET' && !String(req.headers['content-type']).startsWith('application/json')) return json(res, 415, { error: 'json only' });
-      const body = req.method === 'GET' ? {} : await readBody(req, p === '/api/export/external' ? 8e6 : p.startsWith('/api/manual/') ? 6e6 : 64e3);
+      const body = req.method === 'GET' ? {} : await readBody(req, p === '/api/export/external' ? 8e6 : p.startsWith('/api/manual/') ? 6e6 : 64e3, p.startsWith('/api/manual/') ? 'That report is too large: the upload limit is 6 MB. Download the report for a shorter date range and upload it in parts.' : undefined);
       if (p === '/api/signup') {
         const email = String(body.email ?? '').trim().toLowerCase(), pw = String(body.password ?? '');
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(res, 400, { error: 'Enter a valid email' });
