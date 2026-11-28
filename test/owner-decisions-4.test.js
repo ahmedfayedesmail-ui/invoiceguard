@@ -101,3 +101,9 @@ test('D14 an OLDER or unordered report showing the refund row without an Invoice
   await ing(db, api, doc(rv('CreditNotePending')), {}); assert.equal(st(), 'OPEN', 'a report with no order proof is not corrected evidence');
   await ing(db, api, doc(rv('CreditNotePending')), { reportAttemptSeq: seq, reportRequestedAt: new Date('2026-11-25T13:00:00Z') }); assert.equal(st(), 'RESOLVED');
 });
+test('D15 the attempt sequence outranks the request time when they disagree (older seq + newer time stays open; newer seq + older time resolves)', async () => {
+  const { api, db, seq } = await setup(); const row = rv('InvoiceUploaded'); row[ix('invoice-number')] = 'X'; const st = () => db.prepare("SELECT status FROM integrity_findings WHERE code='REFUND_ROW_INVOICE_STATUS'").get()?.status; const S = seq + 10;
+  await ing(db, api, doc(row), { reportAttemptSeq: S, reportRequestedAt: T2 }); assert.equal(st(), 'OPEN');
+  await ing(db, api, doc(rv('CreditNotePending')), { reportAttemptSeq: S - 1, reportRequestedAt: new Date('2026-11-25T13:00:00Z') }); assert.equal(st(), 'OPEN', 'older sequence, newer request time: not newer');
+  await ing(db, api, doc(rv('CreditNotePending')), { reportAttemptSeq: S + 1, reportRequestedAt: T1 }); assert.equal(st(), 'RESOLVED', 'newer sequence, older request time: newer');
+});
