@@ -10,6 +10,7 @@
 //   processCorrections. His closing principle: it is not enough to stop a stale report from
 //   changing state; it must also never cause a new upload based on old information.
 import test from 'node:test';
+import { acceptReport } from './correction-helpers.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { openDb, migrateAuth, currentAttemptSeq, nextAttemptSeq, txImm } from '../src/db.js';
@@ -75,7 +76,7 @@ async function seedUnknownCreditNote(db) {
   await processCorrections(db, seller, corr, { api, validate: vies });
   const cn = db.prepare("SELECT number FROM invoices WHERE seller_id=? AND kind='rectificativa' AND shipment_key='REFUND:CorrectionReversal:X:1'").get(seller.id);
   const [head, ...rows] = corr.trim().split('\n');
-  await processReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
+  await acceptReport(db, seller, withDesc(head, rows[0].split('\t'), { 'invoice-status': 'CreditNoteRejected', 'invoice-status-description': 'Internal processing error' }), { api, validate: vies });
   const q = listRepairs(db, seller.id).find(x => x.kind === 'rejected_credit_note');
   const staleSeq = currentAttemptSeq(db, seller.id);
   await assert.rejects(approveRepair(db, seller, q.event_key, { api: failingApi(), validate: vies }));

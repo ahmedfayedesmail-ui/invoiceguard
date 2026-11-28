@@ -16,7 +16,7 @@ function gateWrite(db, seller, s) {
   return writeLedger(db, seller.id, s.key, a.findings);
 }
 /** The ledger write shared by shipments and correction pairs: findings in, blocking findings out. */
-export function writeLedger(db, sid, key, findings) {
+export function writeLedger(db, sid, key, findings, { keepCodes = [] } = {}) {
   const a = { findings };
   const now = new Date().toISOString();
   const rows = new Map(db.prepare('SELECT * FROM integrity_findings WHERE seller_id=? AND shipment_key=?').all(sid, key).map(r => [r.code + '|' + r.field, r]));
@@ -32,7 +32,7 @@ export function writeLedger(db, sid, key, findings) {
     db.prepare('UPDATE integrity_findings SET last_seen=?, seen_count=seen_count+1 WHERE seller_id=? AND shipment_key=? AND code=? AND field=?').run(now, sid, key, f.code, f.evidence.field); hist(f, 'RECHECKED_SAME');
     if (row.status === 'OPEN') blocking.push(f);
   }
-  for (const row of rows.values()) if (row.status !== 'RESOLVED') { db.prepare("UPDATE integrity_findings SET status='RESOLVED', resolved_at=? WHERE seller_id=? AND shipment_key=? AND code=? AND field=?").run(now, sid, key, row.code, row.field); db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sid, key, row.code, row.field, 'RESOLVED', row.fingerprint, now); }
+  for (const row of rows.values()) if (row.status !== 'RESOLVED' && !keepCodes.includes(row.code)) { db.prepare("UPDATE integrity_findings SET status='RESOLVED', resolved_at=? WHERE seller_id=? AND shipment_key=? AND code=? AND field=?").run(now, sid, key, row.code, row.field); db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)').run(sid, key, row.code, row.field, 'RESOLVED', row.fingerprint, now); }
   if (changed) logEvent(db, sid, 'integrity', { key, codes: blocking.map(f => f.code), severities: blocking.map(f => f.severity) });
   return blocking.length ? { reason: gateReason(blocking), findings: blocking } : null;
 }

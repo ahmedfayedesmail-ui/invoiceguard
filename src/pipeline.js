@@ -9,7 +9,7 @@ import { logEvent, appendAudit, tx, txImm, allocateNumber, nextAttemptSeq } from
 import { createHash, randomUUID } from 'node:crypto';
 import { marketplaceFor } from './spapi.js';
 import { proposeRejectedRetry, closeRepairsFor } from './repair.js';
-import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses } from './cn-gate.js';
+import { evaluateCreditNoteUploaded, openCreditNoteHold, hasOpenCreditNoteHold, rowStatuses, evidenceSnapshot, pairHoldOpen } from './cn-gate.js';
 import { integrityGate, integrityNotes, correctionLedger } from './integrity.js';
 
 // Amazon's own VCS upload SLA is stated in hours ("To meet the SLA of 24 hours ..."),
@@ -278,11 +278,16 @@ function reconcileCreditNote(db, seller, s, reportReqTs = null, reportSeq = null
   }
   // Owner ruling Nov 28 2026 (strict matching). Order of the checks: a newer report was already applied -> this one is stale; an open credit-note hold -> no automatic decision; rows disagree -> hold; then the acceptance gate.
   if (reportReqTs != null) { const last = db.prepare("SELECT detail FROM events WHERE seller_id=? AND type='cn_report_applied' ORDER BY rowid DESC LIMIT 50").all(seller.id).map(e => { try { return JSON.parse(e.detail); } catch { return {}; } }).filter(d => d.number === rect.number).map(d => d.reqTs).filter(x => x != null).sort((a, b) => b - a)[0]; if (last != null && reportReqTs < last) { logEvent(db, seller.id, 'stale_report_verdict_skipped', { number: rect.number, reason: 'a newer report was already applied', reportRequestedAt: new Date(reportReqTs).toISOString() }); return; } }
-  if (hasOpenCreditNoteHold(db, seller.id, s.key)) { logEvent(db, seller.id, 'credit_note_verdict_not_applied', { number: rect.number, reason: 'an open credit-note hold needs a person first' }); return; }
-  const stSet = s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus]; if (stSet.length > 1) { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_ROWS_CONFLICT', evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq }).failed, { number: rect.number }); return; }
+  // Owner ruling Nov 28 2026 (A2/A3): ONE identity check runs before ANY credit-note status change (Processing and Rejected too). Unproven identity = HOLD, no status change, no retry. Even with a hold already open, new evidence is evaluated and recorded (CHANGED or RECHECKED_SAME) but never applied.
+  const snap = () => evidenceSnapshot(s, rect, { reportSeq, reportReqTs });
+  const stSet = s.rowMeta?.length ? rowStatuses(s) : [s.invoiceStatus];
+  if (stSet.length > 1) { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_ROWS_CONFLICT', evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq }).failed, { number: rect.number, snapshot: snap() }); return; }
   const st = stSet[0];
-  if (st === 'CreditNoteRejected' && rect.upload_status === 'uploaded') { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_VERDICT_CONTRADICTION', [{ c: 'verdict-contradiction', why: `Amazon reported credit note ${rect.number} as uploaded earlier and now reports it as rejected. Nothing was changed or cancelled automatically; a person must look at both reports.` }], { number: rect.number, reportStatus: st }); return; }
-  if (st === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') { const v = evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq }); if (!v.ok) { openCreditNoteHold(db, seller.id, s.key, v.code, v.failed, { number: rect.number }); return; } logEvent(db, seller.id, 'cn_report_applied', { number: rect.number, reqTs: reportReqTs }); }
+  const idv = evaluateCreditNoteUploaded(db, seller.id, s, rect, { reportSeq, expect: st });
+  if (!idv.ok) { openCreditNoteHold(db, seller.id, s.key, idv.code, idv.failed, { number: rect.number, snapshot: snap() }); return; }
+  if (hasOpenCreditNoteHold(db, seller.id, s.key)) { logEvent(db, seller.id, 'credit_note_verdict_not_applied', { number: rect.number, reason: 'an open credit-note hold needs a person first' }); return; }
+  if (st === 'CreditNoteRejected' && rect.upload_status === 'uploaded') { openCreditNoteHold(db, seller.id, s.key, 'CREDIT_NOTE_VERDICT_CONTRADICTION', [{ c: 'verdict-contradiction', why: `Amazon reported credit note ${rect.number} as uploaded earlier and now reports it as rejected. Nothing was changed or cancelled automatically; a person must look at both reports.` }], { number: rect.number, reportStatus: st, snapshot: snap() }); return; }
+  if (st === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') logEvent(db, seller.id, 'cn_report_applied', { number: rect.number, reqTs: reportReqTs });
   const hasRepairs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='repairs'").get();
   if (st === 'CreditNoteUploaded' && rect.upload_status !== 'uploaded') {
     tx(db, () => {
@@ -424,6 +429,8 @@ export async function issueRectificativa(db, seller, originalNumber, opts, { api
   const row = db.prepare('SELECT json, shipment_key FROM invoices WHERE seller_id=? AND number=?').get(seller.id, originalNumber);
   if (!row) throw new Error(`Invoice ${originalNumber} not found`);
   const original = JSON.parse(row.json);
+  // Owner ruling Nov 28 2026 (A1): an open credit-note hold on this pair blocks every correction document, issue and retry alike. The database trigger enforces it inside the writing transaction too.
+  if (pairHoldOpen(db, seller.id, originalNumber, opts.recordKey)) { logEvent(db, seller.id, 'issue_blocked_by_credit_note_hold', { original: originalNumber, key: opts.recordKey ?? null }); throw new Error('Not issued: an open credit-note hold on this correction needs a person first. Nothing was issued or sent.'); }
   // Idempotency on the event key: one Amazon correction event yields exactly one correction document.
   // A pending row means the upload failed after issuance - retry the SAME document's upload, never mint
   // a second number. Any other state means the event is already handled - issuing again would duplicate
@@ -764,6 +771,7 @@ export async function processCorrections(db, seller, reportText, { api, validate
       const snaps = []; for (const r of revs) snaps.push({ vies: await viesSnapshot(validate, r, list) }); const g = revs.map((r, i) => reviewAtomic(db, seller, r, orig, list, false, snaps[i])).find(Boolean); if (g) { logEvent(db, seller.id, 'held', { key: s.key, reason: g.reason, check: 'correction-review' }); out.skipped.push({ key: s.key, reason: g.reason }); continue; }
     }
     const cn = db.prepare("SELECT 1 FROM invoices WHERE seller_id=? AND rectifies=? AND kind='rectificativa' AND shipment_key LIKE 'REFUND:CorrectionReversal%' AND upload_status='uploaded'").get(seller.id, orig.number);
+    if (pairHoldOpen(db, seller.id, orig.number, null)) { out.skipped.push({ key: s.key, reason: 'an open credit-note hold needs a person before the replacement can be issued' }); continue; }
     if (!zeroTotal(orig) && !cn) { out.skipped.push({ key: s.key, reason: 'credit-note reversal not yet confirmed accepted by Amazon - the pair is kept together and the replacement waits for the next report' }); continue; }
     try {
       await issueRectificativa(db, seller, orig.number, { mode: 'substitution', reason: reasonOf(s), changes: { buyer: { name: s.billing.name || s.buyerCompany, vat: s.buyerVat ?? undefined, address: [...s.billing.lines, `${s.billing.postal} ${s.billing.city}`.trim(), s.billing.country].filter(Boolean) } }, documentType: 'Invoice', transactionId: s.transactionId, recordKey: s.key, allowUnknownRetry: true }, { api, validate }); out.invoices++;

@@ -119,3 +119,10 @@ test('A4b REAL cross-process order: process 1 opens the hold and EXITS, then pro
   const r1 = spawnSync('node', ['--no-warnings', WORKER, file, 'contradict', go, payload], { encoding: 'utf8' }); const r2 = spawnSync('node', ['--no-warnings', WORKER, file, 'issue', go, payload], { encoding: 'utf8' });
   assert.ok(JSON.parse(r1.stdout.trim().split('\n').pop()).ok && JSON.parse(r2.stdout.trim().split('\n').pop()).ok); const d2 = openDb(file); assert.equal(repl(d2), 0, 'no replacement after a hold opened in another process'); d2.close();
 });
+// Added AFTER the fix commit (guard, passes on the fixed code only by design of the trigger): every claim to send a correction document of the pair (the repair retry, the settle retry, the correction retry) is a write of upload_status='sending', which the database refuses while a hold is open.
+test('H7 (guard, added after the fix) the database itself refuses to claim ANY correction document of the pair for sending while a hold is open, and allows it after the hold is released', async () => {
+  const { api, db, seq } = await setup(); const n = cn(db).number; await ing(db, api, doc(good(n)), { reportAttemptSeq: seq, reportRequestedAt: T1 }); await ing(db, api, doc(rejRow(n)), { reportAttemptSeq: seq, reportRequestedAt: T2 });
+  assert.throws(() => db.prepare("UPDATE invoices SET upload_status='sending' WHERE number=?").run(n), /credit-note hold/);
+  const h = hold(db, 'CREDIT_NOTE_VERDICT_CONTRADICTION')[0]; releaseIntegrity(db, seller.id, h.shipment_key, h.code, h.fingerprint, { user: 'reviewer-1', reason: 'compared both reports with the stored credit note' });
+  db.prepare("UPDATE invoices SET upload_status='sending' WHERE number=?").run(n);
+});

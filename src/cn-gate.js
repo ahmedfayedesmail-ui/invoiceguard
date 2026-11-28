@@ -13,11 +13,11 @@ export const CN_HOLD_CODES = ['CREDIT_NOTE_IDENTITY_UNPROVEN', 'CREDIT_NOTE_ROWS
 /** All rows of the transaction must carry the SAME status (exact literal, after the parser's cell trim). Row order never matters. */
 export function rowStatuses(s) { return uniq((s.rowMeta ?? []).map(r => r.status ?? '')); }
 /** Returns { ok: true } or { ok: false, code, failed: [condition names], why }. */
-export function evaluateCreditNoteUploaded(db, sellerId, s, rect, { reportSeq } = {}) {
+export function evaluateCreditNoteUploaded(db, sellerId, s, rect, { reportSeq, expect = 'CreditNoteUploaded' } = {}) {
   const failed = []; const rows = s.rowMeta ?? []; const fail = (c, why) => failed.push({ c, why });
   const statuses = rowStatuses(s);
   if (statuses.length !== 1) return { ok: false, code: 'CREDIT_NOTE_ROWS_CONFLICT', failed: [{ c: 'rows-agree-on-status', why: `The rows of this transaction carry different statuses (${statuses.map(x => JSON.stringify(x)).join(', ')}). No row was picked.` }] };
-  if (statuses[0] !== 'CreditNoteUploaded') fail('status', 'The status is not exactly CreditNoteUploaded.');
+  if (statuses[0] !== expect) fail('status', `The status is not exactly ${expect}.`);
   if (!Number.isInteger(reportSeq)) fail('authenticated-report', 'This report did not come with the sequence of the authenticated download, so its order against our upload attempts is unknown.');
   const rj = (() => { try { return JSON.parse(rect.json); } catch { return null; } })();
   if (!rj) fail('stored-credit-note', 'Our stored credit note could not be read.');
@@ -45,11 +45,26 @@ export function evaluateCreditNoteUploaded(db, sellerId, s, rect, { reportSeq } 
   else if (sumIncl !== cents(rj.totals.incl) || sumVat !== cents(rj.totals.vat)) fail('amounts', `The report amounts (incl ${(sumIncl / 100).toFixed(2)}, VAT ${(sumVat / 100).toFixed(2)}) are not our credit note's (incl ${Number(rj.totals.incl).toFixed(2)}, VAT ${Number(rj.totals.vat).toFixed(2)}), signs compared as they are. The sign convention of Amazon refund rows is not proven by a real report, so a difference is held, not corrected.`);
   return failed.length ? { ok: false, code: 'CREDIT_NOTE_IDENTITY_UNPROVEN', failed } : { ok: true };
 }
-/** Open (or refresh) the human-review hold for this credit note. No document is changed. */
+/** The normalized evidence a hold is about: the ACTUAL values of the report rows, the status set, the report order and time, and the identity of our stored credit note. No full report, no buyer personal data. */
+export function evidenceSnapshot(s, rect, { reportSeq = null, reportReqTs = null } = {}) {
+  const rows = s.rowMeta ?? []; const u = (f) => uniq(rows.map(f)).sort();
+  const sum = (f) => rows.reduce((a, r) => a + cents(f(r)), 0);
+  return { documentNumbers: u(r => r.invoiceNumber ?? ''), transactionTypes: u(r => r.type ?? ''), transactionIds: u(r => r.transactionId ?? ''), orderIds: u(r => r.orderId ?? ''), shippingIds: u(r => r.shippingId ?? ''), marketplaces: u(r => r.marketplace ?? ''), currencies: u(r => r.currency ?? ''), originalInvoiceNumbers: u(r => r.originalInvoiceNumber ?? ''),
+    statuses: u(r => r.status ?? ''), rowCount: rows.length, sumInclCents: sum(r => r.incl), sumVatCents: sum(r => r.vat), signInclCents: Math.sign(sum(r => r.incl)),
+    reportSeq: Number.isInteger(reportSeq) ? reportSeq : null, reportRequestedAt: reportReqTs != null && !Number.isNaN(new Date(reportReqTs).getTime()) ? new Date(reportReqTs).toISOString() : null,
+    storedNumber: rect?.number ?? null, storedHash: rect?.json ? createHash('sha256').update(String(rect.json)).digest('hex').slice(0, 16) : null };
+}
+/** Open (or refresh) the human-review hold for this credit note. No document is changed. The fingerprint covers the actual evidence snapshot, so different evidence is a CHANGED finding and an old human decision never covers it. Other open credit-note holds of the same key are kept. */
 export function openCreditNoteHold(db, sellerId, key, code, failed, extra = {}) {
-  const evidence = { field: 'credit-note-acceptance', reversalKey: key, failed: failed.map(f => f.c), ...extra };
-  const f = { code, severity: 'HOLD', resolution: 'HUMAN_DECISION', fingerprint: createHash('sha256').update(JSON.stringify([code, key, evidence.failed, extra.number ?? null, extra.reportStatus ?? null])).digest('hex'), evidence,
+  const { snapshot = null, ...rest } = extra;
+  const evidence = { field: 'credit-note-acceptance', reversalKey: key, failed: failed.map(f => f.c), snapshot, ...rest };
+  const f = { code, severity: 'HOLD', resolution: 'HUMAN_DECISION', fingerprint: createHash('sha256').update(JSON.stringify([code, key, evidence.failed, snapshot, rest.number ?? null, rest.reportStatus ?? null])).digest('hex'), evidence,
     explanation: failed.map(x => x.why).join(' '), action: 'A person compares the Amazon report row with our credit note before anything else is done. Nothing was changed automatically and no replacement invoice is issued from this.' };
-  writeLedger(db, sellerId, key, [f]); logEvent(db, sellerId, 'credit_note_hold', { key, code, failed: evidence.failed });
+  writeLedger(db, sellerId, key, [f], { keepCodes: CN_HOLD_CODES.filter(c => c !== code) }); logEvent(db, sellerId, 'credit_note_hold', { key, code, failed: evidence.failed });
+}
+/** Is a credit-note hold open on this original's pair (any of its credit notes, or the given key)? Friendly pre-check; the database trigger is the enforcement. */
+export function pairHoldOpen(db, sellerId, originalNumber, key = null) {
+  const keys = db.prepare("SELECT DISTINCT shipment_key k FROM invoices WHERE seller_id=? AND kind='rectificativa' AND rectifies=?").all(sellerId, originalNumber).map(r => r.k); if (key) keys.push(key);
+  return keys.some(k => hasOpenCreditNoteHold(db, sellerId, k));
 }
 export const hasOpenCreditNoteHold = (db, sellerId, key) => !!db.prepare(`SELECT 1 FROM integrity_findings WHERE seller_id=? AND shipment_key=? AND status='OPEN' AND code IN (${CN_HOLD_CODES.map(() => '?').join(',')})`).get(sellerId, key, ...CN_HOLD_CODES);
