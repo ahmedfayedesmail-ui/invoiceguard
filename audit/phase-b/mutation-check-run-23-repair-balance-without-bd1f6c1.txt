@@ -1,0 +1,56 @@
+TAP version 13
+# Subtest: B1: a manual credit note on the original is part of the review evidence and voids an earlier approval
+not ok 1 - B1: a manual credit note on the original is part of the review evidence and voids an earlier approval
+  ---
+  duration_ms: 122.143445
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-balance-visibility.test.js:10:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    back to an open finding
+    
+    0 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-balance-visibility.test.js:18:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: B2: a credit note issued by the REPAIR path on the original is part of the review evidence, shown as credited, and voids an earlier approval (nothing issued, no claim reserved)
+not ok 2 - B2: a credit note issued by the REPAIR path on the original is part of the review evidence, shown as credited, and voids an earlier approval (nothing issued, no claim reserved)
+  ---
+  duration_ms: 80.824868
+  type: 'test'
+  location: '/home/sandbox/pre-wt4/test/correction-balance-visibility.test.js:23:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    back to an open finding
+    
+    0 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/sandbox/pre-wt4/test/correction-balance-visibility.test.js:32:167)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 483.361956
