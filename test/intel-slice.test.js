@@ -202,6 +202,8 @@ test('invoice timeline includes related shipment integrity history without mixin
   const {db,path}=fixture(t), reader=openIntelReader(path); t.after(()=>reader.close());
   db.prepare('INSERT INTO integrity_history (seller_id,shipment_key,code,field,event,fingerprint,at) VALUES (?,?,?,?,?,?,?)')
     .run('seller-A','SHIP-1','AMOUNT_MISMATCH','total','opened','fingerprint-1','2026-11-28T10:02:00.000Z');
+  db.prepare('INSERT INTO shipments (seller_id,key,order_id,shipping_id,total,vat,shipment_date,due_at,status,reason,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    .run('seller-A','SHIP-1','ORDER-1','SHIP-1',59.90,9.90,'2026-11-28','2026-12-28','open','test','2026-11-28T10:01:00.000Z');
   db.prepare('INSERT INTO invoices (seller_id,number,shipment_key,kind,issued_at,total,vat,upload_status) VALUES (?,?,?,?,?,?,?,?)')
     .run('seller-A','SIBLING-2','SHIP-1','rectificativa','2026-11-28T10:03:00.000Z',-59.90,-9.90,'ready');
   sealSellerEvidence({writerDb:db,readerDb:reader,sellerId:'seller-A'});
