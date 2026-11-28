@@ -27,24 +27,19 @@ No signing key is created or stored in this slice. Ed25519 signing and out-of-ba
 
 The layer never asserts `COMPLETE` merely because a seal succeeded. It reports `UNKNOWN` because the `events` table is mutable and invoices, shipments and findings are current snapshots. Mutable snapshots are versioned per source row, so a return to an earlier value or a row that reappears after a sealed absence is retained as a new observation; disappearance of a previously sealed mutable row is detected on the next seal and changes coverage to `INCOMPLETE`. The historical gap remains `INCOMPLETE` even if the row later reappears. For the append-only logs (`integrity_history`, `integrity_decisions`, and `credit_claim_history`), disappearance of a previously sealed record is also detected on the next seal and changes coverage to `INCOMPLETE`; a source snapshot that changes during sealing likewise produces `INCOMPLETE`. An `INCOMPLETE` state is not cleared automatically. The first seal cannot reconstruct history that predates it, and a missing historical event before the first seal cannot be detected from a mutable source table. SQLite rowids are table-global across sellers, so seller-scoped rowid gaps are deliberately not treated as deletion evidence. A partial timeline must not be described as a complete history.
 
-## Usage (not wired into app startup)
+## Seller-facing integration
 
-```js
-import { openDb } from '../db.js';
-import { openIntelReader, sealSellerEvidence, exportEvidenceBundle } from './intel/store.js';
+The first seller-facing integration is deliberately manual and seller-scoped:
 
-const db = openDb(process.env.DB_FILE);
-const reader = openIntelReader(process.env.DB_FILE);
-try {
-  const result = sealSellerEvidence({ writerDb: db, readerDb: reader, sellerId });
-  const bundle = exportEvidenceBundle(db, sellerId); // persist as a seller download
-} finally {
-  reader.close();
-  db.close();
-}
-```
+- `POST /api/intel/seal` creates a snapshot only after an authenticated seller explicitly requests it. It refuses to run against an in-memory database.
+- `GET /api/intel/timeline?number=<invoice-number>` returns that invoice's observed trajectory plus related shipment-level evidence. It refuses an invalid evidence chain.
+- `GET /api/intel/export` downloads the authenticated seller's account-wide JSON evidence bundle. The response also exposes the checkpoint hash in an HTTP header.
+- In Documents → Invoices → Evidence, the seller can explicitly seal the account snapshot, inspect the timeline, copy the checkpoint separately, or download the bundle.
 
-This first implementation is intentionally not wired to a route, scheduler, or UI. Runtime integration, seller download path, checkpoint retention workflow, and performance qualification remain separate work.
-The automated tests also prove that a corrupted pre-existing chain is refused for further appends, while integrity verification and the source financial tables remain separate.
+The API derives the seller ID only from the authenticated session. A seller ID supplied in the request body is ignored. No automatic schedule exists. No invoice, shipment, hold, finding, claim, repair, upload, ACCEPTED, or RELEASED state is changed by these endpoints. The timeline and labels are advisory only.
 
-Outcome labels preserve coverage, contradiction, and manual-authorization facts separately. A manual authorization never masks incomplete or contradictory evidence, and no outcome label can authorize a financial state transition.
+The separately retained checkpoint must be kept outside the downloaded bundle (for example, in the seller's own secure records). The JSON bundle's embedded checkpoint alone is not an independent witness against a party who can rewrite the entire database and bundle.
+
+## Operational qualification still required
+
+Before broad use, measure sealing overhead on a representative 20,000-row seller database, test interruption/restart and concurrent production-shaped workloads, and define a seller-facing retention and deletion policy. This slice does not create signing keys, authenticate original Amazon source rows, or prove history before the first seal.
